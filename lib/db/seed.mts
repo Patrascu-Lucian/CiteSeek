@@ -20,7 +20,11 @@ import { workspaces } from "./schema.ts";
 
 loadLocalEnv();
 
-const connectionString = process.env.DATABASE_URL;
+// Seeding writes schema-adjacent data and runs as a one-shot script, so it uses
+// the unpooled connection for the same reason migrations do. Falls back to
+// DATABASE_URL where no pooler exists (local Docker, CI).
+const connectionString =
+  process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
 
 if (!connectionString) {
   throw new Error(
