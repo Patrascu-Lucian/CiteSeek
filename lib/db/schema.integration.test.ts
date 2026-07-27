@@ -1,4 +1,4 @@
-import { cosineDistance, eq, sql } from "drizzle-orm";
+import { cosineDistance, eq, like, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -61,9 +61,7 @@ const db = drizzle(client, { schema });
 
 async function cleanup() {
   // Workspaces cascade to documents, which cascade to chunks.
-  await db
-    .delete(workspaces)
-    .where(sql`${workspaces.name} LIKE ${TEST_PREFIX + "%"}`);
+  await db.delete(workspaces).where(like(workspaces.name, `${TEST_PREFIX}%`));
 }
 
 beforeAll(cleanup);
@@ -133,7 +131,7 @@ describe("chunks.embedding", () => {
     expect(failure.message).toMatch(/expected 768 dimensions, not 512/i);
   });
 
-  it("orders neighbours by cosine distance", async () => {
+  it("orders neighbors by cosine distance", async () => {
     const { document } = await createWorkspaceWithDocument();
 
     await db.insert(chunks).values([
@@ -264,7 +262,7 @@ describe("demo workspace", () => {
     const rows = await db
       .select()
       .from(workspaces)
-      .where(sql`${workspaces.name} LIKE ${TEST_PREFIX + "%"}`);
+      .where(like(workspaces.name, `${TEST_PREFIX}%`));
 
     expect(rows.length).toBeGreaterThanOrEqual(2);
   });

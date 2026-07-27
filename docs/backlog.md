@@ -38,9 +38,27 @@ here, not in the current branch.
   break the cold-link scenario the roadmap's Milestone 5 exit criteria depend on. Folds
   into Milestone 3 rate limiting; may want a cheap guard as soon as guest mode is live.
 
-- **Free-tier training disclosure.** Gemini's free tier states content is used to improve
-  Google's products. The upload UI must say so plainly — see
-  `docs/decisions/002-embedding-model-and-dimension.md`.
+- **Verify the EEA data-protection exception against the real account.** Google grants
+  paid-service data terms — no training on prompts or uploaded files — to customers in the
+  EEA, Switzerland and the UK even on unpaid quota. That removes the training-disclosure
+  obligation previously recorded here, but it follows the account's billing region rather
+  than the plan. Confirm it in the Google account before stating anything to a user, and
+  re-check if billing ever moves. See
+  `docs/decisions/002-embedding-model-and-dimension.md` and
+  `docs/decisions/007-commercial-optionality.md`.
+
+## Only if it earns money
+
+Deliberately not built yet — see `docs/decisions/007-commercial-optionality.md` for why
+each of these is reversible and therefore safe to defer.
+
+- **Vercel Pro ($20/mo).** Hobby is restricted to non-commercial personal use, so the first
+  paying customer makes the current plan a terms violation. A billing page, not a migration.
+- **Privacy policy, terms of service, sub-processor list, DPA.** Required before taking
+  money from EU customers; easier to write once the product's real data flows exist.
+- **Cross-tenant leakage test in CI.** The isolation rule is already mandated in
+  CLAUDE.md; what is missing is a test that fails loudly if a query ever forgets its
+  workspace scope. Worth adding as soon as `lib/rag` has queries to guard.
 
 ## Ideas (unscheduled)
 

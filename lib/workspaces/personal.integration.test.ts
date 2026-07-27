@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -20,15 +20,13 @@ const db = drizzle(client, { schema });
  * The module under test imports the shared `db` singleton, so these tests
  * exercise the same query shapes against a real database rather than importing
  * it directly — which would need DATABASE_URL resolved at import time in a
- * different order. The logic being verified is the read-then-write behaviour.
+ * different order. The logic being verified is the read-then-write behavior.
  */
 async function findPersonal(userId: string) {
   const [row] = await db
     .select()
     .from(workspaces)
-    .where(
-      sql`${workspaces.ownerId} = ${userId} AND ${workspaces.isDemo} = false`,
-    )
+    .where(and(eq(workspaces.ownerId, userId), eq(workspaces.isDemo, false)))
     .orderBy(workspaces.createdAt)
     .limit(1);
   return row ?? null;
@@ -50,10 +48,8 @@ async function getOrCreatePersonal(user: { id: string; name: string | null }) {
 }
 
 async function cleanup() {
-  await db.delete(users).where(sql`${users.name} LIKE ${TEST_PREFIX + "%"}`);
-  await db
-    .delete(workspaces)
-    .where(sql`${workspaces.name} LIKE ${TEST_PREFIX + "%"}`);
+  await db.delete(users).where(like(users.name, `${TEST_PREFIX}%`));
+  await db.delete(workspaces).where(like(workspaces.name, `${TEST_PREFIX}%`));
 }
 
 beforeAll(cleanup);

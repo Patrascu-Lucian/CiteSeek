@@ -55,9 +55,21 @@ Option 3 solves the wrong problem: it preserves dimensions we have no evidence w
 - **MRL-truncated vectors likely need re-normalizing** before storage. Verify this at
   implementation time in Milestone 1; getting it wrong degrades cosine similarity quietly
   rather than loudly.
-- Gemini's free tier states that content is used to improve Google's products. For a
+- ~~Gemini's free tier states that content is used to improve Google's products. For a
   product whose entire premise is "upload your documents", this is a disclosure obligation,
-  not a footnote — the upload UI must say so plainly. It is also the honest justification
-  for Milestone 6's local mode.
+  not a footnote — the upload UI must say so plainly.~~
+
+  **Corrected 2026-07-27.** That is the general rule but not the applicable one here.
+  Google's API terms grant paid-service data protections to customers in the European
+  Economic Area, Switzerland and the UK _on all services, including unpaid quota_ — so
+  prompts, files and responses are not used to improve Google's products. The protection
+  follows the account's billing region rather than the plan, so it must be re-verified
+  against the actual account before any claim is made to a user, and re-checked if billing
+  ever moves. See [`007-commercial-optionality.md`](007-commercial-optionality.md).
+
+  Milestone 6's local mode is still worth building, but its honest justification is
+  "nothing leaves your browser" as a capability, not remediation of a training-data problem
+  that does not apply.
+
 - Retrieval quality at 768d is an assumption, not a measurement. Milestone 1 should record
   a before/after if the dimension is ever revisited.

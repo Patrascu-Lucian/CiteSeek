@@ -161,7 +161,7 @@ export const chunks = pgTable(
     documentId: uuid("document_id")
       .notNull()
       .references(() => documents.id, { onDelete: "cascade" }),
-    /** Position within the document, so retrieved chunks can be re-ordered and neighbours fetched. */
+    /** Position within the document, so retrieved chunks can be re-ordered and neighbors fetched. */
     chunkIndex: integer("chunk_index").notNull(),
     content: text("content").notNull(),
     /**

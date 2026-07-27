@@ -4,7 +4,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
  * Guest sessions.
  *
  * A guest is deliberately *not* an Auth.js user. They have no account, own
- * nothing, and may only read the seeded demo workspace. Modelling them as users
+ * nothing, and may only read the seeded demo workspace. Modeling them as users
  * would mean anonymous rows in `users` and ownership checks special-cased at
  * every call site; keeping them separate leaves authorization as one rule.
  *
