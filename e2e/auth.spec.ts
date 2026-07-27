@@ -56,7 +56,7 @@ test.describe("route protection", () => {
     page,
   }) => {
     // Establish a guest session first, so this exercises authorization rather
-    // than the middleware's has-a-cookie check.
+    // than the proxy's has-a-cookie check.
     await page.goto("/demo");
     await page.goto("/w/00000000-0000-0000-0000-000000000000");
 

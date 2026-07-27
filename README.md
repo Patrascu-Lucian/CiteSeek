@@ -20,7 +20,7 @@ Requires Node 24 (see `.nvmrc`) and pnpm 11.
 
 ```bash
 nvm use                      # Node 24 LTS
-pnpm install
+pnpm install                 # also enables the git hooks in .githooks/
 cp .env.example .env.local   # fill in DATABASE_URL
 docker compose up -d         # or point DATABASE_URL at a Neon branch
 pnpm db:migrate
@@ -53,6 +53,17 @@ pnpm db:studio         # browse the database
 
 `format:check`, `lint`, `typecheck`, `test`, `build`, integration tests, and the
 Playwright smoke suite all gate every pull request.
+
+## Branching
+
+`main` is protected by a `pre-push` hook in [`.githooks/`](.githooks/): direct pushes are
+refused, so every change goes through a pull request and CI runs before it lands. The hook
+is enabled by `pnpm install`; if it ever seems inactive, run `pnpm run prepare`.
+
+This is a local guard rather than a security control — `--no-verify` bypasses it. It exists
+to catch an absent-minded `git push origin main`, which is the realistic failure mode on a
+solo repository. Server-side enforcement needs GitHub branch protection, which is free on
+public repositories but requires a paid plan for private ones.
 
 ## Project conventions
 
