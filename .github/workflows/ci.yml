@@ -45,6 +45,14 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          # `next build` evaluates every route module to collect page data, and
+          # the auth route imports both the database client and the Auth.js
+          # config. Neither opens a connection at build time, but both require
+          # their variables to exist. These placeholders are deliberately
+          # non-connectable and mirror how Vercel injects real values at build.
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+          AUTH_SECRET: build-time-placeholder-not-a-real-secret
 
       # The e2e job needs this exact build. Uploading it avoids paying for a
       # second `next build` and guarantees both jobs test the same artifact.
@@ -115,6 +123,30 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    # The guest-mode flows resolve the seeded demo workspace from the database,
+    # so the E2E suite needs a real one rather than a stub.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: citeseek_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/citeseek_e2e
+      # A real signing key is required: guest tokens are HMAC-signed and the app
+      # rejects anything it cannot verify. Generated per run, never reused.
+      AUTH_SECRET: e2e-only-secret-regenerated-every-run
+
     steps:
       - uses: actions/checkout@v7
 
@@ -133,6 +165,12 @@ jobs:
         with:
           name: next-build
           path: .next
+
+      - name: Run migrations
+        run: pnpm db:migrate
+
+      - name: Seed demo workspace
+        run: pnpm db:seed
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium

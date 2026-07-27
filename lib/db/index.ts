@@ -13,27 +13,34 @@ if (!connectionString) {
 
 /**
  * Next.js dev-mode hot reload re-evaluates modules on every edit. Without caching
- * the client on globalThis, each reload opens a fresh connection pool and the
- * database runs out of connections after a few dozen saves. This is the standard
- * workaround; production creates the pool exactly once, so the guard is dev-only.
+ * the client on globalThis, each reload opens a fresh pool and the database runs
+ * out of connections after a few dozen saves. Production creates it once, so the
+ * guard is dev-only.
  */
 const globalForDb = globalThis as unknown as {
-  client: ReturnType<typeof postgres> | undefined;
+  __citeseekClient?: ReturnType<typeof postgres>;
 };
 
 const client =
-  globalForDb.client ??
+  globalForDb.__citeseekClient ??
   postgres(connectionString, {
-    // Neon terminates idle connections; a bounded pool with a short idle timeout
-    // keeps serverless invocations from holding sockets they are not using.
+    // Serverless invocations are single-request; a pool per invocation holds
+    // connections Neon would rather reuse. Locally a small pool is fine.
     max: process.env.NODE_ENV === "production" ? 1 : 10,
     idle_timeout: 20,
   });
 
 if (process.env.NODE_ENV !== "production") {
-  globalForDb.client = client;
+  globalForDb.__citeseekClient = client;
 }
 
+/**
+ * Note: postgres.js does not open a connection here -- it connects lazily on the
+ * first query. So importing this module is cheap, but it does require
+ * DATABASE_URL to be *set*, because `next build` evaluates route modules to
+ * collect page data. CI therefore passes a non-connectable placeholder to the
+ * build step, mirroring how Vercel injects real env vars at build time.
+ */
 export const db = drizzle(client, { schema });
 
 export type Database = typeof db;

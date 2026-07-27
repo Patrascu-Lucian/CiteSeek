@@ -65,5 +65,7 @@ Built with AI-assisted tooling (Claude Code) under close review — see
 
 ## Known gaps at this milestone
 
-The landing page CTAs (`/sign-in`, `/demo`) are not implemented yet — they arrive with
-Auth.js and guest mode in Slice 3. Tracked in [`docs/backlog.md`](docs/backlog.md).
+Document upload, retrieval, and chat arrive in Milestones 1–2, so a workspace currently
+shows an empty state. Email magic-link sign-in is deferred until an email sender is
+configured — GitHub OAuth and guest mode both work. Tracked in
+[`docs/backlog.md`](docs/backlog.md).

@@ -64,6 +64,50 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   checking a limit before the schema is written rather than after documents are ingested
   against it.
 
+### Middleware imported `node:crypto` and 500'd every protected route
+
+- **Issue**: `middleware.ts` imported `GUEST_COOKIE_NAME` from `lib/auth/guest.ts`. That
+  module also imports `node:crypto` to sign tokens — and middleware runs on the Edge
+  runtime, which has no Node built-ins. Every request to `/w/*` returned
+  `500 Failed to load external module node:crypto` instead of redirecting. The build
+  passed; only running the server revealed it.
+- **Fix**: split the constants into `lib/auth/cookies.ts`, which imports nothing. Middleware
+  imports from there; `guest.ts` re-exports for callers that want both.
+- **Lesson**: a single named import drags its module's entire import graph into the bundle,
+  and Edge/Node runtime boundaries make that a runtime failure rather than a compile error.
+  Worth checking what a module _transitively_ pulls in before importing it into middleware.
+  Also: `pnpm build` succeeding says nothing about whether the server runs.
+
+### `CardTitle` renders a `<div>`, so pages had no heading at all
+
+- **Issue**: an E2E test looking for `getByRole("heading", …)` on the sign-in page found
+  nothing. Not a test bug — shadcn's `CardTitle` renders a styled `<div>`. Every page built
+  around a card (sign-in, workspace-denied, demo-unavailable, the error boundary) had **no
+  `<h1>` in the accessibility tree**, so a screen-reader user navigating by heading would
+  find the page empty of structure.
+- **Fix**: added `asChild` support to `CardTitle` via Radix `Slot`, then had each page pass
+  its own `<h1>`. Fixing the primitive rather than the four call sites means the next card
+  is correct by default.
+- **Lesson**: the bug was only visible because the test queried the accessibility tree
+  instead of a CSS selector. A `getByTestId` or class-based locator would have passed
+  happily against a heading that no assistive technology could see — which is the argument
+  for role-based locators as a design constraint, not just a style preference.
+
+### The guest cookie's signature protected nothing
+
+- **Issue**: `accessToWorkspace` returned `"read"` for the demo workspace unconditionally,
+  including for a `null` actor. So a forged guest cookie granted exactly what having no
+  cookie granted, and the HMAC verification had no observable effect. Found because an E2E
+  test asserting "a tampered cookie is rejected" failed — the app cheerfully rendered the
+  demo.
+- **Fix**: `accessToWorkspace` now denies anonymous requests outright. An invalid or expired
+  token resolves to `null` and is refused, which is also what Milestone 3's per-guest rate
+  limiting will need.
+- **Lesson**: a security mechanism that nothing depends on is decoration. The test was worth
+  writing precisely because it asked "what does this actually prevent?" and the honest
+  answer was "nothing yet". Recorded in
+  [`decisions/005-guest-sessions-outside-auth-js.md`](decisions/005-guest-sessions-outside-auth-js.md).
+
 ### Asserting on error message text instead of SQLSTATE codes
 
 - **Issue**: the first draft of the database integration tests asserted failures with

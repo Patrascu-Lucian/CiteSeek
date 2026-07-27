@@ -5,9 +5,11 @@ here, not in the current branch.
 
 ## Deferred from Milestone 0
 
-- **`/sign-in` and `/demo` routes.** The landing page CTAs point at these; they are built
-  in Slice 3 (Auth.js + guest mode). Until then both 404. Tracked so it is a known gap,
-  not a surprise.
+- **Email magic-link sign-in.** CLAUDE.md specifies magic link alongside GitHub OAuth.
+  Deferred from Slice 3 because it needs an email-sending account (Resend or similar) that
+  does not exist yet, and GitHub OAuth plus guest mode already satisfies the milestone's
+  exit criteria. The Auth.js provider is a few lines once a sender is configured; the
+  `verification_tokens` table it needs is already migrated.
 - **Coverage thresholds in `vitest.config.ts`.** Quality bar #4 sets ≥90% for `lib/rag`
   and `lib/ai`. Both directories arrive in Milestone 1; the threshold gets switched on
   with them, since a threshold over an empty tree passes vacuously.

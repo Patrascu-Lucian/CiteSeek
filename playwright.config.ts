@@ -1,7 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3000;
-const baseURL = `http://127.0.0.1:${PORT}`;
+// `localhost`, not `127.0.0.1`: Next normalizes redirect targets to the host it
+// was started on, so a test browsing 127.0.0.1 would be redirected to localhost
+// and lose its cookies at the origin boundary. Chrome treats localhost as a
+// secure context, so `Secure` cookies still work over plain HTTP here.
+const baseURL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
