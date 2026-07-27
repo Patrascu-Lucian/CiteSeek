@@ -1,7 +1,7 @@
 /**
  * Cookie names, deliberately kept in a module with no Node built-in imports.
  *
- * `middleware.ts` runs on the Edge runtime, where `node:crypto` does not exist.
+ * `proxy.ts` runs on the Edge runtime, where `node:crypto` does not exist.
  * Importing these constants from `guest.ts` — which needs crypto to sign and
  * verify — pulls the whole module into the Edge bundle and fails at request time
  * with "Native module not found: node:crypto", surfacing as a 500 on every

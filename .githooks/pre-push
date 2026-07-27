@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# Refuses a direct push to main. Work goes through a pull request so CI runs and
+# the diff gets reviewed before it lands.
+#
+# This is a local guard, not a security control -- `--no-verify` bypasses it and
+# that is fine. It exists to stop an absent-minded `git push origin main`, which
+# is the realistic failure mode on a solo repository. Server-side enforcement
+# needs branch protection, which GitHub Free does not offer on private repos.
+#
+# Enabled automatically by the `prepare` script in package.json, which points
+# core.hooksPath at this directory.
+
+protected_branch="main"
+remote_main="refs/heads/$protected_branch"
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "$remote_main" ]; then
+    printf '\n\033[31mBlocked: direct push to %s.\033[0m\n\n' "$protected_branch"
+    printf 'Open a pull request instead, so CI runs before the change lands:\n\n'
+    printf '  git switch -c feat/your-change\n'
+    printf '  git push -u origin feat/your-change\n\n'
+    printf 'If you genuinely need to bypass this, use --no-verify.\n\n'
+    exit 1
+  fi
+done
+
+exit 0

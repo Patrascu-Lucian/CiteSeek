@@ -25,6 +25,14 @@ export async function findDemoWorkspace() {
   return workspace ?? null;
 }
 
+/**
+ * Note on the "no unscoped query helpers" rule: this looks like a violation and
+ * is deliberately the exception. It queries the `workspaces` table itself in
+ * order to *establish* the scope — the caller must still pass the result through
+ * `accessToWorkspace()` before doing anything with it. Every helper that reads
+ * workspace-owned data (documents, chunks, chats) takes a workspace id and
+ * filters on it in SQL; those arrive in Milestone 1.
+ */
 export async function findWorkspaceById(id: string) {
   const [workspace] = await db
     .select({
