@@ -1,0 +1,33 @@
+# Local Postgres with pgvector preinstalled.
+#
+#   docker compose up -d
+#   pnpm db:migrate
+#
+# The app can run against either this or a Neon branch -- DATABASE_URL is the only
+# difference. The image ships the vector extension; the first migration still runs
+# CREATE EXTENSION, so a fresh volume needs no manual setup.
+
+services:
+  postgres:
+    # Must track the Postgres major used on Neon so local and production agree.
+    image: pgvector/pgvector:pg18
+    container_name: citeseek-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: citeseek
+    ports:
+      - "5432:5432"
+    volumes:
+      - citeseek-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # `pnpm db:migrate` immediately after `up -d` otherwise races the server's
+      # first-boot initialisation and fails with a connection error.
+      test: ["CMD-SHELL", "pg_isready -U postgres -d citeseek"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  citeseek-pgdata:

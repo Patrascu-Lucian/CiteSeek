@@ -1,0 +1,274 @@
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  vector,
+} from "drizzle-orm/pg-core";
+
+/* ---------------------------------------------------------------------------
+ * Auth.js tables
+ *
+ * These five column shapes are dictated by @auth/drizzle-adapter, which reads
+ * properties by name (`refresh_token`, not `refreshToken`). They are copied from
+ * the adapter's own type definitions rather than from memory -- a mismatch here
+ * fails at runtime during sign-in, not at compile time.
+ * ------------------------------------------------------------------------- */
+
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name"),
+  email: text("email").unique(),
+  emailVerified: timestamp("email_verified", {
+    mode: "date",
+    withTimezone: true,
+  }),
+  image: text("image"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const accounts = pgTable(
+  "accounts",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    refresh_token: text("refresh_token"),
+    access_token: text("access_token"),
+    expires_at: integer("expires_at"),
+    token_type: text("token_type"),
+    scope: text("scope"),
+    id_token: text("id_token"),
+    session_state: text("session_state"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.provider, table.providerAccountId] }),
+    index("accounts_user_id_idx").on(table.userId),
+  ],
+);
+
+export const sessions = pgTable("sessions", {
+  sessionToken: text("session_token").primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
+});
+
+export const verificationTokens = pgTable(
+  "verification_tokens",
+  {
+    identifier: text("identifier").notNull(),
+    token: text("token").notNull(),
+    expires: timestamp("expires", {
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.identifier, table.token] })],
+);
+
+/* ---------------------------------------------------------------------------
+ * Application tables
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Ingestion is a background job, so a document's state has to be readable from
+ * the database rather than inferred from whether a request is still open. These
+ * are the states the documents list renders -- including the failure state,
+ * which needs to be visible and retryable rather than silently absent.
+ */
+export const documentStatus = pgEnum("document_status", [
+  "queued",
+  "processing",
+  "ready",
+  "failed",
+]);
+
+export const messageRole = pgEnum("message_role", ["user", "assistant"]);
+
+export const workspaces = pgTable(
+  "workspaces",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    /**
+     * Null for the seeded demo workspace, which belongs to no one. Guest
+     * sessions read it; nothing writes to it. Keeping ownership nullable is
+     * what lets authorization be a single rule ("you own it, or it is the demo
+     * and you are read-only") instead of a special case threaded everywhere.
+     */
+    ownerId: uuid("owner_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
+    isDemo: boolean("is_demo").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("workspaces_owner_id_idx").on(table.ownerId),
+    // At most one demo workspace. A partial unique index expresses "only one row
+    // may have is_demo = true" without a separate table or an application check.
+    uniqueIndex("workspaces_single_demo_idx")
+      .on(table.isDemo)
+      .where(sql`${table.isDemo}`),
+  ],
+);
+
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    status: documentStatus("status").default("queued").notNull(),
+    /** Populated only when status is 'failed'; surfaced in the UI, not swallowed. */
+    error: text("error"),
+    pageCount: integer("page_count"),
+    chunkCount: integer("chunk_count"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("documents_workspace_id_idx").on(table.workspaceId)],
+);
+
+export const chunks = pgTable(
+  "chunks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    /** Position within the document, so retrieved chunks can be re-ordered and neighbours fetched. */
+    chunkIndex: integer("chunk_index").notNull(),
+    content: text("content").notNull(),
+    /**
+     * 768 dimensions, not the model default of 3072: pgvector's HNSW and IVFFlat
+     * indexes cap the `vector` type at 2000. See
+     * docs/decisions/002-embedding-model-and-dimension.md.
+     */
+    embedding: vector("embedding", { dimensions: 768 }),
+    /**
+     * Citation anchors. These are the whole point of the product -- without the
+     * page and character span there is no way to open a source document scrolled
+     * to the passage an answer came from, so they are stored at ingestion time
+     * rather than recomputed later.
+     */
+    pageNumber: integer("page_number"),
+    charStart: integer("char_start").notNull(),
+    charEnd: integer("char_end").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("chunks_document_id_idx").on(table.documentId),
+    uniqueIndex("chunks_document_id_chunk_index_idx").on(
+      table.documentId,
+      table.chunkIndex,
+    ),
+    /**
+     * HNSW over cosine distance. Cosine because the embeddings are normalized and
+     * we care about direction, not magnitude. Built now that the dimension is
+     * settled; on an empty table this is free, and adding it later would mean a
+     * migration that rebuilds over every row.
+     */
+    index("chunks_embedding_idx").using(
+      "hnsw",
+      table.embedding.op("vector_cosine_ops"),
+    ),
+  ],
+);
+
+export const chats = pgTable(
+  "chats",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    /** Null for guest chats, which are not tied to an account. */
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    title: text("title"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("chats_workspace_id_idx").on(table.workspaceId)],
+);
+
+/**
+ * One citation as stored on a message. Chunk ids are kept alongside a snapshot of
+ * the anchor so a rendered answer stays readable even if the source document is
+ * later deleted -- a dangling citation should degrade, not crash the transcript.
+ */
+export type MessageCitation = {
+  chunkId: string;
+  documentId: string;
+  pageNumber: number | null;
+  charStart: number;
+  charEnd: number;
+  quote: string;
+};
+
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    chatId: uuid("chat_id")
+      .notNull()
+      .references(() => chats.id, { onDelete: "cascade" }),
+    role: messageRole("role").notNull(),
+    content: text("content").notNull(),
+    /** Empty array for user messages; populated for grounded assistant answers. */
+    citations: jsonb("citations")
+      .$type<MessageCitation[]>()
+      .default([])
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [index("messages_chat_id_idx").on(table.chatId)],
+);
+
+/* ---------------------------------------------------------------------------
+ * Inferred types -- the single source of truth for row shapes across the app.
+ * ------------------------------------------------------------------------- */
+
+export type User = typeof users.$inferSelect;
+export type Workspace = typeof workspaces.$inferSelect;
+export type NewWorkspace = typeof workspaces.$inferInsert;
+export type Document = typeof documents.$inferSelect;
+export type NewDocument = typeof documents.$inferInsert;
+export type DocumentStatus = (typeof documentStatus.enumValues)[number];
+export type Chunk = typeof chunks.$inferSelect;
+export type NewChunk = typeof chunks.$inferInsert;
+export type Chat = typeof chats.$inferSelect;
+export type Message = typeof messages.$inferSelect;
+export type NewMessage = typeof messages.$inferInsert;

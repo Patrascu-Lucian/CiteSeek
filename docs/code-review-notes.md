@@ -64,6 +64,23 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   checking a limit before the schema is written rather than after documents are ingested
   against it.
 
+### `--font-sans` was self-referential, so the body font never applied
+
+- **Issue**: `shadcn init` wrote `--font-sans: var(--font-sans)` into `app/globals.css`,
+  assuming the layout defines `--font-sans`. `create-next-app` had named the same font
+  `--font-geist-sans`. The result was a circular reference: every `font-sans` utility, and
+  `--font-heading` which derives from it, resolved to nothing and the page silently fell
+  back to the default sans-serif. Confirmed by grepping the built CSS, which contained the
+  literal `--font-sans:var(--font-sans)`.
+- **Fix**: pointed it at the name the layout actually defines,
+  `--font-sans: var(--font-geist-sans)`, and left a comment naming the trap.
+- **Lesson**: found while checking an IDE inspection that was itself a false positive — the
+  editor flagged `--font-geist-mono` (which resolves fine at runtime) and missed the broken
+  variable two lines above. Two scaffolders each generated valid code; the defect only
+  existed at the seam between them. Worth verifying styling assumptions against built
+  output rather than trusting that the page "looks fine", because a font fallback is
+  invisible unless you know what you were supposed to be seeing.
+
 ### `pnpm dlx auth secret` runs the wrong library's CLI
 
 - **Issue**: `.env.example` recommended `pnpm dlx auth secret` to generate `AUTH_SECRET`.

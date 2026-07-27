@@ -42,5 +42,13 @@ here, not in the current branch.
 
 ## Ideas (unscheduled)
 
+- **UUIDv7 primary keys instead of UUIDv4.** Postgres 18 ships a native `uuidv7()`.
+  The schema currently uses Drizzle's `defaultRandom()`, which is `gen_random_uuid()`
+  (v4, fully random), so every insert lands at a random point in the primary key's
+  B-tree. v7 is time-ordered and gives sequential inserts — meaningful for `chunks`,
+  where one PDF bulk-inserts several hundred rows. Deferred because it pins the schema
+  to Postgres 18 specifically, and the gain is unmeasured at portfolio data volumes.
+  Worth benchmarking during Milestone 1 ingestion work rather than assuming.
+
 - Bundle-size budget enforced in CI for the chat route (quality bar #6).
 - Lighthouse CI as a PR gate rather than a manual measurement.
