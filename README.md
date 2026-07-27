@@ -9,33 +9,50 @@ clickable citations to exact source passages.
 ## Stack
 
 Next.js 16 (App Router) · React 19 · TypeScript 5.9 (strict) · Tailwind v4 ·
-shadcn/ui · Vitest + Testing Library · Playwright · GitHub Actions
+shadcn/ui · Postgres 18 + pgvector · Drizzle ORM · Vitest + Testing Library ·
+Playwright · GitHub Actions
 
-Postgres + pgvector, Drizzle, and Auth.js arrive in the next slices.
+Auth.js and the RAG pipeline arrive in the next slices.
 
 ## Getting started
 
-Requires Node ≥ 22.11 and pnpm 11.
+Requires Node 24 (see `.nvmrc`) and pnpm 11.
 
 ```bash
+nvm use                      # Node 24 LTS
 pnpm install
-cp .env.example .env.local   # no values needed yet for Slice 1
+cp .env.example .env.local   # fill in DATABASE_URL
+docker compose up -d         # or point DATABASE_URL at a Neon branch
+pnpm db:migrate
+pnpm db:seed
 pnpm dev                     # http://localhost:3000
 ```
 
 ## Commands
 
 ```bash
-pnpm dev          # dev server
-pnpm build        # production build
-pnpm test         # vitest unit + integration
-pnpm test:e2e     # playwright (builds and serves automatically)
-pnpm lint         # eslint, type-aware
-pnpm typecheck    # tsc --noEmit
+pnpm dev               # dev server
+pnpm build             # production build
+pnpm test              # vitest unit tests (no database needed)
+pnpm test:integration  # vitest against a real Postgres (needs DATABASE_URL)
+pnpm test:e2e          # playwright (builds and serves automatically)
+pnpm lint              # eslint, type-aware
+pnpm typecheck         # tsc --noEmit
+pnpm format            # prettier --write
 ```
 
-All four of `build`, `test`, `lint`, `typecheck` must pass before anything merges —
-CI enforces this on every pull request.
+Database:
+
+```bash
+docker compose up -d   # local Postgres 18 + pgvector
+pnpm db:migrate        # apply migrations (creates the vector extension too)
+pnpm db:seed           # demo workspace; idempotent
+pnpm db:generate       # emit a new migration after editing lib/db/schema.ts
+pnpm db:studio         # browse the database
+```
+
+`format:check`, `lint`, `typecheck`, `test`, `build`, integration tests, and the
+Playwright smoke suite all gate every pull request.
 
 ## Project conventions
 

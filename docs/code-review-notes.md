@@ -64,6 +64,34 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   checking a limit before the schema is written rather than after documents are ingested
   against it.
 
+### Asserting on error message text instead of SQLSTATE codes
+
+- **Issue**: the first draft of the database integration tests asserted failures with
+  `.rejects.toThrow(/unique/i)` and similar. Four of eight tests failed — not because the
+  constraints were missing, but because Drizzle wraps driver errors in its own
+  `"Failed query: insert into ..."` message, so the Postgres detail never appeared in
+  `error.message`.
+- **Fix**: unwrapped `error.cause` and asserted on the SQLSTATE code instead — `23505`
+  unique violation, `23503` foreign key, `23502` not-null, `22000` data exception. The
+  actual codes were discovered by running a throwaway probe script against the database
+  rather than guessed.
+- **Lesson**: error _messages_ belong to whichever library happens to be wrapping them and
+  change between releases; SQLSTATE codes are part of the Postgres wire protocol and do
+  not. A test that matches on message text passes for the wrong reason today and fails for
+  the wrong reason tomorrow.
+
+### `@next/env` broke silently under Vitest's transform
+
+- **Issue**: `drizzle.config.ts` and the seed script loaded `.env.local` via
+  `@next/env`'s `loadEnvConfig`, which worked when Node executed them directly. Reused in
+  `vitest.integration.config.ts`, the whole suite failed with "DATABASE_URL must be set" —
+  `@next/env` is CommonJS, and its default-export interop does not survive Vite's transform.
+- **Fix**: replaced it everywhere with `lib/env/load-local-env.ts`, a four-line wrapper over
+  Node's built-in `process.loadEnvFile`. The `@next/env` dependency was removed entirely.
+- **Lesson**: a CJS package can work under `node` and fail under a bundler while looking
+  identical in source. Where a Node built-in covers the need, it has no interop surface to
+  get wrong — and one fewer dependency to keep current.
+
 ### `--font-sans` was self-referential, so the body font never applied
 
 - **Issue**: `shadcn init` wrote `--font-sans: var(--font-sans)` into `app/globals.css`,

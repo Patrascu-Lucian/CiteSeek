@@ -56,6 +56,60 @@ jobs:
           retention-days: 1
           include-hidden-files: true
 
+  integration:
+    name: Database integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # A throwaway Postgres per run, not the Neon dev database: it keeps test data
+    # away from real data, costs nothing against the Neon free tier, and proves
+    # the migration applies cleanly to an empty database on every PR.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: citeseek_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/citeseek_test
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run migrations
+        run: pnpm db:migrate
+
+      - name: Seed demo workspace
+        run: pnpm db:seed
+
+      # Running it twice is the assertion that the seed is idempotent -- it is run
+      # locally, in CI, and against preview databases, so a second run must be a
+      # no-op rather than a duplicate or a crash.
+      - name: Seed again (idempotency check)
+        run: pnpm db:seed
+
+      - name: Integration tests
+        run: pnpm test:integration
+
   e2e:
     name: Playwright smoke
     needs: verify

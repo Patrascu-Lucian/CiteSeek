@@ -10,6 +10,10 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // Node 24 runs .ts files directly by stripping types, but does not rewrite
+    // module specifiers -- so scripts executed by Node (lib/db/seed.ts) must
+    // import with explicit .ts extensions. Safe here because noEmit is set.
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "incremental": true,
 

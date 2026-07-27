@@ -12,7 +12,14 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     // Playwright owns e2e/. Without this, Vitest tries to collect those specs
     // and fails on Playwright's `test` fixture API.
-    exclude: ["e2e/**", "node_modules/**", ".next/**"],
+    // Integration tests need a live database and run from their own config, so
+    // `pnpm test` stays runnable with no infrastructure.
+    exclude: [
+      "e2e/**",
+      "node_modules/**",
+      ".next/**",
+      "**/*.integration.test.ts",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
