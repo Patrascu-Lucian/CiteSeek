@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Slot } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 
@@ -33,9 +34,24 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * `asChild` added to the registry default. Out of the box CardTitle renders a
+ * `<div>`, which looks like a heading but is not one -- a card used as a page's
+ * primary surface then has no heading at all in the accessibility tree, and
+ * screen-reader users navigating by heading find nothing. With `asChild` the
+ * caller supplies the correct element for its position in the outline:
+ *
+ *   <CardTitle asChild><h1>Sign in</h1></CardTitle>
+ */
+function CardTitle({
+  className,
+  asChild = false,
+  ...props
+}: React.ComponentProps<"div"> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot.Root : "div";
+
   return (
-    <div
+    <Comp
       data-slot="card-title"
       className={cn(
         "font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",
