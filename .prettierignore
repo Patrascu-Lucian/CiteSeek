@@ -1,0 +1,14 @@
+# Generated output and lockfiles — not ours to format.
+pnpm-lock.yaml
+.next/
+out/
+build/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+next-env.d.ts
+
+# Note: components/ui/ is deliberately NOT ignored. shadcn/ui copies source into
+# the repo for you to own and edit — it is not a dependency — so it is held to the
+# same formatting standard as everything else.
