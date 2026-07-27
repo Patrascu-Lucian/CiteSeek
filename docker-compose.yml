@@ -23,7 +23,7 @@ services:
       - citeseek-pgdata:/var/lib/postgresql/data
     healthcheck:
       # `pnpm db:migrate` immediately after `up -d` otherwise races the server's
-      # first-boot initialisation and fails with a connection error.
+      # first-boot initialization and fails with a connection error.
       test: ["CMD-SHELL", "pg_isready -U postgres -d citeseek"]
       interval: 5s
       timeout: 5s

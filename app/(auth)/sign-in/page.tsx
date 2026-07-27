@@ -19,7 +19,7 @@ export const metadata = { title: "Sign in" };
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthAccountNotLinked:
     "That email is already registered with a different sign-in method.",
-  AccessDenied: "Sign-in was cancelled or access was denied.",
+  AccessDenied: "Sign-in was canceled or access was denied.",
   Configuration:
     "Sign-in is not configured correctly. This is a problem on our side.",
 };
