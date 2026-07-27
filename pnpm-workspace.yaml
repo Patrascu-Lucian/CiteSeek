@@ -1,0 +1,10 @@
+# Native postinstall scripts are opt-in under pnpm 11. Both of these are first-party
+# to the stack, so they are approved rather than ignored:
+#   sharp         -> Next.js image optimization (next/image)
+#   unrs-resolver -> native module resolver used by eslint-config-next's import plugin
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - jsdom@30.0.0

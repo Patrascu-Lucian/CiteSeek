@@ -1,0 +1,14 @@
+# Normalize to LF in the repo. Development happens on Windows, CI runs on Linux —
+# without this, checked-in CRLF makes diffs noisy and can break shell scripts in CI.
+* text=auto eol=lf
+
+# Binary files must never be normalized.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+# Generated — collapse in PR diffs.
+pnpm-lock.yaml linguist-generated=true -diff
