@@ -47,9 +47,16 @@ declares an engine range:
 Note that Vitest's range excludes odd-numbered Current releases entirely — independent
 confirmation that tracking LTS is the supported path rather than merely the cautious one.
 
-`engines.node` is `>=24.0.0`, `.nvmrc` pins `24`, CI runs `node-version: 24`, and
+`engines.node` is `24.x` — a bounded range, not `>=24.0.0`. Vercel flags the open-ended
+form during deployment because it silently upgrades the moment a new major ships, which
+would drift the runtime onto Node 25 or 26 with no code change and no review. That is
+precisely the "Current, not LTS" outcome this policy exists to prevent, and Vitest's engine
+range would not even permit it. `.nvmrc` pins `24`, CI runs `node-version: 24`, and
 `@types/node` is on the matching `24.x` line so the types describe the runtime actually in
 use rather than a newer one.
+
+Moving to the next LTS should be a deliberate edit to this file, not something that happens
+because a calendar rolled over.
 
 ### PostgreSQL 18
 
