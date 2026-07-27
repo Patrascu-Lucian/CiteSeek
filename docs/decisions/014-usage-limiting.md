@@ -99,7 +99,9 @@ Rows are pruned after **30 days** — comfortably longer than any window a cap l
 long enough for the usage dashboard, and short enough that a hashed address is not retained to
 answer a question nobody asks. The sweep runs from the documents list, the same way
 `failStaleProcessing()` does, because this project has no scheduler and adding one to run a
-`DELETE` would be a great deal of infrastructure for one statement.
+`DELETE` would be a great deal of infrastructure for one statement. It is gated to once an
+hour per process (`lib/sweeps.ts`): that list is polled every two seconds during ingestion,
+and retention measured in days does not need a `DELETE` every two seconds to enforce it.
 
 ### Guests stop first; signed-in users keep a reserved share
 

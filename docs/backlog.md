@@ -677,21 +677,13 @@ trigger rather than a schedule, and 7 is closed.
   `hnsw.iterative_scan = relaxed_order` — the column alone fixed nothing, which the measurement
   in [ADR 026](decisions/026-scoping-chunks-by-workspace.md) shows directly. The regression test
   forces the HNSW-first plan rather than waiting for a corpus large enough to produce it, and
-  fails without the fix by returning an empty list. Original entry follows.
+  fails without the fix by returning an empty list.
 
-  **1. The vector search's workspace filter cannot use the HNSW index.** `chunks` carries
-  no `workspace_id` — scope is inherited through `documents`, so the filter lands on a
-  joined table and Postgres has two plans, both of which degrade. Join-first is exact but
-  computes a distance for every chunk in the tenant's corpus. **HNSW-first is the
-  dangerous one:** the index returns the globally nearest `ef_search` rows and the join
-  discards the ones belonging to other workspaces, so a small tenant in a large table
-  silently under-retrieves. Under-retrieval here means the relevance floor refuses a
-  question the documents answer — the failure looks like the product working.
-
-  Verified: `chunks` really has no `workspace_id` column. The fix is to denormalize it
-  (set at insert, backfilled by migration, indexed with the vector) so the filter and the
-  index are on the same table. Today one demo workspace hides it entirely; it appears
-  with the first real multi-tenant corpus, which is exactly when it is hardest to debug.
+  What made this the review's largest finding is worth keeping in one sentence: the filter sat
+  on a joined table, so an HNSW-first plan returned the globally nearest `ef_search` rows and
+  discarded the foreign ones afterward — a small tenant in a large table silently under-retrieves,
+  and the refusal that follows looks exactly like the relevance floor working. The two-plan
+  analysis is in the ADR.
 
 - ~~**2. One request can cost an unbounded amount, and the caps cannot see it.**~~ **Done.**
   `parseMessages` now bounds turns (100), total characters (200k) and the question itself (8k),
@@ -709,13 +701,30 @@ trigger rather than a schedule, and 7 is closed.
   point rather than nothing. **Do it when:** guest traffic stops being three addresses —
   it is unexploitable at today's volume and the fix wants real numbers to check against.
 
-- **4. Two writes on a read endpoint polled every two seconds.** `GET /documents` performs
-  writes while the documents list polls it during ingestion. At one poller it is invisible;
-  at several it is write amplification on a path nobody thinks of as a write.
+- ~~**4. Two writes on a read endpoint polled every two seconds.**~~ **Done.** Both sweeps on
+  `GET /documents` now sit behind `atMostEvery` in `lib/sweeps.ts` — the stale-document sweep
+  once a minute, the usage prune once an hour. Two sweeps at 30 polls a minute is **60 writes
+  a minute, down to about one**.
 
-  **Action:** guard them behind a module-level timestamp so they run at most once per
-  interval per process. **Do it when:** touching that route for another reason — the change
-  is small, but it needs the polling behavior re-verified, which is the expensive part.
+  Neither interval costs anything real: a document is only presumed dead after 10 minutes, so
+  a minute of extra latency before it is marked failed is inside the noise, and retention is
+  counted in days. The gate is per process, so a warm instance carries it between requests and
+  a cold one sweeps once — which is the right way round, since the poll is the thing being
+  thinned and a cold start is already paying for everything else.
+
+  **The gate takes the work rather than answering "is it due?"**, which a review argued for on
+  two grounds and both hold. A predicate that mutates can be read twice and acted on once, so
+  any later refactor that checks it in two places silently disables the sweep with no test
+  failing. And the interval must only advance once the work _succeeds_: a sweep that throws
+  would otherwise burn its window, and since this endpoint is polled only while a document is
+  processing, the next window can be much later than the interval. It uses
+  `performance.now()`, which is monotonic, so a backward clock step cannot leave the deadline
+  in the future and hold the gate shut.
+
+  The clock is injectable, so the behavior is seven unit tests with no real time involved, and
+  the route test asserts five polls produce one sweep and a sixth after the interval produces
+  two — with the clock moved _forward_ rather than reset, because resetting it would shut the
+  gate rather than open it if anything above had polled.
 
 - ~~**5. Ingestion writes embeddings one row at a time.**~~ **Done.** `setChunkEmbeddings`
   now issues one `UPDATE … FROM (VALUES …)` per batch instead of one per chunk.
@@ -819,3 +828,14 @@ defects.
   a reproduction is a guess with a commit attached. If it recurs, capture the trace first, and
   note that this test is the citation-integrity guarantee, so it is the wrong one to learn to
   ignore.
+
+  ↳ **It recurred, 8 August 2026, and the instruction above was not followed.** One test failed
+  in a full run (95 of 96) and I re-ran before capturing anything, so which test it was is lost.
+  Both sightings were the first run after a fresh build against a suspended Neon branch, which
+  keeps cold start as the leading guess and is now the only thing supporting it.
+
+  What the second one did establish is why there was nothing to capture: `playwright.config.ts`
+  paired `retries: 0` locally with `trace: "on-first-retry"`, so **a local failure produced no
+  trace by construction** — there is never a first retry to record. Now
+  `retain-on-failure` off CI. The next recurrence leaves evidence whether or not anyone
+  remembers to look for it, which is the only reason this entry gets to stay open.

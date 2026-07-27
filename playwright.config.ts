@@ -15,7 +15,9 @@ export default defineConfig({
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL,
-    trace: "on-first-retry",
+    // Coupled to `retries` above: `on-first-retry` produces nothing locally,
+    // where there is no retry, so a local flake left no trace to read.
+    trace: process.env.CI ? "on-first-retry" : "retain-on-failure",
   },
   projects: [
     {
