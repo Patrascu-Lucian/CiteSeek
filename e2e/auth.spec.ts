@@ -94,6 +94,65 @@ test.describe("route protection", () => {
   });
 });
 
+test.describe("navigation", () => {
+  test("every page outside the landing page offers a way back", async ({
+    page,
+  }) => {
+    for (const path of ["/sign-in", "/demo-unavailable"]) {
+      await page.goto(path);
+      await expect(
+        page.getByRole("link", { name: /back to home/i }),
+      ).toBeVisible();
+    }
+  });
+
+  test("the back link returns to the landing page", async ({ page }) => {
+    await page.goto("/sign-in");
+    await page.getByRole("link", { name: /back to home/i }).click();
+
+    await expect(page).toHaveURL(/\/$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: /ask your documents/i }),
+    ).toBeVisible();
+  });
+
+  test("the workspace page offers a way back", async ({ page }) => {
+    await page.goto("/demo");
+    await expect(
+      page.getByRole("link", { name: /back to home/i }),
+    ).toBeVisible();
+  });
+
+  test("the back link is the first stop after the skip link", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in");
+
+    await page.keyboard.press("Tab"); // skip link
+    await page.keyboard.press("Tab"); // back link
+
+    await expect(
+      page.getByRole("link", { name: /back to home/i }),
+    ).toBeFocused();
+  });
+
+  test("/w sends a guest to the demo workspace", async ({ page }) => {
+    await page.goto("/demo");
+    await page.goto("/w");
+
+    await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: /demo/i }),
+    ).toBeVisible();
+  });
+
+  test("/w sends a signed-out visitor to sign-in", async ({ page }) => {
+    await page.goto("/w");
+
+    await expect(page).toHaveURL(/\/sign-in/);
+  });
+});
+
 test.describe("sign-in page", () => {
   test("offers GitHub and links to the demo", async ({ page }) => {
     await page.goto("/sign-in");

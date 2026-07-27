@@ -4,6 +4,7 @@ import GitHub from "next-auth/providers/github";
 
 import { db } from "@/lib/db";
 import { accounts, sessions, users, verificationTokens } from "@/lib/db/schema";
+import { getOrCreatePersonalWorkspace } from "@/lib/workspaces/personal";
 
 /**
  * Auth.js owns real accounts only. Guest/demo access is deliberately handled
@@ -39,4 +40,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // Vercel preview deployments serve from a different host per deployment;
   // without this Auth.js rejects them as untrusted.
   trustHost: true,
+  events: {
+    /**
+     * The adapter creates a `users` row and stops there. Without a workspace to
+     * go with it a new account has nowhere to land, so sign-in appears to do
+     * nothing. Created here so the common path costs no extra round trip;
+     * `/w` re-checks and creates on demand for accounts that predate this.
+     */
+    async createUser({ user }) {
+      if (!user.id) return;
+      await getOrCreatePersonalWorkspace({
+        id: user.id,
+        name: user.name ?? null,
+      });
+    },
+  },
 });

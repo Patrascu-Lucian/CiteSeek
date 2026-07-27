@@ -67,6 +67,7 @@ export default async function WorkspacePage({
   }
 
   const writable = canWrite(actor, workspace);
+  const signedIn = actor?.type === "user";
 
   return (
     <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
@@ -106,15 +107,21 @@ export default async function WorkspacePage({
             <CardDescription>
               {writable
                 ? "Upload a PDF, Markdown, or text file to start asking questions about it."
-                : "This demo workspace doesn't have any documents loaded yet. Sign in to upload your own."}
+                : signedIn
+                  ? "This shared demo workspace is read-only. Your own workspace is where you can upload documents."
+                  : "This demo workspace doesn't have any documents loaded yet. Sign in to upload your own."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {writable ? (
               <Button disabled>Upload documents — coming in Milestone 1</Button>
             ) : (
+              // A signed-in visitor on the demo already has an account, so
+              // offering them "Sign in" would be a dead end.
               <Button asChild variant="outline">
-                <Link href="/sign-in">Sign in to upload</Link>
+                <Link href={signedIn ? "/w" : "/sign-in"}>
+                  {signedIn ? "Go to your workspace" : "Sign in to upload"}
+                </Link>
               </Button>
             )}
           </CardContent>

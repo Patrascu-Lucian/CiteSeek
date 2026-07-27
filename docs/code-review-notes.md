@@ -64,6 +64,23 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   checking a limit before the schema is written rather than after documents are ingested
   against it.
 
+### Sign-in worked but led nowhere: no workspace was ever created
+
+- **Issue**: caught by manual testing on the deployed site, not by any test. Auth.js's
+  adapter creates a `users` row and nothing else, and nothing in the codebase created a
+  workspace to go with it. A signed-in account therefore owned nothing, and `/sign-in`
+  redirected signed-in users to `/` — where the only call to action pointed back at
+  `/sign-in`. Clicking "Get started" looked like a dead button.
+- **Fix**: `getOrCreatePersonalWorkspace` (idempotent, so it also backfills accounts created
+  before it existed), called from Auth.js's `createUser` event and again from a new `/w`
+  entry point. `/sign-in` now redirects to `/w` rather than `/`.
+- **Lesson**: every automated test passed. The unit tests covered the authorization rule,
+  the integration tests covered the schema, and the E2E suite covered guest mode — which
+  needs no user account and so never exercised this path. The milestone's own exit criterion
+  was "sign in, see an empty workspace", and it had been declared met on the strength of a
+  green pipeline. Worth remembering that a suite proves the paths it covers and says nothing
+  about the one nobody wrote.
+
 ### Middleware imported `node:crypto` and 500'd every protected route
 
 - **Issue**: `middleware.ts` imported `GUEST_COOKIE_NAME` from `lib/auth/guest.ts`. That

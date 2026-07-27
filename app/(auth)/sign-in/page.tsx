@@ -30,7 +30,10 @@ export default async function SignInPage({
   searchParams: Promise<{ error?: string; callbackUrl?: string }>;
 }) {
   const actor = await getActor();
-  if (actor?.type === "user") redirect("/");
+  // Already signed in: go to their workspace, not back to the landing page.
+  // Sending them to "/" produced a loop -- the landing CTA points here, so
+  // clicking "Get started" bounced straight back and looked like a dead button.
+  if (actor?.type === "user") redirect("/w");
 
   const { error, callbackUrl } = await searchParams;
   const errorMessage = error
@@ -70,7 +73,7 @@ export default async function SignInPage({
           <form
             action={async () => {
               "use server";
-              await signIn("github", { redirectTo: callbackUrl ?? "/" });
+              await signIn("github", { redirectTo: callbackUrl ?? "/w" });
             }}
           >
             <Button type="submit" className="w-full" size="lg">
