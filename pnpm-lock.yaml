@@ -45,9 +45,6 @@ importers:
       '@auth/drizzle-adapter':
         specifier: 1.11.3
         version: 1.11.3
-      '@next/env':
-        specifier: ^16.2.12
-        version: 16.2.12
       '@playwright/test':
         specifier: 1.62.0
         version: 1.62.0

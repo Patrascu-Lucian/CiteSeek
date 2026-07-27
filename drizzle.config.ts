@@ -1,11 +1,9 @@
-import { loadEnvConfig } from "@next/env";
 import { defineConfig } from "drizzle-kit";
 
-// drizzle-kit runs outside Next, so nothing has loaded .env.local for it. Using
-// Next's own loader rather than dotenv keeps file precedence identical to the
-// app's (.env.local wins over .env), so the CLI and the running app can never
-// disagree about which database they are pointed at.
-loadEnvConfig(process.cwd());
+import { loadLocalEnv } from "./lib/env/load-local-env.ts";
+
+// drizzle-kit runs outside Next, so nothing has loaded .env.local for it.
+loadLocalEnv();
 
 const url = process.env.DATABASE_URL;
 
