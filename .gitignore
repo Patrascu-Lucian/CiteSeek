@@ -24,6 +24,24 @@ next-env.d.ts
 /blob-report
 /playwright/.cache
 
+# Playwright storage state holds live session cookies once auth exists (Slice 3).
+/playwright/.auth/
+/e2e/.auth/
+storageState*.json
+
+# User data. Milestone 1 accepts document uploads; nothing a user uploads belongs
+# in version control, and a "just a test PDF" is exactly how real content leaks.
+/uploads/
+/storage/
+/tmp/
+
+# Database dumps and local database files. Note this must NOT match drizzle/*.sql,
+# which are reviewable migrations and are committed on purpose.
+*.dump
+*.sqlite
+*.sqlite3
+/backups/
+
 # env files: .env.example is committed on purpose as the canonical list of required vars
 .env*
 !.env.example

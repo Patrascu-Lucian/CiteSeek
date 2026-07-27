@@ -1,8 +1,10 @@
-# Native postinstall scripts are opt-in under pnpm 11. Both of these are first-party
+# Native postinstall scripts are opt-in under pnpm 11. These are all first-party
 # to the stack, so they are approved rather than ignored:
 #   sharp         -> Next.js image optimization (next/image)
 #   unrs-resolver -> native module resolver used by eslint-config-next's import plugin
+#   esbuild       -> bundler used by drizzle-kit to run TS config and migrations
 allowBuilds:
+  esbuild: true
   sharp: true
   unrs-resolver: true
 
