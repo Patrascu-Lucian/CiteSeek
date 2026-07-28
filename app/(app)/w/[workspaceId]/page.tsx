@@ -11,9 +11,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { getActor } from "@/lib/auth/actor";
 import { canWrite, accessToWorkspace } from "@/lib/auth/authorization";
 import { findWorkspaceById } from "@/lib/auth/demo";
+import { listDocuments } from "@/lib/documents/queries";
 
 export const metadata: Metadata = { title: "Workspace" };
 
@@ -71,6 +73,10 @@ export default async function WorkspacePage({
   const writable = canWrite(actor, workspace);
   const signedIn = actor?.type === "user";
 
+  // Server-rendered so the list is correct before any JavaScript runs; the
+  // client component only refines it by polling.
+  const documents = await listDocuments(workspace.id);
+
   return (
     <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -92,42 +98,45 @@ export default async function WorkspacePage({
         ) : null}
       </header>
 
-      <section aria-labelledby="documents-heading" className="mt-10">
+      <section aria-labelledby="documents-heading" className="mt-10 space-y-4">
         <h2 id="documents-heading" className="text-lg font-medium">
           Documents
         </h2>
 
-        {/* Empty state. Ingestion lands in Milestone 1, so this is currently the
-            only state -- but it says what to do next rather than showing nothing. */}
-        <Card className="mt-4">
-          <CardHeader>
-            <FileText
-              aria-hidden="true"
-              className="text-muted-foreground size-5"
-            />
-            <CardTitle className="mt-3">No documents yet</CardTitle>
-            <CardDescription>
-              {writable
-                ? "Upload a PDF, Markdown, or text file to start asking questions about it."
-                : signedIn
-                  ? "This shared demo workspace is read-only. Your own workspace is where you can upload documents."
-                  : "This demo workspace doesn't have any documents loaded yet. Sign in to upload your own."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {writable ? (
-              <Button disabled>Upload documents — coming in Milestone 1</Button>
-            ) : (
-              // A signed-in visitor on the demo already has an account, so
-              // offering them "Sign in" would be a dead end.
+        <DocumentsPanel
+          workspaceId={workspace.id}
+          initialDocuments={documents}
+          canWrite={writable}
+        />
+
+        {!writable ? (
+          // Read-only visitors get a way forward rather than a dead end. A
+          // signed-in visitor already has an account, so offering them
+          // "Sign in" would go nowhere.
+          <Card>
+            <CardHeader>
+              <FileText
+                aria-hidden="true"
+                className="text-muted-foreground size-5"
+              />
+              <CardTitle className="mt-3">
+                This workspace is read-only
+              </CardTitle>
+              <CardDescription>
+                {signedIn
+                  ? "Your own workspace is where you can upload documents."
+                  : "Sign in to upload documents of your own."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               <Button asChild variant="outline">
                 <Link href={signedIn ? "/w" : "/sign-in"}>
                   {signedIn ? "Go to your workspace" : "Sign in to upload"}
                 </Link>
               </Button>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : null}
       </section>
     </main>
   );

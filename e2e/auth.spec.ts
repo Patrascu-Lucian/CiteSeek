@@ -153,6 +153,49 @@ test.describe("navigation", () => {
   });
 });
 
+test.describe("documents in the demo workspace", () => {
+  test("shows the read-only workspace without an upload control", async ({
+    page,
+  }) => {
+    // The demo is shared, seeded state. An upload control that then failed
+    // server-side would be worse than not offering it.
+    await page.goto("/demo");
+
+    await expect(
+      page.getByRole("heading", { level: 2, name: /documents/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /drop files here/i }),
+    ).toHaveCount(0);
+    await expect(page.getByText(/read-only/i).first()).toBeVisible();
+  });
+
+  test("offers no destructive controls to a read-only visitor", async ({
+    page,
+  }) => {
+    await page.goto("/demo");
+
+    await expect(page.getByRole("button", { name: /^delete/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /retry/i })).toHaveCount(0);
+  });
+
+  test("shows an empty state rather than a blank panel", async ({ page }) => {
+    await page.goto("/demo");
+
+    await expect(page.getByText(/no documents yet/i)).toBeVisible();
+  });
+
+  test("offers a guest no account-deletion control", async ({ page }) => {
+    // A guest has no account. Showing the control would promise something the
+    // route rejects.
+    await page.goto("/demo");
+
+    await expect(
+      page.getByRole("button", { name: /delete account/i }),
+    ).toHaveCount(0);
+  });
+});
+
 test.describe("ending a session", () => {
   test("a guest can leave the demo and the session is actually gone", async ({
     page,

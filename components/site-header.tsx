@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, LogOut } from "lucide-react";
 
+import { DeleteAccountDialog } from "@/components/account/delete-account-dialog";
 import { Button } from "@/components/ui/button";
 import { leaveDemoAction, signOutAction } from "@/lib/auth/actions";
 import { getActor } from "@/lib/auth/actor";
@@ -63,6 +64,8 @@ export async function SiteHeader({
               user has a session row Auth.js must delete; a guest has only a
               signed cookie and nothing server-side.
             */}
+            {actor.type === "user" ? <DeleteAccountDialog /> : null}
+
             <form
               action={actor.type === "user" ? signOutAction : leaveDemoAction}
             >

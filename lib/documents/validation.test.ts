@@ -147,7 +147,20 @@ describe("validateUpload — content must match the extension", () => {
 
   it("does not care what MIME type the client claimed", () => {
     // There is no parameter for it. A validator that accepted a client MIME
-    // type would eventually be called with one.
+    // type would eventually be called with one. (`totalBytes` has a default, so
+    // it does not count toward `.length`.)
     expect(validateUpload.length).toBe(2);
+  });
+
+  it("accepts a separate total size, so the browser need not read the whole file", () => {
+    // The client passes 8 leading bytes plus `File.size`. Reading 4 MB just to
+    // discover the file is too big is wasted work on the user's connection.
+    const head = pdfBytes(8);
+
+    expect(validateUpload("big.pdf", head, MAX_FILE_BYTES + 1)).toMatchObject({
+      ok: false,
+      reason: "too-large",
+    });
+    expect(validateUpload("fine.pdf", head, 1024).ok).toBe(true);
   });
 });

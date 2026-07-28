@@ -6,9 +6,8 @@ clickable citations to exact source passages.
 **Live:** [cite-seek.vercel.app](https://cite-seek.vercel.app) — click **Try the demo**;
 no account needed.
 
-> **Status: Milestone 0 complete.** Scaffold, database, auth, guest mode, CI and a
-> deployed URL are in place. Document ingestion, retrieval and chat land in Milestones 1–2,
-> so a workspace currently shows an empty state.
+> **Status: Milestone 1 complete.** Upload a PDF, Word document, Markdown or text file and
+> watch it parse, chunk, embed and become searchable. Retrieval and chat land in Milestone 2.
 
 ## Stack
 
@@ -78,11 +77,18 @@ Lighthouse and TTFT targets are Milestone 3.
 
 ## Testing
 
-| Layer       | Count | What it covers                                                      |
-| ----------- | ----- | ------------------------------------------------------------------- |
-| Unit        | 35    | Guest-token signing, authorization rules, landing page              |
-| Integration | 12    | Real Postgres: vector dimensions, cascades, constraints, workspaces |
-| E2E         | 17    | Guest flow, route protection, tampered cookies, keyboard navigation |
+| Layer       | Count | What it covers                                                             |
+| ----------- | ----- | -------------------------------------------------------------------------- |
+| Unit        | 214   | Chunking, extraction, embeddings, validation, auth rules, UI components    |
+| Integration | 45    | Real Postgres: ingestion, tenant isolation, cascades, vector constraints   |
+| E2E         | 25    | Guest flow, route protection, read-only demo, session exit, keyboard paths |
+
+The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
+
+A deterministic fake embedder (`EMBEDDINGS_PROVIDER=fake`) exercises the whole ingestion
+path with no API key and no network, so CI and local development need neither. It proves the
+pipeline stores and orders correctly; it says nothing about retrieval quality, which needs
+the real provider.
 
 Integration tests run against a throwaway pgvector container in CI rather than a shared
 database, so they also prove the migration applies cleanly to an empty database on every
@@ -110,7 +116,8 @@ Built with AI-assisted tooling (Claude Code) under close review — see
 
 ## Known gaps at this milestone
 
-Document upload, retrieval and chat arrive in Milestones 1–2, so a workspace currently
-shows an empty state. Email magic-link sign-in is deferred until an email sender is
-configured — GitHub OAuth and guest mode both work. Tracked in
+Retrieval and chat arrive in Milestone 2, so an ingested document is searchable in the
+database but there is nothing to ask yet. Email magic-link sign-in is deferred until an
+email sender is configured — GitHub OAuth and guest mode both work. The demo workspace is
+read-only by design, so uploading requires signing in. Tracked in
 [`docs/backlog.md`](docs/backlog.md).
