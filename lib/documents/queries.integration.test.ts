@@ -54,7 +54,14 @@ describe("document lifecycle", () => {
 
     expect(document.status).toBe("queued");
     expect(document.workspaceId).toBe(workspace.id);
-    expect(document.contentText).toBeNull();
+
+    // Read it back rather than inspecting the insert's return value: the insert
+    // deliberately returns only the columns it is asked for, so that unrelated
+    // schema drift cannot break the upload path. What matters is the stored
+    // state — a queued document has no extracted text yet.
+    const stored = await findDocumentInWorkspace(workspace.id, document.id);
+    expect(stored!.contentText).toBeNull();
+    expect(stored!.pageSpans).toBeNull();
   });
 
   it("stores extracted text and page spans", async () => {

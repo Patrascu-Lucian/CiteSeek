@@ -73,6 +73,26 @@ The `/demo` result is the interesting one: it went from _slower_ than a route th
 no database to marginally faster. Every query had been crossing the Atlantic twice.
 See [`docs/decisions/006-deployment-topology.md`](docs/decisions/006-deployment-topology.md).
 
+**Ingestion**, measured on the deployed app from the document's own status
+timestamps — a 51-page PDF, 1.03 MB, producing 32 passages:
+
+| Stage                  | Elapsed    |
+| ---------------------- | ---------- |
+| Upload → `processing`  | 347 ms     |
+| `processing` → `ready` | 1,456 ms   |
+| **Total**              | **1.80 s** |
+
+Against the 300-second serverless ceiling that is 0.6% of budget, which is what settles
+whether background ingestion needs a queue: it does not. Extrapolating to the 600-chunk
+document limit gives roughly 19 embedding batches at 2 concurrent calls — on the order of
+tens of seconds. The binding constraint is the embedding provider's requests-per-minute,
+not function duration.
+
+The sample is a design document at roughly 517 characters per page, so it is light on text
+for its page count; a dense report of the same length would produce closer to 500 passages.
+The figure above proves the path works end to end in production, not that the ceiling has
+been stressed.
+
 Lighthouse and TTFT targets are Milestone 3.
 
 ## Testing

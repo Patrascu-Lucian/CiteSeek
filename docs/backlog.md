@@ -48,6 +48,27 @@ here, not in the current branch.
   `docs/decisions/002-embedding-model-and-dimension.md` and
   `docs/decisions/007-commercial-optionality.md`.
 
+## Deployment
+
+- **Nothing ties a schema change to a production migration.** A migration added during
+  development is applied locally and then shipped, and production only finds out when a
+  query touches the missing column. This has already caused one production outage: migration
+  0001 added `content_text` and `page_spans`, was applied to the dev branch only, and uploads
+  returned a bodyless 500 while the documents list kept working — because the list selects
+  columns explicitly and the insert did not.
+
+  Two candidate fixes, neither obviously right:
+
+  - **Migrate in the deploy pipeline.** Reliable, but a migration running as a side effect of
+    a build is hard to reason about when it half-fails, and it would run on every preview
+    deployment too.
+  - **Fail fast on schema drift.** A startup check comparing the migration journal against
+    the database, so a mismatch is an immediate, explicit error rather than a 500 on the
+    first request that happens to touch a new column.
+
+  The second is more honest about what went wrong. Worth deciding before Milestone 2 adds
+  more migrations.
+
 ## Only if it earns money
 
 Deliberately not built yet — see `docs/decisions/007-commercial-optionality.md` for why
