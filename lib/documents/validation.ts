@@ -74,11 +74,19 @@ function contentMatchesExtension(
   }
 }
 
+/**
+ * `bytes` need only be the file's leading bytes — enough for a signature check.
+ * `totalBytes` defaults to their length, which is correct on the server where
+ * the whole file is already in memory. The browser passes `File.size` instead,
+ * so a 4 MB file can be rejected for being oversized after reading 8 bytes of
+ * it rather than all of it.
+ */
 export function validateUpload(
   filename: string,
   bytes: Uint8Array,
+  totalBytes: number = bytes.length,
 ): ValidationResult {
-  if (bytes.length === 0) {
+  if (totalBytes === 0) {
     return {
       ok: false,
       reason: "empty",
@@ -86,9 +94,9 @@ export function validateUpload(
     };
   }
 
-  if (bytes.length > MAX_FILE_BYTES) {
+  if (totalBytes > MAX_FILE_BYTES) {
     const limitMb = Math.round(MAX_FILE_BYTES / (1024 * 1024));
-    const actualMb = (bytes.length / (1024 * 1024)).toFixed(1);
+    const actualMb = (totalBytes / (1024 * 1024)).toFixed(1);
     return {
       ok: false,
       reason: "too-large",

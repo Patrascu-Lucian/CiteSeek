@@ -64,6 +64,27 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   checking a limit before the schema is written rather than after documents are ingested
   against it.
 
+### An uploaded file sat at "Queued" until the page was reloaded
+
+- **Issue**: found by using the app, not by any test. `DocumentList` seeded itself with
+  `useState(initialDocuments)`, which captures the first value and ignores every later one.
+  The upload control called `router.refresh()`, the server re-rendered with the new
+  document — and the list never saw it. On an empty workspace this was doubly hidden: with
+  no documents, the "is anything in flight?" check was false, so polling never started
+  either. Nothing short of a manual reload could correct it.
+- **Fix**: the first attempt was a `useEffect` syncing the prop into state. Two signals said
+  that was the wrong shape — React's lint rule flags `setState` inside an effect as a
+  cascading-render risk, and two tests broke. So the state was **lifted** instead: a new
+  `DocumentsPanel` owns the documents, and the dropzone and list became children. The list
+  is now presentational and owns no data at all.
+- **Lesson**: copying a prop into state is a bug waiting for a second render, and the
+  instinct to patch it with an effect keeps the bug and adds a render loop. Lifting removed
+  the whole category rather than the instance. Two smaller notes: the dropzone now _awaits_
+  the parent's refresh before clearing its row, so an uploaded file is never briefly
+  displayed nowhere; and the tests that broke were asserting an intermediate state that the
+  correct design does not keep — they were rewritten to assert the handoff itself, with a
+  promise held open to observe both sides of it.
+
 ### A correlated subquery silently compared a table to itself
 
 - **Issue**: `listDocuments` computed embedded-chunk progress with a correlated subquery
