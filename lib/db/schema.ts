@@ -100,6 +100,17 @@ export const documentStatus = pgEnum("document_status", [
 
 export const messageRole = pgEnum("message_role", ["user", "assistant"]);
 
+/**
+ * Page boundaries within a document's extracted text. Mirrors `PageSpan` in
+ * `lib/rag/normalize.ts`; declared here so the schema does not depend on the
+ * RAG layer, and asserted equal to it by a type test.
+ */
+export type DocumentPageSpan = {
+  pageNumber: number;
+  charStart: number;
+  charEnd: number;
+};
+
 export const workspaces = pgTable(
   "workspaces",
   {
@@ -140,8 +151,29 @@ export const documents = pgTable(
     mimeType: text("mime_type").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     status: documentStatus("status").default("queued").notNull(),
-    /** Populated only when status is 'failed'; surfaced in the UI, not swallowed. */
+    /**
+     * Populated only when status is 'failed'; surfaced in the UI, not swallowed.
+     * Sanitized before storage -- an exception message, never document text.
+     */
     error: text("error"),
+    /**
+     * The canonical extracted text. Every `chunks.charStart` / `charEnd` indexes
+     * into this exact string, so a citation is a substring slice of it.
+     *
+     * The uploaded file itself is discarded after parsing: keeping only text
+     * means erasure is one SQL delete with no orphaned blobs, and there is no
+     * second data location to reason about under GDPR.
+     */
+    contentText: text("content_text"),
+    /**
+     * Where each page begins and ends within `contentText`. Null for formats
+     * with no page concept (docx, markdown, plain text).
+     *
+     * Persisted rather than recomputed because the original bytes are gone --
+     * adding this column later would require re-uploading every document, which
+     * makes it effectively one-way.
+     */
+    pageSpans: jsonb("page_spans").$type<DocumentPageSpan[]>(),
     pageCount: integer("page_count"),
     chunkCount: integer("chunk_count"),
     createdAt: timestamp("created_at", { withTimezone: true })

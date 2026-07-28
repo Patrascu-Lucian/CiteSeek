@@ -64,6 +64,25 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   checking a limit before the schema is written rather than after documents are ingested
   against it.
 
+### A correlated subquery silently compared a table to itself
+
+- **Issue**: `listDocuments` computed embedded-chunk progress with a correlated subquery
+  inside a Drizzle `sql` template. Drizzle emits column references **unqualified** in that
+  context, so
+  `WHERE ${chunks.documentId} = ${documents.id}` rendered as `WHERE "document_id" = "id"` —
+  and inside `FROM "chunks"` both names resolve to chunks' own columns. It compared a
+  chunk's foreign key to its own primary key, matched nothing, and returned 0 for every
+  document forever.
+- **Fix**: replaced it with a `LEFT JOIN` plus `count(chunks.embedding)` and `GROUP BY`.
+  Drizzle qualifies every reference in a join because it has no choice. Confirmed by
+  dumping `.toSQL()` rather than inferring from behavior.
+- **Lesson**: the more uncomfortable half is the test. The suite asserted
+  `embeddedChunkCount` was **0** before embedding anything — and it passed, for entirely
+  the wrong reason. A test whose expected value coincides with a broken implementation's
+  output provides no signal at all. The fix was to assert two documents in one workspace
+  with _different_ counts, which no single wrong number can satisfy. Worth applying that
+  test generally: prefer assertions that a plausible bug cannot accidentally satisfy.
+
 ### A literal NUL byte made git treat a test file as binary
 
 - **Issue**: CI failed `pnpm format:check` on `lib/rag/normalize.test.ts` while the same
