@@ -20,6 +20,14 @@ export default defineConfig({
       ".next/**",
       "**/*.integration.test.ts",
     ],
+    env: {
+      // The unit suite never calls a real provider. Setting this here rather
+      // than expecting `EMBEDDINGS_PROVIDER=fake` on the command line means
+      // `pnpm test` works on a fresh clone with no API key -- and that a test
+      // which accidentally reaches for the network fails loudly instead of
+      // quietly spending quota.
+      EMBEDDINGS_PROVIDER: "fake",
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
