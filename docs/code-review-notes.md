@@ -64,6 +64,27 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   checking a limit before the schema is written rather than after documents are ingested
   against it.
 
+### A literal NUL byte made git treat a test file as binary
+
+- **Issue**: CI failed `pnpm format:check` on `lib/rag/normalize.test.ts` while the same
+  command passed locally. The file had CRLF line endings despite `.gitattributes` setting
+  `* text=auto eol=lf`. Root cause was three characters: the test asserted NUL stripping and
+  I had embedded a **literal NUL byte** in the string rather than writing `\0`. A NUL trips
+  git's binary heuristic, binary files are exempt from line-ending normalization, so Windows
+  CRLF was committed verbatim — and Prettier, which expects LF, rejected it on the Linux
+  runner.
+- **Fix**: rewrote the control characters as escape sequences (`\0`, ` `) in both the
+  test and the character class in `normalize.ts`. The file became pure ASCII, git
+  reclassified it as text, and normalization applied. Added `tests/repo-hygiene.test.ts`,
+  which fails if any tracked non-binary file contains a NUL or a CR — verified by staging a
+  deliberate offender and watching both assertions fire.
+- **Lesson**: the symptom (a formatting error) was several steps removed from the cause (an
+  invisible byte in a string literal), and the feedback loop was the worst kind — green
+  locally, red in CI, one push per attempt. Control characters in source should always be
+  escape sequences: a raw NUL or non-breaking space is invisible in a diff and unreviewable,
+  which is exactly why nobody spots it. Worth noting the guard test was added not because the
+  bug was hard to fix, but because it was hard to _find_.
+
 ### Sign-in worked but led nowhere: no workspace was ever created
 
 - **Issue**: caught by manual testing on the deployed site, not by any test. Auth.js's

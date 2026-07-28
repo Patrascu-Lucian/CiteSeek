@@ -1,0 +1,164 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  PAGE_SEPARATOR,
+  joinPages,
+  normalizeText,
+  pageNumberForOffset,
+} from "./normalize";
+
+/**
+ * Control characters are written as escape sequences (`\0`, `\u00a0`, `\f`)
+ * rather than embedded as literal bytes. A literal NUL trips git's binary
+ * heuristic, and binary files are exempt from `.gitattributes` line-ending
+ * normalization -- so the file kept its CRLF endings and Prettier rejected it
+ * in CI while passing locally. Escapes also make the intent visible in a diff.
+ */
+
+describe("normalizeText", () => {
+  it("converts CRLF and CR to LF", () => {
+    // Otherwise the same document chunked on Windows and Linux produces
+    // different offsets for identical text.
+    expect(normalizeText("a\r\nb\rc")).toBe("a\nb\nc");
+  });
+
+  it("strips NUL bytes", () => {
+    // Postgres rejects NUL in text columns, so an ingest would fail at the very
+    // last step, after all the embedding work had been paid for.
+    expect(normalizeText("clean\0text")).toBe("cleantext");
+  });
+
+  it("turns form feeds into newlines", () => {
+    expect(normalizeText("page one\fpage two")).toBe("page one\npage two");
+  });
+
+  it("replaces non-breaking spaces with ordinary ones", () => {
+    expect(normalizeText("a\u00a0b")).toBe("a b");
+  });
+
+  it("collapses three or more blank lines into one", () => {
+    expect(normalizeText("a\n\n\n\n\nb")).toBe("a\n\nb");
+  });
+
+  it("preserves a single blank line as a paragraph break", () => {
+    // The chunker splits on paragraph boundaries, so this must survive.
+    expect(normalizeText("a\n\nb")).toBe("a\n\nb");
+  });
+
+  it("preserves internal single spaces and indentation", () => {
+    // Conservative on purpose: every character removed is a chance for an
+    // offset to drift from what the reader sees.
+    expect(normalizeText("def f():\n    return 1")).toBe(
+      "def f():\n    return 1",
+    );
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(normalizeText("\n\n  hello  \n\n")).toBe("hello");
+  });
+
+  it("is idempotent", () => {
+    // It runs once by design, but if it ever ran twice the offsets must not move.
+    const once = normalizeText("a\r\n\r\n\r\n\r\nb\0c\f");
+    expect(normalizeText(once)).toBe(once);
+  });
+
+  it("handles empty input", () => {
+    expect(normalizeText("")).toBe("");
+    expect(normalizeText("   \n\n  ")).toBe("");
+  });
+});
+
+describe("joinPages", () => {
+  it("reports spans that index into the returned text", () => {
+    // The property the whole page-citation feature rests on.
+    const { text, pageSpans } = joinPages(["first page", "second page"]);
+
+    for (const span of pageSpans) {
+      expect(text.slice(span.charStart, span.charEnd)).toBe(
+        span.pageNumber === 1 ? "first page" : "second page",
+      );
+    }
+  });
+
+  it("numbers pages from 1", () => {
+    const { pageSpans } = joinPages(["a", "b", "c"]);
+    expect(pageSpans.map((s) => s.pageNumber)).toEqual([1, 2, 3]);
+  });
+
+  it("accounts for the separator between pages", () => {
+    const { pageSpans } = joinPages(["ab", "cd"]);
+
+    expect(pageSpans[0]).toEqual({ pageNumber: 1, charStart: 0, charEnd: 2 });
+    expect(pageSpans[1]).toEqual({
+      pageNumber: 2,
+      charStart: 2 + PAGE_SEPARATOR.length,
+      charEnd: 4 + PAGE_SEPARATOR.length,
+    });
+  });
+
+  it("normalizes each page before measuring it", () => {
+    // Normalizing after joining would shift every boundary already recorded.
+    const { text, pageSpans } = joinPages(["a\r\nb", "c\0d"]);
+
+    expect(text).toBe(`a\nb${PAGE_SEPARATOR}cd`);
+    expect(text.slice(pageSpans[1]!.charStart, pageSpans[1]!.charEnd)).toBe(
+      "cd",
+    );
+  });
+
+  it("handles a single page", () => {
+    const { text, pageSpans } = joinPages(["only"]);
+    expect(text).toBe("only");
+    expect(pageSpans).toEqual([{ pageNumber: 1, charStart: 0, charEnd: 4 }]);
+  });
+
+  it("handles an empty page in the middle without losing alignment", () => {
+    // Scanned PDFs routinely contain blank pages.
+    const { text, pageSpans } = joinPages(["one", "", "three"]);
+
+    expect(text.slice(pageSpans[2]!.charStart, pageSpans[2]!.charEnd)).toBe(
+      "three",
+    );
+  });
+
+  it("handles no pages", () => {
+    expect(joinPages([])).toEqual({ text: "", pageSpans: [] });
+  });
+});
+
+describe("pageNumberForOffset", () => {
+  const { pageSpans } = joinPages(["alpha", "bravo", "charlie"]);
+
+  it("resolves an offset inside a page", () => {
+    expect(pageNumberForOffset(2, pageSpans)).toBe(1);
+    expect(pageNumberForOffset(pageSpans[1]!.charStart + 1, pageSpans)).toBe(2);
+  });
+
+  it("resolves the first character of a page to that page", () => {
+    // Boundary case: a chunk starting exactly where a page begins must not be
+    // attributed to the previous one.
+    expect(pageNumberForOffset(pageSpans[1]!.charStart, pageSpans)).toBe(2);
+    expect(pageNumberForOffset(pageSpans[2]!.charStart, pageSpans)).toBe(3);
+  });
+
+  it("resolves the last character of a page to that page", () => {
+    expect(pageNumberForOffset(pageSpans[0]!.charEnd - 1, pageSpans)).toBe(1);
+  });
+
+  it("attributes the separator between pages to the page that just ended", () => {
+    // That is where the surrounding text actually came from.
+    expect(pageNumberForOffset(pageSpans[0]!.charEnd, pageSpans)).toBe(1);
+  });
+
+  it("clamps an offset past the end to the last page", () => {
+    expect(pageNumberForOffset(10_000, pageSpans)).toBe(3);
+  });
+
+  it("returns null when the format has no pages", () => {
+    // A citation claiming "page 1" for a markdown file asserts something that
+    // cannot be checked.
+    expect(pageNumberForOffset(5, null)).toBeNull();
+    expect(pageNumberForOffset(5, [])).toBeNull();
+  });
+});
