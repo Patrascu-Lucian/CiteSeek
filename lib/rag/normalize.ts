@@ -33,8 +33,10 @@ export function normalizeText(input: string): string {
       // would only show up as stray glyphs in a citation.
       .replace(/\f/g, "\n")
       // Non-breaking and other exotic spaces render as spaces but break word
-      // splitting in the chunker.
-      .replace(/[   ]/g, " ")
+      // splitting in the chunker. Written as escapes rather than literal bytes so
+      // the diff shows which codepoints are covered:
+      //   U+00A0 no-break space, U+2007 figure space, U+202F narrow no-break
+      .replace(/[\u00a0\u2007\u202f]/g, " ")
       // Three or more blank lines collapse to one blank line. PDF extraction
       // routinely emits long vertical gaps; left alone they push chunk budgets
       // toward whitespace instead of text.
