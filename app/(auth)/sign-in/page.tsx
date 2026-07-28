@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertCircle } from "lucide-react";
@@ -14,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export const metadata = { title: "Sign in" };
+export const metadata: Metadata = { title: "Sign in" };
 
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthAccountNotLinked:

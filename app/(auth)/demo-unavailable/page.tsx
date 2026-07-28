@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import Link from "next/link";
 import { ServerCrash } from "lucide-react";
 
@@ -10,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export const metadata = { title: "Demo unavailable" };
+export const metadata: Metadata = { title: "Demo unavailable" };
 
 /**
  * Shown when the demo workspace has not been seeded or the database is

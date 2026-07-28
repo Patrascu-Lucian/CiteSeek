@@ -32,7 +32,20 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "lcov"],
       include: ["lib/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
-      exclude: ["components/ui/**", "**/*.d.ts"],
+      exclude: [
+        "components/ui/**",
+        "**/*.d.ts",
+        // Orchestration over database calls, covered by
+        // `lib/rag/ingest.integration.test.ts` against a real Postgres.
+        //
+        // Excluded from *unit* coverage rather than unit-tested, because
+        // unit-testing it would mean mocking every query helper and then
+        // asserting the mocks were called — which proves the mocks work, not
+        // that ingestion does. The threshold below exists to hold the pure core
+        // to a high bar; extending it to I/O would push toward exactly the kind
+        // of test that passes while the feature is broken.
+        "lib/rag/ingest.ts",
+      ],
       // >=90% on the pure core, enabled now that it exists -- a threshold over
       // an empty tree passes vacuously and proves nothing.
       //

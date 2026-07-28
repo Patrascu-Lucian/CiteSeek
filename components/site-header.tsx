@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, LogOut } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { leaveDemoAction, signOutAction } from "@/lib/auth/actions";
+import { getActor } from "@/lib/auth/actor";
 
 /**
  * Header for every route outside the landing page.
@@ -10,14 +14,20 @@ import { ArrowLeft } from "lucide-react";
  * opened from a pasted link, which is exactly how an interviewer will arrive.
  * A link always goes somewhere predictable and works with middle-click,
  * open-in-new-tab, and keyboard activation for free.
+ *
+ * Ending a session is offered here because there is nowhere else for it to
+ * live yet, and a session with no exit is a trap: a shared machine keeps the
+ * next person signed in as you.
  */
-export function SiteHeader({
+export async function SiteHeader({
   backHref = "/",
   backLabel = "Back to home",
 }: {
   backHref?: string;
   backLabel?: string;
 }) {
+  const actor = await getActor();
+
   return (
     <header className="border-border/60 border-b">
       <div className="mx-auto flex w-full max-w-5xl items-center gap-4 px-6 py-4">
@@ -39,6 +49,30 @@ export function SiteHeader({
         >
           CiteSeek
         </Link>
+
+        {actor ? (
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-muted-foreground hidden text-sm sm:inline">
+              {actor.type === "user"
+                ? (actor.email ?? actor.name ?? "Signed in")
+                : "Guest session"}
+            </span>
+
+            {/*
+              Two different operations behind one visual affordance. A signed-in
+              user has a session row Auth.js must delete; a guest has only a
+              signed cookie and nothing server-side.
+            */}
+            <form
+              action={actor.type === "user" ? signOutAction : leaveDemoAction}
+            >
+              <Button type="submit" variant="ghost" size="sm">
+                <LogOut aria-hidden="true" className="size-4" />
+                {actor.type === "user" ? "Sign out" : "Leave demo"}
+              </Button>
+            </form>
+          </div>
+        ) : null}
       </div>
     </header>
   );

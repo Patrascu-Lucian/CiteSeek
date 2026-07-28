@@ -68,7 +68,7 @@ export async function listDocuments(
   //
   // `count(chunks.embedding)` counts non-null values, which is exactly the
   // progress figure wanted, and LEFT JOIN keeps documents that have no chunks.
-  const rows = await db
+  return db
     .select({
       id: documents.id,
       filename: documents.filename,
@@ -87,8 +87,6 @@ export async function listDocuments(
     .where(eq(documents.workspaceId, workspaceId))
     .groupBy(documents.id)
     .orderBy(desc(documents.createdAt));
-
-  return rows;
 }
 
 export async function findDocumentInWorkspace(
@@ -121,9 +119,16 @@ export async function createQueuedDocument(
 /**
  * Status transitions and extraction results.
  *
- * `updatedAt` is set explicitly on every write. Postgres will not maintain it
- * for us, and the stale-processing watchdog reads it — a document whose
- * timestamp never moves would be marked dead while it was still working.
+ * `updatedAt` is set explicitly on every write, using the database's clock via
+ * `now()` rather than a JavaScript `Date`.
+ *
+ * That distinction is load-bearing. `createdAt`/`updatedAt` default to
+ * `defaultNow()`, which is Postgres' clock, and the database is on another
+ * machine. Passing `new Date()` from the app mixes two clocks in one column, and
+ * with even a few milliseconds of skew an update can write a timestamp *earlier*
+ * than the insert it follows — observed at 23 ms against Neon. The
+ * stale-processing watchdog compares these timestamps, so a column that can move
+ * backwards is a correctness problem rather than a cosmetic one.
  */
 export async function updateDocument(
   workspaceId: string,
@@ -139,7 +144,7 @@ export async function updateDocument(
 ) {
   const [updated] = await db
     .update(documents)
-    .set({ ...patch, updatedAt: new Date() })
+    .set({ ...patch, updatedAt: sql`now()` })
     .where(
       and(eq(documents.id, documentId), eq(documents.workspaceId, workspaceId)),
     )
@@ -285,18 +290,25 @@ export async function countChunks(workspaceId: string, documentId: string) {
  * would make it a data-access path.
  */
 export async function failStaleProcessing(): Promise<number> {
-  const cutoff = new Date(Date.now() - STALE_PROCESSING_MINUTES * 60_000);
-
+  // The cutoff is computed by Postgres too. Deriving it from `Date.now()` would
+  // compare the app's clock against timestamps written by the database's, and
+  // the skew between them is exactly what this comparison must not depend on.
   const failed = await db
     .update(documents)
     .set({
       status: "failed",
       error:
         "Processing stopped unexpectedly and did not finish. Try uploading this document again.",
-      updatedAt: new Date(),
+      updatedAt: sql`now()`,
     })
     .where(
-      and(eq(documents.status, "processing"), lt(documents.updatedAt, cutoff)),
+      and(
+        eq(documents.status, "processing"),
+        lt(
+          documents.updatedAt,
+          sql`now() - make_interval(mins => ${STALE_PROCESSING_MINUTES})`,
+        ),
+      ),
     )
     .returning({ id: documents.id });
 
