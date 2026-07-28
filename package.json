@@ -28,7 +28,9 @@
     "db:seed": "node lib/db/seed.mts"
   },
   "dependencies": {
+    "@ai-sdk/google": "4.0.24",
     "@auth/drizzle-adapter": "1.11.3",
+    "ai": "7.0.37",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "0.45.2",

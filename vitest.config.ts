@@ -25,9 +25,28 @@ export default defineConfig({
       reporter: ["text", "lcov"],
       include: ["lib/**/*.{ts,tsx}", "components/**/*.{ts,tsx}"],
       exclude: ["components/ui/**", "**/*.d.ts"],
-      // The bar is >=90% for lib/rag and lib/ai -- the pure core of the project.
-      // Those directories do not exist yet, so thresholds are deliberately left
-      // off until Milestone 1: a threshold over an empty tree is theatre.
+      // >=90% on the pure core, enabled now that it exists -- a threshold over
+      // an empty tree passes vacuously and proves nothing.
+      //
+      // Scoped by glob rather than set globally: `lib/db` and `lib/auth` are
+      // covered by integration and E2E tests, which run from other configs, so
+      // a global threshold here would measure the wrong thing and push toward
+      // writing unit tests for code whose behavior only means something against
+      // a real database.
+      thresholds: {
+        "lib/rag/**": {
+          statements: 90,
+          branches: 90,
+          functions: 90,
+          lines: 90,
+        },
+        "lib/ai/**": {
+          statements: 90,
+          branches: 90,
+          functions: 90,
+          lines: 90,
+        },
+      },
     },
   },
 });
