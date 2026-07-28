@@ -20,8 +20,8 @@ is revenue to justify it.**
 
 ### One-way doors — get these right now
 
-**Tenant isolation.** Already mandated in CLAUDE.md: every query helper in `lib/db` and
-`lib/rag` takes a workspace scope, and unscoped query functions must not exist. Retrofitting
+**Tenant isolation.** Every query helper in `lib/db` and `lib/rag` takes a workspace scope,
+and unscoped query functions do not exist. Retrofitting
 isolation into a codebase that assumed a single tenant means auditing every query ever
 written. With paying customers a cross-tenant leak stops being a bug report and becomes a
 breach notification. This is the single most important line in the project's conventions.
@@ -54,7 +54,7 @@ would grant anyone the right to commercialize the code. Revisit only if revenue 
 
 ## Consequences
 
-- **The roadmap does not change.** Milestones 1–6 are the same whether or not this ever
+- **The plan does not change.** Milestones 1–6 are the same whether this ever
   earns anything, because a product good enough to charge for and a project good enough to
   interview on are largely the same artifact.
 - **The repository is public**, which resolves two earlier open questions: GitHub branch

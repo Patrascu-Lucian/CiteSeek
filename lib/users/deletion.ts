@@ -15,8 +15,9 @@ import { users } from "@/lib/db/schema";
  *          ├─ workspaces ── documents ── chunks
  *          └─ chats ── messages
  *
- * The roadmap's "deleting a document removes file, chunks, AND embeddings" is
- * satisfied structurally rather than by application code remembering to tidy up:
+ * The requirement that deleting a document removes the file, its chunks *and*
+ * their embeddings is met structurally rather than by application code
+ * remembering to tidy up:
  * embeddings live in `chunks.embedding`, so they go with the chunk row. And
  * because extracted text is stored in `documents.contentText` rather than as
  * uploaded files in object storage, there is nothing left behind to orphan —

@@ -36,10 +36,10 @@ remains on the backlog as an upgrade if the text view proves insufficient in rea
 ## Consequences
 
 - **Erasure is one SQL statement.** Deleting a user cascades to workspaces, documents and
-  chunks; because there are no files anywhere, nothing is orphaned. The roadmap's "deleting
-  a document removes file, chunks, AND embeddings" is satisfied structurally — embeddings
-  live in `chunks.embedding`, so they go with the row. "Removes file" maps to `contentText`,
-  since no original bytes are kept. See `lib/users/deletion.ts`.
+  chunks; because there are no files anywhere, nothing is orphaned. The requirement that
+  deleting a document removes the file, its chunks and their embeddings is met structurally —
+  embeddings live in `chunks.embedding`, so they go with the row, and "the file" is
+  `contentText`, since no original bytes are kept. See `lib/users/deletion.ts`.
 - **Page spans had to be stored, not computed.** They are derived during extraction from
   `unpdf`'s per-page output. Since the original file is discarded, they can never be
   recomputed — adding the column later would require re-uploading every document. That
@@ -51,8 +51,8 @@ remains on the backlog as an upgrade if the text view proves insufficient in rea
   the _extraction_ (a better PDF parser, OCR) does.
 - **Parsing safety.** `unpdf` and `mammoth` are pure JavaScript: no shell-outs, no native
   binaries, and uploaded bytes are never written to disk or executed. Combined with a size
-  cap and magic-byte checks, this keeps the "malware-safe parsing" bar (quality bar #5)
-  a property of the design rather than of a scanner.
+  cap and magic-byte checks, this makes safe handling of untrusted uploads a property of
+  the design rather than of a scanner.
 - **Errors must never contain document text.** `documents.error` stores a sanitized
-  exception message only. Quality bar #8 forbids logging document contents, and an error
-  column is a log by another name.
+  exception message only. Document contents are never logged, and an error column is a log
+  by another name.
