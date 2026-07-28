@@ -53,6 +53,16 @@ export class UnreadableDocumentError extends Error {
   }
 }
 
+/**
+ * Note: PDF.js takes ownership of the array it is given and **detaches it**.
+ * After this call `bytes.length` is 0, and any later read of the same array sees
+ * an empty buffer rather than an error.
+ *
+ * Nothing here depends on that today — the upload route records `sizeBytes`
+ * before dispatching, and no format falls back to a second parser. It is
+ * documented because the failure it would cause is silent: a fallback parser
+ * handed the same array would simply find an empty document.
+ */
 async function extractPdf(bytes: Uint8Array): Promise<ExtractedDocument> {
   const { extractText } = await import("unpdf");
 

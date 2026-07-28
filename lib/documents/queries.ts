@@ -104,6 +104,19 @@ export async function findDocumentInWorkspace(
   return document ?? null;
 }
 
+/**
+ * Returns an explicit column list rather than a bare `.returning()`.
+ *
+ * A bare `.returning()` asks Postgres for every column the *schema* declares,
+ * including ones the caller never reads. That made this insert fail against any
+ * database whose schema had drifted — which is exactly what happened in
+ * production: migration 0001 added `content_text` and `page_spans`, the
+ * migration had not been applied there, and uploads returned a bodyless 500
+ * while the documents list kept working because it selects columns explicitly.
+ *
+ * Asking only for what is used means schema drift breaks the queries that
+ * actually depend on the missing column, and nothing else.
+ */
 export async function createQueuedDocument(
   workspaceId: string,
   input: { filename: string; mimeType: string; sizeBytes: number },
@@ -111,7 +124,16 @@ export async function createQueuedDocument(
   const [document] = await db
     .insert(documents)
     .values({ ...input, workspaceId, status: "queued" })
-    .returning();
+    .returning({
+      id: documents.id,
+      workspaceId: documents.workspaceId,
+      filename: documents.filename,
+      mimeType: documents.mimeType,
+      sizeBytes: documents.sizeBytes,
+      status: documents.status,
+      createdAt: documents.createdAt,
+      updatedAt: documents.updatedAt,
+    });
 
   return document!;
 }

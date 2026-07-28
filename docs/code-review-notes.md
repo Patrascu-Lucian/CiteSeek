@@ -64,6 +64,24 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   checking a limit before the schema is written rather than after documents are ingested
   against it.
 
+### A production 500 from a migration that was never applied there
+
+- **Issue**: uploads on production returned a bodyless 500 while the workspace page rendered
+  normally. The code was identical to what worked locally; the _database_ was not. Migration
+  0001 added `content_text` and `page_spans`, and had only ever been run against the dev
+  branch. The split in symptoms was the diagnosis: `listDocuments` names its columns
+  explicitly and kept working, while `createQueuedDocument` used a bare `.returning()` —
+  which makes Drizzle emit `RETURNING` for every column the schema declares, including the
+  two that did not exist.
+- **Fix**: applied 0001 to production, then changed the insert to return an explicit column
+  list so it asks only for what it reads.
+- **Lesson**: two separate failures, and the second is the more useful one. Forgetting to
+  migrate production is a process gap, logged in the backlog. But the bare `.returning()` is
+  what turned a missing column nobody read into a total failure of the upload path — asking
+  for more than you need converts unrelated schema drift into an outage. The give-away was
+  that one query survived and the other did not, which pointed at the column lists rather
+  than at the connection.
+
 ### An uploaded file sat at "Queued" until the page was reloaded
 
 - **Issue**: found by using the app, not by any test. `DocumentList` seeded itself with
