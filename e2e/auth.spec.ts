@@ -153,6 +153,53 @@ test.describe("navigation", () => {
   });
 });
 
+test.describe("ending a session", () => {
+  test("a guest can leave the demo and the session is actually gone", async ({
+    page,
+    context,
+  }) => {
+    // The assertion that matters is the second navigation, not the redirect: a
+    // button that returns you home while leaving the cookie in place looks
+    // identical and logs nobody out.
+    await page.goto("/demo");
+    const workspaceUrl = page.url();
+
+    await page.getByRole("button", { name: /leave demo/i }).click();
+    await expect(page).toHaveURL(/\/$/);
+
+    const cookies = await context.cookies();
+    expect(cookies.find((c) => c.name === "citeseek.guest")).toBeUndefined();
+
+    await page.goto(workspaceUrl);
+    await expect(page).toHaveURL(/\/sign-in/);
+  });
+
+  test("shows the guest they are in a guest session", async ({ page }) => {
+    await page.goto("/demo");
+
+    await expect(page.getByText(/guest session/i)).toBeVisible();
+  });
+
+  test("offers no session exit to a visitor who has none", async ({ page }) => {
+    await page.goto("/sign-in");
+
+    await expect(
+      page.getByRole("button", { name: /leave demo|sign out/i }),
+    ).toHaveCount(0);
+  });
+
+  test("the exit control is keyboard operable", async ({ page }) => {
+    await page.goto("/demo");
+
+    const leave = page.getByRole("button", { name: /leave demo/i });
+    await leave.focus();
+    await expect(leave).toBeFocused();
+    await page.keyboard.press("Enter");
+
+    await expect(page).toHaveURL(/\/$/);
+  });
+});
+
 test.describe("sign-in page", () => {
   test("offers GitHub and links to the demo", async ({ page }) => {
     await page.goto("/sign-in");

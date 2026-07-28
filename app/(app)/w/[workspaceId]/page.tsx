@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import Link from "next/link";
 import { FileText, Lock } from "lucide-react";
 
@@ -13,7 +15,7 @@ import { getActor } from "@/lib/auth/actor";
 import { canWrite, accessToWorkspace } from "@/lib/auth/authorization";
 import { findWorkspaceById } from "@/lib/auth/demo";
 
-export const metadata = { title: "Workspace" };
+export const metadata: Metadata = { title: "Workspace" };
 
 /**
  * Not-found and unauthorized are deliberately the same response.
