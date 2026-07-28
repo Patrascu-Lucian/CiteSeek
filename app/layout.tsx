@@ -34,7 +34,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground flex min-h-full flex-col">
         {/*
           Skip link: the chat surface will be a long, streaming region, so a
-          keyboard user must be able to jump past the nav. Quality bar #3 starts
+          keyboard user must be able to jump past the nav. Accessibility starts
           here rather than being retrofitted in Milestone 3.
         */}
         <a

@@ -21,10 +21,10 @@ import {
 /**
  * Every read and write of document data.
  *
- * **Each function takes a `workspaceId` and filters on it in SQL.** Not as a
- * convention but as the structural guarantee CLAUDE.md's quality bar #5 and ADR
- * 007 require: there is no helper here that can return another tenant's rows,
- * because there is no helper here that omits the scope.
+ * **Each function takes a `workspaceId` and filters on it in SQL.** Tenant
+ * isolation is structural rather than conventional: there is no helper here that
+ * can return another tenant's rows, because there is no helper here that omits
+ * the scope. See ADR 007 for why this is treated as a one-way door.
  *
  * Chunks have no `workspace_id` of their own — they inherit it through their
  * document — so chunk queries join to `documents` and filter there rather than
@@ -159,8 +159,8 @@ export async function deleteDocumentInWorkspace(
     )
     .returning({ id: documents.id });
 
-  // Chunks go with it via ON DELETE CASCADE -- "real deletion" in the roadmap
-  // means the embeddings are gone too, not merely unreferenced.
+  // Chunks go with it via ON DELETE CASCADE. Deletion has to be real: the
+  // embeddings are gone too, not merely unreferenced.
   return deleted.length > 0;
 }
 

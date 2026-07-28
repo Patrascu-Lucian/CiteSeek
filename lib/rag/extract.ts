@@ -8,8 +8,9 @@ import { type PageSpan, joinPages, normalizeText } from "./normalize";
  * format actually has pages. PDFs do; docx, markdown and plain text do not, and
  * they report null rather than pretending everything is page 1.
  *
- * Parsers here are pure JavaScript by deliberate choice (quality bar #5, safe
- * parsing): `unpdf` ships a serverless PDF.js build and `mammoth` reads the docx
+ * Parsers here are pure JavaScript by deliberate choice, so that parsing
+ * untrusted uploads is safe by construction: `unpdf` ships a serverless PDF.js
+ * build and `mammoth` reads the docx
  * ZIP directly. Neither shells out, and uploaded bytes are never written to disk
  * or executed — they exist only in the request's memory and are discarded once
  * the text is extracted.

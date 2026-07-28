@@ -8,9 +8,9 @@ At scaffold time the newest published versions were TypeScript **7.0.2** (the Go
 compiler) and ESLint **10.8.0**. Both are genuinely stable releases, and taking the
 newest of everything is the default instinct on a greenfield portfolio project.
 
-The roadmap's standing rule is _CI green from day one_, and quality bar #7 requires
-type-aware linting with `no-explicit-any` enforced. Those two commitments turn out to
-constrain the version choice more than "newest is best" does.
+Two standing commitments turn out to constrain the version choice more than "newest is
+best" does: CI must be green from day one, and TypeScript runs strict with `no-explicit-any`
+enforced by type-aware linting.
 
 ## Options considered
 
