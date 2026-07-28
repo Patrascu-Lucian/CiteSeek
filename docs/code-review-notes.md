@@ -277,3 +277,19 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   notice immediately. The churn being avoided was hypothetical and rare; the inconsistency
   was real and permanent. When an exclusion is added "just in case", check whether the
   thing being excluded would actually have failed.
+
+### A relevance filter in `WHERE` would have silently defeated the vector index
+
+- **Issue**: the first draft of the retrieval query applied the relevance floor the obvious
+  way — `WHERE embedding <=> $query <= 0.6`, alongside the workspace filter, with
+  `ORDER BY ... LIMIT k`. It returns correct rows, and on the small data volumes a portfolio
+  project sees it would have looked perfectly fine forever.
+- **Fix**: split into two steps. The inner query is the shape an HNSW index can actually
+  accelerate — order by the distance operator, take the top k — and the floor is applied in
+  an outer select over those k rows. Same results, index still used.
+- **Lesson**: an approximate nearest-neighbour index answers "the nearest k", not "everything
+  within distance x". It walks its graph outward from the query point; a threshold predicate
+  isn't a question that graph can answer, so the planner falls back to computing a distance
+  for every candidate row. The tell is that nothing breaks — you get the right answers via a
+  sequential scan, and the index you carefully created in migration 0000 sits unused until
+  the table is large enough for it to matter, which is the worst possible moment to find out.

@@ -35,16 +35,23 @@ export default defineConfig({
       exclude: [
         "components/ui/**",
         "**/*.d.ts",
-        // Orchestration over database calls, covered by
-        // `lib/rag/ingest.integration.test.ts` against a real Postgres.
+        // Orchestration over database calls, covered by the matching
+        // `*.integration.test.ts` against a real Postgres.
         //
         // Excluded from *unit* coverage rather than unit-tested, because
-        // unit-testing it would mean mocking every query helper and then
+        // unit-testing these would mean mocking every query helper and then
         // asserting the mocks were called — which proves the mocks work, not
         // that ingestion does. The threshold below exists to hold the pure core
         // to a high bar; extending it to I/O would push toward exactly the kind
         // of test that passes while the feature is broken.
+        //
+        // `retrieve.ts` is the sharper case: it is almost entirely a SQL query,
+        // and the only assertions worth making about it — that the workspace
+        // filter is applied, that a null embedding cannot outrank a real match,
+        // that ordering survives the subquery — are answerable only by a
+        // database actually executing it.
         "lib/rag/ingest.ts",
+        "lib/rag/retrieve.ts",
       ],
       // >=90% on the pure core, enabled now that it exists -- a threshold over
       // an empty tree passes vacuously and proves nothing.
