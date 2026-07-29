@@ -314,3 +314,22 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   simply inert, and only a test that asserts the _visual_ state rather than the callback
   catches it. The test that clicked a chip and checked the panel opened passed the whole
   time.
+
+### A modal source panel hid the thing it was there to verify
+
+- **Issue**: the citation panel was built on a standard modal sheet — overlay, focus trap,
+  page behind marked `aria-hidden`. That is the correct default for a dialog, and wrong
+  for this one. Checking a citation means reading the claim and the cited passage
+  _together_; a panel that dims and hides the answer removes half of what the reader came
+  to compare. The tests found it indirectly: the chip's `aria-pressed` state became
+  unassertable, because `getByRole` respects `aria-hidden` and the chip was now behind a
+  modal — which is precisely the same reason a real user could no longer see it.
+- **Fix**: `modal={false}`, no overlay, and `onInteractOutside` prevented so clicking back
+  into the conversation does not dismiss the panel. Radix still moves focus into the panel
+  on open and restores it on close, and Escape still dismisses; what is given up is the
+  focus _trap_, which was never wanted here.
+- **Lesson**: "it's a dialog, use the dialog primitive" imports a set of defaults designed
+  for interruption — demand attention, block everything else, return when dismissed. A
+  reference panel is the opposite: it exists to be read alongside. Worth asking what each
+  default is _for_ before accepting it, and noticing when a test becomes awkward to write
+  because the accessibility tree is telling you the same thing a user would.

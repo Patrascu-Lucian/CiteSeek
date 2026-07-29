@@ -10,6 +10,7 @@ import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
 
 import { Composer } from "./composer";
 import { MessageList } from "./message-list";
+import { SourcePanel } from "./source-panel";
 
 /**
  * Owns the conversation and everything that mutates it.
@@ -87,33 +88,11 @@ export function ChatPanel({
         />
       </div>
 
-      {/*
-        Placeholder for the source panel, which slice 4 replaces with the full
-        document scrolled to the passage. Rendering the quote now rather than
-        leaving the chip inert: a control that visibly does nothing is worse than
-        a small one that does something honest.
-      */}
-      {selected ? (
-        <aside className="border-border bg-muted/40 rounded-lg border p-4 text-sm">
-          <p className="text-muted-foreground text-xs font-medium">
-            {selected.filename}
-            {selected.pageNumber === null
-              ? ""
-              : ` · page ${selected.pageNumber}`}
-          </p>
-          <blockquote className="mt-2 border-l-2 pl-3">
-            {selected.quote}
-          </blockquote>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-2"
-            onClick={() => setSelected(null)}
-          >
-            Close
-          </Button>
-        </aside>
-      ) : null}
+      <SourcePanel
+        source={selected}
+        workspaceId={workspaceId}
+        onClose={() => setSelected(null)}
+      />
 
       {error ? (
         <div
