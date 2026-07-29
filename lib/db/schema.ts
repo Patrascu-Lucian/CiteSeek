@@ -262,6 +262,12 @@ export const chats = pgTable(
 export type MessageCitation = {
   chunkId: string;
   documentId: string;
+  /**
+   * Part of the snapshot, not a join. A chip has to be able to name its source
+   * even after the document is deleted, and reading the name live would also let
+   * a rename silently rewrite what an old answer appears to have cited.
+   */
+  filename: string;
   pageNumber: number | null;
   charStart: number;
   charEnd: number;
@@ -275,6 +281,14 @@ export const messages = pgTable(
     chatId: uuid("chat_id")
       .notNull()
       .references(() => chats.id, { onDelete: "cascade" }),
+    /**
+     * Position within the conversation, for the same reason `chunks` carries
+     * `chunkIndex`: `created_at` defaults to `now()`, which is the *transaction*
+     * timestamp, so every row written by one statement shares it. A turn inserts
+     * the question and the answer together, leaving the tiebreak to a random
+     * UUIDv4 primary key — which rendered transcripts in arbitrary order.
+     */
+    position: integer("position").notNull(),
     role: messageRole("role").notNull(),
     content: text("content").notNull(),
     /** Empty array for user messages; populated for grounded assistant answers. */
@@ -286,7 +300,15 @@ export const messages = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [index("messages_chat_id_idx").on(table.chatId)],
+  (table) => [
+    index("messages_chat_id_idx").on(table.chatId),
+    // Unique, so a concurrent append fails loudly rather than silently
+    // duplicating a position and reordering the transcript.
+    uniqueIndex("messages_chat_id_position_idx").on(
+      table.chatId,
+      table.position,
+    ),
+  ],
 );
 
 /* ---------------------------------------------------------------------------

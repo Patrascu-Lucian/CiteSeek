@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/card";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
+import { loadLatestChat } from "@/lib/chats/queries";
+import { toUIMessages } from "@/lib/chats/to-ui-messages";
 import { getActor } from "@/lib/auth/actor";
 import { canWrite, accessToWorkspace } from "@/lib/auth/authorization";
 import { findWorkspaceById } from "@/lib/auth/demo";
@@ -77,6 +79,14 @@ export default async function WorkspacePage({
   // Server-rendered so the list is correct before any JavaScript runs; the
   // client component only refines it by polling.
   const documents = await listDocuments(workspace.id);
+
+  // Only signed-in conversations are stored, so only they can be restored. A
+  // guest reloading the demo starts fresh, which is the visible consequence of
+  // not writing rows for anonymous visitors.
+  const storedChat =
+    actor?.type === "user"
+      ? await loadLatestChat(workspace.id, actor.id)
+      : null;
 
   return (
     <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
@@ -148,13 +158,16 @@ export default async function WorkspacePage({
         {/*
           Guests may ask questions of the demo — chat is a read operation, and
           the route authorizes `read` for exactly that reason. What they do not
-          get is persistence, which arrives with signed-in chats in slice 5.
+          get is persistence: their conversation lives in browser state and is
+          gone on reload, which is what keeps an unbounded write path off a
+          public URL.
         */}
         <ChatPanel
           workspaceId={workspace.id}
           hasReadyDocuments={documents.some(
             (document) => document.status === "ready",
           )}
+          initialMessages={storedChat ? toUIMessages(storedChat.messages) : []}
         />
       </section>
     </main>

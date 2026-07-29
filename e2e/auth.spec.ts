@@ -179,10 +179,20 @@ test.describe("documents in the demo workspace", () => {
     await expect(page.getByRole("button", { name: /retry/i })).toHaveCount(0);
   });
 
-  test("shows an empty state rather than a blank panel", async ({ page }) => {
+  test("lists the seeded document, so there is something to ask about", async ({
+    page,
+  }) => {
+    // This used to assert the empty state. The demo is now seeded with a
+    // fixture, because a guest can only read it — without a document, every
+    // question returns the same refusal and the demo shows nothing of what the
+    // product does. The empty state itself is covered in `document-list.test.tsx`,
+    // where it can be rendered on demand rather than depending on seed data.
     await page.goto("/demo");
 
-    await expect(page.getByText(/no documents yet/i)).toBeVisible();
+    await expect(
+      page.getByText(/northwind-remote-work-handbook/i),
+    ).toBeVisible();
+    await expect(page.getByText(/no documents yet/i)).toHaveCount(0);
   });
 
   test("offers a guest no account-deletion control", async ({ page }) => {

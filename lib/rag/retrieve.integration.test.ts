@@ -14,7 +14,8 @@ import {
   setChunkEmbeddings,
 } from "@/lib/documents/queries";
 
-import { MAX_DISTANCE, retrieveChunks } from "./retrieve";
+import { retrieveChunks } from "./retrieve";
+import { MAX_DISTANCE_BY_PROVIDER } from "./retrieval-config";
 import { l2Normalize } from "./vector";
 
 const { client, db } = createTestClient();
@@ -129,7 +130,11 @@ describe("retrieveChunks", () => {
     });
 
     expect(results.map((r) => r.content)).toEqual(["Relevant."]);
-    expect(results.every((r) => r.distance <= MAX_DISTANCE)).toBe(true);
+    // These tests inject their own embedder, so the fake provider's floor is
+    // the one in force.
+    expect(
+      results.every((r) => r.distance <= MAX_DISTANCE_BY_PROVIDER.fake),
+    ).toBe(true);
   });
 
   it("returns nothing when every passage is beyond the floor", async () => {

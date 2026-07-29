@@ -22,16 +22,23 @@ import { SourcePanel } from "./source-panel";
 export function ChatPanel({
   workspaceId,
   hasReadyDocuments,
+  initialMessages = [],
 }: {
   workspaceId: string;
   /** Whether anything has finished processing. Nothing to search without it. */
   hasReadyDocuments: boolean;
+  /**
+   * A signed-in user's stored conversation, server-rendered. Empty for guests,
+   * whose chats are never persisted.
+   */
+  initialMessages?: ChatUIMessage[];
 }) {
   const [input, setInput] = useState("");
   const [selected, setSelected] = useState<ChatSource | null>(null);
 
   const { messages, sendMessage, regenerate, stop, status, error, clearError } =
     useChat<ChatUIMessage>({
+      messages: initialMessages,
       transport: new DefaultChatTransport({
         api: `/api/w/${workspaceId}/chat`,
       }),

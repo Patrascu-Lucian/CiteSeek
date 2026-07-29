@@ -6,8 +6,10 @@ clickable citations to exact source passages.
 **Live:** [cite-seek.vercel.app](https://cite-seek.vercel.app) — click **Try the demo**;
 no account needed.
 
-> **Status: Milestone 1 complete.** Upload a PDF, Word document, Markdown or text file and
-> watch it parse, chunk, embed and become searchable. Retrieval and chat land in Milestone 2.
+> **Status: Milestone 2 complete.** Upload a PDF, Word document, Markdown or text file, then
+> ask questions about it. Answers stream, and every claim carries a numbered citation that
+> opens the source document scrolled to the exact passage. When nothing relevant is found,
+> the answer says so and cites nothing.
 
 ## Stack
 
@@ -93,22 +95,41 @@ for its page count; a dense report of the same length would produce closer to 50
 The figure above proves the path works end to end in production, not that the ceiling has
 been stressed.
 
-Lighthouse and TTFT targets are Milestone 3.
+**Client bundle**, measured against the production build by reading the scripts the page
+actually serves:
+
+| Route     | Initial JS |
+| --------- | ---------- |
+| `/w/[id]` | 694 KB     |
+
+The chat UI brought in `streamdown` for streaming-safe markdown — text arrives a token at a
+time, so half-written markdown is the normal state rather than an error. It pulls a diagram
+renderer and a syntax highlighter transitively, together 428 KB, and **neither appears in any
+chunk the page loads**: both sit behind `React.lazy` and are fetched only if an answer
+contains a diagram or a code block. Recorded as the baseline the Milestone 3 bundle budget
+gets measured against, rather than a target invented afterwards.
+
+TTFT and Lighthouse are Milestone 3.
 
 ## Testing
 
-| Layer       | Count | What it covers                                                             |
-| ----------- | ----- | -------------------------------------------------------------------------- |
-| Unit        | 214   | Chunking, extraction, embeddings, validation, auth rules, UI components    |
-| Integration | 45    | Real Postgres: ingestion, tenant isolation, cascades, vector constraints   |
-| E2E         | 25    | Guest flow, route protection, read-only demo, session exit, keyboard paths |
+| Layer       | Count | What it covers                                                                     |
+| ----------- | ----- | ---------------------------------------------------------------------------------- |
+| Unit        | 306   | Chunking, extraction, embeddings, prompts, citation markers, highlighting, chat UI |
+| Integration | 76    | Real Postgres: ingestion, retrieval, chat route, tenant isolation, cascades        |
+| E2E         | 32    | Guest flow, route protection, ask → stream → cite → source panel, keyboard paths   |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
 
-A deterministic fake embedder (`EMBEDDINGS_PROVIDER=fake`) exercises the whole ingestion
-path with no API key and no network, so CI and local development need neither. It proves the
-pipeline stores and orders correctly; it says nothing about retrieval quality, which needs
-the real provider.
+Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)
+exercise ingestion, retrieval and the whole answer path with no API key and no network, so CI
+and local development need neither. The fake embedder is a hashing bag-of-words vectorizer:
+text sharing words lands close together, which is enough for a real question to retrieve a
+real passage end to end. It is not semantic, and says nothing about retrieval quality — that
+needs the real provider, and the relevance floor is calibrated per embedding model for
+exactly that reason.
+
+A live model would also make "the answer cites `[1]`" a coin toss rather than an assertion.
 
 Integration tests run against a throwaway pgvector container in CI rather than a shared
 database, so they also prove the migration applies cleanly to an empty database on every
@@ -136,8 +157,15 @@ Built with AI-assisted tooling (Claude Code) under close review — see
 
 ## Known gaps at this milestone
 
-Retrieval and chat arrive in Milestone 2, so an ingested document is searchable in the
-database but there is nothing to ask yet. Email magic-link sign-in is deferred until an
-email sender is configured — GitHub OAuth and guest mode both work. The demo workspace is
-read-only by design, so uploading requires signing in. Tracked in
-[`docs/backlog.md`](docs/backlog.md).
+Guest conversations are not saved — a reload starts over. That is deliberate: persisting them
+would put an unbounded write path behind a public URL, and rate limiting arrives in Milestone
+3 ([ADR 013](docs/decisions/013-chat-persistence.md)). Conversation history, rename and delete
+are Milestone 4.
+
+The relevance threshold that decides when to answer "I don't know" is a starting value, not a
+tuned one; it needs measuring against real documents with the real embedding model. The demo
+document is Markdown, so its citations show a filename but no page number.
+
+Email magic-link sign-in is deferred until an email sender is configured — GitHub OAuth and
+guest mode both work. The demo workspace is read-only by design, so uploading requires signing
+in. Tracked in [`docs/backlog.md`](docs/backlog.md).

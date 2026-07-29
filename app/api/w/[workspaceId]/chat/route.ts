@@ -15,7 +15,9 @@ import {
   buildSystemPrompt,
 } from "@/lib/ai/prompt";
 import { getChatModel } from "@/lib/ai/provider";
-import { type ChatUIMessage, SOURCES_PART_ID } from "@/lib/ai/types";
+import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
+import { SOURCES_PART_ID } from "@/lib/ai/types";
+import { appendMessages, getOrCreateChat } from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { listDocuments } from "@/lib/documents/queries";
 import { retrieveChunks } from "@/lib/rag/retrieve";
@@ -125,11 +127,37 @@ export async function POST(
 
   const retrieved = await retrieveChunks(auth.workspaceId, question);
 
+  // Pulled out before the closure below rather than read through `auth` and
+  // `question` inside it: TypeScript drops narrowing at a function boundary, so
+  // both would widen back to their unnarrowed types. Plain values need no
+  // narrowing to survive.
+  const { workspaceId: scope, actorType, actorId } = auth;
+  const asked: string = question;
+
+  // Signed-in conversations persist; guests keep theirs in browser state only.
+  // A guest is anonymous and unlimited, so writing rows for one would put an
+  // unbounded write path behind a public URL — the concern ADR 005 raised about
+  // the demo workspace, which chat would otherwise reintroduce.
+  const chatId =
+    actorType === "user" ? (await getOrCreateChat(scope, actorId)).id : null;
+
+  async function persist(answer: string, citations: ChatSource[]) {
+    if (!chatId) return;
+
+    await appendMessages(scope, actorId, chatId, [
+      { role: "user", content: asked },
+      { role: "assistant", content: answer, citations },
+    ]);
+  }
+
   // The relevance floor, and the reason "I don't know" is structural: with no
   // passages the model is never called, so there is nothing to answer from and
   // nothing to cite. Compare with instructing a model to refuse, which works
   // most of the time.
   if (retrieved.length === 0) {
+    // Persisted like any other turn. A refusal is part of the conversation, and
+    // a reload that silently dropped it would make the transcript a lie.
+    await persist(NO_RELEVANT_PASSAGES_REPLY, []);
     return createUIMessageStreamResponse({ stream: refusalStream() });
   }
 
@@ -180,6 +208,10 @@ export async function POST(
         // A tool call and then an answer. Without a bound, a model that keeps
         // calling the tool loops until the function times out.
         stopWhen: stepCountIs(2),
+        // Fires once the model has finished, including when the reader pressed
+        // Stop — a partial answer is still what they were shown, so it is still
+        // what the transcript should say.
+        onFinish: ({ text }) => persist(text, sources),
       });
 
       writer.merge(result.toUIMessageStream());
