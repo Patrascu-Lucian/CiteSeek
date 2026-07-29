@@ -1,3 +1,5 @@
+import type { UIMessage } from "ai";
+
 import type { MessageCitation } from "@/lib/db/schema";
 
 /**
@@ -19,3 +21,21 @@ export type ChatSource = MessageCitation & {
   marker: number;
   filename: string;
 };
+
+/**
+ * The id the sources data part is written under.
+ *
+ * Stable rather than generated: writing the same id again replaces the part
+ * rather than appending a second one, so a regenerated answer cannot leave a
+ * stale source list behind next to the new one.
+ */
+export const SOURCES_PART_ID = "sources";
+
+/**
+ * The message shape shared by the route and the client.
+ *
+ * The `sources` data part is what carries citations. It is written *before* the
+ * model's text, so a `[1]` arriving mid-stream already has something to resolve
+ * against — chips appear as the answer is typed rather than after it finishes.
+ */
+export type ChatUIMessage = UIMessage<never, { sources: ChatSource[] }>;
