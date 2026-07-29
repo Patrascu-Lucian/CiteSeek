@@ -363,12 +363,12 @@ lesson worth keeping. One entry per correction, newest last. Source material for
 - **Fix**: lifted `documents` into a single client component that renders both sections, so
   the flag is derived on every render from the same state the list shows. `DocumentsPanel`
   went away — with the state above it, it was only a layout wrapper.
-- **Lesson**: this is the *second* appearance of the same bug. The first was `DocumentList`
+- **Lesson**: this is the _second_ appearance of the same bug. The first was `DocumentList`
   seeding `useState(initialDocuments)`, which captured the first value and ignored every
   later one. Both look different on the surface — one a copied prop, one a value frozen at
   server render — and both are "a second copy of state that stops tracking the first". The
   Server Component boundary makes it easier to reintroduce, because a value computed there
-  *looks* like ordinary derived state while actually being a snapshot.
+  _looks_ like ordinary derived state while actually being a snapshot.
 
   The regression test was checked against the old behaviour before being kept: reverted to
   the frozen prop, it fails; with the fix, it passes. A test for a bug you cannot make fail
