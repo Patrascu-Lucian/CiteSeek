@@ -433,7 +433,7 @@ lesson worth keeping. One entry per correction, newest last. Source material for
 
 - **Issue**: found by poking the deployed app, then reproduced. Roughly one run in four, a
   refusal came back as "The provided passages do not contain information to answer your
-  question [1][2]" — citing sources while denying they held the answer. The markers resolved,
+  question `[1][2]`" — citing sources while denying they held the answer. The markers resolved,
   so real chips rendered, pointing at unrelated text. Nothing in the pipeline was broken: the
   parser, the marker mapping and retrieval all did their jobs. The prompt told the model to
   cite every factual claim and said nothing about what a marker _means_.

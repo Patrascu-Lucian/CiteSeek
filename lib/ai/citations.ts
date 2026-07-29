@@ -33,7 +33,7 @@ export const CITATION_HREF_PREFIX = "#citation-";
  * The negative lookahead leaves `[1](https://…)` alone: text that is already a
  * markdown link is not a citation marker.
  */
-const GROUPED_MARKER = /(?:\[\d+(?:\s*,\s*\d+)*\])+(?!\()/g;
+const GROUPED_MARKER = /(?:\[\d+(?:\s*,\s*\d+)*])+(?!\()/g;
 
 /** Every number inside a matched run, in the order written. */
 const MARKER_NUMBER = /\d+/g;

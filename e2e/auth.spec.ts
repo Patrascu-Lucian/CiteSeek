@@ -268,12 +268,20 @@ test.describe("sign-in page", () => {
   test("is reachable by keyboard from the landing page", async ({ page }) => {
     await page.goto("/");
 
-    await page.keyboard.press("Tab"); // skip link
-    await page.keyboard.press("Tab"); // "Get started"
+    const cta = page.getByRole("link", { name: /get started/i });
 
-    await expect(
-      page.getByRole("link", { name: /get started/i }),
-    ).toBeFocused();
+    // Tabs until the control is reached rather than pressing Tab a fixed number
+    // of times. The header sits between the skip link and the call to action, so
+    // a hard-coded count asserts the shape of the navigation instead of the
+    // thing that matters — that a keyboard user can get there at all. It broke
+    // the moment the header was added to this page, which is a change in layout
+    // rather than a regression in access.
+    for (let i = 0; i < 10; i += 1) {
+      if (await cta.evaluate((el) => el === document.activeElement)) break;
+      await page.keyboard.press("Tab");
+    }
+
+    await expect(cta).toBeFocused();
     await page.keyboard.press("Enter");
 
     await expect(page).toHaveURL(/\/sign-in/);
