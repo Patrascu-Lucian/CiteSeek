@@ -146,10 +146,13 @@ jobs:
       # A real signing key is required: guest tokens are HMAC-signed and the app
       # rejects anything it cannot verify. Generated per run, never reused.
       AUTH_SECRET: e2e-only-secret-regenerated-every-run
-      # No API key on CI, and none wanted: the deterministic embedder exercises
-      # the whole ingestion path with no network and no flakiness. A suite that
-      # needed a real provider would be one rate limit away from red.
+      # No API key on CI, and none wanted: the deterministic providers exercise
+      # the whole ingestion and answer path with no network and no flakiness. A
+      # suite that needed a real provider would be one rate limit away from red,
+      # and a non-deterministic model would make "the answer cites [1]" a
+      # coin toss rather than an assertion.
       EMBEDDINGS_PROVIDER: fake
+      CHAT_PROVIDER: fake
 
     steps:
       - uses: actions/checkout@v7

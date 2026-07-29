@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { MAX_DISTANCE_BY_PROVIDER } from "@/lib/rag/retrieval-config";
 import {
   EMBEDDING_DIMENSIONS,
   cosineSimilarity,
@@ -34,22 +35,30 @@ describe("fakeEmbedding", () => {
     expect(fakeEmbedding("finite check").every(Number.isFinite)).toBe(true);
   });
 
-  it("centers components around zero rather than all-positive", () => {
-    // An all-positive vector would make every pair look similar under cosine
-    // distance, which would mask ordering bugs in retrieval tests.
-    const vector = fakeEmbedding("distribution check");
-    expect(vector.some((v) => v > 0)).toBe(true);
-    expect(vector.some((v) => v < 0)).toBe(true);
-    expect(Math.min(...vector)).toBeGreaterThanOrEqual(-1);
-    expect(Math.max(...vector)).toBeLessThan(1);
+  it("stays sparse, so all-positive components do not make everything similar", () => {
+    // Counts are never negative, which would normally make every pair look
+    // alike under cosine distance and mask ordering bugs. Sparsity is what
+    // prevents it: two texts with no shared vocabulary occupy different
+    // dimensions entirely and stay orthogonal.
+    const vector = fakeEmbedding("quarterly financial report");
+
+    expect(vector.every((v) => v >= 0)).toBe(true);
+    expect(vector.filter((v) => v > 0).length).toBeLessThan(10);
   });
 
-  it("does not correlate across the hash-block boundary", () => {
-    // SHA-256 yields 32 bytes = 8 floats, so a 768-dim vector needs 96 blocks.
-    // Repeating one block would make components 0..7 identical to 8..15 and
-    // every fake vector degenerate.
-    const vector = fakeEmbedding("block boundary");
-    expect(vector.slice(0, 8)).not.toEqual(vector.slice(8, 16));
+  it("counts a repeated word more heavily than a single mention", () => {
+    const once = fakeEmbedding("reimbursement");
+    const twice = fakeEmbedding("reimbursement reimbursement");
+
+    expect(Math.max(...twice)).toBe(2 * Math.max(...once));
+  });
+
+  it("never returns a vector with no direction", () => {
+    // An all-zero vector cannot be normalized. Text that is empty, punctuation
+    // only, or entirely stopwords still has to produce something usable.
+    for (const text of ["", "   ", "!!!", "the and of"]) {
+      expect(isUnitVector(l2Normalize(fakeEmbedding(text)))).toBe(true);
+    }
   });
 
   it("is usable as an embedding once normalized", () => {
@@ -69,6 +78,57 @@ describe("fakeEmbedding", () => {
       l2Normalize(fakeEmbedding("recipe for sourdough bread")),
     );
     expect(Math.abs(similarity)).toBeLessThan(0.2);
+  });
+
+  it("puts text that shares words closer than text that does not", () => {
+    // The property the end-to-end test depends on. A hash of the whole string
+    // makes a question orthogonal to the passage answering it, so the only
+    // query that could retrieve anything is one identical to a stored passage —
+    // and no real question is.
+    const passage = l2Normalize(
+      fakeEmbedding(
+        "Reimbursement is paid within 30 days of an approved claim.",
+      ),
+    );
+    const related = l2Normalize(fakeEmbedding("When is reimbursement paid?"));
+    const unrelated = l2Normalize(
+      fakeEmbedding("Which laptop sizes are offered?"),
+    );
+
+    expect(cosineSimilarity(passage, related)).toBeGreaterThan(
+      cosineSimilarity(passage, unrelated),
+    );
+  });
+
+  it("keeps an unrelated question beyond the relevance floor", () => {
+    // Stopwords are dropped for exactly this reason: "what is the capital of
+    // France?" shares `what`, `is`, `the` and `of` with almost any English
+    // passage, which without filtering is enough to drag an unrelated question
+    // under the floor and break the refusal path the product is built around.
+    //
+    // Asserted as a distance rather than an exact zero: hashing a word onto one
+    // of 768 dimensions means unrelated words occasionally collide, and a test
+    // demanding perfect orthogonality would be asserting that collisions never
+    // happen. What has to hold is that the floor still rejects it.
+    // A realistic passage, not a single sentence: cosine distance depends
+    // heavily on length, so comparing two short strings would measure a shape
+    // retrieval never actually sees.
+    const passage = l2Normalize(
+      fakeEmbedding(
+        `Employees may claim reimbursement for equipment, software licenses and
+         co-working space. Claims must be submitted within 60 days of purchase,
+         and reimbursement is paid within 30 days of an approved claim. Claims
+         over 500 require written approval from a line manager before the
+         purchase is made, not after. Receipts are required for every claim
+         regardless of value. A bank statement is not a receipt.`,
+      ),
+    );
+    const unrelated = l2Normalize(
+      fakeEmbedding("What is the capital of France?"),
+    );
+
+    const distance = 1 - cosineSimilarity(passage, unrelated);
+    expect(distance).toBeGreaterThan(MAX_DISTANCE_BY_PROVIDER.fake);
   });
 
   it("honors a custom dimension count", () => {

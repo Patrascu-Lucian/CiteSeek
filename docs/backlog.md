@@ -130,3 +130,14 @@ each of these is reversible and therefore safe to defer.
 
   Recorded now so the Milestone 3 bundle budget has a baseline to compare against rather
   than a target invented after the fact.
+
+- **A PDF as the demo document, for page-numbered citations.** The seeded fixture is
+  Markdown, which has no pages — so demo citations show a filename but never "page 7", and
+  the page number is one of the more convincing details of the citation UI. Page numbers are
+  covered by tests (`chunking`, `normalize`, `pipeline`, `ingest` and `retrieve` suites all
+  exercise them), so nothing is unverified; this is demo polish, not a gap.
+
+  Blocked on authoring a PDF we can actually commit. A third-party sample PDF is not
+  publishable on a public repo with no license file, and the fixture has to be committed or
+  CI and fresh clones have nothing to seed. Folds naturally into Milestone 4's demo-content
+  curation.

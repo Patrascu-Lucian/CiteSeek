@@ -333,3 +333,22 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   reference panel is the opposite: it exists to be read alongside. Worth asking what each
   default is _for_ before accepting it, and noticing when a test becomes awkward to write
   because the accessibility tree is telling you the same thing a user would.
+
+### Transcript order was random, and only a three-message test could see it
+
+- **Issue**: `messages` were ordered by `created_at`, with the primary key as a tiebreak.
+  Both rows of a turn — the question and the answer — are written by a single `INSERT`,
+  and `created_at` defaults to `now()`, which in Postgres is the **transaction** start
+  timestamp, not the wall clock at row creation. So both rows carry the _identical_
+  timestamp and the tiebreak decides, and the primary key is a random UUIDv4. A reloaded
+  conversation could render the answer above the question.
+- **Fix**: an explicit `position` column with a unique index on `(chat_id, position)`,
+  assigned from the current maximum on each append. `chunks` already solved exactly this
+  with `chunkIndex`; the precedent was there and I did not follow it.
+- **Lesson**: two things. `now()` is not a clock — it is fixed for the whole transaction,
+  which is what makes it useful for consistency and useless for ordering rows written
+  together. `clock_timestamp()` is the one that advances. And the test that caught it only
+  did so because it wrote **three** messages across **two** calls; a two-message test would
+  have passed roughly half the time, which is worse than failing. When ordering is the
+  property under test, the fixture has to be big enough for a wrong order to be visibly
+  wrong.

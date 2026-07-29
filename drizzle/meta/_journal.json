@@ -15,6 +15,13 @@
       "when": 1785217032560,
       "tag": "0001_thin_meggan",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785319357291,
+      "tag": "0002_lovely_epoch",
+      "breakpoints": true
     }
   ]
 }

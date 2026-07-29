@@ -3,7 +3,10 @@ import { and, asc, cosineDistance, eq, isNotNull, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chunks, documents } from "@/lib/db/schema";
 
+import { resolveEmbeddingsProvider } from "@/lib/ai/provider";
+
 import { type Embedder, embedQuery } from "./embeddings";
+import { RETRIEVAL_LIMIT, maxDistanceFor } from "./retrieval-config";
 
 /**
  * Vector search over a workspace's passages.
@@ -14,23 +17,9 @@ import { type Embedder, embedQuery } from "./embeddings";
  * row rather than trusting anything the caller passed about the chunk itself.
  */
 
-/**
- * The relevance floor, in cosine distance (0 = identical direction, 2 = opposite).
- *
- * Below this a passage is treated as an answer; above it, as noise. When nothing
- * clears the floor the model is never called, which is what makes "I don't know"
- * structural rather than a request in a prompt.
- *
- * **Provisional.** Cosine distance is only meaningful relative to the embedding
- * model that produced it, so this needs tuning against `gemini-embedding-001` on
- * real documents. It cannot be tuned against the fake embedder — those vectors
- * are deterministic hashes with no semantic geometry, so distances between them
- * mean nothing about relevance.
- */
-export const MAX_DISTANCE = 0.6;
-
-/** Passages per answer. Enough context to answer from, few enough to stay grounded. */
-export const RETRIEVAL_LIMIT = 8;
+// Re-exported so callers keep one import for retrieval, while the constants stay
+// reachable without pulling in a database connection.
+export { RETRIEVAL_LIMIT, maxDistanceFor };
 
 export type RetrievedChunk = {
   id: string;
@@ -59,7 +48,10 @@ export async function retrieveChunks(
 ): Promise<RetrievedChunk[]> {
   const {
     limit = RETRIEVAL_LIMIT,
-    maxDistance = MAX_DISTANCE,
+    // Resolved from the configured provider rather than a single constant: the
+    // floor is a property of the embedding model, and the two in use here put
+    // "relevant" in very different numeric ranges.
+    maxDistance = maxDistanceFor(resolveEmbeddingsProvider()),
     embedder,
     signal,
   } = options;

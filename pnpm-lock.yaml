@@ -15,7 +15,7 @@ importers:
         specifier: 4.0.3
         version: 4.0.3
       '@ai-sdk/react':
-        specifier: ^4.0.43
+        specifier: 4.0.43
         version: 4.0.43(react@19.2.8)(zod@4.4.3)
       '@auth/drizzle-adapter':
         specifier: 1.11.3
@@ -126,6 +126,9 @@ importers:
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
+      tsx:
+        specifier: ^4.23.1
+        version: 4.23.1
       typescript:
         specifier: 5.9.3
         version: 5.9.3

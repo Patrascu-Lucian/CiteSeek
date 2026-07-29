@@ -128,7 +128,25 @@ function sourcesOf(chunks: { type: string }[]) {
   return part?.data ?? null;
 }
 
-const PASSAGE = "Expenses are reimbursed within 30 days of submission.";
+/**
+ * A realistically sized passage, not a single sentence.
+ *
+ * Cosine distance depends heavily on length, so a 50-character chunk sits much
+ * closer to an arbitrary question than a real one ever would — and a refusal
+ * test built on it would pass for the wrong reason, or stop passing the moment
+ * the floor was calibrated against realistic input. Chunking targets ~1200
+ * characters; this is in that neighbourhood.
+ */
+const PASSAGE = [
+  "Employees may claim reimbursement for equipment, software licenses and",
+  "co-working space. Claims must be submitted within 60 days of purchase, and",
+  "reimbursement is paid within 30 days of an approved claim. Claims over 500",
+  "require written approval from a line manager before the purchase is made,",
+  "not after. Receipts are required for every claim regardless of value. A bank",
+  "statement is not a receipt. Claims submitted without a receipt are returned",
+  "rather than rejected, and the 60-day window pauses while a claim sits with",
+  "the employee.",
+].join(" ");
 
 describe("POST /api/w/[workspaceId]/chat", () => {
   it("streams an answer with the sources part first", async () => {
