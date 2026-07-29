@@ -1,5 +1,3 @@
-"use client";
-
 import type { ComponentPropsWithoutRef } from "react";
 
 import { citationLabel, parseCitationHref } from "@/lib/ai/citations";

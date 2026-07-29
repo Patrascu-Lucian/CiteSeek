@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import Link from "next/link";
-import { FileText, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,8 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ChatPanel } from "@/components/chat/chat-panel";
-import { DocumentsPanel } from "@/components/documents/documents-panel";
+import { WorkspaceSections } from "@/components/workspace/workspace-sections";
 import { loadLatestChat } from "@/lib/chats/queries";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
 import { getActor } from "@/lib/auth/actor";
@@ -109,67 +108,19 @@ export default async function WorkspacePage({
         ) : null}
       </header>
 
-      <section aria-labelledby="documents-heading" className="mt-10 space-y-4">
-        <h2 id="documents-heading" className="text-lg font-medium">
-          Documents
-        </h2>
-
-        <DocumentsPanel
-          workspaceId={workspace.id}
-          initialDocuments={documents}
-          canWrite={writable}
-        />
-
-        {!writable ? (
-          // Read-only visitors get a way forward rather than a dead end. A
-          // signed-in visitor already has an account, so offering them
-          // "Sign in" would go nowhere.
-          <Card>
-            <CardHeader>
-              <FileText
-                aria-hidden="true"
-                className="text-muted-foreground size-5"
-              />
-              <CardTitle className="mt-3">
-                This workspace is read-only
-              </CardTitle>
-              <CardDescription>
-                {signedIn
-                  ? "Your own workspace is where you can upload documents."
-                  : "Sign in to upload documents of your own."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline">
-                <Link href={signedIn ? "/w" : "/sign-in"}>
-                  {signedIn ? "Go to your workspace" : "Sign in to upload"}
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ) : null}
-      </section>
-
-      <section aria-labelledby="chat-heading" className="mt-12 space-y-4">
-        <h2 id="chat-heading" className="text-lg font-medium">
-          Ask
-        </h2>
-
-        {/*
-          Guests may ask questions of the demo — chat is a read operation, and
-          the route authorizes `read` for exactly that reason. What they do not
-          get is persistence: their conversation lives in browser state and is
-          gone on reload, which is what keeps an unbounded write path off a
-          public URL.
-        */}
-        <ChatPanel
-          workspaceId={workspace.id}
-          hasReadyDocuments={documents.some(
-            (document) => document.status === "ready",
-          )}
-          initialMessages={storedChat ? toUIMessages(storedChat.messages) : []}
-        />
-      </section>
+      {/*
+        Documents and chat render together as one client unit, because chat
+        depends on the document list: `hasReadyDocuments` has to track uploads as
+        they finish, and a value computed here would be frozen at server-render
+        time.
+      */}
+      <WorkspaceSections
+        workspaceId={workspace.id}
+        initialDocuments={documents}
+        initialMessages={storedChat ? toUIMessages(storedChat.messages) : []}
+        canWrite={writable}
+        signedIn={signedIn}
+      />
     </main>
   );
 }

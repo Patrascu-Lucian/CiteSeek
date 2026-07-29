@@ -352,3 +352,24 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   have passed roughly half the time, which is worse than failing. When ordering is the
   property under test, the fixture has to be big enough for a wrong order to be visibly
   wrong.
+
+### The same stale-state bug, one level up
+
+- **Issue**: after an upload finished processing, the chat composer stayed on "Nothing to
+  search yet" until the page was reloaded by hand. `hasReadyDocuments` was computed in the
+  workspace page — a Server Component — and passed down, so it was fixed at server-render
+  time. `DocumentsPanel` meanwhile polled and updated its own private copy of the document
+  list. Two copies of the same state, and only one of them moved.
+- **Fix**: lifted `documents` into a single client component that renders both sections, so
+  the flag is derived on every render from the same state the list shows. `DocumentsPanel`
+  went away — with the state above it, it was only a layout wrapper.
+- **Lesson**: this is the _second_ appearance of the same bug. The first was `DocumentList`
+  seeding `useState(initialDocuments)`, which captured the first value and ignored every
+  later one. Both look different on the surface — one a copied prop, one a value frozen at
+  server render — and both are "a second copy of state that stops tracking the first". The
+  Server Component boundary makes it easier to reintroduce, because a value computed there
+  _looks_ like ordinary derived state while actually being a snapshot.
+
+  The regression test was checked against the old behaviour before being kept: reverted to
+  the frozen prop, it fails; with the fix, it passes. A test for a bug you cannot make fail
+  again is a test you have not verified.

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, FileWarning, Loader2 } from "lucide-react";
 

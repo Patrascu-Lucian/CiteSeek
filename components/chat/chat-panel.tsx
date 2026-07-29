@@ -1,3 +1,11 @@
+// The server → client boundary for chat. `page.tsx` is a Server Component and
+// imports this directly; everything this file imports is pulled into the client
+// bundle with it and needs no directive of its own.
+//
+// Kept here and nowhere below on purpose: the directive *is* the boundary, so
+// repeating it on every component hides where the split actually happens — and
+// makes Next's TypeScript plugin treat each one as a server-facing entry, which
+// it then (correctly, for an entry) flags for taking function props.
 "use client";
 
 import { useState } from "react";
