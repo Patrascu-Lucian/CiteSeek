@@ -408,3 +408,48 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   A related trap surfaced while fixing it: `process.loadEnvFile` deliberately does _not_
   override variables already exported, so a file quietly fills in every value you forgot —
   which is convenient until the value that matters is one you did not know was set.
+
+### A citation the model wrote in a form the parser did not know
+
+- **Issue**: found on the deployed app. An answer drawing on two passages rendered
+  `[1, 2]` as literal text rather than two chips. The marker pattern matched a single
+  number — `/\[(\d+)\](?!\()/` — and the system prompt said only that "a sentence drawn from
+  more than one passage carries more than one marker", which the model reasonably satisfied by
+  writing one bracket containing both.
+- **Fix**: the pattern now accepts a comma-separated group and emits one link per marker, so
+  `[1, 2]` becomes two adjacent chips. A group is all-or-nothing: if any member does not
+  resolve, the whole thing stays literal text, because linking the valid half would silently
+  drop an invented citation and make the answer look better sourced than it is. The prompt now
+  also asks for `[1][2]` explicitly — but the parser is the thing that had to be lenient,
+  since prompt wording is a request and output format is not guaranteed.
+- **Lesson**: the tests asserted the format _we specified_, and the model produced a different
+  one that satisfied the same instruction. Every test passed, on both sides of the boundary,
+  because both sides were written from the same assumption. When an interface is defined by a
+  prompt rather than a type, the parser has to accept the range of things a reasonable
+  generator might emit, not only the one the prompt asked for — and only production traffic
+  reveals what that range actually is.
+
+### The model cited passages while saying they contained no answer
+
+- **Issue**: found by poking the deployed app, then reproduced. Roughly one run in four, a
+  refusal came back as "The provided passages do not contain information to answer your
+  question [1][2]" — citing sources while denying they held the answer. The markers resolved,
+  so real chips rendered, pointing at unrelated text. Nothing in the pipeline was broken: the
+  parser, the marker mapping and retrieval all did their jobs. The prompt told the model to
+  cite every factual claim and said nothing about what a marker _means_.
+- **Fix**: an explicit rule — a marker asserts "this sentence came from that passage", never
+  attach one to a sentence a passage does not support, and a refusal cites nothing. Measured
+  against the live model before and after: 1-in-4 became 0 of 9, while a control question the
+  passages genuinely answered still cited correctly 3 of 3. The control was the point; a rule
+  that suppressed citations everywhere would break the product's central claim while looking
+  like a fix.
+- **Lesson**: two things. First, I diagnosed this wrong twice before measuring — blaming the
+  prompt broadly, then blaming the demo fixture, on three anecdotes from different sessions.
+  The model is non-deterministic, so _any_ theory fits three samples. Twelve calls against a
+  fixed prompt settled it in about a minute, and that should have come first.
+
+  Second, prompt rules are requests rather than guarantees, so they belong behind a structural
+  defence rather than in front of one. This rule reduces how often the model misbehaves; what
+  makes a regression harmless is that the client refuses to render a marker with no matching
+  source. Tests can assert the rule is present and nothing more — the behaviour it asks for is
+  only observable against the real model, which no suite here runs.

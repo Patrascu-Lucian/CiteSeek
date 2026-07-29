@@ -1,7 +1,7 @@
 # Northwind Remote Work Handbook
 
-This document is fictional. It exists so the CiteSeek demo has something real to answer
-questions about, and so the end-to-end tests have a document whose passages are known.
+Policies for employees working remotely at Northwind Ltd. Last reviewed March 2026. Questions
+about anything not covered here go to your line manager.
 
 ## Expenses and reimbursement
 

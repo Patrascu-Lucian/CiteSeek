@@ -120,7 +120,20 @@ function assertEmbedderWasChosen(url: string): void {
 
 export const DEMO_WORKSPACE_NAME = "CiteSeek Demo";
 
-/** Committed to the repo so the demo is reproducible from a clean database. */
+/**
+ * Committed to the repo so the demo is reproducible from a clean database.
+ *
+ * A fictional handbook for a company that does not exist. That fact is recorded
+ * *here* rather than inside the document, and deliberately so: the fixture's
+ * first draft opened by explaining that it was a demo fixture, which put text
+ * about the assistant into the assistant's own corpus. Ask "can I ask you
+ * something?" and that paragraph is the nearest passage — so the model answered
+ * a question about the product by citing a sentence about the product, and the
+ * citation was technically grounded and completely useless.
+ *
+ * A demo corpus must read like the documents it stands in for. Anything
+ * self-referential is retrievable, and users ask meta-questions first.
+ */
 export const FIXTURE_FILENAME = "northwind-remote-work-handbook.md";
 const FIXTURE_PATH = join(
   dirname(fileURLToPath(import.meta.url)),

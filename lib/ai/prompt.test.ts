@@ -168,6 +168,21 @@ describe("buildSystemPrompt", () => {
     expect(injectionAt).toBeGreaterThan(passagesAt);
   });
 
+  it("forbids attaching a marker to a refusal", () => {
+    // Reproduced against the real model before this rule existed: one run in
+    // four answered "the provided passages do not contain information to answer
+    // your question [1][2]" — citing passages while saying they do not contain
+    // the answer. A chip rendered, resolved, and pointed at unrelated text.
+    //
+    // A test can only assert the rule is *present*. Whether the model obeys it is
+    // measurable only against the live model, and the parser is what makes a
+    // regression harmless rather than invisible.
+    const prompt = buildSystemPrompt(buildSources([chunk()]));
+
+    expect(prompt).toMatch(/never attach one to a refusal/i);
+    expect(prompt).toMatch(/cite nothing at all/i);
+  });
+
   it("throws when called with no passages", () => {
     // Reaching the model with an empty context is the bug that produces confident
     // answers from general knowledge. Fail loudly instead.

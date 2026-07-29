@@ -52,6 +52,48 @@ describe("linkCitationMarkers", () => {
     );
   });
 
+  it("rewrites a grouped marker as one chip per source", () => {
+    // Observed in production: told that a sentence may carry several markers,
+    // the model writes [1, 2] rather than [1][2]. A single-number pattern misses
+    // it entirely and the citation renders as dead text.
+    const linked = linkCitationMarkers("Both agree [1, 2].", [
+      source({ marker: 1 }),
+      source({ marker: 2, chunkId: "chunk-2" }),
+    ]);
+
+    expect(linked).toBe(
+      `Both agree [1](${CITATION_HREF_PREFIX}1)[2](${CITATION_HREF_PREFIX}2).`,
+    );
+  });
+
+  it("accepts a group written without spaces", () => {
+    const linked = linkCitationMarkers("Both [1,2] agree.", [
+      source({ marker: 1 }),
+      source({ marker: 2, chunkId: "chunk-2" }),
+    ]);
+
+    expect(linked).toContain(`[1](${CITATION_HREF_PREFIX}1)`);
+    expect(linked).toContain(`[2](${CITATION_HREF_PREFIX}2)`);
+  });
+
+  it("handles a group of three", () => {
+    const sources = [1, 2, 3].map((marker) =>
+      source({ marker, chunkId: `chunk-${marker}` }),
+    );
+
+    expect(linkCitationMarkers("All [1, 2, 3] agree.", sources)).toBe(
+      `All [1](${CITATION_HREF_PREFIX}1)[2](${CITATION_HREF_PREFIX}2)[3](${CITATION_HREF_PREFIX}3) agree.`,
+    );
+  });
+
+  it("leaves a group alone when any member is invented", () => {
+    // All or nothing. Linking only the resolvable half would silently drop the
+    // invented one and make the answer look better sourced than it is.
+    const text = "Both [1, 7] agree.";
+
+    expect(linkCitationMarkers(text, [source({ marker: 1 })])).toBe(text);
+  });
+
   it("leaves an existing markdown link alone", () => {
     // `[1](https://…)` is a link the model wrote, not a citation marker.
     const text = "See [1](https://example.com) for details.";
