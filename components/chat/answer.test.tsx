@@ -101,3 +101,42 @@ describe("Answer — citation markers", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
+
+describe("Answer — grouped markers", () => {
+  it("renders a chip per source when the model writes [1, 2]", async () => {
+    const onSelectSource = vi.fn();
+
+    render(
+      <Answer
+        text="Both agree [1, 2]."
+        sources={[
+          source({ marker: 1 }),
+          source({ marker: 2, chunkId: "chunk-2", filename: "policies.pdf" }),
+        ]}
+        onSelectSource={onSelectSource}
+        selectedChunkId={null}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("button", { name: /^Citation 1:/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Citation 2: policies\.pdf/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves a group containing an invented marker as plain text", async () => {
+    render(
+      <Answer
+        text="Both agree [1, 7]."
+        sources={[source({ marker: 1 })]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+      />,
+    );
+
+    expect(await screen.findByText(/\[1, 7\]/)).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});

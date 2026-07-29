@@ -141,3 +141,43 @@ each of these is reversible and therefore safe to defer.
   publishable on a public repo with no license file, and the fixture has to be committed or
   CI and fresh clones have nothing to seed. Folds naturally into Milestone 4's demo-content
   curation.
+
+## Observed in production, for Milestone 3
+
+- **The relevance floor is too permissive for real embeddings.** `MAX_DISTANCE = 0.6` was set
+  as a guess (ADR 011 and `retrieval-config.ts` both say so) and could not be tuned earlier:
+  there was no production traffic, and the fake embedder's distances carry no semantic meaning.
+  First real evidence: on the deployed app, "how are you?" and "test" both cleared the floor.
+  The model declined on its own, so nothing was fabricated — but the floor exists precisely so
+  the model is never called for those, and every question that slips past costs a Gemini
+  request, a round trip of latency, and control of the refusal wording. More importantly it
+  weakens the guarantee's character: "structurally cannot fabricate" becomes "the model chose
+  not to", which is the thing ADR 011 argued against relying on.
+
+  Tuning needs a distribution, not anecdotes. That can be collected without breaking the
+  logging rule — record the **top distance** for each query and whether it cleared, never the
+  question text. The floor compares numbers; nothing about calibrating it requires storing what
+  anyone asked. A few hundred samples would show where relevant and irrelevant questions
+  actually separate, which is the before/after ADR 008 and ADR 011 both ask for.
+
+- **Refusals from the model read worse than our own.** When retrieval returns weak passages and
+  the model declines, it produces things like "The provided passages do not contain information
+  to answer how I am" — stilted next to `NO_RELEVANT_PASSAGES_REPLY`. Worth a prompt line about
+  _how_ to decline, in the same pass as the floor tuning. Fixing the floor reduces how often
+  this path is reached, but does not remove it.
+
+- **Questions about the product get refused, and they are the first ones people ask.** Observed
+  across two fresh accounts: "how can I upload files?", "can you help me?", "okay bye" all
+  produce "the provided passages do not contain information...". Each is a reasonable question
+  with a real answer that simply is not in anyone's documents.
+
+  Grounding is working exactly as designed here, so this is a product gap rather than a bug,
+  and the fix is **not** to loosen the grounding rule — that is the guarantee. Options worth
+  weighing: a refusal that points at the interface ("I only answer from your documents — the
+  upload area is above"), or a small set of product answers the assistant may give without
+  citing. The second is a bigger commitment than it looks, because it introduces a second
+  source of truth the model can answer from, and the whole design rests on there being one.
+
+  Note that "who are you?" already gets a self-description drawn from the system prompt, with
+  no citation attached. That is acceptable and should stay: a question about the assistant,
+  answered by the assistant, claiming no source. Belongs with Milestone 4's onboarding work.
