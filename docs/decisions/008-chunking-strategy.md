@@ -51,12 +51,31 @@ which produces passages that read as broken when shown beside a citation.
 
 ### Sizes
 
-| Parameter | Value       | Reasoning                                                                                                       |
-| --------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
-| Target    | 1,200 chars | Roughly 250–300 tokens: large enough to carry an idea, small enough that a retrieved passage is mostly relevant |
-| Maximum   | 1,500 chars | Headroom so a slightly-oversized paragraph is not split for the sake of 20 characters                           |
-| Overlap   | 200 chars   | A sentence spanning a boundary stays retrievable from at least one side                                         |
-| Ceiling   | 600 chunks  | ~500 pages; one pathological upload cannot consume a day of embedding quota                                     |
+| Parameter | Value      | Reasoning                                                                             |
+| --------- | ---------- | ------------------------------------------------------------------------------------- |
+| Target    | 600 chars  | Roughly 120–150 tokens: a paragraph-sized idea, and a highlight a reader can take in  |
+| Maximum   | 800 chars  | Headroom so a slightly-oversized paragraph is not split for the sake of 20 characters |
+| Overlap   | 100 chars  | A sentence spanning a boundary stays retrievable from at least one side               |
+| Ceiling   | 600 chunks | One pathological upload cannot consume a day of embedding quota                       |
+
+**Revised in Milestone 2**, down from 1,200 / 1,500 / 200. This ADR said the original numbers
+were "defaults, not findings" and asked to be revisited once retrieval could be observed. The
+observation, on the deployed app: a 1,200-character chunk produces a _1,200-character
+highlight_, so clicking a citation lit up an entire document section. That is a passage, but
+it is not the "exact source passage" the product promises, and **citation precision is bounded
+by chunk size and nothing else**.
+
+The trade is real: less context per retrieved passage. It is accepted because retrieval
+returns several passages to the model while the reader only ever looks at one highlight — so
+the cost lands where there is redundancy and the benefit lands where there is not.
+
+The ceiling stays at 600. Quota is spent per embedding call, one per chunk, so that number is
+the true cost cap; raising it to preserve the old page count would raise the bill it exists to
+limit. The consequence is that the longest supported document roughly halves, to around 250
+pages of dense text.
+
+Still not tuned against measured answer quality — that needs a before/after on real questions
+and belongs with Milestone 3's performance work.
 
 Overlap begins at a word boundary — a passage starting mid-word reads as corruption. It is
 also **treated as context rather than an entitlement**: when carrying it forward would push
@@ -66,9 +85,14 @@ to preserve anyway.
 
 ## Consequences
 
-- These numbers are **defaults, not findings**. Milestone 2 is the first point at which
-  retrieval quality can be measured, and this ADR should be revisited then with a
-  before/after rather than an opinion.
+- The sizes were **defaults, not findings**, and have now been revised once — on citation
+  precision, which is directly observable, rather than on answer quality, which still is not
+  measured. A before/after on real questions remains owed.
+- **Changing these numbers invalidates existing chunks.** Chunk boundaries move, so stored
+  offsets describe passages the new chunker would never produce. Nothing breaks — old chunks
+  remain valid slices of their own document and stay retrievable — but a corpus ends up mixing
+  two granularities until its documents are re-ingested. The demo fixture is re-seeded; user
+  uploads keep whatever they were ingested with.
 - Overlap costs storage and embedding quota: roughly 15% more chunks than disjoint
   splitting. That is the price of not losing sentences at boundaries.
 - The 600-chunk ceiling is a hard failure with an explanatory message, not a silent

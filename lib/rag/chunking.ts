@@ -14,13 +14,35 @@ import { type PageSpan, pageNumberForOffset } from "./normalize";
  * a verbatim slice of the input.
  */
 
-export const CHUNK_TARGET_CHARS = 1_200;
-export const CHUNK_MAX_CHARS = 1_500;
-export const CHUNK_OVERLAP_CHARS = 200;
+/**
+ * Sizes, revised down from 1,200 / 1,500 / 200 after seeing citations on the
+ * deployed app.
+ *
+ * The original numbers were explicitly defaults rather than findings (ADR 008),
+ * to be revisited once there was something to observe. What there is to observe
+ * is that a 1,200-character chunk makes a *1,200-character highlight* — the
+ * source panel lit up an entire document section, which is a passage but not the
+ * "exact source passage" the product claims. Citation precision is bounded by
+ * chunk size and nothing else.
+ *
+ * These are still not tuned against measured answer quality; that needs a
+ * before/after on real questions and is Milestone 3's business. This trades some
+ * context per passage for a sharper citation, on the reasoning that retrieval
+ * returns several passages and the reader only ever reads one highlight.
+ */
+export const CHUNK_TARGET_CHARS = 600;
+export const CHUNK_MAX_CHARS = 800;
+export const CHUNK_OVERLAP_CHARS = 100;
 
 /**
  * A ceiling on chunks per document, so one pathological upload cannot consume a
- * day's embedding quota. At the target size this is roughly a 500-page document.
+ * day's embedding quota.
+ *
+ * Deliberately unchanged by the size revision. Quota is spent per *embedding
+ * call*, one per chunk, so this number is the actual cost ceiling and moving it
+ * would raise the bill it exists to cap. The consequence is that the longest
+ * supported document roughly halves — around 250 pages of dense text rather than
+ * 500 — which is still far beyond anything this product is for.
  */
 export const MAX_CHUNKS_PER_DOCUMENT = 600;
 

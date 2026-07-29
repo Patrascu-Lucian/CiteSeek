@@ -47,11 +47,11 @@ afterAll(async () => {
 });
 
 /**
- * The fake embedder hashes text, so identical text yields an identical vector
- * and a cosine distance of exactly 0. Asking a question that *is* the passage is
- * therefore the only reliable way to make retrieval succeed without a real
- * model — and asking anything else puts the distance around 1, well beyond the
- * floor. That gives deterministic control over both branches.
+ * The fake embedder counts words into hashed dimensions, so identical text
+ * yields an identical vector and a cosine distance of exactly 0. Asking a
+ * question that *is* the passage is the sharpest way to make retrieval succeed
+ * without a real model; a question sharing no vocabulary lands near 1, well
+ * beyond the floor. That gives deterministic control over both branches.
  */
 async function seedPassage(workspaceId: string, content: string) {
   const document = await createQueuedDocument(workspaceId, {
@@ -134,8 +134,8 @@ function sourcesOf(chunks: { type: string }[]) {
  * Cosine distance depends heavily on length, so a 50-character chunk sits much
  * closer to an arbitrary question than a real one ever would — and a refusal
  * test built on it would pass for the wrong reason, or stop passing the moment
- * the floor was calibrated against realistic input. Chunking targets ~1200
- * characters; this is in that neighbourhood.
+ * the floor was calibrated against realistic input. Chunking targets 600
+ * characters; this is in that neighborhood.
  */
 const PASSAGE = [
   "Employees may claim reimbursement for equipment, software licenses and",

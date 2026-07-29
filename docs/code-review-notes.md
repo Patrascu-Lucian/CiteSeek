@@ -370,6 +370,41 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   Server Component boundary makes it easier to reintroduce, because a value computed there
   _looks_ like ordinary derived state while actually being a snapshot.
 
-  The regression test was checked against the old behaviour before being kept: reverted to
+  The regression test was checked against the old behavior before being kept: reverted to
   the frozen prop, it fails; with the fix, it passes. A test for a bug you cannot make fail
   again is a test you have not verified.
+
+### The demo went silent because config and data came from different machines
+
+- **Issue**: the seeded demo document returned "I couldn't find anything relevant" for every
+  question on production, while a signed-in user's own uploads answered correctly. The seed
+  had embedded that document with the deterministic **fake** embedder, so its vectors and the
+  live query's vectors came from two models that share no geometry. Every distance was
+  meaningless noise, nothing cleared the relevance floor, and the refusal path — working
+  exactly as designed — reported it as "no relevant passages".
+
+  Nothing was misconfigured. `.env.local` sets `EMBEDDINGS_PROVIDER=fake` so development
+  costs no quota; the deployed app has it unset and defaults to the real provider. Both are
+  correct. Seeding production from a laptop combined **the laptop's configuration** with
+  **production's database** — an environment that exists nowhere else and that no test covers.
+
+- **Fix**: the seed now refuses to write fake embeddings to a remote database _unless the
+  provider was exported deliberately_, and prints both the target host and the embedder it
+  resolved before doing anything. The first version of the guard keyed on "is the host
+  localhost" and was wrong — it blocked the ordinary local workflow, because the development
+  database is a remote Neon branch too. The distinction that actually matters is
+  **provenance, not value**: a fake you exported is a decision, a fake `loadEnvFile` supplied
+  is an accident. That also rules out putting the escape hatch in `.env.local`, where it would
+  authorize the very thing it caused.
+
+- **Lesson**: an environment is three separate things — code, configuration and data — and a
+  script run by hand mixes them from different sources. That hybrid is untestable by
+  construction: it only exists while someone's terminal is open. The defense is not a better
+  test, it is for any script touching something remote to **state what it resolved** before it
+  acts. Both symptoms here were invisible in the output: the seed reported "3 passages
+  embedded" and looked entirely successful, and a later run silently hit the development
+  branch and reported success there too. Neither line named the database or the model.
+
+  A related trap surfaced while fixing it: `process.loadEnvFile` deliberately does _not_
+  override variables already exported, so a file quietly fills in every value you forgot —
+  which is convenient until the value that matters is one you did not know was set.
