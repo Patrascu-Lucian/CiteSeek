@@ -23,14 +23,29 @@ here, not in the current branch.
 
 ## Open decisions
 
-- **Generation provider — deliberately deferred to Milestone 2.** Embeddings are settled
-  (Gemini, 768d). The chat model is not, and does not need to be: the Vercel AI SDK
-  abstracts providers, so the choice is cheap to defer and gets better with information.
-  The commitment made now is structural, not vendor-specific — **all provider selection
-  goes through a single `lib/ai/provider.ts` module**, so switching is one file, not a
-  refactor. Candidates when the time comes: Gemini Flash-Lite (already have the key),
-  Groq, or OpenRouter free variants. Decide by A/B-ing answer quality on real uploaded
-  documents rather than on reputation.
+- ~~**Generation provider — deliberately deferred to Milestone 2.**~~ Decided in Milestone 2:
+  `gemini-3.5-flash-lite`, pinned, with `lib/ai/provider.ts` still the only file that names a
+  provider. See `docs/decisions/012-generation-model.md`.
+
+  The A/B this entry asked for has **not** happened and is now genuinely possible — it needed
+  a working chat surface and real documents, neither of which existed when the entry was
+  written. Worth doing once Milestone 2 ships: compare a larger Gemini model first (one
+  identifier), then Groq or an OpenRouter free variant. The current choice is a starting
+  point, not a verdict.
+
+- **The relevance floor short-circuits the `list_documents` tool.** The chat route refuses
+  before calling the model when no passage clears `MAX_DISTANCE`. That is the right default —
+  it is what makes "I don't know" structural rather than a prompt instruction — but it means a
+  question _about_ the workspace rather than its contents ("what have I uploaded?") is refused
+  instead of answered by the tool, because no passage will ever match it. The tool currently
+  only fires on questions where retrieval already succeeded.
+
+  Fixing it properly needs intent classification (is this a question about content, or about
+  the collection?), which is a bigger change than it looks and was not in Milestone 2's scope.
+  The cheap alternative — always calling the model and letting it decide — gives up the
+  guarantee that an unanswerable question cannot produce a fabricated citation, which is the
+  milestone's headline claim. Not obviously worth trading. Revisit once there is real usage
+  showing whether anyone actually asks this.
 
 - **Per-session cap for guest mode.** Not a quota-exhaustion worry — free-tier Flash-Lite
   allows roughly 1,000–1,500 requests/day, and a guest session of ~5 questions means

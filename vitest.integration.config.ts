@@ -29,6 +29,15 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 30_000,
     env: {
+      // Route tests exercise providers through the real code path rather than
+      // injecting a stub, so the provider knobs have to be set here. Every other
+      // integration suite passes its own embedder and is unaffected.
+      //
+      // The point is the same as in the unit config: a test that reaches for a
+      // live provider should fail loudly on a missing key rather than quietly
+      // spending quota against a real account.
+      EMBEDDINGS_PROVIDER: "fake",
+      CHAT_PROVIDER: "fake",
       ...(process.env.DATABASE_URL
         ? { DATABASE_URL: process.env.DATABASE_URL }
         : {}),
