@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -121,7 +121,7 @@ describe("ChatPanel — asking", () => {
 });
 
 describe("ChatPanel — citations", () => {
-  it("opens the cited passage when a chip is activated", async () => {
+  it("opens the source panel when a chip is activated", async () => {
     chat.messages = [ANSWER];
     renderPanel();
 
@@ -129,8 +129,12 @@ describe("ChatPanel — citations", () => {
       await screen.findByRole("button", { name: /^Citation 1/ }),
     );
 
-    expect(screen.getByText(SOURCE.quote)).toBeInTheDocument();
-    expect(screen.getByText(/handbook\.pdf.*page 3/)).toBeInTheDocument();
+    // What the panel then renders is its own concern and its own tests. What
+    // matters here is that the chip reaches it, naming the right document.
+    const panel = await screen.findByRole("dialog");
+    expect(
+      within(panel).getByRole("heading", { name: "handbook.pdf" }),
+    ).toBeInTheDocument();
   });
 
   it("marks the chip as pressed while its passage is open", async () => {
@@ -148,15 +152,19 @@ describe("ChatPanel — citations", () => {
     ).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("closes the passage again", async () => {
+  it("closes the panel again", async () => {
     chat.messages = [ANSWER];
     renderPanel();
 
     await userEvent.click(
       await screen.findByRole("button", { name: /^Citation 1/ }),
     );
-    await userEvent.click(screen.getByRole("button", { name: /close/i }));
+    await userEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: /close/i,
+      }),
+    );
 
-    expect(screen.queryByText(SOURCE.quote)).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
