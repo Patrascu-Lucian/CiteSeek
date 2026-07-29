@@ -118,7 +118,7 @@ describe("getChatModel", () => {
   });
 
   it("pins an explicit model version rather than a floating alias", () => {
-    // A `-latest` alias would change generation behaviour without a decision,
+    // A `-latest` alias would change generation behavior without a decision,
     // and the grounding rules in prompt.ts are tuned against this model.
     expect(CHAT_MODEL_ID).toBe("gemini-3.5-flash-lite");
     expect(CHAT_MODEL_ID).not.toMatch(/latest/);

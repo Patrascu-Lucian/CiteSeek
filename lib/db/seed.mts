@@ -27,6 +27,10 @@ import { loadLocalEnv } from "../env/load-local-env.ts";
 import * as schema from "./schema.ts";
 import { workspaces } from "./schema.ts";
 
+// Captured *before* `.env.local` is applied, so the guard below can tell a
+// provider you exported deliberately from one the file supplied on your behalf.
+const exportedProvider = process.env.EMBEDDINGS_PROVIDER;
+
 loadLocalEnv();
 
 // Imported *after* the env is loaded, and dynamically for that reason.
@@ -41,6 +45,7 @@ loadLocalEnv();
 const { createQueuedDocument, listDocuments } =
   await import("../documents/queries.ts");
 const { processDocument } = await import("../rag/ingest.ts");
+const { resolveEmbeddingsProvider } = await import("../ai/provider.ts");
 
 // Seeding writes schema-adjacent data and runs as a one-shot script, so it uses
 // the unpooled connection for the same reason migrations do. Falls back to
@@ -51,6 +56,65 @@ const connectionString =
 if (!connectionString) {
   throw new Error(
     "DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.",
+  );
+}
+
+/**
+ * Refuses to seed a remote database with fake embeddings nobody asked for.
+ *
+ * This is not hypothetical caution. `.env.local` sets `EMBEDDINGS_PROVIDER=fake`
+ * so development costs no quota, and `process.loadEnvFile` does not override a
+ * variable already exported — but nobody exports that one when seeding
+ * production, so the file wins and the seed silently embeds with the fake.
+ *
+ * The result is invisible. The rows land, the counts look right, the script says
+ * "3 passages embedded". Only the live app disagrees, because it queries with the
+ * real model, and vectors from two different models share no geometry. Every
+ * question returns "I couldn't find anything relevant" and it reads like a model
+ * problem rather than a seeding mistake. That is exactly how it happened once.
+ *
+ * The test is **provenance, not value**: a fake you exported is a decision, a
+ * fake the file supplied is an accident. That distinction is also why the escape
+ * hatch cannot live in `.env.local` — an override stored there would authorize
+ * the very thing it caused.
+ *
+ * Local hosts are exempt because that is CI and Docker, where the fake is the
+ * whole point and no real key exists.
+ */
+const LOCAL_HOSTS = new Set([
+  "localhost",
+  "127.0.0.1",
+  "::1",
+  "host.docker.internal",
+]);
+
+function assertEmbedderWasChosen(url: string): void {
+  if (resolveEmbeddingsProvider() !== "fake") return;
+  if (exportedProvider?.trim().toLowerCase() === "fake") return;
+
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    // An unparseable URL is the connection's problem to report, not this guard's.
+    return;
+  }
+
+  if (LOCAL_HOSTS.has(hostname)) return;
+
+  throw new Error(
+    [
+      `Refusing to seed ${hostname} with the fake embedder.`,
+      "",
+      "EMBEDDINGS_PROVIDER resolves to 'fake', but it came from .env.local rather",
+      "than from your shell — loadEnvFile fills in any variable you did not export.",
+      "",
+      "Fake vectors are meaningless to the real model, so the seeded document would",
+      "store cleanly and then never be retrievable. Say which you meant:",
+      "",
+      "  export EMBEDDINGS_PROVIDER=google   # real embeddings (production)",
+      "  export EMBEDDINGS_PROVIDER=fake     # deliberately fake (a scratch branch)",
+    ].join("\n"),
   );
 }
 
@@ -89,6 +153,10 @@ async function seedFixtureDocument(workspaceId: string) {
 
   const bytes = new Uint8Array(await readFile(FIXTURE_PATH));
 
+  // Stated rather than assumed. The one thing that made the production failure
+  // hard to see was that nothing in the output named the embedder.
+  console.log(`Embedding with the ${resolveEmbeddingsProvider()} provider.`);
+
   const document = await createQueuedDocument(workspaceId, {
     filename: FIXTURE_FILENAME,
     mimeType: "text/markdown",
@@ -105,7 +173,26 @@ async function seedFixtureDocument(workspaceId: string) {
   );
 }
 
+/** The host, for the log line. Never the credentials. */
+function targetHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "an unparseable DATABASE_URL";
+  }
+}
+
 async function main() {
+  // Named before anything happens, because `.env.local` supplies DATABASE_URL to
+  // any shell that did not export one — so "which database am I about to write
+  // to" is a question with a surprising answer more often than it should be.
+  // Without this line a seed aimed at production quietly lands on the dev branch
+  // and reports success, which is exactly how an afternoon disappears.
+  console.log(`Seeding ${targetHost(connectionString!)}`);
+
+  // Before anything is written, and before a connection is opened.
+  assertEmbedderWasChosen(connectionString!);
+
   // A dedicated single connection rather than the app's pooled singleton: this is
   // a one-shot script and must exit, not hold a pool open.
   const client = postgres(connectionString!, { max: 1 });

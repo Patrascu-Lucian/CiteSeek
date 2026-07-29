@@ -5,7 +5,7 @@ import type { DocumentStatus } from "@/lib/db/schema";
  * Status as a word, not a color.
  *
  * Color alone fails for colorblind users and disappears in high-contrast modes,
- * so every state is labelled in text and the color only reinforces it.
+ * so every state is labeled in text and the color only reinforces it.
  */
 const LABELS: Record<DocumentStatus, string> = {
   queued: "Queued",
