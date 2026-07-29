@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ChatPanel } from "@/components/chat/chat-panel";
 import { DocumentsPanel } from "@/components/documents/documents-panel";
 import { getActor } from "@/lib/auth/actor";
 import { canWrite, accessToWorkspace } from "@/lib/auth/authorization";
@@ -137,6 +138,24 @@ export default async function WorkspacePage({
             </CardContent>
           </Card>
         ) : null}
+      </section>
+
+      <section aria-labelledby="chat-heading" className="mt-12 space-y-4">
+        <h2 id="chat-heading" className="text-lg font-medium">
+          Ask
+        </h2>
+
+        {/*
+          Guests may ask questions of the demo — chat is a read operation, and
+          the route authorizes `read` for exactly that reason. What they do not
+          get is persistence, which arrives with signed-in chats in slice 5.
+        */}
+        <ChatPanel
+          workspaceId={workspace.id}
+          hasReadyDocuments={documents.some(
+            (document) => document.status === "ready",
+          )}
+        />
       </section>
     </main>
   );

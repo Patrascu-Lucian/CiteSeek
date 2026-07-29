@@ -293,3 +293,24 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   for every candidate row. The tell is that nothing breaks — you get the right answers via a
   sequential scan, and the index you carefully created in migration 0000 sits unused until
   the table is large enough for it to matter, which is the worst possible moment to find out.
+
+### A memoized markdown renderer silently froze citation state
+
+- **Issue**: `Answer` passed the open citation down to the chip through
+  `Streamdown`'s `components` prop — the obvious way, and it typechecks, renders, and
+  half-works. Clicking a chip opened the passage, but the chip never showed itself as
+  pressed. `Streamdown` wraps its output in `React.memo` with a custom comparator that
+  only inspects `translations`, `prefix` and `dir`, so a changed `components` closure
+  never reaches the DOM.
+- **Fix**: moved citation state into a React context and made the `components` map a
+  module-level constant. A context update re-renders consumers even when a memoized
+  ancestor declines to re-render, and the stable object identity is what the memo wanted
+  in the first place.
+- **Lesson**: `React.memo` with a _custom comparator_ is not the same contract as
+  `React.memo` alone — the default compares every prop, a custom one compares whatever
+  its author thought mattered. Anything outside that list is invisible to it, including
+  render props and component overrides. Worth reading the comparator before threading
+  state through a third-party renderer, because the failure has no error: the feature is
+  simply inert, and only a test that asserts the _visual_ state rather than the callback
+  catches it. The test that clicked a chip and checked the panel opened passed the whole
+  time.

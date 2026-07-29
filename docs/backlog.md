@@ -117,3 +117,16 @@ each of these is reversible and therefore safe to defer.
 
 - Bundle-size budget enforced in CI for the chat route.
 - Lighthouse CI as a PR gate rather than a manual measurement.
+
+## Measured, for the bundle budget
+
+- **Workspace page initial JS: 694 KB uncompressed** (11 chunks), measured against the
+  production build by reading the script tags the page actually serves. The chat UI brought
+  `streamdown` in for streaming-safe markdown, which pulls `mermaid` and a syntax
+  highlighter transitively — but both sit behind `React.lazy`, and **neither appears in any
+  chunk the page loads**, confirmed by grepping the served chunks. The 428 KB chunk holding
+  them is only fetched if an answer contains a diagram or a code block, which document
+  answers essentially never do.
+
+  Recorded now so the Milestone 3 bundle budget has a baseline to compare against rather
+  than a target invented after the fact.
