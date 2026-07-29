@@ -191,3 +191,14 @@ each of these is reversible and therefore safe to defer.
   So "axe clean" as a Milestone 3 exit criterion should be read as a floor. The pass also needs
   a human looking at each interactive surface and asking whether it _reads_ as interactive —
   chips, the composer, the source panel's close control, the retry button in the error state.
+
+## Deferred to Milestone 4 (product surface)
+
+- **An account page.** User data, sign out, delete account — currently the only home for any
+  of it is the header, which is why account deletion lives beside a "Back to home" link. The
+  header is a navigation bar carrying an irreversible action, which is the wrong place for it.
+  Milestone 4 already lists workspace management; this belongs with it.
+
+- **A navigation menu.** Once there are three destinations — home, workspace, account — the
+  header needs real navigation rather than a back link and a wordmark. Not worth building for
+  two destinations, and premature until the account page exists to navigate to.

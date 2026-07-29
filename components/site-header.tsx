@@ -7,7 +7,7 @@ import { leaveDemoAction, signOutAction } from "@/lib/auth/actions";
 import { getActor } from "@/lib/auth/actor";
 
 /**
- * Header for every route outside the landing page.
+ * Header for every route, including the landing page.
  *
  * The "back" affordance is a Link to an explicit destination rather than a
  * `history.back()` button. A history-based control does something different
@@ -16,6 +16,10 @@ import { getActor } from "@/lib/auth/actor";
  * A link always goes somewhere predictable and works with middle-click,
  * open-in-new-tab, and keyboard activation for free.
  *
+ * It is suppressed on the landing page, where "back to home" would point at the
+ * page you are already on — a control that visibly does nothing is worse than no
+ * control.
+ *
  * Ending a session is offered here because there is nowhere else for it to
  * live yet, and a session with no exit is a trap: a shared machine keeps the
  * next person signed in as you.
@@ -23,26 +27,32 @@ import { getActor } from "@/lib/auth/actor";
 export async function SiteHeader({
   backHref = "/",
   backLabel = "Back to home",
+  showBack = true,
 }: {
   backHref?: string;
   backLabel?: string;
+  showBack?: boolean;
 }) {
   const actor = await getActor();
 
   return (
     <header className="border-border/60 border-b">
       <div className="mx-auto flex w-full max-w-5xl items-center gap-4 px-6 py-4">
-        <Link
-          href={backHref}
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-2 rounded-md text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
-        >
-          <ArrowLeft aria-hidden="true" className="size-4" />
-          {backLabel}
-        </Link>
+        {showBack ? (
+          <>
+            <Link
+              href={backHref}
+              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-2 rounded-md text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              {backLabel}
+            </Link>
 
-        <span aria-hidden="true" className="text-border">
-          /
-        </span>
+            <span aria-hidden="true" className="text-border">
+              /
+            </span>
+          </>
+        ) : null}
 
         <Link
           href="/"
