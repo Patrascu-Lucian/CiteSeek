@@ -55,9 +55,14 @@ export function CitationLink({
       className={cn(
         "mx-0.5 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 align-baseline text-xs font-medium tabular-nums transition-colors",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none",
+        // `bg-background` with a ring, not `bg-muted`. The assistant bubble is
+        // itself `bg-muted`, so a muted chip was drawn in exactly the colour
+        // behind it: the pill was invisible and the markers read as stray grey
+        // numbers with an unexplained gap, which was its padding. Contrast has
+        // to be against the bubble, not against the page.
         isSelected
-          ? "bg-primary text-primary-foreground"
-          : "bg-muted text-muted-foreground hover:bg-muted-foreground/20",
+          ? "bg-primary text-primary-foreground ring-primary ring-1"
+          : "bg-background text-foreground ring-border hover:bg-accent ring-1",
       )}
     >
       {source.marker}

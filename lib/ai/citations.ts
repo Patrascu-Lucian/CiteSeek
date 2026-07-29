@@ -17,18 +17,26 @@ import type { ChatSource } from "./types";
 export const CITATION_HREF_PREFIX = "#citation-";
 
 /**
- * One or more marker numbers in a single bracket: `[1]`, `[1, 2]`, `[1,2,3]`.
+ * A run of citation markers: `[1]`, `[1, 2]`, `[1][2]`, `[1][2][3]`.
  *
- * Grouped markers are not hypothetical. Told that a sentence drawn from several
- * passages carries several markers, the model writes `[1, 2]` — which a
- * single-number pattern misses entirely, leaving the citation as dead text in an
- * answer that otherwise looks correct. Observed in production before it was
- * matched here.
+ * Both spellings are real and both were observed on the deployed app. Told only
+ * that several passages mean several markers, the model wrote `[1, 2]`; told to
+ * separate them, it wrote `[1][2]`.
+ *
+ * Matching the whole run rather than one bracket at a time means the separator
+ * between chips is chosen here, instead of inherited from however the model
+ * happened to punctuate. On screen the chips are distinct either way; the
+ * difference shows when an answer is **copied as text**, where adjacent chips
+ * flatten into "35" — a marker that cannot exist, since retrieval returns at
+ * most eight passages.
  *
  * The negative lookahead leaves `[1](https://…)` alone: text that is already a
  * markdown link is not a citation marker.
  */
-const GROUPED_MARKER = /\[(\d+(?:\s*,\s*\d+)*)\](?!\()/g;
+const GROUPED_MARKER = /(?:\[\d+(?:\s*,\s*\d+)*\])+(?!\()/g;
+
+/** Every number inside a matched run, in the order written. */
+const MARKER_NUMBER = /\d+/g;
 
 /**
  * Rewrites `[n]` as `[n](#citation-n)`, but only for markers that resolve.
@@ -46,8 +54,8 @@ export function linkCitationMarkers(
 
   const known = new Set(sources.map((source) => source.marker));
 
-  return text.replace(GROUPED_MARKER, (whole, group: string) => {
-    const markers = group.split(",").map((part) => Number(part.trim()));
+  return text.replace(GROUPED_MARKER, (whole) => {
+    const markers = (whole.match(MARKER_NUMBER) ?? []).map(Number);
 
     // All or nothing. A group where one number resolves and another does not is
     // a model that has half-invented a citation; rendering the valid half would
@@ -56,11 +64,11 @@ export function linkCitationMarkers(
     // always done.
     if (!markers.every((marker) => known.has(marker))) return whole;
 
-    // Emitted as adjacent links rather than one, because a link points at a
-    // single source. `[1, 2]` becomes two chips, and the separator goes with it.
+    // One link per marker, because a link points at a single source, separated
+    // by a space so the distinction survives being copied out of the page.
     return markers
       .map((marker) => `[${marker}](${CITATION_HREF_PREFIX}${marker})`)
-      .join("");
+      .join(" ");
   });
 }
 

@@ -453,3 +453,28 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   makes a regression harmless is that the client refuses to render a marker with no matching
   source. Tests can assert the rule is present and nothing more — the behaviour it asks for is
   only observable against the real model, which no suite here runs.
+
+### A citation chip that worked perfectly and could not be seen
+
+- **Issue**: citation markers rendered as bare grey numbers with an unexplained gap between
+  them, indistinguishable from the surrounding prose. The cause was a single colour: the
+  assistant message bubble is `bg-muted`, and the chip was also `bg-muted`. The pill was
+  drawn every time, in exactly the colour behind it. The "unexplained gap" was its own
+  padding, invisible for the same reason.
+- **Fix**: `bg-background` with a hairline `ring-border`, so the chip contrasts against the
+  bubble rather than against the page. The selected state keeps its filled treatment.
+- **Lesson**: every test passed, and they were reasonable tests. The component suite asserts
+  the chip exposes the right accessible name, invokes the right callback, and toggles
+  `aria-pressed`. All three were true of a control nobody could see. **A test that queries the
+  accessibility tree proves a control exists and works; it cannot prove it is visible.**
+
+  Worth being precise about the gap, because it is easy to assume automation covers it: axe
+  would not have caught this either. Contrast checks compare text against its background, and
+  `text-muted-foreground` on `bg-muted` is a designed pair that passes. What failed was
+  affordance — the control did not distinguish itself from the prose — and no automated check
+  tests affordance. "axe clean" is a lower bar than it sounds.
+
+  The practical correction is to the review process rather than the code: when the question is
+  how something _looks_, read a screenshot, not a transcript. Copied text preserves the words
+  and discards spacing, colour, and the distinction between a chip and a character — which is
+  the entire content of this defect.

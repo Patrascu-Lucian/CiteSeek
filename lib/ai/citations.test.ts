@@ -62,7 +62,7 @@ describe("linkCitationMarkers", () => {
     ]);
 
     expect(linked).toBe(
-      `Both agree [1](${CITATION_HREF_PREFIX}1)[2](${CITATION_HREF_PREFIX}2).`,
+      `Both agree [1](${CITATION_HREF_PREFIX}1) [2](${CITATION_HREF_PREFIX}2).`,
     );
   });
 
@@ -82,8 +82,38 @@ describe("linkCitationMarkers", () => {
     );
 
     expect(linkCitationMarkers("All [1, 2, 3] agree.", sources)).toBe(
-      `All [1](${CITATION_HREF_PREFIX}1)[2](${CITATION_HREF_PREFIX}2)[3](${CITATION_HREF_PREFIX}3) agree.`,
+      `All [1](${CITATION_HREF_PREFIX}1) [2](${CITATION_HREF_PREFIX}2) [3](${CITATION_HREF_PREFIX}3) agree.`,
     );
+  });
+
+  it("separates adjacent markers so two chips do not read as one number", () => {
+    // The model writes [3][5]. On screen the chips are distinct either way, but
+    // copying the answer flattens them to "35" — a marker that cannot exist,
+    // since retrieval returns at most eight passages.
+    const linked = linkCitationMarkers("Both [3][5] agree.", [
+      source({ marker: 3, chunkId: "chunk-3" }),
+      source({ marker: 5, chunkId: "chunk-5" }),
+    ]);
+
+    expect(linked).toBe(
+      `Both [3](${CITATION_HREF_PREFIX}3) [5](${CITATION_HREF_PREFIX}5) agree.`,
+    );
+  });
+
+  it("separates an adjacent run of three", () => {
+    const sources = [1, 2, 3].map((marker) =>
+      source({ marker, chunkId: `chunk-${marker}` }),
+    );
+
+    expect(linkCitationMarkers("All [1][2][3].", sources)).toBe(
+      `All [1](${CITATION_HREF_PREFIX}1) [2](${CITATION_HREF_PREFIX}2) [3](${CITATION_HREF_PREFIX}3).`,
+    );
+  });
+
+  it("leaves an adjacent run alone when any member is invented", () => {
+    const text = "Both [1][7] agree.";
+
+    expect(linkCitationMarkers(text, [source({ marker: 1 })])).toBe(text);
   });
 
   it("leaves a group alone when any member is invented", () => {

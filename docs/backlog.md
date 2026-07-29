@@ -181,3 +181,13 @@ each of these is reversible and therefore safe to defer.
   Note that "who are you?" already gets a self-description drawn from the system prompt, with
   no citation attached. That is acceptable and should stay: a question about the assistant,
   answered by the assistant, claiming no source. Belongs with Milestone 4's onboarding work.
+
+- **The accessibility pass needs eyes, not only axe.** A citation chip once rendered in the
+  same colour as the bubble behind it — functional, correctly labelled, and invisible. Every
+  component test passed, and axe would have passed it too: contrast rules compare text against
+  its background, and that pair is a designed one. What failed was affordance, which no
+  automated check measures.
+
+  So "axe clean" as a Milestone 3 exit criterion should be read as a floor. The pass also needs
+  a human looking at each interactive surface and asking whether it _reads_ as interactive —
+  chips, the composer, the source panel's close control, the retry button in the error state.
