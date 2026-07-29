@@ -13,9 +13,11 @@ here, not in the current branch.
 - **Coverage thresholds in `vitest.config.ts`.** ~~The bar is ≥90% for `lib/rag` and
   `lib/ai`.~~ Done in Milestone 1 — both thresholds are enforced now that the directories
   have real content.
-- **HNSW index on `chunks.embedding`.** Dimension is now settled at 768
-  (`docs/decisions/002-embedding-model-and-dimension.md`); the index itself is built in
-  Milestone 1 alongside the first real retrieval query.
+- ~~**HNSW index on `chunks.embedding`.**~~ Already done, and this entry was wrong: it was
+  written before the dimension was settled and never updated once the schema landed. The
+  index was created in migration 0000 (`chunks_embedding_idx`, `vector_cosine_ops`) at the
+  same time as the table, because building it on an empty table is free — adding it later
+  would mean a migration that rebuilds over every row.
 - **Upgrade to TypeScript 7 / ESLint 10.** Blocked upstream — see
   `docs/decisions/001-pin-typescript-5-and-eslint-9.md`.
 
