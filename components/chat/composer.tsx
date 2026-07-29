@@ -1,5 +1,3 @@
-"use client";
-
 import { type FormEvent, type KeyboardEvent, useRef } from "react";
 import { Send, Square } from "lucide-react";
 
