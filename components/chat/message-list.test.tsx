@@ -103,8 +103,19 @@ describe("MessageList", () => {
       />,
     );
 
+    // A longer wait than the 1s default, because `Answer` is now loaded through
+    // `next/dynamic`. Resolving it makes Vitest transform the whole markdown
+    // stack — Streamdown, its parser, highlighter and diagram renderer — on
+    // first use, which takes over a second when the full suite is competing for
+    // the transform pipeline. It resolves in ~500ms when this file runs alone,
+    // which is exactly the kind of difference that reads as flake if the reason
+    // is not written down.
     expect(
-      await screen.findByRole("button", { name: /^Citation 1/ }),
+      await screen.findByRole(
+        "button",
+        { name: /^Citation 1/ },
+        { timeout: 5_000 },
+      ),
     ).toBeInTheDocument();
   });
 

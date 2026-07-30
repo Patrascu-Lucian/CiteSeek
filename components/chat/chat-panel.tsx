@@ -65,6 +65,16 @@ export function ChatPanel({
     const question = input.trim();
     if (question.length === 0) return;
 
+    // Warm the markdown chunk while the question is in flight. `MessageList`
+    // loads `Answer` on demand — it carries Streamdown and 428 KB of parser,
+    // diagram and highlighter code that no empty conversation needs. Retrieval
+    // and the first token take on the order of a second, which is ample time to
+    // fetch it, so the split costs nothing the reader can see.
+    //
+    // Fire-and-forget by design: a failed prefetch is not an error, because the
+    // real import still runs when the component renders.
+    void import("./answer");
+
     setInput("");
     void sendMessage({ text: question });
   }

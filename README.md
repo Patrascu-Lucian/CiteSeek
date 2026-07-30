@@ -6,7 +6,7 @@ clickable citations to exact source passages.
 **Live:** [cite-seek.vercel.app](https://cite-seek.vercel.app) — click **Try the demo**;
 no account needed.
 
-> **Status: Milestone 2 complete.** Upload a PDF, Word document, Markdown or text file, then
+> **Status: Milestone 3 complete.** Upload a PDF, Word document, Markdown or text file, then
 > ask questions about it. Answers stream, and every claim carries a numbered citation that
 > opens the source document scrolled to the exact passage. When nothing relevant is found,
 > the answer says so and cites nothing.
@@ -62,9 +62,11 @@ Playwright smoke suite all gate every pull request.
 
 ## Numbers
 
-Measured, not estimated. Each figure is the median of five `curl` requests from a European
-vantage point; the first sample in each set includes a cold start and is kept in the data
-rather than discarded.
+Measured, not estimated, from a European vantage point against the deployed app unless a row
+says otherwise. Latency figures are medians of repeated requests, and the first sample in each
+set includes a cold start and is kept in the data rather than discarded. Where a measurement
+needed a different method — a streamed response, or a headless browser — the method is stated
+beside it, because "1 second" means nothing without knowing what was being timed.
 
 **Function region colocation** — moving Vercel Functions from the default `iad1`
 (Washington DC) to `fra1` (Frankfurt), beside the Neon database:
@@ -98,29 +100,58 @@ for its page count; a dense report of the same length would produce closer to 50
 The figure above proves the path works end to end in production, not that the ceiling has
 been stressed.
 
+**Time to first token** — the deployed app, as a guest, asking a question the demo document
+answers. Two figures, because only one of them is TTFT:
+
+| Measured from request start        | Median |
+| ---------------------------------- | ------ |
+| First byte of the stream (sources) | 461 ms |
+| **First token of the answer**      | 1.03 s |
+
+The stream opens before the model is called at all: the citation payload is written first, as
+a fact about retrieval rather than a summary of what the model claimed. So a reader sees
+sources resolve at ~460 ms and prose begin at ~1 s.
+
+Four samples rather than five — the fifth was refused by this project's own rate limiter,
+which is the intended behavior and a reasonable way to find out it works in production.
+
 **Client bundle**, measured against the production build by reading the scripts the page
-actually serves:
+actually serves. The Milestone 2 entry here claimed the 428 KB markdown chunk — a parser, a
+diagram renderer, a syntax highlighter and a maths typesetter — was lazy and absent from the
+initial payload. **Measuring it showed the opposite**: it was in the initial HTML of every
+workspace visit. Loading `Answer` through `next/dynamic` fixed that, since no conversation
+needs a markdown renderer before it has an answer in it:
 
-| Route     | Initial JS |
-| --------- | ---------- |
-| `/w/[id]` | 694 KB     |
+| Scripts on `/w/[id]` | Before  | After   |          |
+| -------------------- | ------- | ------- | -------- |
+| Raw                  | 1671 KB | 1244 KB | −26%     |
+| Transferred          | 459 KB  | 338 KB  | **−26%** |
 
-The chat UI brought in `streamdown` for streaming-safe markdown — text arrives a token at a
-time, so half-written markdown is the normal state rather than an error. It pulls a diagram
-renderer and a syntax highlighter transitively, together 428 KB, and **neither appears in any
-chunk the page loads**: both sit behind `React.lazy` and are fetched only if an answer
-contains a diagram or a code block. Recorded as the baseline the Milestone 3 bundle budget
-gets measured against, rather than a target invented afterward.
+**Lighthouse**, mobile emulation with its default throttling (Slow 4G, 4× CPU):
 
-TTFT and Lighthouse are Milestone 3.
+| Page              | Performance | Accessibility | Best practices | SEO |
+| ----------------- | ----------- | ------------- | -------------- | --- |
+| `/` landing       | 98          | 100           | 100            | 100 |
+| `/w/[id]` (guest) | 84 → **90** | 100           | 100            | 100 |
+
+The workspace has to be measured with a guest cookie: `proxy.ts` redirects a credential-less
+`/w/*` to `/sign-in`, so an anonymous run scores a different page.
+
+The workspace page is short of the 95 target and the reason is specific: 124 KB of the
+remaining bundle is unused Vercel AI SDK and Zod, reachable only by deferring `useChat` —
+which would delay the composer becoming interactive. Trading the product's primary interaction
+for five points is the wrong way round, so the gap is recorded rather than closed. LCP is the
+chat panel's empty-state text, and its breakdown is 20 ms of server time against 437 ms of
+render delay, so the remaining cost is script evaluation rather than anything the database
+does.
 
 ## Testing
 
-| Layer       | Count | What it covers                                                                               |
-| ----------- | ----- | -------------------------------------------------------------------------------------------- |
-| Unit        | 341   | Chunking, extraction, embeddings, prompts, citation markers, highlighting, address hashing   |
-| Integration | 86    | Real Postgres: ingestion, retrieval, chat route, usage recording, tenant isolation, cascades |
-| E2E         | 35    | Guest flow, route protection, ask → stream → cite → source panel, keyboard paths             |
+| Layer       | Count | What it covers                                                                              |
+| ----------- | ----- | ------------------------------------------------------------------------------------------- |
+| Unit        | 381   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, answer rendering |
+| Integration | 97    | Real Postgres: ingestion, retrieval, chat route, usage limits, tenant isolation, cascades   |
+| E2E         | 47    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe      |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
 
@@ -163,13 +194,22 @@ Built with AI-assisted tooling (Claude Code) under close review — see
 ## Known gaps at this milestone
 
 Guest conversations are not saved — a reload starts over. That is deliberate: persisting them
-would put an unbounded write path behind a public URL, and rate limiting arrives in Milestone
-3 ([ADR 013](docs/decisions/013-chat-persistence.md)). Conversation history, rename and delete
+would put an unbounded write path behind a public URL
+([ADR 013](docs/decisions/013-chat-persistence.md)). Conversation history, rename and delete
 are Milestone 4.
+
+The workspace page scores 90 on Lighthouse rather than the 95 this project set as its bar. The
+cause is measured and recorded above; closing it means deferring chat hydration, which is a
+worse trade than the points are worth.
 
 The relevance threshold that decides when to answer "I don't know" is a starting value, not a
 tuned one; it needs measuring against real documents with the real embedding model. The demo
 document is Markdown, so its citations show a filename but no page number.
+
+Usage limits are enforced but their thresholds are provisional in the same way — they need
+real traffic to calibrate against, and are deliberately generous because shared addresses
+(office networks, mobile carriers) put many visitors in one bucket
+([ADR 014](docs/decisions/014-usage-limiting.md)).
 
 Email magic-link sign-in is deferred until an email sender is configured — GitHub OAuth and
 guest mode both work. The demo workspace is read-only by design, so uploading requires signing

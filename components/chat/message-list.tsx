@@ -1,9 +1,26 @@
+import dynamic from "next/dynamic";
 import { MessageSquare } from "lucide-react";
 
 import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
 import { cn } from "@/lib/utils";
 
-import { Answer } from "./answer";
+/**
+ * The markdown renderer is loaded on demand, not with the page.
+ *
+ * `Answer` pulls in Streamdown, which carries a markdown parser, a diagram
+ * renderer, a syntax highlighter and a maths typesetter — **428 KB raw in one
+ * chunk**, measured, and it was arriving in the initial HTML of every workspace
+ * visit. Nobody needs it until an assistant message exists, and a guest opening
+ * the demo has none: the conversation starts empty.
+ *
+ * `ssr` stays on, so a signed-in reader's restored transcript still
+ * server-renders. What changes is when the *client* chunk is fetched.
+ *
+ * `ChatPanel` warms it on submit, so it is in flight during the second or so
+ * that retrieval and the first token take, rather than being requested at the
+ * moment there is finally something to draw.
+ */
+const Answer = dynamic(() => import("./answer").then((m) => m.Answer));
 
 /**
  * The transcript. Presentational — every piece of state it renders is owned by
