@@ -39,15 +39,24 @@ describe("getEmbedder", () => {
   it("returns the fake embedder when EMBEDDINGS_PROVIDER=fake", async () => {
     vi.stubEnv("EMBEDDINGS_PROVIDER", "fake");
 
-    const vectors = await getEmbedder()(["text"], "RETRIEVAL_DOCUMENT");
+    const { vectors, tokens } = await getEmbedder()(
+      ["text"],
+      "RETRIEVAL_DOCUMENT",
+    );
 
     expect(vectors).toHaveLength(1);
+    // The fake costs nothing and says so. A non-zero figure here would put
+    // fictional spend into the usage table.
+    expect(tokens).toBe(0);
     expect(embedMany).not.toHaveBeenCalled();
   });
 
   it("returns the google embedder by default", async () => {
     vi.stubEnv("EMBEDDINGS_PROVIDER", "");
-    embedMany.mockResolvedValue({ embeddings: unitVectors(1) });
+    embedMany.mockResolvedValue({
+      embeddings: unitVectors(1),
+      usage: { tokens: 7 },
+    });
 
     await getEmbedder()(["text"], "RETRIEVAL_DOCUMENT");
 
@@ -58,7 +67,10 @@ describe("getEmbedder", () => {
 describe("google provider options", () => {
   it("requests 768 dimensions and RETRIEVAL_DOCUMENT for passages", async () => {
     vi.stubEnv("EMBEDDINGS_PROVIDER", "google");
-    embedMany.mockResolvedValue({ embeddings: unitVectors(2) });
+    embedMany.mockResolvedValue({
+      embeddings: unitVectors(2),
+      usage: { tokens: 9 },
+    });
 
     await embedPassages(["a", "b"]);
 
@@ -77,7 +89,10 @@ describe("google provider options", () => {
 
   it("requests RETRIEVAL_QUERY for queries", async () => {
     vi.stubEnv("EMBEDDINGS_PROVIDER", "google");
-    embedMany.mockResolvedValue({ embeddings: unitVectors(1) });
+    embedMany.mockResolvedValue({
+      embeddings: unitVectors(1),
+      usage: { tokens: 7 },
+    });
 
     await embedQuery("a question");
 
@@ -98,7 +113,10 @@ describe("google provider options", () => {
     // document. Unbounded parallelism is the quickest route to a rate-limited
     // ingest that fails halfway.
     vi.stubEnv("EMBEDDINGS_PROVIDER", "google");
-    embedMany.mockResolvedValue({ embeddings: unitVectors(1) });
+    embedMany.mockResolvedValue({
+      embeddings: unitVectors(1),
+      usage: { tokens: 7 },
+    });
 
     await embedPassages(["a"]);
 
@@ -109,7 +127,10 @@ describe("google provider options", () => {
 
   it("forwards an abort signal", async () => {
     vi.stubEnv("EMBEDDINGS_PROVIDER", "google");
-    embedMany.mockResolvedValue({ embeddings: unitVectors(1) });
+    embedMany.mockResolvedValue({
+      embeddings: unitVectors(1),
+      usage: { tokens: 7 },
+    });
     const signal = AbortSignal.abort();
 
     await embedPassages(["a"], { signal });

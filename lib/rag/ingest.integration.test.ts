@@ -38,7 +38,7 @@ function fixture(name: string): Uint8Array {
 }
 
 const workingEmbedder: Embedder = (texts) =>
-  Promise.resolve(fakeEmbeddings(texts));
+  Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: texts.length * 2 });
 
 beforeAll(() => cleanupTestRows(db));
 afterAll(async () => {
@@ -210,7 +210,7 @@ describe("processDocument — failures", () => {
       calls += 1;
       if (calls > 1)
         return Promise.reject(new Error("429 rate limit exceeded"));
-      return Promise.resolve(fakeEmbeddings(texts));
+      return Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: 0 });
     };
 
     await processDocument(

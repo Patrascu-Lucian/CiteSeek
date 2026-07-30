@@ -7,11 +7,11 @@ import { EMBEDDING_DIMENSIONS, isUnitVector } from "./vector";
 
 /** Stands in for the provider so these tests need no key and no network. */
 const workingEmbedder: Embedder = (texts) =>
-  Promise.resolve(fakeEmbeddings(texts));
+  Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: texts.length * 3 });
 
 describe("embedPassages", () => {
   it("returns one unit vector per input", async () => {
-    const vectors = await embedPassages(["alpha", "beta", "gamma"], {
+    const { vectors } = await embedPassages(["alpha", "beta", "gamma"], {
       embedder: workingEmbedder,
     });
 
@@ -23,12 +23,13 @@ describe("embedPassages", () => {
   });
 
   it("preserves input order", async () => {
-    const [first, second] = await embedPassages(["first", "second"], {
+    const { vectors } = await embedPassages(["first", "second"], {
       embedder: workingEmbedder,
     });
-    const [firstAgain] = await embedPassages(["first"], {
-      embedder: workingEmbedder,
-    });
+    const [first, second] = vectors;
+    const [firstAgain] = (
+      await embedPassages(["first"], { embedder: workingEmbedder })
+    ).vectors;
 
     expect(first).toEqual(firstAgain);
     expect(first).not.toEqual(second);
@@ -37,13 +38,16 @@ describe("embedPassages", () => {
   it("short-circuits an empty batch without calling the provider", async () => {
     const embedder = vi.fn<Embedder>();
 
-    await expect(embedPassages([], { embedder })).resolves.toEqual([]);
+    await expect(embedPassages([], { embedder })).resolves.toEqual({
+      vectors: [],
+      tokens: 0,
+    });
     expect(embedder).not.toHaveBeenCalled();
   });
 
   it("asks for RETRIEVAL_DOCUMENT", async () => {
     const embedder = vi.fn<Embedder>((texts) =>
-      Promise.resolve(fakeEmbeddings(texts)),
+      Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: 1 }),
     );
 
     await embedPassages(["indexed text"], { embedder });
@@ -60,7 +64,10 @@ describe("embedPassages", () => {
     // message can name the cause, rather than as an off-by-one deep in the
     // ingestion loop.
     const aggregating: Embedder = (texts) =>
-      Promise.resolve(fakeEmbeddings([texts.join(" ")]));
+      Promise.resolve({
+        vectors: fakeEmbeddings([texts.join(" ")]),
+        tokens: 0,
+      });
 
     await expect(
       embedPassages(["one", "two", "three"], { embedder: aggregating }),
@@ -69,7 +76,7 @@ describe("embedPassages", () => {
 
   it("rejects vectors of the wrong dimension", async () => {
     const wrongSize: Embedder = (texts) =>
-      Promise.resolve(fakeEmbeddings(texts, 512));
+      Promise.resolve({ vectors: fakeEmbeddings(texts, 512), tokens: 0 });
 
     await expect(
       embedPassages(["text"], { embedder: wrongSize }),
@@ -78,7 +85,10 @@ describe("embedPassages", () => {
 
   it("rejects a zero vector rather than storing NaNs", async () => {
     const degenerate: Embedder = () =>
-      Promise.resolve([new Array<number>(EMBEDDING_DIMENSIONS).fill(0)]);
+      Promise.resolve({
+        vectors: [new Array<number>(EMBEDDING_DIMENSIONS).fill(0)],
+        tokens: 0,
+      });
 
     await expect(
       embedPassages(["text"], { embedder: degenerate }),
@@ -96,7 +106,7 @@ describe("embedPassages", () => {
 
   it("passes an abort signal through", async () => {
     const embedder = vi.fn<Embedder>((texts) =>
-      Promise.resolve(fakeEmbeddings(texts)),
+      Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: 1 }),
     );
     const signal = AbortSignal.abort();
 
@@ -112,7 +122,7 @@ describe("embedPassages", () => {
 
 describe("embedQuery", () => {
   it("returns a single unit vector", async () => {
-    const vector = await embedQuery("what is the refund policy?", {
+    const { vector } = await embedQuery("what is the refund policy?", {
       embedder: workingEmbedder,
     });
 
@@ -125,7 +135,7 @@ describe("embedQuery", () => {
     // elsewhere in the space. Getting this wrong degrades retrieval in a way
     // that looks like bad chunking rather than a config error.
     const embedder = vi.fn<Embedder>((texts) =>
-      Promise.resolve(fakeEmbeddings(texts)),
+      Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: 1 }),
     );
 
     await embedQuery("a question", { embedder });
@@ -143,7 +153,7 @@ describe("embedQuery", () => {
     const seen: string[] = [];
     const recording: Embedder = (texts, taskType) => {
       seen.push(taskType);
-      return Promise.resolve(fakeEmbeddings(texts));
+      return Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: 0 });
     };
 
     await embedQuery("same text", { embedder: recording });

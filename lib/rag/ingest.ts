@@ -85,9 +85,10 @@ async function embedPendingChunks(
   workspaceId: string,
   documentId: string,
   options: IngestOptions,
-): Promise<number> {
+): Promise<{ embedded: number; tokens: number }> {
   const embedder = options.embedder ?? getEmbedder();
   let embedded = 0;
+  let tokens = 0;
 
   for (;;) {
     const pending = await listUnembeddedChunks(
@@ -97,17 +98,22 @@ async function embedPendingChunks(
     );
     if (pending.length === 0) break;
 
-    const vectors = await embedPassages(
+    const batch = await embedPassages(
       pending.map((chunk) => chunk.content),
       { embedder, signal: options.signal },
     );
+
+    // Accumulated per batch, before the write. A run that fails halfway has
+    // still spent everything it embedded, and that quota does not become free
+    // because the document never reached `ready`.
+    tokens += batch.tokens;
 
     const written = await setChunkEmbeddings(
       workspaceId,
       documentId,
       pending.map((chunk, index) => ({
         id: chunk.id,
-        embedding: vectors[index]!,
+        embedding: batch.vectors[index]!,
       })),
     );
 
@@ -124,7 +130,7 @@ async function embedPendingChunks(
     await updateDocument(workspaceId, documentId, { status: "processing" });
   }
 
-  return embedded;
+  return { embedded, tokens };
 }
 
 /**

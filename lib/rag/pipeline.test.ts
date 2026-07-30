@@ -67,7 +67,9 @@ describe.each(CASES)("$file", ({ file, mime, hasPages }) => {
 
     // The fake embedder keeps this keyless and deterministic; it proves shape
     // and plumbing, not retrieval quality.
-    const embeddings = await embedPassages(chunks.map((c) => c.content));
+    const { vectors: embeddings } = await embedPassages(
+      chunks.map((c) => c.content),
+    );
 
     expect(embeddings).toHaveLength(chunks.length);
     for (const embedding of embeddings) {
