@@ -91,16 +91,29 @@ describe("an answer containing injected markup", () => {
   it("still renders ordinary prose and emphasis", () => {
     // The override must not turn the renderer into a plaintext viewer — the
     // answer is Markdown and is supposed to look like it.
-    //
-    // Queried by Streamdown's own marker rather than by tag: it renders `strong`
-    // as a styled `span` carrying `data-streamdown="strong"`, so asserting on
-    // `<strong>` would fail against a renderer that is working correctly.
     const { container } = render(
       <Answer text="Claims are paid **within 30 days**." {...noSources} />,
     );
 
-    expect(
-      container.querySelector('[data-streamdown="strong"]'),
-    ).toHaveTextContent("within 30 days");
+    expect(container.querySelector("strong")).toHaveTextContent(
+      "within 30 days",
+    );
+  });
+
+  it("renders emphasis as real elements rather than styled spans", () => {
+    // Streamdown's own output for `**bold**` is a `span` carrying
+    // `class="font-semibold"` and `data-streamdown="strong"`: visually right,
+    // semantically empty, and nothing an assistive technology can expose.
+    //
+    // axe cannot report this — from the outside, a weighted span is
+    // indistinguishable from decorative styling, because the tool has no way to
+    // know the author meant emphasis. Another instance of the automated pass
+    // being a floor.
+    const { container } = render(
+      <Answer text="**Required** and _optional_." {...noSources} />,
+    );
+
+    expect(container.querySelector("strong")).toHaveTextContent("Required");
+    expect(container.querySelector("em")).toHaveTextContent("optional");
   });
 });

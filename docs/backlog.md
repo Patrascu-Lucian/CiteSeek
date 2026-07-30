@@ -180,13 +180,6 @@ each of these is reversible and therefore safe to defer.
   with a trace from a failing parallel run; not worth blocking a milestone on a condition CI
   never reaches.
 
-- **Streamdown renders `**bold**` as a styled `span`, not `<strong>`.** Found while asserting
-  that the Markdown overrides had not turned the renderer into a plaintext viewer: the output
-  carries `class="font-semibold" data-streamdown="strong"`. Visually correct, semantically
-  empty — emphasis conveys nothing to assistive technology. Low severity (most screen readers
-  do not announce `<strong>` by default), but it belongs in the accessibility pass rather than
-  being rediscovered there.
-
 - **Nothing consumes the signal that usage recording failed.** `recordUsage` returns
   `{ recorded: boolean }` and every caller discards it. That is not theoretical: production ran
   for two deploys inserting into a table that did not exist, recorded nothing, and reported

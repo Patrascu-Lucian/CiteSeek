@@ -71,6 +71,12 @@ export function MessageList({
             className={cn("flex", isUser ? "justify-end" : "justify-start")}
           >
             <div
+              // Marks the surface a citation chip is drawn *on*, so a test can
+              // compare the two backgrounds. The chip was once painted in
+              // exactly this color and disappeared; no automated rule catches
+              // that, so the regression test has to find this element reliably
+              // rather than guess at an ancestor.
+              data-message-bubble={isUser ? "user" : "assistant"}
               className={cn(
                 "max-w-[85%] rounded-lg px-4 py-3 text-sm",
                 isUser

@@ -20,6 +20,27 @@ import type { ComponentPropsWithoutRef, ReactNode } from "react";
  */
 
 /**
+ * Emphasis, restored to real elements.
+ *
+ * Streamdown renders `**bold**` as `<span class="font-semibold">` and `_italic_`
+ * as a styled span too — visually correct, semantically empty. `<strong>` and
+ * `<em>` carry meaning that a styled span does not: assistive technology can
+ * expose them, and they survive when styles do not.
+ *
+ * Not something axe reports, because from the outside a span with a font weight
+ * is indistinguishable from decorative styling — the tool cannot know the author
+ * meant emphasis. It is a cheap override, so there is no reason to accept the
+ * lossy version.
+ */
+export function SemanticStrong({ children }: { children?: ReactNode }) {
+  return <strong className="font-semibold">{children}</strong>;
+}
+
+export function SemanticEmphasis({ children }: { children?: ReactNode }) {
+  return <em className="italic">{children}</em>;
+}
+
+/**
  * An image becomes its alt text.
  *
  * Not dropped silently: if a document legitimately references a figure, the

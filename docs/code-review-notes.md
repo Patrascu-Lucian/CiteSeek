@@ -605,3 +605,44 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   refuses to fall back to storing addresses in the clear. A version that degraded quietly
   would have shipped, and production would have recorded raw IP addresses while every test
   stayed green.
+
+### The accessibility pass, and a test that could not have failed
+
+- **Issue**: three things, in the order they were found.
+
+  `@axe-core/playwright` across six surfaces reported exactly one violation, and it was real:
+  `scrollable-region-focusable`, serious, on the source panel's body. A document is longer than
+  the panel and that region contains no focusable children — the passage is text — so a
+  keyboard-only reader could open a citation and then have nothing for arrow keys to act on.
+  On the product's headline feature.
+
+  Second, the regression test written to cover the invisible-chip bug **could not have failed**.
+  It compared the chip's background against `node.closest("[data-message-bubble]") ??
+node.parentElement`, and no such attribute existed — so it fell back to a transparent inline
+  element and passed without ever looking at the bubble.
+
+  Third, Streamdown renders `**bold**` as `<span class="font-semibold">`. Visually correct,
+  semantically empty, and not something axe can report: from the outside a weighted span is
+  indistinguishable from decorative styling.
+
+- **Fix**: `role="region"` with an accessible name and `tabIndex={0}` on the scrollable body —
+  a name rather than a bare tab stop, since focus landing somewhere unannounced trades one
+  problem for another. A real `data-message-bubble` marker on the message bubble, with the
+  fallback **removed** so a missing marker throws instead of silently passing. And `strong` and
+  `em` overrides beside the existing `img` and `a` ones.
+
+- **Lesson**: the automated pass is a floor, and this run measured how low.
+
+  Reintroducing the original invisible chip — `bg-muted` on a `bg-muted` bubble — turns the
+  suite red on **one** test. **All six axe scans stay green.** That is the claim demonstrated
+  rather than asserted: contrast rules compare text to its own background, and
+  `text-muted-foreground` on `bg-muted` is a compliant, designed pair. Nothing automated
+  measures whether a control announces itself as one.
+
+  The second finding is the more uncomfortable one, because it is the same mistake this file
+  already records from Milestone 1 — a test whose expected value coincides with what a broken
+  implementation produces. Knowing the failure mode did not prevent repeating it. What caught it
+  was asking "what would make this fail?" and checking the selector actually matched, which is a
+  cheap habit and evidently not an automatic one. **A test defending a specific regression
+  should be run against that regression at least once**; it takes a minute and it is the only
+  thing that distinguishes a guard from a decoration.

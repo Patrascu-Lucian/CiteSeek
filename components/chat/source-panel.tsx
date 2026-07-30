@@ -157,7 +157,26 @@ function SourceBody({
       : null;
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-4">
+    /*
+      Focusable, because it scrolls.
+
+      A document is usually longer than the panel, and this region contains no
+      focusable children — the passage is text. Without a tab stop of its own a
+      keyboard-only reader can open a citation and then be unable to scroll to
+      the rest of the document: arrow keys need something focused to act on.
+      Caught by axe (`scrollable-region-focusable`, serious), on the product's
+      headline feature.
+
+      `role="region"` with a name rather than a bare `tabIndex`: an unnamed tab
+      stop is a place focus lands with nothing announced, which trades one
+      problem for another.
+    */
+    <div
+      role="region"
+      aria-label={`Source text of ${source.filename}`}
+      tabIndex={0}
+      className="focus-visible:ring-ring flex-1 overflow-y-auto px-6 py-4 focus-visible:ring-2 focus-visible:outline-none"
+    >
       {state.status === "loading" ? (
         <p className="text-muted-foreground flex items-center gap-2 text-sm">
           <Loader2 aria-hidden="true" className="size-4 animate-spin" />
