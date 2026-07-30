@@ -534,6 +534,43 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   The instinct to build the guard "before it is needed" was already too late; it was needed
   two pull requests earlier.
 
+### A seed script that read one database and wrote to another
+
+- **Issue**: the demo document vanished from production, and re-seeding would not restore it.
+  `DATABASE_URL_UNPOOLED=<production> pnpm db:seed` reported `Seeding ep-red-sea…`, then
+  `Demo workspace already present`, then `already has 1 document(s) — leaving them alone`, and
+  exited 0. Production had **zero** documents.
+
+  The script talks to Postgres through two paths. Its own client is built from
+  `DATABASE_URL_UNPOOLED ?? DATABASE_URL`; the query helpers it imports from `lib/` use the
+  singleton in `lib/db/index.ts`, which reads **`DATABASE_URL` and nothing else**. Exporting
+  only the unpooled variable therefore pointed the workspace lookup at production and
+  `listDocuments` at whatever `.env.local` held — the development branch, which did still have
+  the document. The script asked one database a question about another's data.
+
+- **Fix**: `process.env.DATABASE_URL = connectionString`, assigned before the dynamic imports so
+  the singleton is constructed against the same target. The imports were already dynamic, for a
+  neighboring reason, which is what made the fix a single line.
+
+- **Lesson**: three.
+
+  **Every line of that output was true.** The host was production, the workspace id was
+  production's, the document count was a real count of real rows. Only the conclusion joining
+  them was false. That is the hardest class of diagnostic to distrust, because careful reading
+  confirms it — and it cost a redeploy and a connection-string change, both aimed at the wrong
+  thing, before anyone doubted the script instead of the configuration.
+
+  **A script that reuses application modules inherits their configuration, not its own.** The
+  existing guard here checks that the _embedder_ was chosen deliberately, because that had gone
+  wrong before. It could not see this, because the provider was correct — the divergence was in
+  a variable the script never compared against itself. Any script resolving a connection
+  differently from the app it imports has two databases and no way to notice.
+
+  **What ended it was a second opinion, not more reasoning.** A throwaway script that opened
+  only the URL it was handed and printed what was actually in the workspace settled in one run
+  what two rounds of hypotheses had not. When two components disagree about state, the fastest
+  move is a third that reads it directly.
+
 ### A 404 page that returned 200, and the boundary that caused it
 
 - **Issue**: the workspace route answered "Workspace not available" for an id the caller may
