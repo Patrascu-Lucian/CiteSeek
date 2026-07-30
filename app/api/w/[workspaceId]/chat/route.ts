@@ -21,6 +21,7 @@ import { SOURCES_PART_ID } from "@/lib/ai/types";
 import { appendMessages, getOrCreateChat } from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { clientIpHash } from "@/lib/usage/client-ip";
+import { enforceUsageLimits } from "@/lib/usage/enforce";
 import { recordUsage } from "@/lib/usage/queries";
 import { listDocuments } from "@/lib/documents/queries";
 import { retrieveChunks } from "@/lib/rag/retrieve";
@@ -115,6 +116,13 @@ export async function POST(
   const auth = await authorizeWorkspace(workspaceId, REQUIRED_ACCESS);
   if (isDenied(auth)) return auth;
 
+  const ipHash = clientIpHash(request.headers);
+
+  // Before the body is even parsed: this route's whole cost is the two provider
+  // calls below it, so the cheapest possible refusal is the point.
+  const refused = await enforceUsageLimits(auth, ipHash);
+  if (refused) return refused;
+
   let body: unknown;
   try {
     body = await request.json();
@@ -139,7 +147,6 @@ export async function POST(
   // narrowing to survive.
   const { workspaceId: scope, actorType, actorId } = auth;
   const asked: string = question;
-  const ipHash = clientIpHash(request.headers);
 
   /**
    * Recorded before either branch returns.

@@ -90,6 +90,22 @@ export async function countRequestsSince(
   return row?.total ?? 0;
 }
 
+/**
+ * Requests by everyone since a moment — the global cap, and the reserve.
+ *
+ * Unkeyed on purpose, so it uses `usage_events_created_at_idx` rather than
+ * scanning: this one runs on every admitted request and is the only query here
+ * whose cost grows with total traffic rather than with one caller's.
+ */
+export async function countAllRequestsSince(since: Date): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(usageEvents)
+    .where(gte(usageEvents.createdAt, since));
+
+  return row?.total ?? 0;
+}
+
 /** Tokens spent by one caller since a moment — the personal cap. */
 export async function sumTokensSince(
   key: { actorId: string } | { ipHash: string },

@@ -3,7 +3,7 @@ import { like } from "drizzle-orm";
 import postgres from "postgres";
 
 import * as schema from "./schema";
-import { users, workspaces } from "./schema";
+import { usageEvents, users, workspaces } from "./schema";
 
 /**
  * Shared scaffolding for integration suites.
@@ -54,6 +54,19 @@ export type TestDatabase = ReturnType<typeof createTestClient>["db"];
 export async function cleanupTestRows(db: TestDatabase): Promise<void> {
   await db.delete(users).where(like(users.name, `${TEST_PREFIX}%`));
   await db.delete(workspaces).where(like(workspaces.name, `${TEST_PREFIX}%`));
+}
+
+/**
+ * Empties `usage_events`.
+ *
+ * Not covered by `cleanupTestRows`: usage rows are deliberately not
+ * workspace-scoped, so nothing about them carries the test prefix, and rows with
+ * no workspace do not cascade. The global-cap query reads *every* row by
+ * definition, which makes a leftover from another test a wrong answer rather
+ * than noise.
+ */
+export async function clearUsageEvents(db: TestDatabase): Promise<void> {
+  await db.delete(usageEvents);
 }
 
 /**

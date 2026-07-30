@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { usageEvents } from "@/lib/db/schema";
 import {
   cleanupTestRows,
+  clearUsageEvents,
   createTestClient,
   createTestUser,
   createTestWorkspace,
@@ -20,15 +21,8 @@ import {
 
 const { client, db } = createTestClient();
 
-/**
- * Usage rows are not workspace-scoped and cannot be cleaned by the shared
- * prefix, so each test starts from an empty table. The global-cap query reads
- * every row by definition, which means a leftover from another test is not
- * noise — it is a wrong answer.
- */
-async function clearUsage() {
-  await db.delete(usageEvents);
-}
+/** Shared with the other usage suites — see `clearUsageEvents` for why. */
+const clearUsage = () => clearUsageEvents(db);
 
 beforeAll(async () => {
   await cleanupTestRows(db);
