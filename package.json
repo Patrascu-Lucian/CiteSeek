@@ -51,6 +51,7 @@
     "unpdf": "^1.8.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "1.62.0",
     "@tailwindcss/postcss": "4.3.3",
     "@testing-library/jest-dom": "7.0.0",

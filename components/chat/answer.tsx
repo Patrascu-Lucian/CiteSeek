@@ -6,7 +6,7 @@ import type { ChatSource } from "@/lib/ai/types";
 
 import { CitationLink } from "./citation-chip";
 import { CitationProvider } from "./citation-context";
-import { InertImage } from "./safe-markdown";
+import { InertImage, SemanticEmphasis, SemanticStrong } from "./safe-markdown";
 
 /**
  * An assistant answer: markdown, with citation markers rendered as chips.
@@ -31,7 +31,12 @@ import { InertImage } from "./safe-markdown";
  * a network request the browser makes on render with no click, which is an
  * exfiltration channel out of the workspace. See `safe-markdown.tsx`.
  */
-const MARKDOWN_COMPONENTS = { a: CitationLink, img: InertImage } as const;
+const MARKDOWN_COMPONENTS = {
+  a: CitationLink,
+  img: InertImage,
+  strong: SemanticStrong,
+  em: SemanticEmphasis,
+} as const;
 
 export function Answer({
   text,
