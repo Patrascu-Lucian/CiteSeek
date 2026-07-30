@@ -33,6 +33,16 @@ here, not in the current branch.
   identifier), then Groq or an OpenRouter free variant. The current choice is a starting
   point, not a verdict.
 
+- **Keyword search alongside vector search (hybrid retrieval).** Planned for Milestone 2 as
+  optional and not built. Embeddings match meaning, which is the point, but they are weakest on
+  exactly the terms a reader is most likely to type verbatim: a product code, an error string, a
+  person's name, an acronym that appears twice in a corpus. A lexical index (Postgres full-text
+  search is already available) catches those, and the two are combined by rank rather than by
+  score, since a cosine distance and a text-search rank are not on the same scale.
+
+  Worth doing after the relevance floor is tuned, not before — the floor decides what counts as
+  a match at all, and changing both at once would make neither measurable.
+
 - **The relevance floor short-circuits the `list_documents` tool.** The chat route refuses
   before calling the model when no passage clears `MAX_DISTANCE`. That is the right default —
   it is what makes "I don't know" structural rather than a prompt instruction — but it means a

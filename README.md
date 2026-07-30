@@ -10,6 +10,9 @@ no account needed.
 > ask questions about it. Answers stream, and every claim carries a numbered citation that
 > opens the source document scrolled to the exact passage. When nothing relevant is found,
 > the answer says so and cites nothing.
+>
+> What each milestone covers is in [`docs/strategy-plan.md`](docs/strategy-plan.md). This
+> line is the status; that document is the plan.
 
 ## Stack
 
@@ -148,6 +151,8 @@ public repositories but requires a paid plan for private ones.
 
 ## Project conventions
 
+- **The milestone plan** is in [`docs/strategy-plan.md`](docs/strategy-plan.md) — a snapshot,
+  not a status page.
 - **Decisions** worth defending are recorded in [`docs/decisions/`](docs/decisions/).
 - **Corrections made on review** are logged in [`docs/code-review-notes.md`](docs/code-review-notes.md).
 - **Out-of-milestone ideas** go to [`docs/backlog.md`](docs/backlog.md), not the current branch.
