@@ -107,7 +107,7 @@ time, so half-written markdown is the normal state rather than an error. It pull
 renderer and a syntax highlighter transitively, together 428 KB, and **neither appears in any
 chunk the page loads**: both sit behind `React.lazy` and are fetched only if an answer
 contains a diagram or a code block. Recorded as the baseline the Milestone 3 bundle budget
-gets measured against, rather than a target invented afterwards.
+gets measured against, rather than a target invented afterward.
 
 TTFT and Lighthouse are Milestone 3.
 

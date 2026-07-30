@@ -35,7 +35,7 @@ genuine before/after pair. Median of five `curl` requests from a European vantag
 
 The route that touches the database improved roughly twice as much as the one that does
 not, which is the signature of round-trip latency rather than general slowness. Before the
-change `/demo` was _slower_ than `/sign-in`; afterwards it is marginally faster, because a
+change `/demo` was _slower_ than `/sign-in`; afterward it is marginally faster, because a
 colocated query costs almost nothing.
 
 Diagnosing it needed no profiler: Vercel's `x-vercel-id` header reads `fra1::iad1::…` —

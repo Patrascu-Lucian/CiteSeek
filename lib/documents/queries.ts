@@ -111,7 +111,7 @@ export async function findDocumentInWorkspace(
  * including ones the caller never reads. That made this insert fail against any
  * database whose schema had drifted — which is exactly what happened in
  * production: migration 0001 added `content_text` and `page_spans`, the
- * migration had not been applied there, and uploads returned a bodyless 500
+ * migration had not been applied there, and uploads returned a 500 with no body
  * while the documents list kept working because it selects columns explicitly.
  *
  * Asking only for what is used means schema drift breaks the queries that

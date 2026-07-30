@@ -36,7 +36,7 @@ honest consequence of not having an account, and the demo's job — letting some
 product in one sitting — survives it.
 
 Rate limiting (Milestone 3) would make guest persistence defensible later. Building the write
-path first and the limit afterwards is the wrong order.
+path first and the limit afterward is the wrong order.
 
 ### Why persist at all now, rather than deferring to Milestone 4
 

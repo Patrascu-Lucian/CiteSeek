@@ -23,7 +23,17 @@ export { GUEST_COOKIE_NAME } from "./cookies";
 export const GUEST_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24; // 24 hours
 
 export type GuestPayload = {
-  /** Random per-session id. Used for per-guest rate limiting, never for identity. */
+  /**
+   * Random per-session id. Never an identity, and — as of Milestone 3 —
+   * deliberately **not** the key rate limiting counts on.
+   *
+   * `/demo` mints a fresh cookie on every visit, so this id is self-assigned:
+   * clearing it produces a new one, and a script gets one per request for free.
+   * Guest limits count the client address instead, which the visitor does not
+   * control. See ADR 014. This id remains useful for reading usage back, and the
+   * signature that protects it is still load-bearing for access, just not for
+   * limiting.
+   */
   id: string;
   /** Issued-at, epoch seconds. */
   iat: number;

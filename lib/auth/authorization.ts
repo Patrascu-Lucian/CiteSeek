@@ -39,8 +39,13 @@ export type Access = "none" | "read" | "write";
  *
  * Requiring an actor for the demo rather than making it world-readable is
  * deliberate. It is what makes the guest cookie's signature load-bearing: a
- * forged or expired token resolves to `null` and is refused here, and Milestone
- * 3's per-guest rate limiting needs a guest identity it can actually trust.
+ * forged or expired token resolves to `null` and is refused here, so access is
+ * something the visitor cannot grant themselves.
+ *
+ * It does *not* make the guest id trustworthy as a rate-limit key, which an
+ * earlier version of this comment claimed. A valid cookie proves we issued it,
+ * not that its holder has only one — `/demo` issues a new one on every visit.
+ * Limiting counts the client address instead (ADR 014).
  */
 export function accessToWorkspace(
   actor: Actor,

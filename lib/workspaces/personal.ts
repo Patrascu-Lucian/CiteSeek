@@ -40,7 +40,7 @@ export async function findPersonalWorkspace(
  * There is no unique constraint backing this, deliberately: Milestone 4 adds
  * multiple workspaces per user, and a constraint here would have to be dropped
  * again. Two concurrent first-requests could therefore create two rows; the
- * `orderBy` above means both would still resolve to the same one afterwards.
+ * `orderBy` above means both would still resolve to the same one afterward.
  */
 export async function getOrCreatePersonalWorkspace(user: {
   id: string;

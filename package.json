@@ -25,7 +25,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx lib/db/seed.mts"
+    "db:seed": "tsx lib/db/seed.mts",
+    "db:check": "tsx lib/db/check-migrations.mts"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.24",

@@ -40,7 +40,7 @@ describe("l2Normalize", () => {
   });
 
   it("refuses a zero vector rather than producing NaNs", () => {
-    // Storing NaNs would poison every similarity search afterwards, and the
+    // Storing NaNs would poison every similarity search afterward, and the
     // failure would surface far from its cause.
     expect(() => l2Normalize([0, 0, 0])).toThrow(/zero-length|non-finite/i);
   });
