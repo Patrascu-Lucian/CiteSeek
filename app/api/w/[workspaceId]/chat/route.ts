@@ -125,7 +125,10 @@ export async function POST(
   const question = lastUserText(messages);
   if (!question) return badRequest("Expected a question.");
 
-  const retrieved = await retrieveChunks(auth.workspaceId, question);
+  const { chunks: retrieved } = await retrieveChunks(
+    auth.workspaceId,
+    question,
+  );
 
   // Pulled out before the closure below rather than read through `auth` and
   // `question` inside it: TypeScript drops narrowing at a function boundary, so

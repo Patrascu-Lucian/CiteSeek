@@ -41,11 +41,24 @@ export type RetrieveOptions = {
   signal?: AbortSignal;
 };
 
+/**
+ * What a retrieval cost, alongside what it found.
+ *
+ * The query is embedded *before* the relevance floor is applied, so a question
+ * that matches nothing has still been paid for. Returning the token count means
+ * a caller metering usage can charge for the refusal branch too — which is
+ * exactly the traffic anyone abusing the endpoint would generate.
+ */
+export type RetrievalResult = {
+  chunks: RetrievedChunk[];
+  tokens: number;
+};
+
 export async function retrieveChunks(
   workspaceId: string,
   query: string,
   options: RetrieveOptions = {},
-): Promise<RetrievedChunk[]> {
+): Promise<RetrievalResult> {
   const {
     limit = RETRIEVAL_LIMIT,
     // Resolved from the configured provider rather than a single constant: the
@@ -58,10 +71,10 @@ export async function retrieveChunks(
 
   // An empty query embeds to a meaningless vector and would return the workspace's
   // arbitrary top-k rather than nothing. Answer it as "no matches" instead.
-  if (query.trim().length === 0) return [];
+  if (query.trim().length === 0) return { chunks: [], tokens: 0 };
 
-  const embedding = await embedQuery(query, { embedder, signal });
-  const distance = cosineDistance(chunks.embedding, embedding);
+  const { vector, tokens } = await embedQuery(query, { embedder, signal });
+  const distance = cosineDistance(chunks.embedding, vector);
 
   // Two-step on purpose. The inner query is the shape pgvector's HNSW index can
   // actually accelerate: order by the distance operator, take the top k. Adding
@@ -98,14 +111,16 @@ export async function retrieveChunks(
     .limit(limit)
     .as("candidates");
 
-  return (
-    db
-      .select()
-      .from(candidates)
-      .where(lte(candidates.distance, maxDistance))
-      // The inner ordering is what selects the top k, but a subquery's order is not
-      // guaranteed to survive into the outer result. Restated so callers can rely on
-      // it: marker [1] must be the closest passage.
-      .orderBy(asc(candidates.distance))
-  );
+  const found = await db
+    .select()
+    .from(candidates)
+    .where(lte(candidates.distance, maxDistance))
+    // The inner ordering is what selects the top k, but a subquery's order is not
+    // guaranteed to survive into the outer result. Restated so callers can rely on
+    // it: marker [1] must be the closest passage.
+    .orderBy(asc(candidates.distance));
+
+  // `tokens` is reported whether or not anything cleared the floor. An empty
+  // result is not a free one.
+  return { chunks: found, tokens };
 }

@@ -326,3 +326,73 @@ export type NewChunk = typeof chunks.$inferInsert;
 export type Chat = typeof chats.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
+
+/**
+ * What was spent, and by whom.
+ *
+ * Append-only, and the source of truth for three different questions asked at
+ * three different scales: requests in the last minute (the rate limit), tokens
+ * today for one caller (the personal cap), tokens today across everyone (the
+ * global cap protecting the shared Gemini quota). One table rather than three
+ * counters because the questions are all `where actor = ? and created_at > ?`
+ * over the same rows, and because Milestone 4's usage dashboard is a fourth
+ * question over the same data.
+ *
+ * Rows are pruned on a retention window rather than kept forever — see
+ * `lib/usage/queries.ts`. Nothing here is needed once it is older than the
+ * longest window any cap looks back over.
+ */
+export const usageKind = pgEnum("usage_kind", ["chat", "embedding"]);
+
+export const usageEvents = pgTable(
+  "usage_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    /**
+     * Who spent it. A guest's id comes from a cookie they can clear, so it is
+     * recorded for reading rather than relied on for limiting — `ipHash` is the
+     * key that actually constrains a guest.
+     */
+    actorType: text("actor_type").notNull(),
+    actorId: text("actor_id").notNull(),
+
+    /**
+     * `HMAC-SHA256(clientIp, AUTH_SECRET)`, never the address itself.
+     *
+     * Equality on the hash counts identically to equality on the address, so
+     * nothing about enforcement changes, and the table never holds an IP.
+     * Rotating `AUTH_SECRET` re-keys every hash and so resets every limit —
+     * acceptable, and the same trade already made for guest cookies.
+     */
+    ipHash: text("ip_hash"),
+
+    /** Nullable: a request refused before authorization has no workspace yet. */
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, {
+      onDelete: "cascade",
+    }),
+
+    kind: usageKind("kind").notNull(),
+
+    /**
+     * Almost always 1. Kept as a column rather than counting rows so a future
+     * batched write stays expressible without a migration.
+     */
+    requests: integer("requests").default(1).notNull(),
+
+    /** Embedding spend lands in `inputTokens`; it produces no output tokens. */
+    inputTokens: integer("input_tokens").default(0).notNull(),
+    outputTokens: integer("output_tokens").default(0).notNull(),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    // The three queries the caps run, in the order they run them. Each is a
+    // range scan over a time window, so the timestamp is the trailing column.
+    index("usage_events_actor_idx").on(table.actorId, table.createdAt),
+    index("usage_events_ip_hash_idx").on(table.ipHash, table.createdAt),
+    index("usage_events_created_at_idx").on(table.createdAt),
+  ],
+);

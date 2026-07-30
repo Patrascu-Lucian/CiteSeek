@@ -33,7 +33,7 @@ afterAll(async () => {
  * says nothing about which of two chunks is nearer.
  */
 function fixedEmbedder(vector: number[]): Embedder {
-  return () => Promise.resolve([vector]);
+  return () => Promise.resolve({ vectors: [vector], tokens: 4 });
 }
 
 /**
@@ -99,7 +99,7 @@ describe("retrieveChunks", () => {
       embedding: diagonalVector(),
     });
 
-    const results = await retrieveChunks(workspace.id, "anything", {
+    const { chunks: results } = await retrieveChunks(workspace.id, "anything", {
       embedder: fixedEmbedder(unitVector(0)),
     });
 
@@ -125,7 +125,7 @@ describe("retrieveChunks", () => {
       embedding: unitVector(5),
     });
 
-    const results = await retrieveChunks(workspace.id, "anything", {
+    const { chunks: results } = await retrieveChunks(workspace.id, "anything", {
       embedder: fixedEmbedder(unitVector(0)),
     });
 
@@ -144,7 +144,7 @@ describe("retrieveChunks", () => {
       embedding: unitVector(5),
     });
 
-    const results = await retrieveChunks(workspace.id, "anything", {
+    const { chunks: results } = await retrieveChunks(workspace.id, "anything", {
       embedder: fixedEmbedder(unitVector(0)),
     });
 
@@ -163,7 +163,7 @@ describe("retrieveChunks", () => {
       embedding: unitVector(0),
     });
 
-    const results = await retrieveChunks(mine.id, "anything", {
+    const { chunks: results } = await retrieveChunks(mine.id, "anything", {
       embedder: fixedEmbedder(unitVector(0)),
     });
 
@@ -179,7 +179,7 @@ describe("retrieveChunks", () => {
       embedding: null,
     });
 
-    const results = await retrieveChunks(workspace.id, "anything", {
+    const { chunks: results } = await retrieveChunks(workspace.id, "anything", {
       embedder: fixedEmbedder(unitVector(0)),
     });
 
@@ -192,7 +192,7 @@ describe("retrieveChunks", () => {
   it("returns nothing for an empty workspace", async () => {
     const workspace = await createTestWorkspace(db);
 
-    const results = await retrieveChunks(workspace.id, "anything", {
+    const { chunks: results } = await retrieveChunks(workspace.id, "anything", {
       embedder: fixedEmbedder(unitVector(0)),
     });
 
@@ -207,10 +207,10 @@ describe("retrieveChunks", () => {
     });
 
     let called = false;
-    const results = await retrieveChunks(workspace.id, "   ", {
+    const { chunks: results } = await retrieveChunks(workspace.id, "   ", {
       embedder: () => {
         called = true;
-        return Promise.resolve([unitVector(0)]);
+        return Promise.resolve({ vectors: [unitVector(0)], tokens: 4 });
       },
     });
 
@@ -226,7 +226,9 @@ describe("retrieveChunks", () => {
       embedding: unitVector(0),
     });
 
-    const [result] = await retrieveChunks(workspace.id, "anything", {
+    const {
+      chunks: [result],
+    } = await retrieveChunks(workspace.id, "anything", {
       embedder: fixedEmbedder(unitVector(0)),
     });
 
@@ -255,7 +257,7 @@ describe("retrieveChunks", () => {
       chunkIndex: 1,
     });
 
-    const results = await retrieveChunks(workspace.id, "anything", {
+    const { chunks: results } = await retrieveChunks(workspace.id, "anything", {
       embedder: fixedEmbedder(unitVector(0)),
       limit: 1,
     });

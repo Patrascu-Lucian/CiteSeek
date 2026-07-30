@@ -29,12 +29,27 @@ type EmbedOptions = {
   signal?: AbortSignal;
 };
 
+/**
+ * What a provider returns: the vectors, and what they cost.
+ *
+ * The token count is carried rather than discarded because embedding is billed
+ * and quota-limited like generation is, and a cost ceiling can only be enforced
+ * over numbers something actually reports. `embedMany` returns usage; this seam
+ * used to drop it on the floor, which made "what has this workspace spent?" a
+ * question with no answer.
+ */
+export type EmbeddingResult = {
+  vectors: number[][];
+  /** Total tokens consumed. Zero from the fake, which costs nothing. */
+  tokens: number;
+};
+
 /** The seam ingestion depends on, so it never imports a provider directly. */
 export type Embedder = (
   texts: readonly string[],
   taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY",
   signal?: AbortSignal,
-) => Promise<number[][]>;
+) => Promise<EmbeddingResult>;
 
 /**
  * Bounded rather than unlimited. Free-tier request-per-minute limits are the
@@ -45,7 +60,7 @@ const MAX_PARALLEL_CALLS = 2;
 const MAX_RETRIES = 5;
 
 const googleEmbedder: Embedder = async (texts, taskType, signal) => {
-  const { embeddings } = await embedMany({
+  const { embeddings, usage } = await embedMany({
     model: getGoogleEmbeddingModel(),
     values: [...texts],
     maxParallelCalls: MAX_PARALLEL_CALLS,
@@ -59,11 +74,15 @@ const googleEmbedder: Embedder = async (texts, taskType, signal) => {
     },
   });
 
-  return embeddings;
+  // Optional chaining because a provider that reports no usage should cost a
+  // zero, not an exception. Embedding is on the ingestion path: crashing a
+  // 600-chunk upload because a usage field was absent trades a real feature for
+  // an accounting detail.
+  return { vectors: embeddings, tokens: usage?.tokens ?? 0 };
 };
 
 const fakeEmbedder: Embedder = (texts) =>
-  Promise.resolve(fakeEmbeddings(texts));
+  Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: 0 });
 
 export function getEmbedder(): Embedder {
   return resolveEmbeddingsProvider() === "fake" ? fakeEmbedder : googleEmbedder;
@@ -78,46 +97,56 @@ async function embedWithTaskType(
   texts: readonly string[],
   taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY",
   options: EmbedOptions,
-): Promise<number[][]> {
-  if (texts.length === 0) return [];
+): Promise<EmbeddingResult> {
+  if (texts.length === 0) return { vectors: [], tokens: 0 };
 
   const embedder = options.embedder ?? getEmbedder();
-  const raw = await embedder(texts, taskType, options.signal);
+  const { vectors, tokens } = await embedder(texts, taskType, options.signal);
 
-  if (raw.length !== texts.length) {
+  if (vectors.length !== texts.length) {
     // The `gemini-embedding-2` failure mode: multiple inputs collapsing into one
     // aggregated vector. Caught here rather than surfacing as a foreign-key or
     // off-by-one error deep in the ingestion loop.
     throw new Error(
-      `Embedding provider returned ${raw.length} vectors for ${texts.length} inputs. ` +
+      `Embedding provider returned ${vectors.length} vectors for ${texts.length} inputs. ` +
         `An aggregating model (such as gemini-embedding-2) cannot be used for per-chunk retrieval.`,
     );
   }
 
-  return raw.map((vector) => {
-    assertEmbeddingShape(vector);
-    return l2Normalize(vector);
-  });
+  return {
+    vectors: vectors.map((vector) => {
+      assertEmbeddingShape(vector);
+      return l2Normalize(vector);
+    }),
+    tokens,
+  };
 }
 
 /** Embed document passages for storage. */
 export function embedPassages(
   texts: readonly string[],
   options: EmbedOptions = {},
-): Promise<number[][]> {
+): Promise<EmbeddingResult> {
   return embedWithTaskType(texts, "RETRIEVAL_DOCUMENT", options);
 }
 
-/** Embed a search query. Milestone 2 uses this; it lives here to keep the pair together. */
+/**
+ * Embed a search query.
+ *
+ * Returns the token cost alongside the vector because a query is embedded
+ * *before* the relevance floor is applied — so a question that retrieves nothing
+ * has still been paid for. Anything metering usage has to see that, or the
+ * cheapest way to spend someone's quota is to ask nonsense.
+ */
 export async function embedQuery(
   text: string,
   options: EmbedOptions = {},
-): Promise<number[]> {
-  const [embedding] = await embedWithTaskType(
+): Promise<{ vector: number[]; tokens: number }> {
+  const { vectors, tokens } = await embedWithTaskType(
     [text],
     "RETRIEVAL_QUERY",
     options,
   );
 
-  return embedding!;
+  return { vector: vectors[0]!, tokens };
 }
