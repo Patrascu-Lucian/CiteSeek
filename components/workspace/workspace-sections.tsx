@@ -205,6 +205,7 @@ export function WorkspaceSections({
           hasReadyDocuments={documents.some(
             (document) => document.status === "ready",
           )}
+          signedIn={signedIn}
           initialMessages={initialMessages}
         />
       </section>

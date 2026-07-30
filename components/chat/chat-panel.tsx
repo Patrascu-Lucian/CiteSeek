@@ -11,11 +11,11 @@
 import { useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { AlertCircle, RotateCcw } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
+import { parseRefusal } from "@/lib/usage/limits";
 
+import { ChatError } from "./chat-error";
 import { Composer } from "./composer";
 import { MessageList } from "./message-list";
 import { SourcePanel } from "./source-panel";
@@ -30,11 +30,18 @@ import { SourcePanel } from "./source-panel";
 export function ChatPanel({
   workspaceId,
   hasReadyDocuments,
+  signedIn = false,
   initialMessages = [],
 }: {
   workspaceId: string;
   /** Whether anything has finished processing. Nothing to search without it. */
   hasReadyDocuments: boolean;
+  /**
+   * Changes what a capacity refusal offers, not whether one happens. A guest is
+   * told signing in gives them their own headroom, which is true because the
+   * global cap reserves room below the guest ceiling.
+   */
+  signedIn?: boolean;
   /**
    * A signed-in user's stored conversation, server-rendered. Empty for guests,
    * whose chats are never persisted.
@@ -110,32 +117,14 @@ export function ChatPanel({
       />
 
       {error ? (
-        <div
-          role="alert"
-          className="border-destructive/40 bg-destructive/5 flex items-start gap-3 rounded-lg border p-3 text-sm"
-        >
-          <AlertCircle
-            aria-hidden="true"
-            className="text-destructive mt-0.5 size-4 shrink-0"
-          />
-          <div className="flex-1">
-            <p className="font-medium">That answer didn&apos;t come through.</p>
-            <p className="text-muted-foreground mt-1">
-              The connection may have dropped. Your question is still here.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              clearError();
-              void regenerate();
-            }}
-          >
-            <RotateCcw aria-hidden="true" className="size-4" />
-            Retry
-          </Button>
-        </div>
+        <ChatError
+          refusal={parseRefusal(error)}
+          signedIn={signedIn}
+          onRetry={() => {
+            clearError();
+            void regenerate();
+          }}
+        />
       ) : null}
 
       <Composer

@@ -534,6 +534,36 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   The instinct to build the guard "before it is needed" was already too late; it was needed
   two pull requests earlier.
 
+### A 404 page that returned 200, and the boundary that caused it
+
+- **Issue**: the workspace route answered "Workspace not available" for an id the caller may
+  not see — correct words, and an HTTP **200**. It rendered the message as ordinary page
+  content rather than raising a not-found, so every unreachable workspace was a _soft 404_:
+  fine to a reader, invisible to logs, and an assertion crawlers and uptime monitoring would
+  take at face value.
+- **Fix**: `notFound()`, with the same copy moved into a segment `not-found.tsx`. That was
+  half of it. Adding an app-wide `not-found.tsx` at the same time exposed that there had
+  never been one — an unrecognized URL anywhere in the product fell through to Next's own
+  unstyled page, which is the one screen that would look like a different product.
+- **Lesson**: two, and the second was measured rather than reasoned.
+
+  A page that _describes_ a failure is not the same as a response that _reports_ one. The
+  visible layer was right, which is exactly why nobody looked: every human check passes, and
+  the thing that is wrong is only observable to a machine.
+
+  Then the fix did not work, and the reason is a Next behavior worth knowing. `notFound()`
+  still returned 200 — because that segment has a `loading.tsx`, and **a Suspense boundary
+  lets the framework flush the shell before the page has decided anything.** Once bytes are
+  on the wire the status is committed, so a later `notFound()` can change the body and not the
+  status line. Confirmed by removing `loading.tsx` and re-probing: a real 404. Restored,
+  because a skeleton on a database-backed route is worth more than a status code on a page no
+  crawler can reach — but the tradeoff is now a choice rather than an accident, and the test
+  asserts what is actually true instead of what ought to be.
+
+  The general shape: **streaming makes response metadata a race against rendering.** Anything
+  that has to be in the headers — status, redirects, `Set-Cookie` — has to be decided before
+  the first flush, and a Suspense boundary moves that moment earlier than it looks.
+
   Worth noting what it cost to find: the guard that produced this failure is a good one — it
   refuses to fall back to storing addresses in the clear. A version that degraded quietly
   would have shipped, and production would have recorded raw IP addresses while every test

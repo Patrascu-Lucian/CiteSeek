@@ -6,6 +6,7 @@ import type { ChatSource } from "@/lib/ai/types";
 
 import { CitationLink } from "./citation-chip";
 import { CitationProvider } from "./citation-context";
+import { InertImage } from "./safe-markdown";
 
 /**
  * An assistant answer: markdown, with citation markers rendered as chips.
@@ -25,8 +26,12 @@ import { CitationProvider } from "./citation-context";
  * Module-level, so its identity never changes. `Streamdown` memoizes on a
  * comparator that ignores `components`, so a fresh object each render would be
  * quietly discarded anyway — this makes that explicit rather than accidental.
+ *
+ * `img` is overridden rather than left to the renderer: an image in an answer is
+ * a network request the browser makes on render with no click, which is an
+ * exfiltration channel out of the workspace. See `safe-markdown.tsx`.
  */
-const MARKDOWN_COMPONENTS = { a: CitationLink } as const;
+const MARKDOWN_COMPONENTS = { a: CitationLink, img: InertImage } as const;
 
 export function Answer({
   text,

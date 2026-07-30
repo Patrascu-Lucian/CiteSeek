@@ -153,3 +153,56 @@ test.describe("guest conversations are not stored", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("when capacity runs out", () => {
+  /**
+   * The refusal is injected at the network boundary rather than by actually
+   * exhausting a quota. The thresholds are covered by integration tests; what
+   * cannot be covered there is what a reader sees and what they can do next,
+   * which needs a real browser.
+   *
+   * This suite runs with `USAGE_LIMITS=off`, so nothing here can trip a genuine
+   * cap — the interception is the only source of a 429.
+   */
+  async function refuseWith(page: Page, code: string) {
+    await page.route("**/api/w/*/chat", (route) =>
+      route.fulfill({
+        status: 429,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "…", code }),
+      }),
+    );
+  }
+
+  test("a guest is told the demo is full, and offered a way forward", async ({
+    page,
+  }) => {
+    await page.goto("/demo");
+    await refuseWith(page, "capacity_reached");
+    await ask(page, ANSWERABLE);
+
+    // Scoped to the chat section: Next injects its own route announcer as a
+    // `role="alert"` element, so an unscoped query matches two things.
+    const alert = page.getByRole("region", { name: /ask/i }).getByRole("alert");
+    await expect(alert).toContainText(/today's capacity/i);
+
+    // No retry, because retrying a daily cap cannot work. Signing in can:
+    // the global cap reserves headroom below the guest ceiling.
+    await expect(
+      alert.getByRole("button", { name: /try again|retry/i }),
+    ).toHaveCount(0);
+    await expect(alert.getByRole("link", { name: /sign in/i })).toBeVisible();
+  });
+
+  test("a burst offers a retry instead", async ({ page }) => {
+    await page.goto("/demo");
+    await refuseWith(page, "rate_limited");
+    await ask(page, ANSWERABLE);
+
+    const alert = page.getByRole("region", { name: /ask/i }).getByRole("alert");
+    await expect(alert).toContainText(/wait a moment/i);
+    await expect(
+      alert.getByRole("button", { name: /try again/i }),
+    ).toBeVisible();
+  });
+});

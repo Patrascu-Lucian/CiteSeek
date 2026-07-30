@@ -105,3 +105,58 @@ export function refusalMessage(reason: LimitRefusal): string {
     ? "Too many requests in a short time. Wait a moment and try again."
     : "The daily capacity for this demo has been reached. It resets within 24 hours.";
 }
+
+/**
+ * The one wire shape for a refusal, whichever direction it came from.
+ *
+ * Our own cap refuses *before* the stream opens, as a JSON 429 body. The
+ * provider's own quota error arrives *mid-stream*, long after the status line
+ * has been sent as 200 — a different mechanism entirely, and the reason the
+ * chat route needs an `onError` rather than being able to reuse the pre-flight
+ * path. Emitting the identical JSON from both means the client parses one shape
+ * instead of learning two.
+ */
+export type RefusalBody = {
+  error: string;
+  code: LimitRefusal;
+};
+
+export function refusalBody(reason: LimitRefusal): RefusalBody {
+  return { error: refusalMessage(reason), code: reason };
+}
+
+/**
+ * Recovers the refusal from whatever the AI SDK handed the client.
+ *
+ * The transport throws `new Error(await response.text())` on a non-2xx, and a
+ * mid-stream error part becomes `new Error(errorText)` — so in both cases the
+ * message is a *string* and the status code is gone. Parsing the body is the
+ * only classification available, which is why both paths emit the same JSON.
+ *
+ * Returns null for anything unrecognized, so a network failure or an HTML error
+ * page falls through to the generic error state rather than being misreported as
+ * a limit. Deliberately tolerant: this runs on text the client did not author.
+ */
+export function parseRefusal(error: unknown): LimitRefusal | null {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : null;
+
+  if (!message) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(message);
+  } catch {
+    return null;
+  }
+
+  if (typeof parsed !== "object" || parsed === null) return null;
+
+  const code = (parsed as { code?: unknown }).code;
+
+  return code === "rate_limited" || code === "capacity_reached" ? code : null;
+}

@@ -219,6 +219,13 @@ test.describe("ending a session", () => {
 
     await page.getByRole("button", { name: /leave demo/i }).click();
     await expect(page).toHaveURL(/\/$/);
+    // Waiting on rendered content, not just the URL. `toHaveURL` can match once
+    // the client-side URL changes, which is before the navigation response —
+    // and its `Set-Cookie` deletion — has necessarily been applied. Reading
+    // cookies at that moment is a race, and it lost once under parallel load.
+    await expect(
+      page.getByRole("link", { name: /get started/i }).first(),
+    ).toBeVisible();
 
     const cookies = await context.cookies();
     expect(cookies.find((c) => c.name === "citeseek.guest")).toBeUndefined();

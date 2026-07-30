@@ -1,16 +1,6 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
-import Link from "next/link";
-import { Lock } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { WorkspaceSections } from "@/components/workspace/workspace-sections";
 import { loadLatestChat } from "@/lib/chats/queries";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
@@ -20,43 +10,6 @@ import { findWorkspaceById } from "@/lib/auth/demo";
 import { listDocuments } from "@/lib/documents/queries";
 
 export const metadata: Metadata = { title: "Workspace" };
-
-/**
- * Not-found and unauthorized are deliberately the same response.
- *
- * Distinguishing them would let anyone enumerate which workspace ids exist by
- * comparing a 404 against a 403. The cost is a slightly less helpful message for
- * the rare legitimate case; the benefit is that ids stay unguessable.
- */
-function NotFoundOrDenied() {
-  return (
-    <main
-      id="main"
-      className="flex flex-1 items-center justify-center px-6 py-16"
-    >
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <Lock aria-hidden="true" className="text-muted-foreground size-5" />
-          <CardTitle asChild className="mt-3 text-xl">
-            <h1>Workspace not available</h1>
-          </CardTitle>
-          <CardDescription>
-            This workspace doesn&apos;t exist, or you don&apos;t have access to
-            it. If someone shared a link with you, ask them to check it.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <Button asChild>
-            <Link href="/sign-in">Sign in</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/demo">Try the demo</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    </main>
-  );
-}
 
 export default async function WorkspacePage({
   params,
@@ -68,8 +21,11 @@ export default async function WorkspacePage({
 
   const workspace = await findWorkspaceById(workspaceId);
 
+  // Renders `not-found.tsx` in this segment *with a 404 status*. Returning the
+  // page body directly produced the right words under a 200 — a soft 404, which
+  // tells crawlers and monitoring the URL is fine.
   if (!workspace || accessToWorkspace(actor, workspace) === "none") {
-    return <NotFoundOrDenied />;
+    notFound();
   }
 
   const writable = canWrite(actor, workspace);
