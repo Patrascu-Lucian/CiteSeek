@@ -80,3 +80,41 @@ test.describe("the landing page knows who is reading it", () => {
     );
   });
 });
+
+test.describe("a URL that does not exist", () => {
+  test("gets the product's own 404, with a way out", async ({ page }) => {
+    const response = await page.goto("/no-such-page");
+
+    // The status matters as much as the page: a 404 rendered with a 200 tells
+    // crawlers and monitoring the URL is fine.
+    expect(response?.status()).toBe(404);
+    await expect(
+      page.getByRole("heading", { level: 1, name: /couldn't find that page/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /go to the home page/i }),
+    ).toBeVisible();
+  });
+
+  test("shows the same page for a workspace the reader may not see", async ({
+    page,
+  }) => {
+    // Authorization answers "not found" rather than "forbidden" so the two are
+    // indistinguishable. That only holds if both render the same thing.
+    //
+    // Visited as a guest, so the proxy does not redirect a credential-less
+    // request to sign-in before the page gets to answer.
+    await page.goto("/demo");
+    await page.goto("/w/00000000-0000-4000-8000-000000000000");
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: /workspace not available/i }),
+    ).toBeVisible();
+    // Deliberately not asserting a 404 status here: this segment has a
+    // `loading.tsx`, whose Suspense boundary lets Next flush the shell — and
+    // commit a 200 — before the page calls `notFound()`. Measured, not assumed:
+    // removing `loading.tsx` turns this into a real 404. The skeleton is worth
+    // more than a status code on a route search engines never see, and the
+    // status is correct where it matters, on the app-wide 404 above.
+  });
+});

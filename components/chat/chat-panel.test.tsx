@@ -50,8 +50,27 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-function renderPanel(hasReadyDocuments = true) {
-  render(<ChatPanel workspaceId="w1" hasReadyDocuments={hasReadyDocuments} />);
+function renderPanel(hasReadyDocuments = true, signedIn = false) {
+  render(
+    <ChatPanel
+      workspaceId="w1"
+      hasReadyDocuments={hasReadyDocuments}
+      signedIn={signedIn}
+    />,
+  );
+}
+
+/**
+ * What the transport actually hands the client for a refusal.
+ *
+ * Both the pre-flight 429 and a mid-stream provider error arrive as an `Error`
+ * whose *message is the JSON body* — the SDK throws `new Error(response.text())`
+ * and turns a stream error part into `new Error(errorText)`. Building the
+ * fixture that way rather than passing a bare code keeps this test honest about
+ * the shape the component has to survive.
+ */
+function refusalError(code: "rate_limited" | "capacity_reached") {
+  return new Error(JSON.stringify({ error: "…", code }));
 }
 
 describe("ChatPanel — states", () => {
@@ -94,6 +113,63 @@ describe("ChatPanel — states", () => {
     // leaving a stale one on screen.
     expect(chat.clearError).toHaveBeenCalledOnce();
     expect(chat.regenerate).toHaveBeenCalledOnce();
+  });
+});
+
+describe("ChatPanel — refused for capacity", () => {
+  it("offers a retry when the refusal is only a burst", async () => {
+    chat.error = refusalError("rate_limited");
+    renderPanel();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/wait a moment/i);
+    await userEvent.click(screen.getByRole("button", { name: /try again/i }));
+
+    expect(chat.regenerate).toHaveBeenCalledOnce();
+  });
+
+  /**
+   * The distinction the whole state exists for. Retrying a daily cap cannot
+   * work, so a button that invites it teaches the reader the product is broken
+   * rather than busy.
+   */
+  it("offers no retry once the day's capacity is gone", () => {
+    chat.error = refusalError("capacity_reached");
+    renderPanel();
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/today's capacity/i);
+    expect(
+      within(alert).queryByRole("button", { name: /try again|retry/i }),
+    ).toBeNull();
+  });
+
+  it("points a guest at signing in, which genuinely has its own headroom", () => {
+    chat.error = refusalError("capacity_reached");
+    renderPanel(true, false);
+
+    // Not a consolation link: the global cap reserves room below the guest
+    // ceiling, so a signed-in reader really can keep working here.
+    expect(
+      within(screen.getByRole("alert")).getByRole("link", { name: /sign in/i }),
+    ).toHaveAttribute("href", "/sign-in");
+  });
+
+  it("does not tell a signed-in user to sign in", () => {
+    chat.error = refusalError("capacity_reached");
+    renderPanel(true, true);
+
+    const alert = screen.getByRole("alert");
+    expect(within(alert).queryByRole("link")).toBeNull();
+    expect(alert).toHaveTextContent(/resets within 24 hours/i);
+  });
+
+  it("falls back to the generic failure when the body is not a refusal", () => {
+    // A dropped connection, an HTML error page, a proxy timeout: none of these
+    // are JSON, and none may be reported as a limit the reader did not hit.
+    chat.error = new Error("<html>502 Bad Gateway</html>");
+    renderPanel();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/didn't come through/i);
   });
 });
 

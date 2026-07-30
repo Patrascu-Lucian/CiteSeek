@@ -4,6 +4,7 @@ import { citationLabel, parseCitationHref } from "@/lib/ai/citations";
 import { cn } from "@/lib/utils";
 
 import { useCitations } from "./citation-context";
+import { InertLink } from "./safe-markdown";
 
 /**
  * A numbered marker, rendered inline in the answer.
@@ -19,9 +20,12 @@ import { useCitations } from "./citation-context";
 /**
  * Stands in for `<a>` in rendered markdown.
  *
- * Every link passes through here. Citation hrefs become chips; anything else the
- * model wrote stays an ordinary link, including a marker whose number has no
- * passage behind it — there is nothing to open, so nothing may look openable.
+ * Every link passes through here, and exactly one kind survives as something
+ * clickable: a citation href with a passage behind it. A citation marker with no
+ * matching source becomes plain text — there is nothing to open, so nothing may
+ * look openable. Anything else the model wrote is rendered inert by `InertLink`,
+ * because an answer is untrusted output and a link inside one is a destination
+ * the reader has no way to vouch for.
  */
 export function CitationLink({
   href,
@@ -37,11 +41,10 @@ export function CitationLink({
       : sources.find((candidate) => candidate.marker === marker);
 
   if (!source) {
-    return (
-      <a href={href} rel="noreferrer noopener" {...props}>
-        {children}
-      </a>
-    );
+    // A citation href we could not resolve: show the text, drop the anchor.
+    if (marker !== null) return <span {...props}>{children}</span>;
+
+    return <InertLink href={href}>{children}</InertLink>;
   }
 
   const isSelected = source.chunkId === selectedChunkId;

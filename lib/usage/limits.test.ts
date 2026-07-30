@@ -9,6 +9,8 @@ import {
 import {
   RATE_WINDOW_SECONDS,
   decideUsage,
+  parseRefusal,
+  refusalBody,
   refusalMessage,
   type UsageSnapshot,
 } from "./limits";
@@ -168,6 +170,47 @@ describe("decideUsage", () => {
     // time it is tuned, and nobody re-reads copy when changing a constant.
     expect(refusalMessage("rate_limited")).not.toMatch(/\d/);
     expect(refusalMessage("capacity_reached")).toMatch(/capacity/i);
+  });
+});
+
+describe("parseRefusal", () => {
+  /**
+   * Both refusal paths reach the client as an `Error` whose *message is the JSON
+   * body* — the SDK throws `new Error(await response.text())` on a non-2xx and
+   * turns a mid-stream error part into `new Error(errorText)`. The status code
+   * does not survive either trip, so the body is the only classification there
+   * is. That is why the pre-flight 429 and the provider's mid-stream 429 emit
+   * the same shape.
+   */
+  it("recovers the code from a refusal body", () => {
+    expect(
+      parseRefusal(new Error(JSON.stringify(refusalBody("rate_limited")))),
+    ).toBe("rate_limited");
+    expect(
+      parseRefusal(new Error(JSON.stringify(refusalBody("capacity_reached")))),
+    ).toBe("capacity_reached");
+  });
+
+  it("accepts a bare string, which is what a stream error part carries", () => {
+    expect(parseRefusal(JSON.stringify({ code: "capacity_reached" }))).toBe(
+      "capacity_reached",
+    );
+  });
+
+  it.each([
+    ["a dropped connection", new Error("Failed to fetch")],
+    ["an HTML error page", new Error("<html>502 Bad Gateway</html>")],
+    ["the SDK's masked default", new Error("An error occurred.")],
+    ["valid JSON that is not a refusal", new Error('{"error":"nope"}')],
+    ["a JSON array", new Error("[1,2,3]")],
+    ["a JSON null", new Error("null")],
+    ["an unknown code", new Error('{"code":"something_else"}')],
+    ["nothing at all", undefined],
+  ])("returns null for %s", (_label, input) => {
+    // Anything unrecognized must fall through to the generic error state.
+    // Reporting a network failure as a limit tells the reader to wait out a cap
+    // they never hit.
+    expect(parseRefusal(input)).toBeNull();
   });
 });
 

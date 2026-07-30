@@ -6,8 +6,8 @@ import { resolveUsageLimits, type UsageLimitsEnv } from "./config";
 import {
   RATE_WINDOW_SECONDS,
   decideUsage,
-  refusalMessage,
-  type LimitRefusal,
+  refusalBody,
+  type RefusalBody,
 } from "./limits";
 import { countAllRequestsSince, countRequestsSince } from "./queries";
 
@@ -27,10 +27,8 @@ import { countAllRequestsSince, countRequestsSince } from "./queries";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type UsageRefusalBody = {
-  error: string;
-  code: LimitRefusal;
-};
+/** Re-exported under the name route callers already use. */
+export type UsageRefusalBody = RefusalBody;
 
 /**
  * How a caller is counted.
@@ -95,8 +93,8 @@ export async function enforceUsageLimits(
       ? { "Retry-After": String(decision.retryAfterSeconds) }
       : undefined;
 
-  return NextResponse.json(
-    { error: refusalMessage(decision.reason), code: decision.reason },
-    { status: 429, headers },
-  );
+  return NextResponse.json(refusalBody(decision.reason), {
+    status: 429,
+    headers,
+  });
 }

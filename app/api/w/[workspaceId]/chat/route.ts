@@ -1,4 +1,5 @@
 import {
+  APICallError,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -22,6 +23,7 @@ import { appendMessages, getOrCreateChat } from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
+import { refusalBody } from "@/lib/usage/limits";
 import { recordUsage } from "@/lib/usage/queries";
 import { listDocuments } from "@/lib/documents/queries";
 import { retrieveChunks } from "@/lib/rag/retrieve";
@@ -199,6 +201,24 @@ export async function POST(
   const modelMessages = await convertToModelMessages(messages);
 
   const stream = createUIMessageStream<ChatUIMessage>({
+    /**
+     * The provider's own quota error, which arrives *after* a 200 has been sent.
+     *
+     * Our caps refuse before the stream opens, as a JSON 429. Gemini's limits are
+     * per project, so ours can be correctly configured and the provider can still
+     * return `RESOURCE_EXHAUSTED` — at which point the status line is long gone
+     * and the only channel left is an error part inside the stream. Emitting the
+     * same JSON body means the client classifies both with one parser.
+     *
+     * The SDK's default here is `() => "An error occurred."`, which exists to
+     * stop server internals leaking to the browser. That default is kept for
+     * everything else: only a recognized 429 is described, and it is described
+     * with our own wording rather than the provider's.
+     */
+    onError: (error) =>
+      APICallError.isInstance(error) && error.statusCode === 429
+        ? JSON.stringify(refusalBody("capacity_reached"))
+        : "An error occurred.",
     execute: ({ writer }) => {
       // Before the model has written a word. The sources are a fact about
       // retrieval, not a summary of what the model went on to claim.
