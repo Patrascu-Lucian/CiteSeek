@@ -33,6 +33,39 @@ const exportedProvider = process.env.EMBEDDINGS_PROVIDER;
 
 loadLocalEnv();
 
+// Seeding writes schema-adjacent data and runs as a one-shot script, so it uses
+// the unpooled connection for the same reason migrations do. Falls back to
+// DATABASE_URL where no pooler exists (local Docker, CI).
+const connectionString =
+  process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error(
+    "DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.",
+  );
+}
+
+/**
+ * Point the app's own database singleton at the same place this script is.
+ *
+ * This script talks to the database through *two* paths: its own client, built
+ * from the string above, and the query helpers it imports from `lib/`, which use
+ * the singleton in `lib/db/index.ts`. That singleton reads **`DATABASE_URL` and
+ * only that** — it has never known about `DATABASE_URL_UNPOOLED`.
+ *
+ * So `DATABASE_URL_UNPOOLED=<production> pnpm db:seed` used to split in half: the
+ * workspace lookup went to production while `listDocuments` went wherever
+ * `.env.local` pointed. The script then reported production's workspace id
+ * beside a development database's document count, concluded there was nothing to
+ * do, and exited successfully having seeded nothing. The failure is silent in the
+ * worst way — every line of output is true, and the conclusion drawn from them is
+ * not.
+ *
+ * Assigning it here makes one connection target for the whole script. It must
+ * happen *before* the imports below, which is why they are dynamic.
+ */
+process.env.DATABASE_URL = connectionString;
+
 // Imported *after* the env is loaded, and dynamically for that reason.
 //
 // `lib/db/index.ts` reads DATABASE_URL and throws at module load if it is
@@ -46,18 +79,6 @@ const { createQueuedDocument, listDocuments } =
   await import("../documents/queries.ts");
 const { processDocument } = await import("../rag/ingest.ts");
 const { resolveEmbeddingsProvider } = await import("../ai/provider.ts");
-
-// Seeding writes schema-adjacent data and runs as a one-shot script, so it uses
-// the unpooled connection for the same reason migrations do. Falls back to
-// DATABASE_URL where no pooler exists (local Docker, CI).
-const connectionString =
-  process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.",
-  );
-}
 
 /**
  * Refuses to seed a remote database with fake embeddings nobody asked for.
