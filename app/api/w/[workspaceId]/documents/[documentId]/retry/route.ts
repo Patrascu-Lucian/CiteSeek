@@ -3,6 +3,8 @@ import { NextResponse, after } from "next/server";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { findDocumentInWorkspace } from "@/lib/documents/queries";
 import { resumeEmbedding } from "@/lib/rag/ingest";
+import { clientIpHash } from "@/lib/usage/client-ip";
+import { recordUsage } from "@/lib/usage/queries";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -19,7 +21,7 @@ export const maxDuration = 300;
  * rate limit costs only the remainder rather than the whole document again.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ workspaceId: string; documentId: string }> },
 ) {
   const { workspaceId, documentId } = await params;
@@ -50,8 +52,22 @@ export async function POST(
     );
   }
 
+  const ipHash = clientIpHash(request.headers);
+
   after(async () => {
-    await resumeEmbedding(auth.workspaceId, documentId);
+    const { embeddingTokens } = await resumeEmbedding(
+      auth.workspaceId,
+      documentId,
+    );
+
+    await recordUsage({
+      actorType: auth.actorType,
+      actorId: auth.actorId,
+      ipHash,
+      workspaceId: auth.workspaceId,
+      kind: "embedding",
+      inputTokens: embeddingTokens,
+    });
   });
 
   return NextResponse.json({ retrying: true }, { status: 202 });

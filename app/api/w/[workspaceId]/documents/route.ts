@@ -8,6 +8,8 @@ import {
 } from "@/lib/documents/queries";
 import { validateUpload } from "@/lib/documents/validation";
 import { processDocument } from "@/lib/rag/ingest";
+import { clientIpHash } from "@/lib/usage/client-ip";
+import { pruneUsageEvents, recordUsage } from "@/lib/usage/queries";
 
 /**
  * Node runtime, not Edge: ingestion uses `node:crypto` (via the fake embedder)
@@ -36,6 +38,11 @@ export async function GET(
   // what unsticks it. No cron, no queue -- the only client that cares is the one
   // already polling.
   await failStaleProcessing();
+
+  // Swept from a request rather than a cron, the same way stale documents are:
+  // this project has no scheduler, and the act of looking at the list is a
+  // perfectly good moment to drop rows nobody will ever query again.
+  await pruneUsageEvents();
 
   return NextResponse.json({
     documents: await listDocuments(auth.workspaceId),
@@ -95,13 +102,28 @@ export async function POST(
     sizeBytes: bytes.length,
   });
 
+  const ipHash = clientIpHash(request.headers);
+
   after(async () => {
-    await processDocument(
+    const { embeddingTokens } = await processDocument(
       auth.workspaceId,
       document.id,
       bytes,
       validation.mimeType,
     );
+
+    // Recorded inside `after()` because the response has already gone out and
+    // the tokens are only known once embedding finishes. Ingestion is the other
+    // place quota is spent, and a bot uploading documents burns it just as
+    // surely as one asking questions.
+    await recordUsage({
+      actorType: auth.actorType,
+      actorId: auth.actorId,
+      ipHash,
+      workspaceId: auth.workspaceId,
+      kind: "embedding",
+      inputTokens: embeddingTokens,
+    });
   });
 
   return NextResponse.json(

@@ -145,7 +145,12 @@ export async function processDocument(
   bytes: Uint8Array,
   mimeType: string,
   options: IngestOptions = {},
-): Promise<void> {
+): Promise<{ embeddingTokens: number }> {
+  // Accumulated outside the try so a failure still reports what it spent before
+  // failing. Quota consumed by a document that never reached `ready` is spent
+  // all the same.
+  let embeddingTokens = 0;
+
   try {
     await updateDocument(workspaceId, documentId, {
       status: "processing",
@@ -182,7 +187,9 @@ export async function processDocument(
       })),
     );
 
-    await embedPendingChunks(workspaceId, documentId, options);
+    embeddingTokens += (
+      await embedPendingChunks(workspaceId, documentId, options)
+    ).tokens;
 
     const remaining = await listUnembeddedChunks(workspaceId, documentId, 1);
     if (remaining.length > 0) {
@@ -198,7 +205,18 @@ export async function processDocument(
   } catch (error) {
     await markFailed(workspaceId, documentId, error);
   }
+
+  return { embeddingTokens };
 }
+
+/**
+ * The inner throws in the functions on either side of this comment are caught
+ * locally on purpose, and a linter that flags them as control flow is misreading
+ * them: the message *is* the payload. `markFailed` runs it through
+ * `sanitizeError` into `documents.error`, which is the sentence a user reads
+ * beside a failed document. Converting them to early returns would mean
+ * inventing a second channel to carry the same string.
+ */
 
 /**
  * Retry a failed document without re-extracting it.
@@ -213,9 +231,13 @@ export async function resumeEmbedding(
   workspaceId: string,
   documentId: string,
   options: IngestOptions = {},
-): Promise<{ resumed: boolean }> {
+): Promise<{ resumed: boolean; embeddingTokens: number }> {
   const total = await countChunks(workspaceId, documentId);
-  if (total === 0) return { resumed: false };
+  if (total === 0) return { resumed: false, embeddingTokens: 0 };
+
+  // Outside the try for the same reason as `processDocument`: a run that fails
+  // partway has still spent what it embedded.
+  let embeddingTokens = 0;
 
   try {
     await updateDocument(workspaceId, documentId, {
@@ -223,7 +245,9 @@ export async function resumeEmbedding(
       error: null,
     });
 
-    await embedPendingChunks(workspaceId, documentId, options);
+    embeddingTokens += (
+      await embedPendingChunks(workspaceId, documentId, options)
+    ).tokens;
 
     const remaining = await listUnembeddedChunks(workspaceId, documentId, 1);
     if (remaining.length > 0) {
@@ -237,10 +261,10 @@ export async function resumeEmbedding(
       error: null,
     });
 
-    return { resumed: true };
+    return { resumed: true, embeddingTokens };
   } catch (error) {
     await markFailed(workspaceId, documentId, error);
-    return { resumed: true };
+    return { resumed: true, embeddingTokens };
   }
 }
 

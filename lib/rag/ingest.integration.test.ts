@@ -198,7 +198,7 @@ describe("processDocument — failures", () => {
         "application/pdf",
         { embedder: workingEmbedder },
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ embeddingTokens: 0 });
   });
 
   it("keeps chunks already embedded when the provider fails partway", async () => {
@@ -284,6 +284,8 @@ describe("resumeEmbedding", () => {
 
     expect(await resumeEmbedding(workspace.id, document.id)).toEqual({
       resumed: false,
+      // Nothing to resume means nothing was spent resuming it.
+      embeddingTokens: 0,
     });
   });
 });
