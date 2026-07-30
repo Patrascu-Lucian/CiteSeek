@@ -116,11 +116,11 @@ TTFT and Lighthouse are Milestone 3.
 
 ## Testing
 
-| Layer       | Count | What it covers                                                                     |
-| ----------- | ----- | ---------------------------------------------------------------------------------- |
-| Unit        | 306   | Chunking, extraction, embeddings, prompts, citation markers, highlighting, chat UI |
-| Integration | 76    | Real Postgres: ingestion, retrieval, chat route, tenant isolation, cascades        |
-| E2E         | 32    | Guest flow, route protection, ask → stream → cite → source panel, keyboard paths   |
+| Layer       | Count | What it covers                                                                               |
+| ----------- | ----- | -------------------------------------------------------------------------------------------- |
+| Unit        | 341   | Chunking, extraction, embeddings, prompts, citation markers, highlighting, address hashing   |
+| Integration | 86    | Real Postgres: ingestion, retrieval, chat route, usage recording, tenant isolation, cascades |
+| E2E         | 35    | Guest flow, route protection, ask → stream → cite → source panel, keyboard paths             |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
 

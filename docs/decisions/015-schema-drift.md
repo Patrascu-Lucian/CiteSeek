@@ -65,6 +65,13 @@ compatible with older code by design.
 
 ## Consequences
 
+- **Its first run found a drift that was already live.** The deploy immediately after this
+  shipped failed on `0003`, which had been missing from production for two releases — the
+  migration landed in one pull request and the code writing to that table in the next, both
+  deploying before this check existed. Nothing had reported it, because that write path
+  deliberately swallows its own errors. The check was built to prevent a repeat of an earlier
+  incident and instead discovered a current one, which is the argument for landing a guard
+  alongside the change it guards rather than after it.
 - **Deploys can now fail for a reason unrelated to the code.** That is the point, and the
   message names the missing migrations rather than leaving someone to count.
 - **It does not catch every drift.** A migration edited after being applied, or a schema
