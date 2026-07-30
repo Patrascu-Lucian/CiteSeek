@@ -38,6 +38,15 @@ export default defineConfig({
       // spending quota against a real account.
       EMBEDDINGS_PROVIDER: "fake",
       CHAT_PROVIDER: "fake",
+      // Usage recording hashes the client address with this, so the chat route
+      // now needs it in every environment. It was invisible locally because
+      // `loadLocalEnv()` reads `.env.local`, which CI does not have — the same
+      // "my machine has a value CI does not" gap that has caught us before.
+      //
+      // A fixed literal rather than a generated one: these tests never verify a
+      // signature, and a value that changed per run would make every hash in the
+      // usage table unreproducible between them.
+      AUTH_SECRET: "integration-tests-only-not-a-real-secret",
       ...(process.env.DATABASE_URL
         ? { DATABASE_URL: process.env.DATABASE_URL }
         : {}),

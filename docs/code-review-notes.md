@@ -478,3 +478,26 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   how something _looks_, read a screenshot, not a transcript. Copied text preserves the words
   and discards spacing, colour, and the distinction between a chip and a character — which is
   the entire content of this defect.
+
+### A test that only passed on the machine that had the secret
+
+- **Issue**: CI went red on four chat-route integration tests with "AUTH_SECRET is required to
+  hash client addresses". Usage recording hashes the caller's address, so the chat route
+  started needing `AUTH_SECRET` in every environment — but the integration config never set
+  one. It passed locally because the config calls `loadLocalEnv()`, which reads `.env.local`,
+  and CI has no such file. The full gate was green on my machine and red on the runner, for
+  the same commit.
+- **Fix**: a fixed `AUTH_SECRET` literal in `vitest.integration.config.ts`, beside the
+  provider knobs that are there for exactly the same reason. Verified by reproducing the
+  runner's conditions rather than trusting the change — database present, `.env.local` moved
+  aside — which failed before and passes after.
+- **Lesson**: this is the third variant of one bug. An environment is code, configuration and
+  data, and those three arrive from different places; a file sitting on one developer's disk
+  is configuration the runner does not have. The rule that keeps falling out is that **a test
+  suite should carry its own configuration**, so the answer to "does this pass?" does not
+  depend on whose machine is asking.
+
+  Worth noting what it cost to find: the guard that produced this failure is a good one — it
+  refuses to fall back to storing addresses in the clear. A version that degraded quietly
+  would have shipped, and production would have recorded raw IP addresses while every test
+  stayed green.

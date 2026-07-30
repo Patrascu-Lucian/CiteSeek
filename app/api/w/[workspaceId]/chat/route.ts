@@ -5,6 +5,7 @@ import {
   jsonSchema,
   stepCountIs,
   streamText,
+  toUIMessageStream,
   tool,
 } from "ai";
 import { NextResponse } from "next/server";
@@ -256,7 +257,9 @@ export async function POST(
         },
       });
 
-      writer.merge(result.toUIMessageStream());
+      // The standalone helper over `result.toUIMessageStream()`: the method is
+      // deprecated and goes away in the next major.
+      writer.merge(toUIMessageStream({ stream: result.stream }));
     },
   });
 
