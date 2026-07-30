@@ -9,6 +9,7 @@ import {
 import { validateUpload } from "@/lib/documents/validation";
 import { processDocument } from "@/lib/rag/ingest";
 import { clientIpHash } from "@/lib/usage/client-ip";
+import { enforceUsageLimits } from "@/lib/usage/enforce";
 import { pruneUsageEvents, recordUsage } from "@/lib/usage/queries";
 
 /**
@@ -66,6 +67,14 @@ export async function POST(
   const auth = await authorizeWorkspace(workspaceId, "write");
   if (isDenied(auth)) return auth;
 
+  const ipHash = clientIpHash(request.headers);
+
+  // Uploads are metered too. A document embeds into many batches, so one upload
+  // can cost far more quota than one question — limiting chat alone would leave
+  // the more expensive door open.
+  const refused = await enforceUsageLimits(auth, ipHash);
+  if (refused) return refused;
+
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -101,8 +110,6 @@ export async function POST(
     mimeType: validation.mimeType,
     sizeBytes: bytes.length,
   });
-
-  const ipHash = clientIpHash(request.headers);
 
   after(async () => {
     const { embeddingTokens } = await processDocument(

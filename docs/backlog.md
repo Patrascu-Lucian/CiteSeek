@@ -167,6 +167,25 @@ each of these is reversible and therefore safe to defer.
 
 ## Observed in production, for Milestone 3
 
+- **Nothing consumes the signal that usage recording failed.** `recordUsage` returns
+  `{ recorded: boolean }` and every caller discards it. That is not theoretical: production ran
+  for two deploys inserting into a table that did not exist, recorded nothing, and reported
+  nothing — the caps would have been silently inert had they already been enforced. The build-time
+  migration check (`docs/decisions/015-schema-drift.md`) closes the cause that actually happened;
+  it does not close the class. A connection limit, a permissions change, or a full disk produce
+  the identical silence.
+
+  The obvious fix does not work here. A module-level failure counter is **per serverless
+  instance** — instances are created and discarded per request, so a count in memory is neither
+  shared nor durable, and would read as zero almost always. Anything real has to live where the
+  data does: a row, or a platform-level alert on the insert failing. Worth deciding alongside
+  Milestone 4's usage dashboard, which reads the same table and would surface a stall naturally —
+  a dashboard flat at zero is a signal, if someone is looking at it.
+
+  Not fail-closed: refusing chat because an accounting row did not land would trade a metering
+  gap for an outage, which is the wrong direction for a mechanism that exists to keep the demo
+  answering.
+
 - **The relevance floor is too permissive for real embeddings.** `MAX_DISTANCE = 0.6` was set
   as a guess (ADR 011 and `retrieval-config.ts` both say so) and could not be tuned earlier:
   there was no production traffic, and the fake embedder's distances carry no semantic meaning.

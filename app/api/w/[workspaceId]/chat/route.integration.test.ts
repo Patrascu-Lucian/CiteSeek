@@ -1,11 +1,23 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { count, eq } from "drizzle-orm";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import type { Actor } from "@/lib/auth/actor";
+import { usageEvents } from "@/lib/db/schema";
+import { PRODUCTION_USAGE_LIMITS } from "@/lib/usage/config";
 import { FAKE_ANSWER } from "@/lib/ai/fake-chat-model";
 import { NO_RELEVANT_PASSAGES_REPLY } from "@/lib/ai/prompt";
 import type { ChatSource } from "@/lib/ai/types";
 import {
   cleanupTestRows,
+  clearUsageEvents,
   createTestClient,
   createTestUser,
   createTestWorkspace,
@@ -41,7 +53,14 @@ function asUser(id: string): Actor {
 const { client, db } = createTestClient();
 
 beforeAll(() => cleanupTestRows(db));
+
+// Every test starts from an empty usage table. These tests now run through
+// admission control, and rows left by an earlier one would count toward the
+// global cap — making a later test's result depend on how many ran before it.
+beforeEach(() => clearUsageEvents(db));
+
 afterAll(async () => {
+  await clearUsageEvents(db);
   await cleanupTestRows(db);
   await client.end();
 });
@@ -244,6 +263,46 @@ describe("POST /api/w/[workspaceId]/chat", () => {
     );
 
     expect(response.status).toBe(400);
+  });
+
+  /**
+   * The wiring, not the policy — `lib/usage/enforce.integration.test.ts` covers
+   * the thresholds. What matters here is *where* the check sits: a caller over
+   * their cap must be refused before retrieval embeds their question, since the
+   * whole point is to not spend the call being limited.
+   */
+  it("refuses a caller over their cap before spending anything", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+
+    await db.insert(usageEvents).values(
+      Array.from(
+        { length: PRODUCTION_USAGE_LIMITS.userRequestsPerMinute },
+        () => ({
+          actorType: "user" as const,
+          actorId: user.id,
+          ipHash: null,
+          workspaceId: workspace.id,
+          kind: "chat" as const,
+        }),
+      ),
+    );
+
+    const response = await postChat(workspace.id, PASSAGE);
+
+    expect(response.status).toBe(429);
+    expect(await response.json()).toMatchObject({ code: "rate_limited" });
+
+    // Nothing new was metered: a refused request must not itself cost a row, or
+    // being refused would push the caller further past their own cap.
+    const [metered] = await db
+      .select({ total: count() })
+      .from(usageEvents)
+      .where(eq(usageEvents.actorId, user.id));
+
+    expect(metered?.total).toBe(PRODUCTION_USAGE_LIMITS.userRequestsPerMinute);
   });
 
   it("keeps an injected instruction inside a passage block", async () => {

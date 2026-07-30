@@ -32,5 +32,18 @@ export default defineConfig({
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      // Every spec arrives from one address, against one demo workspace, and CI
+      // retries twice — so any honest per-minute cap would fail this suite for
+      // being a test suite. Loosening the production numbers until it fits would
+      // be tuning the product to its tests, so the harness declares its own
+      // configuration instead. The 429 paths are covered by integration tests,
+      // which can seed usage rows directly.
+      //
+      // `off` does not skip the check: the counting queries still run and the
+      // decision is still made, so these specs prove enforcement does not break
+      // the happy path.
+      USAGE_LIMITS: "off",
+    },
   },
 });

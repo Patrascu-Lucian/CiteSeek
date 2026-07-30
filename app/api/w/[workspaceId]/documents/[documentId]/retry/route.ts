@@ -4,6 +4,7 @@ import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { findDocumentInWorkspace } from "@/lib/documents/queries";
 import { resumeEmbedding } from "@/lib/rag/ingest";
 import { clientIpHash } from "@/lib/usage/client-ip";
+import { enforceUsageLimits } from "@/lib/usage/enforce";
 import { recordUsage } from "@/lib/usage/queries";
 
 export const runtime = "nodejs";
@@ -29,6 +30,15 @@ export async function POST(
   const auth = await authorizeWorkspace(workspaceId, "write");
   if (isDenied(auth)) return auth;
 
+  const ipHash = clientIpHash(request.headers);
+
+  // Same position as every other metered route — straight after authorization,
+  // before any work. A retry resumes embedding, so it spends quota exactly like
+  // a first upload does; leaving it unmetered would make "retry" the cheap way
+  // around the cap.
+  const refused = await enforceUsageLimits(auth, ipHash);
+  if (refused) return refused;
+
   const document = await findDocumentInWorkspace(auth.workspaceId, documentId);
   if (!document) {
     return NextResponse.json({ error: "Document not found." }, { status: 404 });
@@ -51,8 +61,6 @@ export async function POST(
       { status: 409 },
     );
   }
-
-  const ipHash = clientIpHash(request.headers);
 
   after(async () => {
     const { embeddingTokens } = await resumeEmbedding(
