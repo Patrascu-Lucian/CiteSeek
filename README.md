@@ -115,27 +115,33 @@ sources resolve at ~460 ms and prose begin at ~1 s.
 Four samples rather than five — the fifth was refused by this project's own rate limiter,
 which is the intended behavior and a reasonable way to find out it works in production.
 
-**Client bundle**, measured against the production build by reading the scripts the page
-actually serves. The Milestone 2 entry here claimed the 428 KB markdown chunk — a parser, a
+**Client bundle**, measured by reading the scripts the page actually serves. The Milestone 2
+entry here claimed the 428 KB markdown chunk — a parser, a
 diagram renderer, a syntax highlighter and a maths typesetter — was lazy and absent from the
 initial payload. **Measuring it showed the opposite**: it was in the initial HTML of every
 workspace visit. Loading `Answer` through `next/dynamic` fixed that, since no conversation
 needs a markdown renderer before it has an answer in it:
 
+Before and after are both the local production build, so the comparison is like for like:
+
 | Scripts on `/w/[id]` | Before  | After   |          |
 | -------------------- | ------- | ------- | -------- |
-| Raw                  | 1671 KB | 1244 KB | −26%     |
-| Transferred          | 459 KB  | 338 KB  | **−26%** |
+| Raw                  | 1670 KB | 1244 KB | −26%     |
+| Transferred          | 468 KB  | 338 KB  | **−28%** |
 
-**Lighthouse**, mobile emulation with its default throttling (Slow 4G, 4× CPU):
+The deployed app measured 1671 KB / 459 KB before the change, which is the same build within
+compression noise — worth stating, because a before/after that quietly swaps environments
+mid-table is how a real regression gets hidden by an unrelated improvement.
 
-| Page              | Performance | Accessibility | Best practices | SEO |
-| ----------------- | ----------- | ------------- | -------------- | --- |
-| `/` landing       | 98          | 100           | 100            | 100 |
-| `/w/[id]` (guest) | 84 → **90** | 100           | 100            | 100 |
+**Lighthouse**, mobile emulation with its default throttling (Slow 4G, 4× CPU). The workspace
+needs a guest cookie: `proxy.ts` redirects a credential-less `/w/*` to `/sign-in`, so an
+anonymous run scores a different page entirely.
 
-The workspace has to be measured with a guest cookie: `proxy.ts` redirects a credential-less
-`/w/*` to `/sign-in`, so an anonymous run scores a different page.
+| Page                               | Performance | Accessibility | Best practices | SEO |
+| ---------------------------------- | ----------- | ------------- | -------------- | --- |
+| `/` landing — deployed             | 98          | 100           | 100            | 100 |
+| `/w/[id]` guest — deployed, before | 87          | 100           | 100            | 100 |
+| `/w/[id]` guest — local build      | 84 → **90** | 100           | 100            | 100 |
 
 The workspace page is short of the 95 target and the reason is specific: 124 KB of the
 remaining bundle is unused Vercel AI SDK and Zod, reachable only by deferring `useChat` —
