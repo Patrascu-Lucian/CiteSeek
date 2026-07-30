@@ -5,6 +5,7 @@ import {
   jsonSchema,
   stepCountIs,
   streamText,
+  toUIMessageStream,
   tool,
 } from "ai";
 import { NextResponse } from "next/server";
@@ -19,6 +20,8 @@ import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
 import { SOURCES_PART_ID } from "@/lib/ai/types";
 import { appendMessages, getOrCreateChat } from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
+import { clientIpHash } from "@/lib/usage/client-ip";
+import { recordUsage } from "@/lib/usage/queries";
 import { listDocuments } from "@/lib/documents/queries";
 import { retrieveChunks } from "@/lib/rag/retrieve";
 
@@ -125,7 +128,7 @@ export async function POST(
   const question = lastUserText(messages);
   if (!question) return badRequest("Expected a question.");
 
-  const { chunks: retrieved } = await retrieveChunks(
+  const { chunks: retrieved, tokens: retrievalTokens } = await retrieveChunks(
     auth.workspaceId,
     question,
   );
@@ -136,6 +139,24 @@ export async function POST(
   // narrowing to survive.
   const { workspaceId: scope, actorType, actorId } = auth;
   const asked: string = question;
+  const ipHash = clientIpHash(request.headers);
+
+  /**
+   * Recorded before either branch returns.
+   *
+   * The query is embedded *before* the relevance floor is applied, so a question
+   * that matches nothing has still been paid for. Metering only the answered
+   * branch would leave the cheapest way to spend someone's quota — asking
+   * nonsense repeatedly — entirely uncounted.
+   */
+  await recordUsage({
+    actorType,
+    actorId,
+    ipHash,
+    workspaceId: scope,
+    kind: "embedding",
+    inputTokens: retrievalTokens,
+  });
 
   // Signed-in conversations persist; guests keep theirs in browser state only.
   // A guest is anonymous and unlimited, so writing rows for one would put an
@@ -214,10 +235,31 @@ export async function POST(
         // Fires once the model has finished, including when the reader pressed
         // Stop — a partial answer is still what they were shown, so it is still
         // what the transcript should say.
-        onFinish: ({ text }) => persist(text, sources),
+        //
+        // `usage` here is **aggregated across all steps**, which matters because
+        // `stopWhen: stepCountIs(2)` means a turn that calls the tool runs two.
+        // A per-step figure would bill every tool-using turn at a fraction of
+        // what it cost. (`totalUsage` is the deprecated alias for this same
+        // value — the distinction between them belonged to an older SDK.)
+        onFinish: async ({ text, usage }) => {
+          await persist(text, sources);
+          await recordUsage({
+            actorType,
+            actorId,
+            ipHash,
+            workspaceId: scope,
+            kind: "chat",
+            // Plain numbers here. The provider-level type reports these as
+            // breakdowns; the SDK normalizes them before onFinish sees them.
+            inputTokens: usage.inputTokens ?? 0,
+            outputTokens: usage.outputTokens ?? 0,
+          });
+        },
       });
 
-      writer.merge(result.toUIMessageStream());
+      // The standalone helper over `result.toUIMessageStream()`: the method is
+      // deprecated and goes away in the next major.
+      writer.merge(toUIMessageStream({ stream: result.stream }));
     },
   });
 
