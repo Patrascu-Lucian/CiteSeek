@@ -497,6 +497,43 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   suite should carry its own configuration**, so the answer to "does this pass?" does not
   depend on whose machine is asking.
 
+### The drift check found a drift that was already in production
+
+- **Issue**: the first deploy after the build-time migration check shipped failed, naming
+  `0003_clear_wasp` as missing from production. That was the check working — but the table it
+  named had been absent for **two prior deploys**. Migration 0003 landed in one pull request
+  and the `recordUsage` call sites in the next, both deploying before the check existed. So
+  production had been running four inserts per request against a table that did not exist, on
+  the chat, upload and retry paths, and had recorded no usage at all.
+
+  Nothing reported it, by design. `recordUsage` catches everything and returns
+  `{ recorded: false }`, because it runs on the chat path and the quality bar forbids logging
+  anything that could carry message content. The catch is correct: a metering failure must not
+  break someone's answer. What was missing is that the failure had no _other_ way out.
+  Returning a boolean nobody reads is indistinguishable from swallowing the exception.
+
+- **Fix**: applied the migration to production, which unblocked the deploy. The real fix is
+  consuming the signal that already exists —
+  [`decisions/014-usage-limiting.md`](decisions/014-usage-limiting.md) had already written down
+  that `recordUsage` reports whether it recorded and that nothing reads it, filed as a
+  consequence rather than a bug. It reads as a bug now.
+
+- **Lesson**: two, and the second is the one I would not have predicted.
+
+  A silent catch has to be silent about the _error_, not about _failing_. Those are separable,
+  and conflating them is what turned a missing table into an invisible one. This mattered more
+  than it looks: the next slice enforces caps by querying that same table, and those query
+  helpers have no catch. The identical drift would have surfaced as 500s on every chat request
+  instead of as nothing — the same fault, three orders of magnitude louder, depending only on
+  which function happened to touch the table first.
+
+  And: **a guard that ships after the code it guards begins by finding a failure rather than
+  preventing one.** The check was written to stop a repeat of an earlier incident, and its
+  first act was to discover a live instance nobody knew about. The ordering was the mistake —
+  had it landed with or before the migration it protects, production would never have drifted.
+  The instinct to build the guard "before it is needed" was already too late; it was needed
+  two pull requests earlier.
+
   Worth noting what it cost to find: the guard that produced this failure is a good one — it
   refuses to fall back to storing addresses in the clear. A version that degraded quietly
   would have shipped, and production would have recorded raw IP addresses while every test
