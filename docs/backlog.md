@@ -180,6 +180,26 @@ each of these is reversible and therefore safe to defer.
   with a trace from a failing parallel run; not worth blocking a milestone on a condition CI
   never reaches.
 
+- **Dark mode: the palette exists and nothing can reach it.** `app/globals.css` carries a
+  complete `.dark` token block from the shadcn scaffold, and the Tailwind variant is
+  **class-based** (`@custom-variant dark (&:is(.dark *))`). No provider, toggle or script ever
+  adds that class, so the palette is dead code — and because the variant is class-based rather
+  than media-query based, a visitor whose system is set to dark currently gets the light app.
+
+  Deferred to **Milestone 4**, not to "someday", for three reasons that are all about cost
+  elsewhere:
+
+  - **A second theme doubles the accessibility surface.** Every axe scan has to run twice, and
+    the hand-written checks — the citation chip against its bubble especially — have to hold in
+    both. That contrast pair is exactly what shipped broken once.
+  - **It must not land before the performance numbers.** Class-based theming under SSR needs a
+    blocking inline script before first paint to avoid a flash, which is precisely the kind of
+    thing Lighthouse measures. Introducing it mid-measurement means the numbers describe a
+    moving target.
+  - **The toggle needs a home.** Milestone 4 already adds an account page and a navigation menu;
+    a theme control belongs in one of them rather than being bolted onto the header first and
+    moved later.
+
 - **Nothing consumes the signal that usage recording failed.** `recordUsage` returns
   `{ recorded: boolean }` and every caller discards it. That is not theoretical: production ran
   for two deploys inserting into a table that did not exist, recorded nothing, and reported
