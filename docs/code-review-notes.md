@@ -50,7 +50,7 @@ lesson worth keeping. One entry per correction, newest last. Source material for
 - **Issue**: the landing page imported `CardContent` without using it.
 - **Fix**: removed on review, before the first lint run existed.
 - **Lesson**: the argument for wiring CI in the same slice as the first component rather
-  than afterwards — a gate that does not exist yet catches nothing.
+  than afterward — a gate that does not exist yet catches nothing.
 
 ### Default embedding dimension would have been silently unindexable
 
@@ -66,7 +66,7 @@ lesson worth keeping. One entry per correction, newest last. Source material for
 
 ### A production 500 from a migration that was never applied there
 
-- **Issue**: uploads on production returned a bodyless 500 while the workspace page rendered
+- **Issue**: uploads on production returned a 500 with no body while the workspace page rendered
   normally. The code was identical to what worked locally; the _database_ was not. Migration
   0001 added `content_text` and `page_spans`, and had only ever been run against the dev
   branch. The split in symptoms was the diagnosis: `listDocuments` names its columns
@@ -287,7 +287,7 @@ lesson worth keeping. One entry per correction, newest last. Source material for
 - **Fix**: split into two steps. The inner query is the shape an HNSW index can actually
   accelerate — order by the distance operator, take the top k — and the floor is applied in
   an outer select over those k rows. Same results, index still used.
-- **Lesson**: an approximate nearest-neighbour index answers "the nearest k", not "everything
+- **Lesson**: an approximate nearest-neighbor index answers "the nearest k", not "everything
   within distance x". It walks its graph outward from the query point; a threshold predicate
   isn't a question that graph can answer, so the planner falls back to computing a distance
   for every candidate row. The tell is that nothing breaks — you get the right answers via a
@@ -449,17 +449,17 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   fixed prompt settled it in about a minute, and that should have come first.
 
   Second, prompt rules are requests rather than guarantees, so they belong behind a structural
-  defence rather than in front of one. This rule reduces how often the model misbehaves; what
+  defense rather than in front of one. This rule reduces how often the model misbehaves; what
   makes a regression harmless is that the client refuses to render a marker with no matching
-  source. Tests can assert the rule is present and nothing more — the behaviour it asks for is
+  source. Tests can assert the rule is present and nothing more — the behavior it asks for is
   only observable against the real model, which no suite here runs.
 
 ### A citation chip that worked perfectly and could not be seen
 
-- **Issue**: citation markers rendered as bare grey numbers with an unexplained gap between
-  them, indistinguishable from the surrounding prose. The cause was a single colour: the
+- **Issue**: citation markers rendered as bare gray numbers with an unexplained gap between
+  them, indistinguishable from the surrounding prose. The cause was a single color: the
   assistant message bubble is `bg-muted`, and the chip was also `bg-muted`. The pill was
-  drawn every time, in exactly the colour behind it. The "unexplained gap" was its own
+  drawn every time, in exactly the color behind it. The "unexplained gap" was its own
   padding, invisible for the same reason.
 - **Fix**: `bg-background` with a hairline `ring-border`, so the chip contrasts against the
   bubble rather than against the page. The selected state keeps its filled treatment.
@@ -476,7 +476,7 @@ lesson worth keeping. One entry per correction, newest last. Source material for
 
   The practical correction is to the review process rather than the code: when the question is
   how something _looks_, read a screenshot, not a transcript. Copied text preserves the words
-  and discards spacing, colour, and the distinction between a chip and a character — which is
+  and discards spacing, color, and the distinction between a chip and a character — which is
   the entire content of this defect.
 
 ### A test that only passed on the machine that had the secret

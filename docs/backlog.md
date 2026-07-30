@@ -47,7 +47,13 @@ here, not in the current branch.
   milestone's headline claim. Not obviously worth trading. Revisit once there is real usage
   showing whether anyone actually asks this.
 
-- **Per-session cap for guest mode.** Not a quota-exhaustion worry — free-tier Flash-Lite
+- ~~**Per-session cap for guest mode.**~~ Decided in Milestone 3 — see
+  `docs/decisions/014-usage-limiting.md`. One correction to the reasoning below: a _per-session_
+  cap was never viable, because `/demo` mints a fresh session cookie on every visit, so the
+  session is self-assigned. Guest limits count the client address instead. The original entry
+  follows for the record.
+
+  Not a quota-exhaustion worry — free-tier Flash-Lite
   allows roughly 1,000–1,500 requests/day, and a guest session of ~5 questions means
   200–300 sessions/day, far beyond what a portfolio demo sees organically. The real
   exposure is a bot or a single abusive visitor. So the guard is a per-session/IP cap plus
@@ -67,11 +73,18 @@ here, not in the current branch.
 
 ## Deployment
 
-- **Nothing ties a schema change to a production migration.** A migration added during
+- ~~**Nothing ties a schema change to a production migration.**~~ Closed in Milestone 3 — see
+  `docs/decisions/015-schema-drift.md`. Neither of the two options recorded below was taken:
+  migrating in the pipeline would let a _preview_ build mutate whichever database Preview points
+  at, and failing at startup would take the whole site down rather than one route. A build-time
+  **check** fails the deploy instead, leaving the running version serving. The original entry
+  follows for the record.
+
+  A migration added during
   development is applied locally and then shipped, and production only finds out when a
   query touches the missing column. This has already caused one production outage: migration
   0001 added `content_text` and `page_spans`, was applied to the dev branch only, and uploads
-  returned a bodyless 500 while the documents list kept working — because the list selects
+  returned a 500 with no body while the documents list kept working — because the list selects
   columns explicitly and the insert did not.
 
   Two candidate fixes, neither obviously right:
@@ -183,7 +196,7 @@ each of these is reversible and therefore safe to defer.
   answered by the assistant, claiming no source. Belongs with Milestone 4's onboarding work.
 
 - **The accessibility pass needs eyes, not only axe.** A citation chip once rendered in the
-  same colour as the bubble behind it — functional, correctly labelled, and invisible. Every
+  same color as the bubble behind it — functional, correctly labeled, and invisible. Every
   component test passed, and axe would have passed it too: contrast rules compare text against
   its background, and that pair is a designed one. What failed was affordance, which no
   automated check measures.

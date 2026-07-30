@@ -51,7 +51,7 @@ export function normalizeText(input: string): string {
  *
  * Pages are normalized individually and then joined, rather than joined and then
  * normalized, so that the spans returned here are guaranteed to be positions in
- * the string this function returns. Normalizing afterwards could shift every
+ * the string this function returns. Normalizing afterward could shift every
  * boundary.
  */
 export function joinPages(pages: readonly string[]): {

@@ -9,7 +9,7 @@ import { users, workspaces } from "./schema";
  * Shared scaffolding for integration suites.
  *
  * These tests write to a real database, so every row they create is prefixed and
- * removed afterwards. Centralizing that here keeps cleanup consistent — a suite
+ * removed afterward. Centralizing that here keeps cleanup consistent — a suite
  * that invents its own prefix leaves rows behind, and the next run's assertions
  * start depending on them.
  */

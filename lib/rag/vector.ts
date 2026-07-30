@@ -34,7 +34,7 @@ export function l2Normalize(vector: readonly number[]): number[] {
   if (norm === 0 || !Number.isFinite(norm)) {
     // A zero vector has no direction, so there is no meaningful unit form. This
     // indicates a provider returned garbage; failing loudly beats storing NaNs
-    // that would silently poison every similarity search afterwards.
+    // that would silently poison every similarity search afterward.
     throw new Error(
       "Cannot normalize a zero-length or non-finite vector — the embedding provider returned unusable output.",
     );
