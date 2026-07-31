@@ -13,9 +13,12 @@ import { deleteUserAccount } from "@/lib/users/deletion";
 import {
   MAX_TITLE_LENGTH,
   appendMessages,
+  deleteChat,
   getOrCreateChat,
   listChatMessages,
+  listChats,
   loadLatestChat,
+  renameChat,
   titleFromQuestion,
 } from "./queries";
 
@@ -275,5 +278,181 @@ describe("titleFromQuestion", () => {
 
   it("leaves a short question untouched", () => {
     expect(titleFromQuestion("Short one.")).toBe("Short one.");
+  });
+});
+
+describe("listChats", () => {
+  it("returns nothing for a user with no conversations", async () => {
+    const user = await createTestUser(db, "empty");
+    const workspace = await createTestWorkspace(db, {
+      ownerId: user.id,
+      label: "empty-ws",
+    });
+
+    expect(await listChats(workspace.id, user.id)).toEqual([]);
+  });
+
+  it("summarises each conversation with its title and message count", async () => {
+    const { user, workspace, chat } = await scenario("list");
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "When is reimbursement paid?" },
+      { role: "assistant", content: "Within 30 days.", citations: [CITATION] },
+    ]);
+
+    const [summary] = await listChats(workspace.id, user.id);
+
+    expect(summary).toMatchObject({
+      id: chat.id,
+      title: "When is reimbursement paid?",
+      messageCount: 2,
+    });
+  });
+
+  it("counts an empty conversation as zero rather than dropping it", async () => {
+    // A LEFT JOIN, not an inner one: a chat that was started and never used is
+    // still a chat, and a list that hides it would leave a row nobody can reach
+    // or delete.
+    const { workspace, user, chat } = await scenario("empty-chat");
+
+    const summaries = await listChats(workspace.id, user.id);
+
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({ id: chat.id, messageCount: 0 });
+  });
+
+  it("orders by most recently used, not most recently created", async () => {
+    const { user, workspace, chat: first } = await scenario("order");
+    const second = await db
+      .insert(chats)
+      .values({ workspaceId: workspace.id, userId: user.id })
+      .returning({ id: chats.id });
+
+    // Touching the older conversation must lift it above the newer one — that is
+    // what makes the list read as "where was I?" rather than "what did I start?"
+    await appendMessages(workspace.id, user.id, first.id, [
+      { role: "user", content: "Back to the first thread." },
+    ]);
+
+    const order = (await listChats(workspace.id, user.id)).map((c) => c.id);
+
+    expect(order[0]).toBe(first.id);
+    expect(order[1]).toBe(second[0]!.id);
+  });
+
+  it("never returns another user's conversations in a shared workspace", async () => {
+    // The property the second scope exists for. A workspace can be shared — the
+    // demo is readable by every guest — so scoping a chat to its workspace alone
+    // would hand one reader another's transcript.
+    const { user, workspace } = await scenario("mine");
+    const other = await createTestUser(db, "other");
+    await db
+      .insert(chats)
+      .values({ workspaceId: workspace.id, userId: other.id });
+
+    const mine = await listChats(workspace.id, user.id);
+    const theirs = await listChats(workspace.id, other.id);
+
+    expect(mine).toHaveLength(1);
+    expect(theirs).toHaveLength(1);
+    expect(mine[0]!.id).not.toBe(theirs[0]!.id);
+  });
+});
+
+describe("renameChat", () => {
+  it("renames a conversation the user owns", async () => {
+    const { user, workspace, chat } = await scenario("rename");
+
+    expect(
+      await renameChat(workspace.id, user.id, chat.id, "  Expenses   policy  "),
+    ).toBe(true);
+
+    const [summary] = await listChats(workspace.id, user.id);
+    expect(summary!.title).toBe("Expenses policy");
+  });
+
+  it("holds a renamed title against the next question asked", async () => {
+    // `appendMessages` titles a chat from its first question, but only while the
+    // title is null. A rename must not be undone by continuing the conversation.
+    const { user, workspace, chat } = await scenario("rename-sticks");
+    await renameChat(workspace.id, user.id, chat.id, "Chosen by hand");
+
+    await appendMessages(workspace.id, user.id, chat.id, [
+      {
+        role: "user",
+        content: "A question that would otherwise become a title",
+      },
+    ]);
+
+    const [summary] = await listChats(workspace.id, user.id);
+    expect(summary!.title).toBe("Chosen by hand");
+  });
+
+  it("clears the title when given an empty one", async () => {
+    const { user, workspace, chat } = await scenario("rename-clear");
+    await renameChat(workspace.id, user.id, chat.id, "Something");
+
+    expect(await renameChat(workspace.id, user.id, chat.id, "   ")).toBe(true);
+
+    const [summary] = await listChats(workspace.id, user.id);
+    expect(summary!.title).toBeNull();
+  });
+
+  it("caps a long title at the same limit auto-titling uses", async () => {
+    const { user, workspace, chat } = await scenario("rename-long");
+
+    await renameChat(workspace.id, user.id, chat.id, "x".repeat(500));
+
+    const [summary] = await listChats(workspace.id, user.id);
+    expect(summary!.title!.length).toBe(MAX_TITLE_LENGTH);
+  });
+
+  it("refuses to rename another user's conversation", async () => {
+    const { workspace, chat } = await scenario("rename-theirs");
+    const stranger = await createTestUser(db, "stranger");
+
+    expect(
+      await renameChat(workspace.id, stranger.id, chat.id, "Hijacked"),
+    ).toBe(false);
+  });
+});
+
+describe("deleteChat", () => {
+  it("deletes a conversation and its messages", async () => {
+    const { user, workspace, chat } = await scenario("delete");
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "Ask" },
+      { role: "assistant", content: "Answer" },
+    ]);
+
+    expect(await deleteChat(workspace.id, user.id, chat.id)).toBe(true);
+
+    expect(await listChats(workspace.id, user.id)).toEqual([]);
+    // The messages go through the foreign key's cascade, not a second statement:
+    // nothing in application code walks the tree, so no path can forget a child.
+    const orphans = await db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(eq(messages.chatId, chat.id));
+    expect(orphans).toEqual([]);
+  });
+
+  it("refuses to delete another user's conversation", async () => {
+    const { user, workspace, chat } = await scenario("delete-theirs");
+    const stranger = await createTestUser(db, "delete-stranger");
+
+    expect(await deleteChat(workspace.id, stranger.id, chat.id)).toBe(false);
+    expect(await listChats(workspace.id, user.id)).toHaveLength(1);
+  });
+
+  it("reports false for a chat that does not exist", async () => {
+    const { workspace, user } = await scenario("delete-missing");
+
+    expect(
+      await deleteChat(
+        workspace.id,
+        user.id,
+        "00000000-0000-4000-8000-00000000dead",
+      ),
+    ).toBe(false);
   });
 });

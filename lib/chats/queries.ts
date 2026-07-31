@@ -121,6 +121,109 @@ export async function loadLatestChat(
   };
 }
 
+export type ChatSummary = {
+  id: string;
+  title: string | null;
+  updatedAt: Date;
+  messageCount: number;
+};
+
+/**
+ * Every conversation this user has in this workspace, newest first.
+ *
+ * A LEFT JOIN with a grouped count rather than a correlated subquery, for the
+ * reason `listDocuments` records: inside a `sql` template Drizzle emits column
+ * references unqualified, so a correlated `WHERE` compares a table to itself and
+ * silently returns zero. A join forces qualification.
+ *
+ * Ordered by `updatedAt` so a conversation returns to the top when it is added
+ * to, which is what makes "most recent" mean "most recently used" rather than
+ * "most recently created".
+ */
+export async function listChats(
+  workspaceId: string,
+  userId: string,
+): Promise<ChatSummary[]> {
+  return db
+    .select({
+      id: chats.id,
+      title: chats.title,
+      updatedAt: chats.updatedAt,
+      messageCount: sql<number>`count(${messages.id})::int`,
+    })
+    .from(chats)
+    .leftJoin(messages, eq(messages.chatId, chats.id))
+    .where(and(eq(chats.workspaceId, workspaceId), eq(chats.userId, userId)))
+    .groupBy(chats.id)
+    .orderBy(desc(chats.updatedAt));
+}
+
+/**
+ * Renames a conversation.
+ *
+ * Returns whether a row was changed, so a caller can tell "not yours" from
+ * "done" without a second query. Scoped on all three of chat, workspace and
+ * user: a chat id is a guessable UUID and read access to a shared workspace must
+ * not imply write access to someone else's conversation inside it.
+ *
+ * Reuses `MAX_TITLE_LENGTH` rather than inventing a second limit, so a renamed
+ * chat and an auto-titled one cannot disagree about how long a title may be.
+ * An empty title clears it, which returns the chat to being described by its
+ * first question — a rename box is not the place to enforce that a chat must
+ * have a name.
+ */
+export async function renameChat(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+  title: string,
+): Promise<boolean> {
+  const trimmed = title.replace(/\s+/g, " ").trim();
+
+  const updated = await db
+    .update(chats)
+    .set({
+      title: trimmed.length === 0 ? null : trimmed.slice(0, MAX_TITLE_LENGTH),
+    })
+    .where(
+      and(
+        eq(chats.id, chatId),
+        eq(chats.workspaceId, workspaceId),
+        eq(chats.userId, userId),
+      ),
+    )
+    .returning({ id: chats.id });
+
+  return updated.length > 0;
+}
+
+/**
+ * Deletes a conversation and everything in it.
+ *
+ * The messages go with it through `ON DELETE CASCADE` on the foreign key rather
+ * than a second statement here — the same reason account deletion is one
+ * statement. Nothing in application code walks the tree, so no code path can
+ * forget a child.
+ */
+export async function deleteChat(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+): Promise<boolean> {
+  const deleted = await db
+    .delete(chats)
+    .where(
+      and(
+        eq(chats.id, chatId),
+        eq(chats.workspaceId, workspaceId),
+        eq(chats.userId, userId),
+      ),
+    )
+    .returning({ id: chats.id });
+
+  return deleted.length > 0;
+}
+
 export type NewChatMessage = {
   role: "user" | "assistant";
   content: string;
