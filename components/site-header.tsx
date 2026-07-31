@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { LogOut } from "lucide-react";
 
@@ -55,17 +56,18 @@ export async function SiteHeader() {
         aria-label="Main"
         className="mx-auto flex w-full max-w-5xl items-center gap-4 px-6 py-4"
       >
-        {/*
-          The wordmark is the link home and is deliberately *not* a nav link: it
-          is the product's name, it should look the same everywhere, and marking
-          it as the current page on the landing page would make the identity
-          flicker as you move around.
-        */}
         <Link
           href="/"
-          className="focus-visible:ring-ring rounded-md text-sm font-semibold tracking-tight focus-visible:ring-2 focus-visible:outline-none"
+          className="focus-visible:ring-ring inline-flex items-center gap-1 rounded-md focus-visible:ring-2 focus-visible:outline-none"
         >
-          CiteSeek
+          <Image
+            src="/citeseek-logo.png"
+            alt="CiteSeek"
+            width={405}
+            height={120}
+            className="h-6 w-auto rounded-sm bg-white"
+            priority
+          />
         </Link>
 
         {/*
