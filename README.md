@@ -156,8 +156,8 @@ does.
 
 ## Testing
 
-| Layer       | Count | What it covers                                                                              |
-| ----------- | ----- | ------------------------------------------------------------------------------------------- |
+| Layer       | Count | What it covers                                                                                  |
+| ----------- | ----- | ----------------------------------------------------------------------------------------------- |
 | Unit        | 416   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
 | Integration | 121   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
 | E2E         | 51    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
@@ -208,7 +208,7 @@ would put an unbounded write path behind a public URL
 and addressable; the demo has no history because nothing about a guest is written down.
 
 Workspaces have a single owner and cannot be shared. Roles and membership were planned for
-Milestone 4 and deliberately cut: the structural claim they would make — authorisation enforced
+Milestone 4 and deliberately cut: the structural claim they would make — authorization enforced
 in the data layer rather than by hiding buttons — is already true and proven by the cross-tenant
 tests, and a role column whose only production value is `owner` adds a branch no user can reach
 ([ADR 016](docs/decisions/016-workspace-membership-deferred.md)).
