@@ -6,10 +6,13 @@ clickable citations to exact source passages.
 **Live:** [cite-seek.vercel.app](https://cite-seek.vercel.app) — click **Try the demo**;
 no account needed.
 
-> **Status: Milestone 3 complete.** Upload a PDF, Word document, Markdown or text file, then
-> ask questions about it. Answers stream, and every claim carries a numbered citation that
-> opens the source document scrolled to the exact passage. When nothing relevant is found,
-> the answer says so and cites nothing.
+> **Status: Milestone 3 complete, Milestone 4 in progress.** Upload a PDF, Word document,
+> Markdown or text file, then ask questions about it. Answers stream, and every claim carries a
+> numbered citation that opens the source document scrolled to the exact passage. When nothing
+> relevant is found, the answer says so and cites nothing.
+>
+> Signed in, conversations are kept: each has its own URL, and they can be listed, resumed,
+> renamed and deleted. There is an account page with real deletion.
 >
 > What each milestone covers is in [`docs/strategy-plan.md`](docs/strategy-plan.md). This
 > line is the status; that document is the plan.
@@ -155,9 +158,9 @@ does.
 
 | Layer       | Count | What it covers                                                                              |
 | ----------- | ----- | ------------------------------------------------------------------------------------------- |
-| Unit        | 381   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, answer rendering |
-| Integration | 97    | Real Postgres: ingestion, retrieval, chat route, usage limits, tenant isolation, cascades   |
-| E2E         | 47    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe      |
+| Unit        | 416   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
+| Integration | 121   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
+| E2E         | 51    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
 
@@ -201,8 +204,14 @@ Built with AI-assisted tooling (Claude Code) under close review — see
 
 Guest conversations are not saved — a reload starts over. That is deliberate: persisting them
 would put an unbounded write path behind a public URL
-([ADR 013](docs/decisions/013-chat-persistence.md)). Conversation history, rename and delete
-are Milestone 4.
+([ADR 013](docs/decisions/013-chat-persistence.md)). Signed-in conversations are kept, listed
+and addressable; the demo has no history because nothing about a guest is written down.
+
+Workspaces have a single owner and cannot be shared. Roles and membership were planned for
+Milestone 4 and deliberately cut: the structural claim they would make — authorisation enforced
+in the data layer rather than by hiding buttons — is already true and proven by the cross-tenant
+tests, and a role column whose only production value is `owner` adds a branch no user can reach
+([ADR 016](docs/decisions/016-workspace-membership-deferred.md)).
 
 The workspace page scores 90 on Lighthouse rather than the 95 this project set as its bar. The
 cause is measured and recorded above; closing it means deferring chat hydration, which is a
