@@ -769,3 +769,41 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   default, because there is no code to review, no test to fail, and no error to read. The
   pattern is the same as the false bundle claim from Milestone 3: a belief about what a
   dependency does, held without measurement, staying true right up until it wasn't.
+
+### A link to a redirect cannot be prefetched, and cannot show a loading state
+
+- **Issue**: reported from use — clicking "Workspace" or "Demo workspace" felt slow and gave no
+  feedback, sometimes in production. Both pointed at `/w`, a **route handler that redirects**.
+  That made one click two full page navigations: `/w`, which resolves the caller and answers
+  307, then `/w/<id>`. Neither is a client-side transition, so the router never commits and the
+  previous page stays on screen until both round trips finish.
+
+  The `loading.tsx` boundary added earlier could not help. It renders when the router commits a
+  route, and the router was never involved. Nor could a link-level pending indicator:
+  `useLinkStatus` reports nothing for a navigation that is not a client-side transition — which
+  had already been measured when the indicator was removed.
+
+- **Fix**: resolve the workspace in the header and link straight to `/w/<id>`. The route handler
+  stays for the case that needs it — a reader with no workspace yet, where one must be created,
+  which is a write and belongs in a handler rather than a page render.
+
+- **Lesson**: three, and the third is about the test rather than the code.
+
+  **A redirect is invisible to the router.** Prefetching, loading boundaries and pending state
+  are all built on the router knowing where a link goes. A handler that decides at request time
+  defeats all three at once, and the cost is invisible locally — the round trip measured 135–174
+  ms here, against 44–55 ms after. On a cold serverless function it is two cold starts back to
+  back with nothing on screen, which is exactly the reported symptom.
+
+  **The fix deleted an earlier fix.** `HeaderNavLink` had grown an `excludes` prop so that a link
+  to `/w` — a prefix of _every_ workspace — would not mark itself current while the reader was in
+  the shared demo. Pointing at one specific workspace makes a different one simply not match, so
+  the special case and its four tests went away. Two symptoms, one cause: the link had been
+  pointing at a resolver rather than a destination.
+
+  **The verification was wrong before it was right.** The first attempt delayed every request to
+  `/w/**` to simulate a cold function, and reported no loading skeleton — which looked like the
+  fix had failed. It had instead delayed the _prefetch_, which is what makes the skeleton
+  possible. Watching for prefetch directly showed three RSC requests for the workspace fired
+  while still sitting on `/account`. **A test that suppresses the mechanism it is measuring
+  reports a real number about a situation that does not exist.**

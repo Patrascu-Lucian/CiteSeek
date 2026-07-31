@@ -49,52 +49,38 @@ describe("HeaderNavLink", () => {
     expect(link(/home/i)).not.toHaveAttribute("aria-current");
   });
 
-  describe("the excluded workspace", () => {
+  describe("a link pointing at one specific workspace", () => {
     /**
-     * `/w` covers *every* workspace, the shared demo included. For a signed-in
-     * reader the nav would otherwise underline "Workspace" while they are
-     * reading one that is not theirs — a claim the page itself contradicts,
-     * since it is headed "CiteSeek Demo" and badged read-only.
+     * The header links straight to `/w/<id>` rather than to `/w`, so that a
+     * click is a client-side transition rather than a redirect through a route
+     * handler. That also removed a special case: a link to `/w` was a prefix of
+     * *every* workspace, so a signed-in reader browsing the shared demo saw
+     * "Workspace" marked as current while the page said otherwise.
      */
-    it("unmarks the link while reading the excluded workspace", () => {
+    it("does not mark a different workspace as current", () => {
       path.value = "/w/demo-id";
-      render(
-        <HeaderNavLink href="/w" excludes="/w/demo-id">
-          Workspace
-        </HeaderNavLink>,
-      );
+      render(<HeaderNavLink href="/w/mine-id">Workspace</HeaderNavLink>);
 
       expect(link(/workspace/i)).not.toHaveAttribute("aria-current");
     });
 
-    it("still marks the link on the reader's own workspace", () => {
+    it("marks the reader's own workspace", () => {
       path.value = "/w/mine-id";
-      render(
-        <HeaderNavLink href="/w" excludes="/w/demo-id">
-          Workspace
-        </HeaderNavLink>,
-      );
+      render(<HeaderNavLink href="/w/mine-id">Workspace</HeaderNavLink>);
 
       expect(link(/workspace/i)).toHaveAttribute("aria-current", "page");
     });
 
-    it("excludes routes nested under the excluded workspace too", () => {
-      // A conversation inside the demo is still not your workspace.
-      path.value = "/w/demo-id/c/chat-1";
-      render(
-        <HeaderNavLink href="/w" excludes="/w/demo-id">
-          Workspace
-        </HeaderNavLink>,
-      );
+    it("stays marked inside a conversation in that workspace", () => {
+      path.value = "/w/mine-id/c/chat-1";
+      render(<HeaderNavLink href="/w/mine-id">Workspace</HeaderNavLink>);
 
-      expect(link(/workspace/i)).not.toHaveAttribute("aria-current");
+      expect(link(/workspace/i)).toHaveAttribute("aria-current", "page");
     });
 
-    it("marks normally when nothing is excluded", () => {
-      // A guest passes no exclusion: the demo *is* their workspace, so marking
-      // it is correct rather than a lie.
+    it("marks the demo for a guest, whose workspace it is", () => {
       path.value = "/w/demo-id";
-      render(<HeaderNavLink href="/w">Demo workspace</HeaderNavLink>);
+      render(<HeaderNavLink href="/w/demo-id">Demo workspace</HeaderNavLink>);
 
       expect(link(/demo workspace/i)).toHaveAttribute("aria-current", "page");
     });
