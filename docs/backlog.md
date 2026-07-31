@@ -313,3 +313,35 @@ each of these is reversible and therefore safe to defer.
   — same ADR. Needs a switcher, a create flow and a delete flow, and multiplies the surface of
   history, documents and the usage dashboard, each of which would have to answer "which
   workspace?". Additive whenever it is wanted; nothing in the schema rules it out.
+
+## Branding
+
+- **The logo is a placeholder, and the wordmark is deliberately not one.** `app/icon.png`,
+  `app/apple-icon.png` and `public/citeseek-mark.png` are crops of a generated lockup, kept
+  because they replaced create-next-app's default favicon — a scaffold tell visible in every
+  browser tab, and the same class of defect as the `title: "Create Next App"` fixed in Milestone 0. What they are not is a considered identity.
+
+  The header uses the mark as the letter "C" followed by the text "iteSeek" — a placeholder
+  device that gets a real logo into the top-left without pretending the artwork is finished.
+  The link carries `aria-label="CiteSeek"` and the fragment is `aria-hidden`, because half a
+  word is not a name.
+
+  Three specific things to fix when the real mark is commissioned in Milestone 5:
+
+  - **The source has an opaque white background**, so it is shown on a deliberate white tile
+    rather than dropped onto the header. A transparent SVG would let it take the page's
+    background in both themes and remove the tile.
+  - **It is raster.** An SVG would be sharp at any density, would scale to a hero without a
+    second asset, and could inherit `currentColor` for dark mode.
+  - **The wordmark stays as text on purpose** — it follows the theme for free, is crisp at any
+    density, and stays selectable. Its color is `--brand`, sampled from the artwork (the mean
+    of 34,247 inked pixels, `#0b3259`) rather than guessed, with a lighter value already
+    declared for `.dark` so the brand color is not what breaks when dark mode ships. Any real
+    logo work should keep this split rather than replace it.
+
+  Worth recording about the brief that produced it: the research report in `.claude/` frames
+  CiteSeek as a tool for **academic researchers** and benchmarks it against Google Scholar,
+  Zotero and PubMed. Nothing in this project says that — the README says "AI document
+  assistant", the demo fixture is a company handbook, and the positioning is EU-hosted and
+  GDPR-first. The persona appears to be inferred from the word "citations". Re-brief before
+  commissioning anything.
