@@ -14,6 +14,12 @@ import { usageEvents } from "@/lib/db/schema";
  * deliberately so: a limit that only counted a caller's usage *inside one
  * workspace* would be trivially escaped by making another. The scope here is the
  * actor, and for a guest the address they arrive from.
+ *
+ * Reads for the **usage dashboard** are the opposite — "what has this workspace
+ * spent" is a question about a place — and they live in `dashboard.ts` for that
+ * reason. Do not widen the helpers here to take a workspace: the two scopes look
+ * interchangeable and are not, and one file each is what keeps them from being
+ * confused.
  */
 
 /**
