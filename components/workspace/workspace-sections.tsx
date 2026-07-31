@@ -10,9 +10,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 
 import { ChatPanel } from "@/components/chat/chat-panel";
+import { ConversationList } from "@/components/chat/conversation-list";
 import { DocumentList } from "@/components/documents/document-list";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { ChatUIMessage } from "@/lib/ai/types";
+import type { ChatSummary } from "@/lib/chats/queries";
 import type { DocumentSummary } from "@/lib/documents/queries";
 
 /**
@@ -60,18 +63,32 @@ export function WorkspaceSections({
   workspaceId,
   initialDocuments,
   initialMessages,
+  chats,
+  activeChatId,
   canWrite,
   signedIn,
 }: {
   workspaceId: string;
   initialDocuments: DocumentSummary[];
   initialMessages: ChatUIMessage[];
+  /** Empty for guests, whose conversations are never stored. */
+  chats: readonly ChatSummary[];
+  activeChatId: string | null;
   canWrite: boolean;
   signedIn: boolean;
 }) {
+  const router = useRouter();
   const [documents, setDocuments] = useState(initialDocuments);
   const [pollError, setPollError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  /*
+    The conversation list is server-rendered, so after a rename or delete the
+    server has to re-render it. `router.refresh()` re-runs the Server Component
+    and reconciles — no second source of truth on the client, which is the same
+    rule the documents list follows by polling rather than mutating locally.
+  */
+  const refreshFromServer = useCallback(() => router.refresh(), [router]);
 
   const refresh = useCallback(async () => {
     try {
@@ -185,6 +202,39 @@ export function WorkspaceSections({
           </Card>
         ) : null}
       </section>
+
+      {/*
+        Only for a signed-in reader: guest conversations are never written down
+        (ADR 013), so a guest has no history and an empty list would promise one.
+      */}
+      {signedIn ? (
+        <section
+          aria-labelledby="conversations-heading"
+          className="mt-12 space-y-4"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <h2 id="conversations-heading" className="text-lg font-medium">
+              Conversations
+            </h2>
+            {/*
+              A link, not a button. Starting a conversation means going to one,
+              and a link gets middle-click, open-in-new-tab and keyboard
+              activation for free. `/c/new` is a route that creates one and
+              redirects, so no empty chat is written until someone asks for it.
+            */}
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/w/${workspaceId}/c/new`}>New conversation</Link>
+            </Button>
+          </div>
+
+          <ConversationList
+            workspaceId={workspaceId}
+            chats={chats}
+            activeChatId={activeChatId}
+            onChanged={refreshFromServer}
+          />
+        </section>
+      ) : null}
 
       <section aria-labelledby="chat-heading" className="mt-12 space-y-4">
         <h2 id="chat-heading" className="text-lg font-medium">

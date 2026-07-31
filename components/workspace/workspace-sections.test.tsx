@@ -5,6 +5,16 @@ import type { DocumentSummary } from "@/lib/documents/queries";
 
 import { WorkspaceSections } from "./workspace-sections";
 
+/**
+ * `useRouter` throws "expected app router to be mounted" outside Next's runtime.
+ * The component uses it to re-render the server data after a conversation is
+ * renamed or deleted; these tests are about documents and the composer, so the
+ * refresh is stubbed rather than observed.
+ */
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+}));
+
 /** `useChat` owns a network connection; the composer's presence is what matters here. */
 vi.mock("@ai-sdk/react", () => ({
   useChat: () => ({
@@ -63,6 +73,8 @@ function renderSections(initialDocuments: DocumentSummary[]) {
       workspaceId="w1"
       initialDocuments={initialDocuments}
       initialMessages={[]}
+      chats={[]}
+      activeChatId={null}
       canWrite
       signedIn
     />,
@@ -129,6 +141,10 @@ describe("WorkspaceSections — chat follows the document list", () => {
         workspaceId="w1"
         initialDocuments={[doc({ status: "ready" })]}
         initialMessages={[]}
+        chats={[]}
+
+        activeChatId={null}
+
         canWrite={false}
         signedIn={false}
       />,

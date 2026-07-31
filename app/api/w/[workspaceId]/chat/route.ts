@@ -19,7 +19,7 @@ import {
 import { getChatModel } from "@/lib/ai/provider";
 import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
 import { SOURCES_PART_ID } from "@/lib/ai/types";
-import { appendMessages, getOrCreateChat } from "@/lib/chats/queries";
+import { appendMessages, resolveChatForTurn } from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
@@ -138,6 +138,13 @@ export async function POST(
   const question = lastUserText(messages);
   if (!question) return badRequest("Expected a question.");
 
+  // Optional: the conversation the client is showing. Validated against the
+  // caller before it is used.
+  const requestedChatId =
+    typeof (body as { chatId?: unknown }).chatId === "string"
+      ? (body as { chatId: string }).chatId
+      : null;
+
   const { chunks: retrieved, tokens: retrievalTokens } = await retrieveChunks(
     auth.workspaceId,
     question,
@@ -171,8 +178,17 @@ export async function POST(
   // A guest is anonymous and unlimited, so writing rows for one would put an
   // unbounded write path behind a public URL — the concern ADR 005 raised about
   // the demo workspace, which chat would otherwise reintroduce.
+  //
+  // Which conversation, when the reader may have several: the client sends the
+  // one it is showing. `resolveChatForTurn` checks that id against this
+  // workspace and this user before using it, so a guessed or stale id cannot
+  // append to someone else's transcript — it falls back to the most recent
+  // conversation instead of failing, because a question typed into a chat that
+  // was deleted in another tab should still go somewhere.
   const chatId =
-    actorType === "user" ? (await getOrCreateChat(scope, actorId)).id : null;
+    actorType === "user"
+      ? (await resolveChatForTurn(scope, actorId, requestedChatId)).id
+      : null;
 
   async function persist(answer: string, citations: ChatSource[]) {
     if (!chatId) return;

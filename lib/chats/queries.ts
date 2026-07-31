@@ -3,6 +3,13 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { type MessageCitation, chats, messages } from "@/lib/db/schema";
 
+import { MAX_TITLE_LENGTH, titleFromQuestion } from "./titles";
+
+// Re-exported so existing callers and tests keep one import site for chat
+// concerns; the definitions live in `titles.ts` because a client component needs
+// the limit and must not pull the database in with it.
+export { MAX_TITLE_LENGTH, titleFromQuestion };
+
 /**
  * Every read and write of chat data.
  *
@@ -19,17 +26,6 @@ import { type MessageCitation, chats, messages } from "@/lib/db/schema";
  * Only signed-in users get persistence (ADR 013). Guest conversations live in
  * browser state, which keeps an unbounded write path off a public URL.
  */
-
-/** Chat titles are derived from the first question; longer ones are cut here. */
-export const MAX_TITLE_LENGTH = 80;
-
-export function titleFromQuestion(question: string): string {
-  const collapsed = question.replace(/\s+/g, " ").trim();
-
-  return collapsed.length <= MAX_TITLE_LENGTH
-    ? collapsed
-    : `${collapsed.slice(0, MAX_TITLE_LENGTH - 1).trimEnd()}…`;
-}
 
 /**
  * The user's most recent chat in a workspace, or a new one.
@@ -119,6 +115,53 @@ export async function loadLatestChat(
     chatId: chat.id,
     messages: await listChatMessages(workspaceId, userId, chat.id),
   };
+}
+
+/**
+ * Resolves which conversation a turn belongs to.
+ *
+ * With history, the reader can be looking at any of their conversations, so the
+ * client says which one — but a client-supplied id is exactly what must not be
+ * trusted. The id is checked against this workspace *and* this user before it is
+ * used; anything that does not match falls back to the most recent conversation
+ * rather than erroring, because a stale id from a deleted chat should continue
+ * the reader somewhere sensible instead of losing their question.
+ */
+export async function resolveChatForTurn(
+  workspaceId: string,
+  userId: string,
+  requestedChatId: string | null,
+): Promise<{ id: string }> {
+  if (requestedChatId) {
+    const [owned] = await db
+      .select({ id: chats.id })
+      .from(chats)
+      .where(
+        and(
+          eq(chats.id, requestedChatId),
+          eq(chats.workspaceId, workspaceId),
+          eq(chats.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (owned) return owned;
+  }
+
+  return getOrCreateChat(workspaceId, userId);
+}
+
+/** Starts an empty conversation, so "New conversation" has something to open. */
+export async function createChat(
+  workspaceId: string,
+  userId: string,
+): Promise<{ id: string }> {
+  const [created] = await db
+    .insert(chats)
+    .values({ workspaceId, userId })
+    .returning({ id: chats.id });
+
+  return created!;
 }
 
 export type ChatSummary = {
