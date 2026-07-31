@@ -737,3 +737,35 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   `reuseExistingServer`. A test configuration is code; when it is the suspect, it deserves the
   same treatment as any other suspect, which here meant an experiment rather than a reading of
   the docs.
+
+### Every button in the app lost its pointer cursor, silently
+
+- **Issue**: reported after use — the header's sign out, both account-page buttons, both buttons
+  in the delete-account dialog, send, delete document, and "Continue with GitHub" showed no
+  pointer on hover. Links kept theirs, so the app was inconsistent with itself and buttons read
+  as decoration.
+
+  Not a mistake anyone made here. **Tailwind v4's Preflight sets `cursor: default` on buttons**,
+  deliberately, to match the browser's own default; v3's Preflight set `cursor: pointer`. The
+  upgrade removed it from every button at once, and nothing in the project had ever needed a
+  cursor rule, so there was no line to notice had stopped working.
+
+- **Fix**: one base-layer rule restoring the pointer for `button`, `[role="button"]`, `label[for]`
+  and `summary`, excluding `:disabled` and `aria-disabled`. Placed in the base layer rather than
+  on the `Button` component so it also covers controls this codebase does not author — Radix
+  renders its own buttons for dialog and select triggers.
+
+- **Lesson**: two.
+
+  **This is the fourth affordance fault in the same codebase**, after the invisible citation
+  chip, the ghost delete button, and the unmarked navigation. Every one of them was a control
+  that existed, was labeled, was operable, and did not look like a control. No automated check
+  covers this — axe considers a button with a default cursor a perfectly valid button — so the
+  E2E suite now asserts computed `cursor` alongside the other things "automated checks cannot
+  see", and the assertion was verified by removing the rule and watching it fail.
+
+  **A framework upgrade can delete a behavior nobody wrote.** The dangerous changes in a major
+  version are not the ones that break the build; they are the ones that silently remove a
+  default, because there is no code to review, no test to fail, and no error to read. The
+  pattern is the same as the false bundle claim from Milestone 3: a belief about what a
+  dependency does, held without measurement, staying true right up until it wasn't.

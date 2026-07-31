@@ -33,7 +33,7 @@ export async function SiteHeader() {
   /*
     Only for a signed-in reader, and only to decide whether "Workspace" is the
     current page. `/w` covers every workspace including the demo, so without
-    this the link stays underlined while they read a workspace that is not
+    this the link stays marked as current while they read a workspace that is not
     theirs.
 
     Guarded on `type === "user"` so the query never runs for a guest or an

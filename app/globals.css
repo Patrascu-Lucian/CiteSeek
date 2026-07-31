@@ -131,4 +131,31 @@
   html {
     @apply font-sans;
   }
+
+  /*
+    Restores the pointer cursor on interactive controls.
+
+    Tailwind v4's Preflight sets `cursor: default` on buttons, deliberately, to
+    match the browser's own default — v3's Preflight set `cursor: pointer`. The
+    consequence here was that every button in the app lost its pointer at once
+    and nothing said so: sign out, delete account, the confirmation dialog, send,
+    delete document, "Continue with GitHub". Links kept theirs, so the app was
+    inconsistent with itself, and a control that does not change the cursor reads
+    as decoration.
+
+    Applied at the base layer rather than on the `Button` component so it also
+    covers controls that are not ours — Radix renders its own buttons for dialog
+    and select triggers.
+
+    `:disabled` and `aria-disabled` are excluded: a pointer on a control that
+    will not respond is a promise the interface does not keep. `not-allowed`
+    would be the other option, and it is worse — it reads as an error rather than
+    as "not yet".
+  */
+  button:not(:disabled, [aria-disabled="true"]),
+  [role="button"]:not(:disabled, [aria-disabled="true"]),
+  label[for],
+  summary {
+    @apply cursor-pointer;
+  }
 }

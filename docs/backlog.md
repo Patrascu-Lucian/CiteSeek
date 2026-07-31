@@ -167,19 +167,6 @@ each of these is reversible and therefore safe to defer.
 
 ## Observed in production, for Milestone 3
 
-- **The guest sign-out E2E is flaky under parallel workers.** "a guest can leave the demo and
-  the session is actually gone" fails roughly one full run in four locally, with the
-  `citeseek.guest` cookie still present after the redirect — while the landing page it lands on
-  has already server-rendered the signed-out variant. So the server no longer sees the cookie
-  and the browser still holds it, which points at the deletion's `Set-Cookie` being lost rather
-  than at the action failing.
-
-  **It cannot turn CI red**: `playwright.config.ts` sets `workers: 1` under CI, and three
-  consecutive serial runs pass clean. Measured, not assumed. Waiting on rendered content rather
-  than the URL before reading cookies narrowed the window but did not close it. Worth revisiting
-  with a trace from a failing parallel run; not worth blocking a milestone on a condition CI
-  never reaches.
-
 - **Dark mode: the palette exists and nothing can reach it.** `app/globals.css` carries a
   complete `.dark` token block from the shadcn scaffold, and the Tailwind variant is
   **class-based** (`@custom-variant dark (&:is(.dark *))`). No provider, toggle or script ever
