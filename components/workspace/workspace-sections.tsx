@@ -217,14 +217,23 @@ export function WorkspaceSections({
               Conversations
             </h2>
             {/*
-              A link, not a button. Starting a conversation means going to one,
-              and a link gets middle-click, open-in-new-tab and keyboard
-              activation for free. `/c/new` is a route that creates one and
-              redirects, so no empty chat is written until someone asks for it.
+              A form POST, not a link — and this was a link, which was a bug.
+
+              Next prefetches `<Link>` targets in the viewport, and prefetching
+              this href executed the handler behind it: conversations appeared on
+              every page load and every time the list re-rendered. Creating a
+              resource is not something a GET may do, because prefetchers,
+              crawlers and tab-restore all issue GETs nobody clicked.
+
+              The cost is losing middle-click and open-in-new-tab. A button that
+              only acts when pressed is worth more than a link that acts when
+              looked at.
             */}
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/w/${workspaceId}/c/new`}>New conversation</Link>
-            </Button>
+            <form action={`/w/${workspaceId}/c/new`} method="post">
+              <Button type="submit" variant="outline" size="sm">
+                New conversation
+              </Button>
+            </form>
           </div>
 
           <ConversationList

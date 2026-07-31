@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
+import { toUIMessages } from "@/lib/chats/to-ui-messages";
 
 import { MessageList, messageSources, messageText } from "./message-list";
 
@@ -131,5 +133,86 @@ describe("MessageList", () => {
     );
 
     expect(screen.getByText(/\*\*bold\*\*/)).toBeInTheDocument();
+  });
+});
+
+describe("MessageList — a conversation restored from the database", () => {
+  /**
+   * The round trip conversation history made load-bearing: stored rows go
+   * through `toUIMessages` and must render exactly as a streamed answer did.
+   * The failure mode is quiet — the text appears, and only the chips are gone —
+   * so nothing short of asserting on them catches it.
+   */
+  const restored = toUIMessages([
+    {
+      id: "stored-1",
+      position: 0,
+      role: "user",
+      content: "When is reimbursement paid?",
+      citations: [],
+      createdAt: new Date("2026-07-30T10:00:00Z"),
+    },
+    {
+      id: "stored-2",
+      position: 1,
+      role: "assistant",
+      content: "Within 30 days of an approved claim [1].",
+      citations: [
+        {
+          chunkId: "chunk-restored",
+          documentId: "doc-1",
+          filename: "handbook.pdf",
+          pageNumber: 7,
+          charStart: 0,
+          charEnd: 38,
+          quote: "Reimbursement is paid within 30 days.",
+        },
+      ],
+      createdAt: new Date("2026-07-30T10:00:01Z"),
+    },
+  ]);
+
+  it("renders a stored answer with a working citation chip", async () => {
+    const onSelectSource = vi.fn();
+    render(
+      <MessageList
+        messages={restored}
+        onSelectSource={onSelectSource}
+        selectedChunkId={null}
+      />,
+    );
+
+    const chip = await screen.findByRole(
+      "button",
+      { name: /^Citation 1/ },
+      { timeout: 5_000 },
+    );
+    await userEvent.click(chip);
+
+    // Clicking it hands back the passage, so the source panel can open at it —
+    // which is what makes a reloaded citation as good as a live one.
+    expect(onSelectSource).toHaveBeenCalledWith(
+      expect.objectContaining({ chunkId: "chunk-restored", pageNumber: 7 }),
+    );
+  });
+
+  it("keeps the question as text, with no chip of its own", async () => {
+    render(
+      <MessageList
+        messages={restored}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+      />,
+    );
+
+    expect(screen.getByText(/when is reimbursement paid/i)).toBeInTheDocument();
+    await screen.findByRole(
+      "button",
+      { name: /^Citation 1/ },
+      { timeout: 5_000 },
+    );
+    expect(screen.getAllByRole("button", { name: /^Citation/ })).toHaveLength(
+      1,
+    );
   });
 });
