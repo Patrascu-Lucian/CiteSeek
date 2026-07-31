@@ -201,3 +201,43 @@ test.describe("what automated checks cannot see", () => {
     await expect(region).toBeFocused();
   });
 });
+
+test.describe("controls look interactive", () => {
+  /**
+   * Tailwind v4's Preflight sets `cursor: default` on buttons, matching the
+   * browser default where v3 set `cursor: pointer`. Upgrading therefore removed
+   * the pointer from every button in the app at once, silently, while links kept
+   * theirs — so the app was inconsistent with itself and buttons read as
+   * decoration.
+   *
+   * axe cannot see this: a button with a default cursor is a perfectly valid
+   * button. It is the same category as the citation chip drawn in the color of
+   * the bubble behind it — present, labeled, operable, not evidently a control.
+   */
+  test("buttons offer a pointer, and disabled ones do not", async ({
+    page,
+  }) => {
+    await page.goto("/demo");
+
+    const cursorOf = (locator: ReturnType<typeof page.getByRole>) =>
+      locator.evaluate((el) => getComputedStyle(el).cursor);
+
+    await expect(
+      page.getByRole("button", { name: /leave demo/i }),
+    ).toBeVisible();
+    expect(
+      await cursorOf(page.getByRole("button", { name: /leave demo/i })),
+    ).toBe("pointer");
+
+    // Disabled deliberately keeps the default: a pointer on a control that will
+    // not respond is a promise the interface does not keep.
+    const send = page.getByRole("button", { name: /send/i });
+    await expect(send).toBeDisabled();
+    expect(await cursorOf(send)).toBe("default");
+
+    await page.goto("/sign-in");
+    expect(await cursorOf(page.getByRole("button", { name: /github/i }))).toBe(
+      "pointer",
+    );
+  });
+});

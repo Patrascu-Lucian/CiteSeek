@@ -274,16 +274,28 @@ test.describe("ending a session", () => {
 
     await page.getByRole("button", { name: /leave demo/i }).click();
     await expect(page).toHaveURL(/\/$/);
-    // Waiting on rendered content, not just the URL. `toHaveURL` can match once
-    // the client-side URL changes, which is before the navigation response —
-    // and its `Set-Cookie` deletion — has necessarily been applied. Reading
-    // cookies at that moment is a race, and it lost once under parallel load.
-    await expect(
-      page.getByRole("link", { name: /get started/i }).first(),
-    ).toBeVisible();
 
-    const cookies = await context.cookies();
-    expect(cookies.find((c) => c.name === "citeseek.guest")).toBeUndefined();
+    /*
+      Poll the cookie itself rather than reading it once.
+
+      `toHaveURL` matches as soon as the client-side URL changes, which can be
+      before the navigation response — and its `Set-Cookie` deletion — has been
+      applied. An earlier version waited on rendered content first, on the theory
+      that a painted landing page implied the response had landed. It narrowed
+      the window without closing it, and started failing about half the time once
+      `reuseExistingServer: false` made every run start against a cold server.
+
+      Waiting for a proxy signal is guesswork about ordering. Polling the actual
+      property is not, and it is what Playwright's auto-waiting does everywhere
+      else in this suite.
+    */
+    await expect
+      .poll(
+        async () =>
+          (await context.cookies()).some((c) => c.name === "citeseek.guest"),
+        { message: "the guest cookie should be deleted on leaving the demo" },
+      )
+      .toBe(false);
 
     await page.goto(workspaceUrl);
     await expect(page).toHaveURL(/\/sign-in/);
