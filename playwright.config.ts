@@ -30,7 +30,21 @@ export default defineConfig({
   webServer: {
     command: `pnpm start --port ${PORT}`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    /*
+      Never reuse a server this config did not start.
+
+      `env` below is only applied to a server Playwright spawns. With reuse
+      enabled, a `pnpm start` left on this port by anything else is attached to
+      silently — **without `USAGE_LIMITS=off`** — and the suite then fails on
+      "too many requests" or "capacity reached", symptoms with no visible
+      connection to the cause. That cost three separate debugging sessions
+      before the pattern was recognized.
+
+      The trade is a server start per run (a few seconds) and a hard failure if
+      the port is occupied. Both are better than silently testing a differently
+      configured server, which is the failure this replaces.
+    */
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
       // Every spec arrives from one address, against one demo workspace, and CI

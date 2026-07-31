@@ -16,7 +16,7 @@ export default function MarketingLayout({
 }) {
   return (
     <>
-      <SiteHeader showBack={false} />
+      <SiteHeader />
       {children}
     </>
   );

@@ -646,3 +646,94 @@ node.parentElement`, and no such attribute existed — so it fell back to a tran
   cheap habit and evidently not an automatic one. **A test defending a specific regression
   should be run against that regression at least once**; it takes a minute and it is the only
   thing that distinguishes a guard from a decoration.
+
+### Five interface faults that only using the product could find
+
+All five came from Lucian navigating the app after the account page and navigation landed. Every
+automated gate was green: 389 unit tests, 97 integration, 49 end-to-end, axe clean on six
+surfaces. None of these is the kind of thing a test suite is shaped to notice.
+
+- **Issue 1 — no navigation link showed which page you were on.** Every destination looked
+  identical whichever one you were reading.
+- **Issue 2 — navigation felt broken.** Clicking a link left the previous page on screen while
+  the server worked, with nothing acknowledging the click. The reflex is to click again.
+- **Issue 3 — "Delete account" did not look like a button.** It read as a link and only became
+  a button on hover.
+- **Issue 4 — one link, two meanings.** `/w` is polymorphic: it resolves a signed-in user to
+  their personal workspace and a guest to the shared demo. Labeling it "Workspace" for a guest
+  described somewhere they could not go.
+- **Issue 5 — the link stayed marked in the wrong place.** For a signed-in reader, `/w` matched
+  every workspace including the demo, so the nav claimed "Workspace" was current while the page
+  itself was headed "CiteSeek Demo" and badged read-only.
+
+- **Fix**: `aria-current="page"` plus weight and underline; `loading.tsx` boundaries on every
+  page route; `variant="destructive"` instead of `ghost`; a label chosen from the actor type;
+  and an `excludes` prop so the workspace link is unmarked while reading a workspace that is not
+  the reader's own.
+
+- **Lesson**: four, and the second is the one that changed a design.
+
+  **Three of the five are affordance faults, and this codebase now has a pattern of them.** The
+  citation chip drawn in the color of the bubble behind it, the ghost delete button visible only
+  on hover, and the unmarked navigation are the same defect: a control that is present, labeled,
+  operable, and does not announce itself. Automated checks assert existence and behavior. Nobody
+  has written the check that asserts a thing _looks like what it is_, because there isn't one.
+  The pattern is strong enough now to be a review question rather than an accident: **for every
+  new control, does it read as a control without hovering it?**
+
+  **The instinct was better than mine, and measuring proved it.** The first fix for the slow
+  navigation was a spinner beside each link, using `useLinkStatus`. Lucian asked whether it would
+  be better to navigate instantly and show a loader on the destination — which is exactly what
+  `loading.tsx` does, and it is both faster to perceive and more informative, because a skeleton
+  reserves the real layout and says _where_ you are going. Measuring then showed the spinner was
+  worse than redundant: on a deliberately slowed server it fires for a page with no boundary, but
+  **never for `/w` or `/demo`**, because those are redirect-only route handlers rather than
+  client-side transitions. The one link he had actually named — "Try the demo" — was the one case
+  the spinner could not help. The wrapper came out of ten files.
+
+  **A polymorphic route needs a label chosen at the call site.** `/w` deciding where to send you
+  is good design — no other route has to know a workspace id in advance — but a single fixed
+  label cannot describe a destination that changes per caller. The interface has to carry the
+  polymorphism the route hides.
+
+  **The alternative fix was more UI, and the cheaper one was more precision.** Both proposals for
+  issues 4 and 5 were structural: a second "Demo" tab, then a workspace switcher in a sub-header.
+  Each would have added permanent chrome for a set of one real workspace plus a read-only fixture
+  — the multi-workspace UI that `decisions/016-workspace-membership-deferred.md` had deferred one
+  commit earlier. A dynamic label and an exclusion prop resolved both without a new surface. When
+  a nav feels wrong, the first question is whether it is _lying_ rather than whether it is
+  missing something.
+
+### A test suite that exhausted its own rate limit
+
+- **Issue**: six end-to-end specs began failing on the citation chip and on the refusal path,
+  immediately after a change that touched neither. The captured page told the real story: **"The
+  demo has reached today's capacity."** The development database held exactly **40** usage rows
+  in the last day, which is precisely the guest daily cap. Every local guest hashes to the same
+  `"local"` address sentinel, so roughly twenty runs of the suite are one caller spending one
+  quota.
+
+  `USAGE_LIMITS=off` in `playwright.config.ts` exists to prevent this — but it only applies to a
+  server Playwright _starts_. `reuseExistingServer` is true locally, so a stale `pnpm start`
+  left on port 3000 by anything else is attached to silently, **without the flag**, and the suite
+  then fails on an unrelated-looking symptom.
+
+- **Fix**: cleared the rows behind a host guard that refuses any database but the development
+  branch, and recorded the trap in `backlog.md` with two candidate fixes — a per-run
+  `x-vercel-forwarded-for` so runs stop sharing a bucket, or having the suite fail loudly when
+  the server it attached to lacks the flag.
+
+- **Lesson**: two.
+
+  **The diagnosis was three wrong guesses deep before it was measured.** A stale server, then a
+  torn build, then a missing demo document — each plausible, each wrong. What settled it was
+  reading the failure's own page snapshot, which had been saying "capacity reached" from the
+  first failure. Playwright writes that file on every failure and it was faster than any of the
+  theories.
+
+  **Verify the harness, not just the product.** Confirming the flag actually reached the server
+  took one line — instrumenting the `webServer` command to write `process.env.USAGE_LIMITS` to a
+  file — and it proved Playwright _does_ pass it, which redirected the search to
+  `reuseExistingServer`. A test configuration is code; when it is the suspect, it deserves the
+  same treatment as any other suspect, which here meant an experiment rather than a reading of
+  the docs.

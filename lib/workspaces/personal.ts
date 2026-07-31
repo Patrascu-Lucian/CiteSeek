@@ -37,10 +37,17 @@ export async function findPersonalWorkspace(
  * self-healing fallback for accounts that predate this code -- which is why it
  * looks before it writes rather than relying on the signup path alone.
  *
- * There is no unique constraint backing this, deliberately: Milestone 4 adds
- * multiple workspaces per user, and a constraint here would have to be dropped
- * again. Two concurrent first-requests could therefore create two rows; the
- * `orderBy` above means both would still resolve to the same one afterward.
+ * There is no unique constraint backing this, deliberately: one user owning
+ * several workspaces is a shape the schema should not rule out, and a constraint
+ * added here would have to be dropped to allow it. Two concurrent
+ * first-requests could therefore create two rows; the `orderBy` above means both
+ * would still resolve to the same one afterward.
+ *
+ * An earlier version of this comment justified the absence by naming Milestone 4
+ * as the milestone that would add multiple workspaces. It does not — see
+ * `docs/decisions/016-workspace-membership-deferred.md`. The reasoning above
+ * stands on its own, which is what it should have done in the first place: a
+ * comment that promises a milestone becomes wrong the moment scope moves.
  */
 export async function getOrCreatePersonalWorkspace(user: {
   id: string;
