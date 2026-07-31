@@ -74,7 +74,16 @@ export function DeleteAccountDialog() {
       }}
     >
       <AlertDialogTrigger asChild>
-        <Button type="button" variant="ghost" size="sm">
+        {/*
+          `destructive`, not `ghost`. Ghost was right in the header, where it sat
+          among other borderless controls — on its own card it read as a link
+          and only looked like a button on hover. A control whose affordance
+          appears on hover is invisible to anyone not already pointing at it, and
+          unavailable on touch. Same failure as the citation chip that was drawn
+          in the color of the bubble behind it: labeled, operable, and not
+          apparently a control.
+        */}
+        <Button type="button" variant="destructive">
           Delete account
         </Button>
       </AlertDialogTrigger>

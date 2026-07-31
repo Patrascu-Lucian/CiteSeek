@@ -95,20 +95,28 @@ test.describe("route protection", () => {
 });
 
 test.describe("navigation", () => {
-  test("every page outside the landing page offers a way back", async ({
-    page,
-  }) => {
-    for (const path of ["/sign-in", "/demo-unavailable"]) {
+  /*
+    These replace four "back link" tests. The header used to be a back link and a
+    wordmark, because there were only two destinations; it is now a nav, and the
+    back link went with the change — it pointed at the same place the wordmark
+    does, which its own comment had already flagged as redundant on the landing
+    page. What must still hold is the property those tests were protecting: every
+    page has a visible, keyboard-reachable way out of it.
+  */
+  test("every page offers a way home", async ({ page }) => {
+    for (const path of ["/", "/sign-in", "/demo-unavailable"]) {
       await page.goto(path);
       await expect(
-        page.getByRole("link", { name: /back to home/i }),
+        page.getByRole("navigation", { name: /main/i }).getByRole("link", {
+          name: "CiteSeek",
+        }),
       ).toBeVisible();
     }
   });
 
-  test("the back link returns to the landing page", async ({ page }) => {
+  test("the wordmark returns to the landing page", async ({ page }) => {
     await page.goto("/sign-in");
-    await page.getByRole("link", { name: /back to home/i }).click();
+    await page.getByRole("link", { name: "CiteSeek" }).click();
 
     await expect(page).toHaveURL(/\/$/);
     await expect(
@@ -116,24 +124,71 @@ test.describe("navigation", () => {
     ).toBeVisible();
   });
 
-  test("the workspace page offers a way back", async ({ page }) => {
-    await page.goto("/demo");
-    await expect(
-      page.getByRole("link", { name: /back to home/i }),
-    ).toBeVisible();
-  });
-
-  test("the back link is the first stop after the skip link", async ({
-    page,
-  }) => {
+  test("the header is the first stop after the skip link", async ({ page }) => {
     await page.goto("/sign-in");
 
     await page.keyboard.press("Tab"); // skip link
-    await page.keyboard.press("Tab"); // back link
+    await page.keyboard.press("Tab"); // wordmark
 
+    await expect(page.getByRole("link", { name: "CiteSeek" })).toBeFocused();
+  });
+
+  test("a session gets links to its workspace and account", async ({
+    page,
+  }) => {
+    // The reason the nav exists: three destinations rather than two. An
+    // anonymous visitor gets neither, because both would only redirect them to
+    // sign-in — a destination that is really a detour is worse than no link.
+    await page.goto("/");
+    const nav = page.getByRole("navigation", { name: /main/i });
+    await expect(nav.getByRole("link", { name: /workspace/i })).toHaveCount(0);
+
+    await page.goto("/demo");
+    await expect(nav.getByRole("link", { name: /workspace/i })).toBeVisible();
+    await expect(nav.getByRole("link", { name: /account/i })).toBeVisible();
+  });
+
+  test("tells a guest the only workspace they can reach is the demo", async ({
+    page,
+  }) => {
+    // `/w` is polymorphic — a signed-in user lands on their own workspace, a
+    // guest on the shared read-only demo. One link, so the label has to carry
+    // the difference; "Workspace" on its own is a small lie to a guest.
+    await page.goto("/demo");
+
+    const nav = page.getByRole("navigation", { name: /main/i });
     await expect(
-      page.getByRole("link", { name: /back to home/i }),
-    ).toBeFocused();
+      nav.getByRole("link", { name: /demo workspace/i }),
+    ).toBeVisible();
+
+    // And exactly one link there, not a "Workspace" and a "Demo" that resolve
+    // to the same page.
+    await expect(nav.getByRole("link", { name: /workspace/i })).toHaveCount(1);
+  });
+
+  test("a guest reaching the account page is told why it is empty", async ({
+    page,
+  }) => {
+    await page.goto("/demo");
+    await page
+      .getByRole("navigation", { name: /main/i })
+      .getByRole("link", { name: /account/i })
+      .click();
+
+    await expect(page).toHaveURL(/\/account$/);
+    await expect(
+      page.getByRole("heading", { level: 2, name: /guest session/i }),
+    ).toBeVisible();
+    // Nothing to delete, so nothing that offers to.
+    await expect(page.getByRole("button", { name: /delete/i })).toHaveCount(0);
+  });
+
+  test("a signed-out visitor is redirected away from /account", async ({
+    page,
+  }) => {
+    await page.goto("/account");
+
+    await expect(page).toHaveURL(/\/sign-in/);
   });
 
   test("/w sends a guest to the demo workspace", async ({ page }) => {

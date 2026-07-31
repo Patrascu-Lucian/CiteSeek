@@ -200,6 +200,41 @@ each of these is reversible and therefore safe to defer.
     a theme control belongs in one of them rather than being bolted onto the header first and
     moved later.
 
+- **Local E2E runs accumulate usage against one caller, and can exhaust the guest daily cap.**
+  Every local guest hashes to the `"local"` address sentinel, so ~20 runs of the suite reach the
+  40-request guest daily cap on the development database. `USAGE_LIMITS=off` in
+  `playwright.config.ts` prevents enforcement — but only for a server Playwright _starts_.
+  `reuseExistingServer` is true locally, so a stale `pnpm start` left on port 3000 by anything
+  else is reused **with the flag absent**, and the whole suite then fails on
+  `capacity_reached` with no obvious connection to the cause.
+
+  Verified rather than guessed: with the flag set the chat route answers 200 against the same
+  40 rows; without it, 429. Instrumenting the webServer command confirmed Playwright does pass
+  the variable to servers it spawns.
+
+  Two candidate fixes, neither done: give each run a distinct
+  `x-vercel-forwarded-for` via Playwright's `use.extraHTTPHeaders`, so runs stop sharing a
+  bucket and the real limits stay exercised; or have the suite fail loudly when the server it
+  attached to lacks the flag, rather than failing 6 specs for an unrelated-looking reason. The
+  second is the more general fix — a harness that silently attaches to a differently-configured
+  server is a category of confusion, not one bug.
+
+- **`/w` and `/demo` can give no navigation feedback at all.** Both are redirect-only route
+  handlers, so a click leaves the browser sitting on the old page until the server answers.
+  Neither mechanism reaches them: `loading.tsx` needs a React tree that does not exist for a
+  route handler, and `useLinkStatus` does not report pending for a navigation that is not a
+  client-side transition — measured, not assumed. Every _page_ route now has a loading boundary,
+  so this is the only remaining gap.
+
+  Left as is on the evidence: `/demo` measures **134 ms** in production (README, region
+  colocation), which is below the threshold where an indicator helps — at that speed a loader
+  flashes, which is worse than nothing. Revisit if cold starts make it perceptible.
+
+  The tempting fix is converting them to pages so they can have boundaries, and it has a
+  specific hazard: Next prefetches `<Link>` targets, and `/w` **creates a workspace**. A page
+  that writes could have its write triggered by a hover. The route handler is the right home for
+  it, as its own comment says.
+
 - **Nothing consumes the signal that usage recording failed.** `recordUsage` returns
   `{ recorded: boolean }` and every caller discards it. That is not theoretical: production ran
   for two deploys inserting into a table that did not exist, recorded nothing, and reported
@@ -269,11 +304,25 @@ each of these is reversible and therefore safe to defer.
 
 ## Deferred to Milestone 4 (product surface)
 
-- **An account page.** User data, sign out, delete account — currently the only home for any
-  of it is the header, which is why account deletion lives beside a "Back to home" link. The
-  header is a navigation bar carrying an irreversible action, which is the wrong place for it.
-  Milestone 4 already lists workspace management; this belongs with it.
+- ~~**An account page.**~~ Done in Milestone 4. `/account` carries the user's details, how they
+  sign in, sign out, and account deletion — which moved off the header, where an irreversible
+  action sat one stray click from a wordmark on every route with no room to say what it
+  destroys.
 
-- **A navigation menu.** Once there are three destinations — home, workspace, account — the
-  header needs real navigation rather than a back link and a wordmark. Not worth building for
-  two destinations, and premature until the account page exists to navigate to.
+- ~~**A navigation menu.**~~ Done in Milestone 4, alongside the account page — which is what
+  made the third destination exist. The back link went with the change rather than surviving
+  beside real navigation: it pointed at the same place the wordmark does, a redundancy its own
+  comment already noted on the landing page.
+
+- **Workspace membership and roles (owner / member / viewer).** Planned for Milestone 4 and
+  **cut** — see `docs/decisions/016-workspace-membership-deferred.md`. Short version: the claim
+  it would buy is already true and already proven by seven cross-tenant integration tests, and a
+  role column whose only production value is `owner` adds an authorization branch no user can
+  reach. Invitations would need email, which is itself deferred for want of a sender. The ADR
+  records the seam so the shape is not re-derived: `findWorkspaceById` returns the caller's
+  membership alongside the workspace, and `accessToWorkspace` stays pure and synchronous.
+
+- **Multiple workspaces per user, and workspace management.** Planned for Milestone 4 and **cut**
+  — same ADR. Needs a switcher, a create flow and a delete flow, and multiplies the surface of
+  history, documents and the usage dashboard, each of which would have to answer "which
+  workspace?". Additive whenever it is wanted; nothing in the schema rules it out.

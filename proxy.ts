@@ -3,8 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { GUEST_COOKIE_NAME, SESSION_COOKIE_NAMES } from "@/lib/auth/cookies";
 
 /**
- * A cheap first gate on /w/*: does the request carry *any* credential? If not,
- * redirect to sign-in rather than letting the page render an error.
+ * A cheap first gate on the signed-in routes: does the request carry *any*
+ * credential? If not, redirect to sign-in rather than letting the page render an
+ * error.
  *
  * Formerly `middleware.ts`. Next 16 renamed the convention to `proxy` precisely
  * to discourage treating it as Express-style middleware, and its docs recommend
@@ -39,6 +40,12 @@ export function proxy(request: NextRequest) {
   return NextResponse.redirect(signInUrl);
 }
 
+/**
+ * `/account` is matched alongside `/w/*` because it is the same situation: a
+ * page that has nothing to show without a caller. A guest *does* pass this gate
+ * and is meant to — they have a credential, and the page explains why a guest
+ * session has no account rather than pretending the route does not exist.
+ */
 export const config = {
-  matcher: ["/w/:path*"],
+  matcher: ["/w/:path*", "/account"],
 };
