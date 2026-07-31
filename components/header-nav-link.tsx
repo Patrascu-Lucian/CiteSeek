@@ -23,39 +23,28 @@ import { cn } from "@/lib/utils";
  */
 export function HeaderNavLink({
   href,
-  excludes,
   children,
 }: {
   href: string;
-  /**
-   * A path under `href` that must *not* count as the current page.
-   *
-   * `/w` covers every workspace, including the shared demo — so for a signed-in
-   * reader visiting the demo, a plain prefix match would mark "Workspace" as
-   * current while they are somewhere that is not theirs. The nav would be
-   * making a claim the page contradicts. Guests pass nothing here: the demo
-   * *is* their workspace, so marking it is correct.
-   */
-  excludes?: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
 
   /*
-    Exact match for "/", prefix match otherwise. `/w` has to stay marked while
-    reading `/w/<id>`, but a prefix match on "/" would mark home as the current
-    page everywhere in the app.
+    Exact match for "/", prefix match otherwise, so `/w/<id>` stays marked while
+    reading a conversation inside it — but a prefix match on "/" would mark home
+    as current everywhere in the app.
+
+    This used to need an `excludes` prop, because the workspace link pointed at
+    `/w`, which is a prefix of *every* workspace including the shared demo: a
+    signed-in reader browsing the demo saw "Workspace" marked as current while
+    the page said otherwise. The header now links to the specific workspace, so
+    a different one simply does not match and the special case is gone.
   */
-  const matchesHref =
+  const isCurrent =
     href === "/"
       ? pathname === "/"
       : pathname === href || pathname.startsWith(`${href}/`);
-
-  const isExcluded =
-    excludes !== undefined &&
-    (pathname === excludes || pathname.startsWith(`${excludes}/`));
-
-  const isCurrent = matchesHref && !isExcluded;
 
   return (
     <Link

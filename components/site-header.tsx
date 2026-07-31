@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { leaveDemoAction, signOutAction } from "@/lib/auth/actions";
 import { getActor } from "@/lib/auth/actor";
 import { findDemoWorkspace } from "@/lib/auth/demo";
+import { findPersonalWorkspace } from "@/lib/workspaces/personal";
 
 /**
  * Header for every route, including the landing page.
@@ -32,23 +33,34 @@ export async function SiteHeader() {
   const actor = await getActor();
 
   /*
-    Only for a signed-in reader, and only to decide whether "Workspace" is the
-    current page. `/w` covers every workspace including the demo, so without
-    this the link stays marked as current while they read a workspace that is not
-    theirs.
+    Resolve the workspace here so the link points at it directly.
 
-    Guarded on `type === "user"` so the query never runs for a guest or an
-    anonymous visitor: a guest's workspace *is* the demo, so there is nothing to
-    exclude, and an anonymous visitor gets no nav links at all. That keeps the
-    landing page — the one every reader hits first — at the same number of
-    queries it had before.
+    `/w` is a route handler that redirects, which made clicking "Workspace" two
+    full page navigations: one to `/w`, which resolves the caller and answers
+    307, then one to `/w/<id>`. Neither is a client-side transition, so the
+    router never commits and `loading.tsx` never renders — the previous page
+    simply sat there until both round trips finished. Locally that is ~40ms and
+    invisible; on a cold serverless function it is two cold starts back to back
+    with nothing on screen, which is the "did my click register?" complaint.
+
+    Linking straight to `/w/<id>` makes it one client-side transition, so the
+    skeleton appears immediately and the redirect disappears entirely.
+
+    A read, never a write: `findPersonalWorkspace` only looks. Creating one stays
+    in the route handler, which is what `/w` still exists for and where a request
+    that writes belongs. A reader who has no workspace yet — the first visit
+    after signing in — falls back to `/w` and pays the redirect exactly once.
   */
-  const demoPath =
+  const workspaceHref =
     actor?.type === "user"
-      ? await findDemoWorkspace().then((demo) =>
-          demo ? `/w/${demo.id}` : undefined,
+      ? await findPersonalWorkspace(actor.id).then((w) =>
+          w ? `/w/${w.id}` : "/w",
         )
-      : undefined;
+      : actor?.type === "guest"
+        ? await findDemoWorkspace().then((demo) =>
+            demo ? `/w/${demo.id}` : "/w",
+          )
+        : "/w";
 
   return (
     <header className="border-border/60 border-b">
@@ -90,7 +102,7 @@ export async function SiteHeader() {
               the wordmark — so a permanent slot would buy a third route to
               content that is one hop away.
             */}
-            <HeaderNavLink href="/w" excludes={demoPath}>
+            <HeaderNavLink href={workspaceHref}>
               {actor.type === "guest" ? "Demo workspace" : "Workspace"}
             </HeaderNavLink>
             <HeaderNavLink href="/account">Account</HeaderNavLink>
