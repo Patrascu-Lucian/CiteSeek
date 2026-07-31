@@ -29,6 +29,13 @@
       "when": 1785394863145,
       "tag": "0003_clear_wasp",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785495804353,
+      "tag": "0004_square_marvex",
+      "breakpoints": true
     }
   ]
 }
