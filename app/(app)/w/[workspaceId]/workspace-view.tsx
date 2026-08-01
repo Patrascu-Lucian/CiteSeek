@@ -1,7 +1,4 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-
-import { Button } from "@/components/ui/button";
 
 import { WorkspaceSections } from "@/components/workspace/workspace-sections";
 import { getActor } from "@/lib/auth/actor";
@@ -100,16 +97,6 @@ export async function WorkspaceView({
               Read-only demo
             </span>
           ) : null}
-
-          {/*
-            Beside the workspace it describes, rather than in the global nav.
-            Usage is workspace-scoped — `usage_events` carries a workspace id —
-            so a header link would have to guess which workspace was meant, and
-            would be wrong for anyone reading a different one.
-          */}
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/w/${workspace.id}/usage`}>Usage</Link>
-          </Button>
         </div>
       </header>
 

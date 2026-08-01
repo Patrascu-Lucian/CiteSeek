@@ -258,6 +258,24 @@ export function WorkspaceSections({
           public URL.
         */}
         <ChatPanel
+          /*
+            Remounts when the open conversation changes, which is the only way
+            the transcript can follow it.
+
+            `useChat` seeds itself from `initialMessages` once and then owns its
+            own state — by design, or a streaming answer would be wiped by every
+            re-render. The consequence is that a *new* `initialMessages` prop is
+            ignored, so deleting the last conversation left its messages on
+            screen with nothing behind them, and switching conversations would
+            have shown the previous one's transcript.
+
+            A key is the honest fix rather than syncing the prop into state: the
+            conversation is the identity of this component, so a different
+            conversation is a different component. `"none"` rather than `null`
+            because a key must be a string, and an empty workspace is a real
+            state to be keyed on.
+          */
+          key={activeChatId ?? "none"}
           workspaceId={workspaceId}
           // Derived on every render from the same state the list shows, so an
           // upload that finishes processing opens the composer without a reload.

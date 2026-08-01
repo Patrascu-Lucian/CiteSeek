@@ -9,10 +9,12 @@ no account needed.
 > **Status: Milestone 3 complete, Milestone 4 in progress.** Upload a PDF, Word document,
 > Markdown or text file, then ask questions about it. Answers stream, and every claim carries a
 > numbered citation that opens the source document scrolled to the exact passage. When nothing
-> relevant is found, the answer says so and cites nothing.
+> relevant is found, the answer says so, cites nothing, and shows what the documents _do_
+> cover along with how to add one ([ADR 017](docs/decisions/017-answering-questions-the-documents-cannot-answer.md)).
 >
 > Signed in, conversations are kept: each has its own URL, and they can be listed, resumed,
-> renamed and deleted. There is an account page with real deletion.
+> renamed and deleted. There is an account page with real deletion, and a per-workspace usage
+> page reporting provider calls and tokens.
 >
 > What each milestone covers is in [`docs/strategy-plan.md`](docs/strategy-plan.md). This
 > line is the status; that document is the plan.
@@ -158,9 +160,9 @@ does.
 
 | Layer       | Count | What it covers                                                                                  |
 | ----------- | ----- | ----------------------------------------------------------------------------------------------- |
-| Unit        | 416   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
-| Integration | 121   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
-| E2E         | 51    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
+| Unit        | 456   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
+| Integration | 134   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
+| E2E         | 55    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
 

@@ -121,6 +121,22 @@ test.describe("automated accessibility", () => {
 
     expect(await violationsOn(page)).toEqual([]);
   });
+
+  /**
+   * The mobile menu, which is a second copy of the navigation and therefore a
+   * second chance to get the landmarks wrong. The specific risk it introduced:
+   * the header row already owns a `nav` named "Main", and a second one with the
+   * same name is a duplicate landmark that axe does flag.
+   */
+  test("the navigation menu on a small screen, open", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoDemo(page);
+
+    await page.getByRole("button", { name: /menu/i }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    expect(await violationsOn(page)).toEqual([]);
+  });
 });
 
 /**

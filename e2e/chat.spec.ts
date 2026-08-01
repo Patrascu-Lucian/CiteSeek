@@ -241,6 +241,8 @@ test.describe("when capacity runs out", () => {
 test.describe("usage", () => {
   test("a workspace reports what it has spent, in tokens", async ({ page }) => {
     await page.goto("/demo");
+    // Reached from the header now rather than the workspace body: a page nobody
+    // can find is a page nobody reads.
     await page.getByRole("link", { name: /^usage$/i }).click();
 
     await expect(page).toHaveURL(/\/usage$/);

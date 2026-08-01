@@ -910,3 +910,57 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   turn did not, because the mutation happened somewhere else in the tree. **When a
   server-rendered view is the single source of truth, every writer needs to know it exists — not
   just the writers that live next to it.**
+
+## Three from one session of using the app on a phone
+
+- **Issue 1 — the wordmark shrank to fit.** The header's links, the session email and the
+  sign-out control shared one row. Below `sm` the row ran out of space and the browser resolved
+  it the only way it could: the wordmark is an `<Image>`, so it scaled down rather than wrapping.
+  A logo whose size depends on the length of your email address looks broken.
+
+- **Fix**: a sheet below `sm`, holding the same destinations plus the session's exit. The exit
+  had to move with them rather than be hidden — a session with no visible way out is a trap on a
+  shared machine, and that is most true on the devices the sheet exists for.
+
+- **Issue 2 — Usage was not in the navigation**, which was a deliberate call and the wrong one.
+  The original reasoning holds up on its face: usage is per-workspace, and a link in a global
+  header needs a destination on every route. What it missed is that the header **already
+  resolves the workspace**, for an unrelated fix to a redirect. The id was in hand the whole
+  time. A page reachable only from the body of the page it measures is a page nobody opens.
+
+- **Fix**: in the header, omitted entirely when there is no workspace yet. Removed from the
+  workspace body in the same change — two links to one destination is not redundancy, it is a
+  second thing to keep in sync, and the E2E would have hit two matches for the same name.
+
+- **This introduced a defect worth recording, because it was caught by writing the test rather
+  than by using the app.** Each nav link decided for itself whether it was current by
+  prefix-matching the pathname. That worked while no destination lived inside another.
+  `/w/<id>/usage` starts with `/w/<id>`, so on the usage page **both links marked themselves as
+  the current page** — invisible on screen beyond two bold items, and a screen reader announcing
+  "current page" twice. Only the container knows every href, so the rule moved there: longest
+  match wins. Prefix matching is still right _within_ a destination, which is what keeps
+  Workspace marked while reading a conversation inside it.
+
+- **Issue 3 — deleting the last conversation left its messages on screen.**
+
+- **Cause**: `useChat` seeds from `initialMessages` **once per mount** and then owns its state.
+  That is correct — otherwise a streaming answer would be wiped by every re-render — but it means
+  a new `initialMessages` prop is ignored. Deleting the last conversation refreshed the server
+  data, handed the panel an empty list, and changed nothing.
+
+- **Fix**: `key={activeChatId ?? "none"}`, so the conversation is the component's identity and a
+  different conversation is a different component.
+
+- **Lesson**: two.
+
+  **The reported bug was the harmless half.** Deleting the last conversation leaves a stale
+  transcript with nothing behind it — visibly wrong, and nobody is misled. The same cause meant
+  **switching between conversations would show the previous one's messages**, which is a
+  transcript attributed to the wrong conversation. Nobody had reported it. Fixing the reported
+  symptom without asking what else shared the cause would have left it.
+
+  **The mock had to be made faithful before the test could fail.** The existing `useChat` stub
+  returned a fixed empty array, so neither case could be expressed. Returning `options.messages`
+  directly would have been worse: the mock would follow the prop on every render, and the test
+  would pass with or without the fix. It now holds the seed in `useState`, mirroring what the
+  real hook does — and both tests fail without the key, which is the only reason to trust them.
