@@ -166,6 +166,7 @@ describe("MessageList — a conversation restored from the database", () => {
       role: "user",
       content: "When is reimbursement paid?",
       citations: [],
+      refusalReason: null,
       createdAt: new Date("2026-07-30T10:00:00Z"),
     },
     {
@@ -184,6 +185,7 @@ describe("MessageList — a conversation restored from the database", () => {
           quote: "Reimbursement is paid within 30 days.",
         },
       ],
+      refusalReason: null,
       createdAt: new Date("2026-07-30T10:00:01Z"),
     },
   ]);

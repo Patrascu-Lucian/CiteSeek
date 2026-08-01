@@ -201,12 +201,16 @@ export async function POST(
       ? (await resolveChatForTurn(scope, actorId, requestedChatId)).id
       : null;
 
-  async function persist(answer: string, citations: ChatSource[]) {
+  async function persist(
+    answer: string,
+    citations: ChatSource[],
+    refusalReason: RefusalReason | null = null,
+  ) {
     if (!chatId) return;
 
     await appendMessages(scope, actorId, chatId, [
       { role: "user", content: asked },
-      { role: "assistant", content: answer, citations },
+      { role: "assistant", content: answer, citations, refusalReason },
     ]);
   }
 
@@ -225,8 +229,10 @@ export async function POST(
         : "no_relevant_passages";
 
     // Persisted like any other turn. A refusal is part of the conversation, and
-    // a reload that silently dropped it would make the transcript a lie.
-    await persist(NO_RELEVANT_PASSAGES_REPLY, []);
+    // a reload that silently dropped it would make the transcript a lie. The
+    // reason rides along so the panel can be rebuilt rather than inferred from
+    // the text, which would break the moment that sentence is reworded.
+    await persist(NO_RELEVANT_PASSAGES_REPLY, [], reason);
     return createUIMessageStreamResponse({ stream: refusalStream(reason) });
   }
 
