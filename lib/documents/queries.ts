@@ -5,6 +5,7 @@ import {
   desc,
   eq,
   inArray,
+  isNotNull,
   isNull,
   lt,
   sql,
@@ -281,6 +282,30 @@ export async function setChunkEmbeddings(
   }
 
   return written;
+}
+
+/**
+ * How many passages in this workspace are actually searchable.
+ *
+ * A chunk with no embedding cannot be retrieved, so "has documents" and "has
+ * something to search" are different questions — a document still processing
+ * answers yes to the first and no to the second.
+ *
+ * Called only when retrieval comes back empty, to tell a workspace that has
+ * nothing indexed apart from one where nothing matched. The two need different
+ * things said to the reader, and guessing between them from the outside would
+ * mean telling someone to upload a document they have already uploaded.
+ */
+export async function countSearchableChunks(workspaceId: string) {
+  const [row] = await db
+    .select({ total: count() })
+    .from(chunks)
+    .innerJoin(documents, eq(chunks.documentId, documents.id))
+    .where(
+      and(eq(documents.workspaceId, workspaceId), isNotNull(chunks.embedding)),
+    );
+
+  return row?.total ?? 0;
 }
 
 export async function countChunks(workspaceId: string, documentId: string) {

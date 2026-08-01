@@ -109,6 +109,37 @@ test.describe("when nothing relevant is found", () => {
       0,
     );
   });
+
+  /**
+   * The question this slice exists for.
+   *
+   * "How do I upload a file?" is a reasonable thing to type into a chat box and
+   * it is refused, because the answer is not in anyone's documents. The refusal
+   * was correct and useless. What makes it useful is naming what *can* be
+   * answered and pointing at the interface — none of it written by a model.
+   */
+  test("a question about the product says what the documents do cover", async ({
+    page,
+  }) => {
+    await page.goto("/demo");
+    await ask(page, "How do I upload a file?");
+
+    const refusal = page.locator("[data-refusal]");
+    await expect(refusal).toBeVisible();
+
+    // Named, so the reader learns the boundary rather than guessing at it.
+    await expect(refusal).toContainText(/northwind-remote-work-handbook/i);
+    await expect(refusal).toContainText(/no knowledge outside them/i);
+
+    // A guest cannot upload here, so they are offered the thing that would let
+    // them — never an instruction they are unable to follow.
+    await expect(refusal.getByRole("link", { name: /sign in/i })).toBeVisible();
+
+    // The failure this whole design prevents: a refusal that cites.
+    await expect(page.getByRole("button", { name: /^Citation/ })).toHaveCount(
+      0,
+    );
+  });
 });
 
 test.describe("keyboard only", () => {

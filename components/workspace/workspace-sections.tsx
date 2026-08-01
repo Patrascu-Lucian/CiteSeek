@@ -266,6 +266,12 @@ export function WorkspaceSections({
           )}
           signedIn={signedIn}
           initialMessages={initialMessages}
+          canUpload={canWrite}
+          // Only what is actually searchable. A document still processing is
+          // not something a refusal may claim to be able to answer from.
+          documents={documents
+            .filter((document) => document.status === "ready")
+            .map((document) => document.filename)}
           // Only for a signed-in reader: a guest's turns are never written
           // down, so there is no server-rendered list for them to go stale.
           onTurnComplete={signedIn ? refreshFromServer : undefined}

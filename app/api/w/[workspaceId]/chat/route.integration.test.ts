@@ -148,6 +148,15 @@ function sourcesOf(chunks: { type: string }[]) {
   return part?.data ?? null;
 }
 
+function refusalOf(chunks: { type: string }[]) {
+  const part = chunks.find(
+    (chunk): chunk is { type: "data-refusal"; data: { reason: string } } =>
+      chunk.type === "data-refusal",
+  );
+
+  return part?.data ?? null;
+}
+
 /**
  * A realistically sized passage, not a single sentence.
  *
@@ -222,6 +231,48 @@ describe("POST /api/w/[workspaceId]/chat", () => {
 
     // Both halves of the turn — the question and the answer.
     expect(chat?.messageCount).toBe(2);
+  });
+
+  it("says a refusal was for lack of a match, not lack of documents", async () => {
+    // The distinction the extra query on that branch exists for: this workspace
+    // has an indexed passage, so telling the reader to upload something would be
+    // an instruction they have already followed.
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+
+    const chunks = await readStream(
+      await postChat(workspace.id, "What is the capital of France?"),
+    );
+
+    expect(refusalOf(chunks)).toEqual({ reason: "no_relevant_passages" });
+  });
+
+  it("says a refusal was for lack of documents when nothing is indexed", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    currentActor.value = asUser(user.id);
+
+    const chunks = await readStream(
+      await postChat(workspace.id, "What is the capital of France?"),
+    );
+
+    expect(refusalOf(chunks)).toEqual({ reason: "no_documents" });
+  });
+
+  it("attaches no refusal part to an answer it could ground", async () => {
+    // The two parts are mutually exclusive by construction. A message carrying
+    // both would mean the route had grounded and refused the same turn.
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+
+    const chunks = await readStream(await postChat(workspace.id, PASSAGE));
+
+    expect(refusalOf(chunks)).toBeNull();
+    expect(sourcesOf(chunks)).not.toBeNull();
   });
 
   it("refuses with zero sources when nothing clears the relevance floor", async () => {

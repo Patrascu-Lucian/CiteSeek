@@ -36,10 +36,20 @@ export function ChatPanel({
   signedIn = false,
   initialMessages = [],
   onTurnComplete,
+  documents = [],
+  canUpload = false,
 }: {
   workspaceId: string;
   /** Whether anything has finished processing. Nothing to search without it. */
   hasReadyDocuments: boolean;
+  /**
+   * Filenames of what is searchable now. Only a refusal reads these — to say
+   * what it *can* answer from, which is the thing that makes it useful rather
+   * than merely correct.
+   */
+  documents?: readonly string[];
+  /** Changes what a refusal offers: upload, or sign in, or neither. */
+  canUpload?: boolean;
   /**
    * Changes what a capacity refusal offers, not whether one happens. A guest is
    * told signing in gives them their own headroom, which is true because the
@@ -167,6 +177,10 @@ export function ChatPanel({
           messages={messages}
           onSelectSource={setSelected}
           selectedChunkId={selected?.chunkId ?? null}
+          workspaceId={workspaceId}
+          documents={documents}
+          canUpload={canUpload}
+          signedIn={signedIn}
         />
       </div>
 

@@ -71,6 +71,10 @@ describe("MessageList", () => {
         messages={[]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
       />,
     );
 
@@ -87,6 +91,10 @@ describe("MessageList", () => {
         messages={[userMessage("What is the policy?")]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
       />,
     );
 
@@ -102,6 +110,10 @@ describe("MessageList", () => {
         ]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
       />,
     );
 
@@ -129,6 +141,10 @@ describe("MessageList", () => {
         messages={[userMessage("What does **bold** mean here?")]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
       />,
     );
 
@@ -179,6 +195,10 @@ describe("MessageList — a conversation restored from the database", () => {
         messages={restored}
         onSelectSource={onSelectSource}
         selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
       />,
     );
 
@@ -202,6 +222,10 @@ describe("MessageList — a conversation restored from the database", () => {
         messages={restored}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
       />,
     );
 
@@ -214,5 +238,83 @@ describe("MessageList — a conversation restored from the database", () => {
     expect(screen.getAllByRole("button", { name: /^Citation/ })).toHaveLength(
       1,
     );
+  });
+});
+
+describe("MessageList — a refusal", () => {
+  function refusalMessage(): ChatUIMessage {
+    return {
+      id: "m3",
+      role: "assistant",
+      parts: [
+        {
+          type: "data-refusal",
+          id: "refusal",
+          data: { reason: "no_relevant_passages" },
+        },
+        { type: "text", text: "I couldn't find anything relevant." },
+      ],
+    };
+  }
+
+  it("renders the refusal panel beside the text, not instead of it", async () => {
+    render(
+      <MessageList
+        messages={[refusalMessage()]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
+      />,
+    );
+
+    // The sentence is still the answer to the question that was asked.
+    expect(
+      await screen.findByText(/couldn't find anything relevant/i, undefined, {
+        timeout: 5_000,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("handbook.pdf")).toBeInTheDocument();
+  });
+
+  it("cites nothing, which is the failure this whole design prevents", async () => {
+    // A refusal that renders a chip would be claiming a source for a claim it
+    // did not make. The route never sends both parts; this asserts the client
+    // could not draw one anyway.
+    render(
+      <MessageList
+        messages={[refusalMessage()]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
+      />,
+    );
+
+    await screen.findByText(/couldn't find anything relevant/i, undefined, {
+      timeout: 5_000,
+    });
+
+    expect(screen.queryByRole("button", { name: /^Citation/ })).toBeNull();
+  });
+
+  it("draws no panel for an ordinary grounded answer", () => {
+    render(
+      <MessageList
+        messages={[assistantMessage("Paid in 30 days [1].", [SOURCE])]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
+      />,
+    );
+
+    expect(document.querySelector("[data-refusal]")).toBeNull();
   });
 });
