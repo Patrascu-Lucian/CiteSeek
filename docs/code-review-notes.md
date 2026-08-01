@@ -807,3 +807,74 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   possible. Watching for prefetch directly showed three RSC requests for the workspace fired
   while still sitting on `/account`. **A test that suppresses the mechanism it is measuring
   reports a real number about a situation that does not exist.**
+
+## The first answer of a session looked like the page reloading
+
+- **Issue**: reported from local use — asking the first question in a new conversation made the
+  whole page appear to re-render. Every later question in the same conversation was instant. The
+  report was precise about the trigger: on send, not on typing, and only ever the first time.
+
+- **The first diagnosis was wrong, and confidently so.** The draft question was held in
+  `ChatPanel`, so every keystroke re-rendered the transcript beneath it — each `Answer`
+  re-parsing its markdown through Streamdown. That is a real defect and it is fixed below, but it
+  is a _per-keystroke_ cost, and the symptom being explained happened on submit. The explanation
+  was reached by reading the code for something that looked expensive and stopping when one was
+  found. It fit a symptom nobody had reported.
+
+- **Measurement, against a production build and then against the dev server**: three questions
+  asked in sequence on one page, timing each from click to rendered citation and recording every
+  JavaScript chunk fetched in between.
+
+  |                  | first send                      | second | third  |
+  | ---------------- | ------------------------------- | ------ | ------ |
+  | dev server       | **1433 ms**, chunks at +1006 ms | 54 ms  | 883 ms |
+  | production build | 918 ms, chunk at +478 ms        | 54 ms  | 862 ms |
+
+  The `Answer` component is behind `next/dynamic` — it carries Streamdown, 428 KB of parser,
+  highlighter and diagram code deliberately kept out of the initial bundle. It was warmed on
+  submit, on the reasoning that retrieval and the first token would cover the fetch. They did not:
+  the chunk was still arriving halfway through the first answer, and in development, where Next
+  compiles it on demand, it took a full second. `dynamic()` had no `loading` fallback, so
+  throughout that second the assistant's bubble rendered `null` — appearing, collapsing to
+  nothing, then filling in.
+
+- **Fix**: three parts, only one of which was the reported bug.
+
+  Warm the chunk at idle rather than on submit, so it is fetched while nobody is waiting for it —
+  three chunk fetches during the first send became one. Give `dynamic()` a `loading` placeholder,
+  so the space is reserved and the bubble cannot collapse. And move the draft question down into
+  `Composer`, where it belongs: nothing above that component reads it.
+
+- **Lesson**: three.
+
+  **The third question took 862 ms with no chunks at all.** A single first-versus-second
+  comparison had shown 962 ms against 46 ms, which looked decisive and was mostly noise. Three
+  samples showed the timings are bimodal for reasons unrelated to chunks. The chunk fetch is real
+  and worth fixing; "the first send is slow" was never the claim the data supported. **Two data
+  points cannot distinguish a trend from variance, and the one-time cost had to be identified by
+  what loaded, not by how long it took.**
+
+  **Lifting state is a default, not a rule.** `ChatPanel` owning the draft followed the same
+  pattern as every other panel here, and was wrong for a specific reason: no component above the
+  form reads the draft, and the transcript below it is expensive to re-render. Asserted now as a
+  render count rather than a duration — a timing assertion would be flaky on a loaded machine,
+  and the render count is the thing that regressed. Verified by reinstating the lifted state:
+  **20 transcript renders for 19 keystrokes, against 1 after.**
+
+  **A code splitting decision is not finished when the bundle shrinks.** The split was measured
+  and reported at the time as costing nothing visible. What was measured was the initial payload;
+  what was never measured was the first render that needs the split-out chunk.
+
+## Deleting a conversation asked for no confirmation
+
+- **Issue**: reported from local use. The delete control sits beside rename in a dense list, both
+  icon-only and adjacent, and deletion is permanent and immediate.
+
+- **Fix**: an `AlertDialog`, naming the conversation and its message count.
+
+- **Lesson**: the confirmation is deliberately lighter than the account one, which requires
+  typing a word. What is lost here is one conversation, not an account, and a typed confirmation
+  on every row of a list trains the reader to type through it. **The dialog's job is not to add
+  friction but to say which conversation is about to go** — that is the part a misclick got
+  wrong. The documents list has the same shape of control and no confirmation; that inconsistency
+  is filed in the backlog rather than fixed in passing.

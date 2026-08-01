@@ -197,12 +197,20 @@ describe("ChatPanel — asking", () => {
 });
 
 describe("ChatPanel — citations", () => {
+  /*
+    `Answer` is behind a dynamic import, so the first chip in this file does not
+    exist until Vitest has transformed the markdown stack — comfortably over
+    Testing Library's 1s default on a loaded machine. Same allowance, and same
+    reason, as the `message-list` specs.
+  */
+  const CHIP_TIMEOUT = { timeout: 5_000 };
+
   it("opens the source panel when a chip is activated", async () => {
     chat.messages = [ANSWER];
     renderPanel();
 
     await userEvent.click(
-      await screen.findByRole("button", { name: /^Citation 1/ }),
+      await screen.findByRole("button", { name: /^Citation 1/ }, CHIP_TIMEOUT),
     );
 
     // What the panel then renders is its own concern and its own tests. What
@@ -218,13 +226,13 @@ describe("ChatPanel — citations", () => {
     renderPanel();
 
     await userEvent.click(
-      await screen.findByRole("button", { name: /^Citation 1/ }),
+      await screen.findByRole("button", { name: /^Citation 1/ }, CHIP_TIMEOUT),
     );
 
     // Re-queried rather than reusing the reference: the markdown renderer
     // rebuilds its output on re-render, so the original node is detached.
     expect(
-      await screen.findByRole("button", { name: /^Citation 1/ }),
+      await screen.findByRole("button", { name: /^Citation 1/ }, CHIP_TIMEOUT),
     ).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -233,7 +241,7 @@ describe("ChatPanel — citations", () => {
     renderPanel();
 
     await userEvent.click(
-      await screen.findByRole("button", { name: /^Citation 1/ }),
+      await screen.findByRole("button", { name: /^Citation 1/ }, CHIP_TIMEOUT),
     );
     await userEvent.click(
       within(await screen.findByRole("dialog")).getByRole("button", {

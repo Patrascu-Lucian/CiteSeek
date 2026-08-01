@@ -206,3 +206,44 @@ test.describe("when capacity runs out", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("usage", () => {
+  test("a workspace reports what it has spent, in tokens", async ({ page }) => {
+    await page.goto("/demo");
+    await page.getByRole("link", { name: /^usage$/i }).click();
+
+    await expect(page).toHaveURL(/\/usage$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: /usage/i }),
+    ).toBeVisible();
+
+    // The window is the retention bound, and the page has to say so — otherwise
+    // a pruned month reads as a quiet one.
+    await expect(page.getByText(/last 30 days/i)).toBeVisible();
+
+    // Never a currency figure: the free tier costs nothing, so any money here
+    // would describe a tier this app is not on.
+    await expect(page.locator("main")).not.toContainText("$");
+  });
+
+  test("the demo says nothing a guest does is charged to it", async ({
+    page,
+  }) => {
+    await page.goto("/demo");
+    await page.goto(page.url().replace(/\/?$/, "/usage"));
+
+    // Wait for the loading boundary to hand over. Until it does there are two
+    // `<main>` elements on the page — the skeleton and the content — which is
+    // transient but makes any `main` locator ambiguous.
+    await expect(
+      page.getByRole("heading", { level: 1, name: /usage/i }),
+    ).toBeVisible();
+    await expect(page.locator("[aria-busy='true']")).toHaveCount(0);
+
+    // The demo is read-only for everyone, so the empty state must not tell a
+    // guest to upload something in order to generate usage.
+    await expect(page.locator("main")).not.toContainText(
+      /uploading a document/i,
+    );
+  });
+});

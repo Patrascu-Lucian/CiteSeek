@@ -1,6 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 3000;
+// Overridable so the suite can run while a dev server holds 3000. The default is
+// unchanged, and `reuseExistingServer: false` below still applies either way —
+// this picks a free port for a server Playwright starts itself, it does not
+// attach to one somebody else started.
+const PORT = Number(process.env.E2E_PORT ?? 3000);
 // `localhost`, not `127.0.0.1`: Next normalizes redirect targets to the host it
 // was started on, so a test browsing 127.0.0.1 would be redirected to localhost
 // and lose its cookies at the origin boundary. Chrome treats localhost as a

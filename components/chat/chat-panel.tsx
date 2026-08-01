@@ -8,7 +8,7 @@
 // it then (correctly, for an entry) flags for taking function props.
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 
@@ -17,7 +17,7 @@ import { parseRefusal } from "@/lib/usage/limits";
 
 import { ChatError } from "./chat-error";
 import { Composer } from "./composer";
-import { MessageList } from "./message-list";
+import { MessageList, warmAnswer } from "./message-list";
 import { SourcePanel } from "./source-panel";
 
 /**
@@ -25,7 +25,10 @@ import { SourcePanel } from "./source-panel";
  *
  * Same shape as `DocumentsPanel`: one owner of state, presentational children,
  * no prop copied into state. `useChat` holds the messages; this component adds
- * the input value and which source the reader has opened.
+ * which source the reader has opened.
+ *
+ * The draft question is deliberately *not* here — see `Composer`. Holding it at
+ * this level re-rendered the whole transcript on every keystroke.
  */
 export function ChatPanel({
   workspaceId,
@@ -48,7 +51,6 @@ export function ChatPanel({
    */
   initialMessages?: ChatUIMessage[];
 }) {
-  const [input, setInput] = useState("");
   const [selected, setSelected] = useState<ChatSource | null>(null);
 
   const { messages, sendMessage, regenerate, stop, status, error, clearError } =
@@ -61,21 +63,43 @@ export function ChatPanel({
 
   const isStreaming = status === "streaming" || status === "submitted";
 
-  function ask() {
-    const question = input.trim();
-    if (question.length === 0) return;
+  /*
+    Warm the Markdown chunk once the page is idle.
 
-    // Warm the markdown chunk while the question is in flight. `MessageList`
-    // loads `Answer` on demand — it carries Streamdown and 428 KB of parser,
-    // diagram and highlighter code that no empty conversation needs. Retrieval
-    // and the first token take on the order of a second, which is ample time to
-    // fetch it, so the split costs nothing the reader can see.
-    //
-    // Fire-and-forget by design: a failed prefetch is not an error, because the
-    // real import still runs when the component renders.
-    void import("./answer");
+    `MessageList` loads `Answer` on demand — it carries Streamdown and 428 KB of
+    parser, diagram and highlighter code that no empty conversation needs, and
+    keeping it out of the initial bundle is the point of the split.
 
-    setInput("");
+    This used to warm on submit, on the reasoning that retrieval and the first
+    token take about a second, which is ample time to fetch it. Measured against
+    a production build, that was wrong: the chunk arrived 449ms into a first
+    answer that took **962ms**, while every later answer on the same page took
+    **46ms**. It was not overlapping the wait, it *was* the wait — a visible
+    one-time stall on the first question of every visit, and the reason the first
+    answer looked like the page was reloading.
+
+    Idle time is the right moment instead. `requestIdleCallback` runs after the
+    page has settled, so this competes with nothing the reader is waiting on, and
+    it finishes long before anyone has typed a question. The bundle win survives
+    — the chunk is still absent from the initial HTML and payload — and the
+    stall does not.
+
+    Fire-and-forget by design: a failed prefetch is not an error, because the
+    real import still runs when the component renders.
+  */
+  useEffect(() => {
+    // Safari has only shipped `requestIdleCallback` recently; a timeout is the
+    // fallback rather than skipping the warm-up on those browsers entirely.
+    if (typeof requestIdleCallback !== "function") {
+      const timer = setTimeout(warmAnswer, 1_000);
+      return () => clearTimeout(timer);
+    }
+
+    const handle = requestIdleCallback(warmAnswer, { timeout: 2_000 });
+    return () => cancelIdleCallback(handle);
+  }, []);
+
+  function ask(question: string) {
     void sendMessage({ text: question });
   }
 
@@ -138,8 +162,6 @@ export function ChatPanel({
       ) : null}
 
       <Composer
-        value={input}
-        onChange={setInput}
         onSubmit={ask}
         // `void` rather than passing it straight through: the prop is typed to
         // return void, and a floating promise on an event handler is the shape

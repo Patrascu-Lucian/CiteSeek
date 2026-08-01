@@ -10,6 +10,23 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    /*
+      Above Vitest's 5s default, because that default was measuring machine load
+      rather than correctness.
+
+      The PDF and docx extraction specs take ~225ms of actual work and run in
+      1.6s when their file runs alone — but under the full suite, with parallel
+      workers competing for the transform pipeline, the same tests were observed
+      at 8-9s and failed intermittently. Nothing was wrong with them; the wall
+      clock was measuring contention.
+
+      A timeout exists to catch a test that has hung, and 15s still catches that
+      while leaving room for a busy CI runner, which is slower than this machine.
+      Note this is separate from Testing Library's own `findBy*` timeouts, which
+      a couple of specs raise for a different reason — a dynamic import having to
+      transform the markdown stack on first use.
+    */
+    testTimeout: 15_000,
     // Playwright owns e2e/. Without this, Vitest tries to collect those specs
     // and fails on Playwright's `test` fixture API.
     // Integration tests need a live database and run from their own config, so
