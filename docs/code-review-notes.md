@@ -878,3 +878,35 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   friction but to say which conversation is about to go** — that is the part a misclick got
   wrong. The documents list has the same shape of control and no confirmation; that inconsistency
   is filed in the backlog rather than fixed in passing.
+
+## The conversation list did not know a turn had happened
+
+- **Issue**: reported from local use — the message count beside a conversation stayed at its old
+  value until the page was reloaded. The same gap hid a second symptom nobody had reported yet:
+  the title generated from a first question did not appear either, because it is written by the
+  same request.
+
+- **Cause**: the list is server-rendered from the database, which is the right call — one source
+  of truth, no client-side copy to drift. What was missing is the other half of that arrangement.
+  `router.refresh()` was already wired to rename and delete, both of which are initiated _by_ the
+  list. A turn is initiated by the composer, and nothing connected the two.
+
+- **Fix**: `useChat`'s `onFinish` calls back to `WorkspaceSections`, which already owns
+  `refreshFromServer`. Passed only for a signed-in reader: a guest's turns are never persisted, so
+  a refetch would re-render identical markup.
+
+- **Lesson**: two.
+
+  **The race was checked before the fix relied on it.** The route persists inside `streamText`'s
+  own `onFinish`, so "the stream has closed" and "the rows are committed" are not obviously the
+  same moment. If the body could close first, refreshing on completion would read a count one
+  turn behind — the same stale number, arriving a second later instead of on reload, which is
+  harder to notice and harder to explain. An integration test now consumes the stream and queries
+  immediately, with nothing awaited in between. It passes, and it will fail loudly if the route's
+  persistence ever moves into `after()`.
+
+  **A cache is only as good as its invalidation, and this one had two of three.** Rename and
+  delete refreshed because the code doing the mutating was the code displaying the data. The
+  turn did not, because the mutation happened somewhere else in the tree. **When a
+  server-rendered view is the single source of truth, every writer needs to know it exists — not
+  just the writers that live next to it.**

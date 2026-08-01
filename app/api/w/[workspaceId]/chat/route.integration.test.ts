@@ -10,6 +10,7 @@ import {
 } from "vitest";
 
 import type { Actor } from "@/lib/auth/actor";
+import { listChats } from "@/lib/chats/queries";
 import { usageEvents } from "@/lib/db/schema";
 import { PRODUCTION_USAGE_LIMITS } from "@/lib/usage/config";
 import { FAKE_ANSWER } from "@/lib/ai/fake-chat-model";
@@ -196,6 +197,31 @@ describe("POST /api/w/[workspaceId]/chat", () => {
       },
     ]);
     expect(textOf(chunks)).toBe(FAKE_ANSWER);
+  });
+
+  /**
+   * The question behind making the conversation list refresh itself: is the
+   * turn already written down by the time the client's stream ends?
+   *
+   * The route persists inside `streamText`'s own `onFinish`, so if the response
+   * body could close before that transaction commits, a client refreshing on
+   * completion would read a count one turn behind — which is the stale count it
+   * is meant to fix, arriving a moment later instead of on the next reload.
+   */
+  it("has persisted the turn by the time the stream closes", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+
+    await readStream(await postChat(workspace.id, PASSAGE));
+
+    // Read immediately, with nothing awaited in between: the question is
+    // whether the write is already visible, not whether it eventually happens.
+    const [chat] = await listChats(workspace.id, user.id);
+
+    // Both halves of the turn — the question and the answer.
+    expect(chat?.messageCount).toBe(2);
   });
 
   it("refuses with zero sources when nothing clears the relevance floor", async () => {

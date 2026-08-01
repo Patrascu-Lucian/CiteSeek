@@ -7,25 +7,33 @@ import { WorkspaceSections } from "./workspace-sections";
 
 /**
  * `useRouter` throws "expected app router to be mounted" outside Next's runtime.
- * The component uses it to re-render the server data after a conversation is
- * renamed or deleted; these tests are about documents and the composer, so the
- * refresh is stubbed rather than observed.
+ * `refresh` is what re-renders the server data behind the conversation list, so
+ * it is observed rather than merely stubbed.
  */
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+const router = vi.hoisted(() => ({ refresh: vi.fn(), push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
+
+/**
+ * `useChat` owns a network connection. The stub keeps `onFinish` so a test can
+ * end a turn — the connection ending is the event this component reacts to.
+ */
+const chat = vi.hoisted(() => ({
+  onFinish: undefined as (() => void) | undefined,
 }));
 
-/** `useChat` owns a network connection; the composer's presence is what matters here. */
 vi.mock("@ai-sdk/react", () => ({
-  useChat: () => ({
-    messages: [],
-    status: "ready",
-    error: undefined,
-    sendMessage: vi.fn(),
-    regenerate: vi.fn(),
-    stop: vi.fn(),
-    clearError: vi.fn(),
-  }),
+  useChat: (options: { onFinish?: () => void }) => {
+    chat.onFinish = options.onFinish;
+    return {
+      messages: [],
+      status: "ready",
+      error: undefined,
+      sendMessage: vi.fn(),
+      regenerate: vi.fn(),
+      stop: vi.fn(),
+      clearError: vi.fn(),
+    };
+  },
 }));
 
 function doc(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
@@ -59,6 +67,8 @@ function pollReturns(documents: DocumentSummary[]) {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  chat.onFinish = undefined;
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
@@ -67,7 +77,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderSections(initialDocuments: DocumentSummary[]) {
+function renderSections(initialDocuments: DocumentSummary[], signedIn = true) {
   render(
     <WorkspaceSections
       workspaceId="w1"
@@ -76,10 +86,44 @@ function renderSections(initialDocuments: DocumentSummary[]) {
       chats={[]}
       activeChatId={null}
       canWrite
-      signedIn
+      signedIn={signedIn}
     />,
   );
 }
+
+const READY = {
+  status: "ready",
+  chunkCount: 3,
+  embeddedChunkCount: 3,
+} as const;
+
+describe("WorkspaceSections — the conversation list after a turn", () => {
+  it("refetches the server data once an answer has finished", () => {
+    /*
+      The regression this exists for. Titles and message counts are rendered on
+      the server from the database, and nothing told them a turn had happened:
+      the count beside a conversation stayed at its old value until the reader
+      reloaded, and the title generated from a first question never appeared.
+    */
+    renderSections([doc(READY)]);
+
+    expect(router.refresh).not.toHaveBeenCalled();
+
+    chat.onFinish?.();
+
+    expect(router.refresh).toHaveBeenCalledOnce();
+  });
+
+  it("does not refetch for a guest, who has no stored conversation", () => {
+    // Guest turns are never written down, so a refetch would re-render the same
+    // markup and spend a request saying nothing changed.
+    renderSections([doc(READY)], false);
+
+    chat.onFinish?.();
+
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+});
 
 describe("WorkspaceSections — chat follows the document list", () => {
   it("opens the composer when a processing document becomes ready", async () => {
