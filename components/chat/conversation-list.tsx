@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -23,6 +21,12 @@ import { cn } from "@/lib/utils";
 
 /**
  * Past conversations, as links.
+ *
+ * No `"use client"` of its own: it is reached only through `WorkspaceSections`,
+ * which is where this subtree crosses the boundary. Repeating the directive here
+ * would hide where the split actually happens, and would make Next treat this as
+ * a client *entry* — at which point its function props have to be Server
+ * Actions, which `onChanged` is not and should not be.
  *
  * Each is a route rather than a click handler swapping client state, so a
  * conversation can be linked, bookmarked and reached with the back button. The

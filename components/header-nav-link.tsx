@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -7,6 +5,11 @@ import { cn } from "@/lib/utils";
 
 /**
  * A navigation link that says where you are.
+ *
+ * No `"use client"` of its own — see `MainNav`, which owns the boundary this
+ * sits behind. It carried one until the nav grew a container; being imported
+ * directly by the server-rendered header made it an entry, and an entry may not
+ * take a plain function prop like `onNavigate`.
  *
  * Nothing marked the current page before this — every destination looked
  * identical whichever one you were on. `aria-current="page"` is the part that

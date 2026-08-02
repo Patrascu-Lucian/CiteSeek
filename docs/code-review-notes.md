@@ -1004,3 +1004,83 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   comment was also slightly optimistic — it predicted a later read would see an empty buffer,
   where PDF.js in fact throws a message that blames the file — so it now records the measured
   numbers and the wording of the error, which is what someone hitting this will search for.
+
+## A performance regression that did not exist
+
+- **Issue**: dark mode landed, Lighthouse was re-run on the landing page, and the score dropped
+  from **99 to 93** with total blocking time up from **50 ms to 300 ms**. Read at face value that
+  is a serious regression from a feature that was supposed to be free.
+
+- **It was noise.** Three runs of each build, same machine, same server:
+
+  |        | Performance | Total blocking time | Script evaluation |
+  | ------ | ----------- | ------------------- | ----------------- |
+  | before | 95, 95, 95  | 30, 30, 20 ms       | 189, 186, 179 ms  |
+  | after  | 97, 95, 95  | 40, 20, 20 ms       | 173, 176, 180 ms  |
+
+  Identical. The original 99 and the original 93 were both outliers of the same distribution.
+
+- **Lesson**: **total blocking time is the noisiest number Lighthouse reports**, and it is the one
+  most likely to move when you have just changed something and are looking for a reason. One run
+  against one run cannot separate a change from variance — the same mistake as reading a single
+  first-send timing as proof that a chunk fetch was the bottleneck. The structural claim was worth
+  more than the score anyway, and it is checkable directly: the built HTML has **zero inline
+  scripts in `<head>`** and no `suppressHydrationWarning`, which is the whole point of putting the
+  preference in a cookie.
+
+## A click lost between two working mechanisms
+
+- **Issue**: the theme end-to-end tests failed intermittently — roughly one run in three, only
+  under the full suite, never when the file ran alone. The assertion timed out waiting for the
+  class to change.
+
+- **The first two explanations were both wrong.** Raising the timeout to 15 s did not help.
+  Suspecting `revalidatePath("/", "layout")` of slowing the suite, removing it did not help
+  either — though it did confirm that failing runs took 37–40 s against 21–24 s for clean ones.
+
+- **Cause**: the control is a server action inside a plain form, which works twice over — the
+  browser posts it natively before hydration, React intercepts it after. A click landing _during_
+  hydration falls between the two and is **dropped rather than delayed**. That is exactly why a
+  longer timeout could never help, and why it only appeared under load, where hydration takes
+  longer.
+
+- **Fix**: the test waits for hydration before clicking. Four consecutive clean runs after, and
+  the suite got faster.
+
+- **Lesson**: **"raise the timeout" is a hypothesis, and it should be treated as one.** A timeout
+  that does not fix a flake has told you something specific — the work is not slow, it never
+  started — and that is more informative than a passing run would have been. A real reader can hit
+  the same window; it is narrow and the control is not on the critical path, but the test now
+  documents it rather than hiding it behind a longer wait.
+
+## A dark-mode variant that covered one of the two dark modes
+
+- **Issue**: found while wiring the new logo, not by a failing test. The palette switches on
+  either an explicit `.dark` class or `prefers-color-scheme`, but the Tailwind variant was written
+  as `@custom-variant dark (&:is(.dark *))` — **class only**.
+
+- **Why that matters more than it looks**: the palette itself is CSS variables, so a system-dark
+  reader did get dark colors. What they did not get was any `dark:` utility, and shadcn's
+  components are full of them — `dark:border-input`, `dark:bg-input/30`, `dark:hover:bg-muted/50`,
+  `dark:aria-invalid:ring-destructive/40`. Light-mode component styling over a dark background, on
+  the path most readers arrive by, and invisible to every test in the suite because they all set
+  the cookie.
+
+- **Fix**: the block form of `@custom-variant`, emitting both the class selector and the media
+  query, with `@slot` for the utility's declarations. Guarded by a test that reads `globals.css`
+  and asserts both branches are present, and by an end-to-end test comparing the two paths.
+
+- **Lesson**: two.
+
+  **A feature with two entry points needs both tested, and the cheap one is the one you skip.**
+  The cookie path was tested from the first commit because it is the one with a button. The system
+  path had no UI, so nothing exercised it — and it is the default for everyone who never touches
+  the toggle.
+
+  **The first version of that comparison test reported a difference that did not exist.** It
+  compared "the first link matching /demo/i" across the two paths — but the header renders
+  differently for a visitor with a session than for one without, so it measured a nav link against
+  a landing-page button and reported `0.1` against `0.15`. The fix was to probe an element
+  guaranteed identical on both paths. **A comparison test is only as good as its claim that the
+  two things being compared are the same thing**, and that claim deserves the same scrutiny as the
+  assertion.

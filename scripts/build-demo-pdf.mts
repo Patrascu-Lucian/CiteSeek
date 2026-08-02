@@ -72,3 +72,10 @@ try {
 } finally {
   await browser.close();
 }
+
+/*
+  Note: Chromium stamps a creation timestamp into the PDF, so every run produces
+  a byte-different file with identical content. Re-running this dirties the
+  working tree even when nothing changed — check the diff is intentional before
+  committing it, or restore with `git checkout HEAD -- <path>`.
+*/

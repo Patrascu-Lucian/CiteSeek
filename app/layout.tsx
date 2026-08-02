@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
+
+import { THEME_COOKIE_NAME, isTheme, themeClass } from "@/lib/theme/theme";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,15 +25,46 @@ export const metadata: Metadata = {
     "Upload documents and ask questions. Answers stream back with clickable citations that open the exact source passage.",
 };
 
-export default function RootLayout({
+/**
+ * Reads the theme cookie so the palette is correct on the first byte.
+ *
+ * This is the whole reason the preference is a cookie (ADR 018). The usual
+ * implementation of this feature keeps the choice in `localStorage`, which the
+ * server cannot see — so the first paint is always the wrong palette, and a
+ * render-blocking inline script exists to correct it before anyone sees it.
+ * A cookie arrives with the request, so there is nothing to correct: no script,
+ * no `suppressHydrationWarning`, and nothing that can flash if scripts are slow
+ * or disabled.
+ *
+ * No cookie means no class, which hands the decision to the
+ * `prefers-color-scheme` block in `globals.css`.
+ */
+async function themeClassName(): Promise<string> {
+  const stored = (await cookies()).get(THEME_COOKIE_NAME)?.value;
+  return isTheme(stored) ? themeClass(stored) : "";
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const theme = await themeClassName();
+
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // Filtered rather than interpolated: `theme` is empty for a reader who
+      // has expressed no preference, and a template literal would leave a double
+      // space in the attribute on every page in the app.
+      className={[
+        geistSans.variable,
+        geistMono.variable,
+        theme,
+        "h-full antialiased",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       <body className="bg-background text-foreground flex min-h-full flex-col">
         {/*
