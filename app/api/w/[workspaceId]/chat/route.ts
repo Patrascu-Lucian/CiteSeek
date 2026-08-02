@@ -17,15 +17,15 @@ import {
   buildSystemPrompt,
 } from "@/lib/ai/prompt";
 import { getChatModel } from "@/lib/ai/provider";
-import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
-import { SOURCES_PART_ID } from "@/lib/ai/types";
+import type { ChatSource, ChatUIMessage, RefusalReason } from "@/lib/ai/types";
+import { REFUSAL_PART_ID, SOURCES_PART_ID } from "@/lib/ai/types";
 import { appendMessages, resolveChatForTurn } from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
 import { refusalBody } from "@/lib/usage/limits";
 import { recordUsage } from "@/lib/usage/queries";
-import { listDocuments } from "@/lib/documents/queries";
+import { countSearchableChunks, listDocuments } from "@/lib/documents/queries";
 import { retrieveChunks } from "@/lib/rag/retrieve";
 
 /** Node runtime: retrieval reaches the database and the fake model uses node APIs. */
@@ -92,12 +92,23 @@ function parseMessages(body: unknown): ChatUIMessage[] | null {
  *
  * Emitted as a UI message stream rather than a plain JSON response so the client
  * has one code path: a refusal is an assistant message like any other, with no
- * sources part and therefore no chips. Nothing on the client needs to know this
- * branch exists.
+ * sources part and therefore no chips.
+ *
+ * The text is a fixed server-side string and the model is never called, which is
+ * what makes "I don't know" structural rather than instructed. The `refusal`
+ * data part carries *why* — the client turns that into what the reader can
+ * actually do next, from its own props. Written before the text for the same
+ * reason `sources` is: the part that explains a message should already be there
+ * when the message renders.
  */
-function refusalStream() {
+function refusalStream(reason: RefusalReason) {
   return createUIMessageStream<ChatUIMessage>({
     execute: ({ writer }) => {
+      writer.write({
+        type: "data-refusal",
+        id: REFUSAL_PART_ID,
+        data: { reason },
+      });
       writer.write({ type: "text-start", id: "0" });
       writer.write({
         type: "text-delta",
@@ -204,10 +215,19 @@ export async function POST(
   // nothing to cite. Compare with instructing a model to refuse, which works
   // most of the time.
   if (retrieved.length === 0) {
+    // One extra query, and only on this branch: "nothing matched" and "there was
+    // nothing to match against" need different things said to the reader, and
+    // telling someone to upload a document they have already uploaded is the
+    // failure this distinction exists to avoid.
+    const reason: RefusalReason =
+      (await countSearchableChunks(scope)) === 0
+        ? "no_documents"
+        : "no_relevant_passages";
+
     // Persisted like any other turn. A refusal is part of the conversation, and
     // a reload that silently dropped it would make the transcript a lie.
     await persist(NO_RELEVANT_PASSAGES_REPLY, []);
-    return createUIMessageStreamResponse({ stream: refusalStream() });
+    return createUIMessageStreamResponse({ stream: refusalStream(reason) });
   }
 
   const sources = buildSources(retrieved);

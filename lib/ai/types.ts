@@ -32,10 +32,37 @@ export type ChatSource = MessageCitation & {
 export const SOURCES_PART_ID = "sources";
 
 /**
+ * Why an answer could not be grounded.
+ *
+ * Only the two cases the *route* can tell apart without a model. Anything
+ * finer-grained would be a guess about what the reader meant, and this whole
+ * design rests on the refusal being a fact about retrieval rather than an
+ * interpretation of the question.
+ */
+export type RefusalReason =
+  /** Passages exist in this workspace; none of them cleared the relevance floor. */
+  | "no_relevant_passages"
+  /** Nothing has finished processing, so there was nothing to search at all. */
+  | "no_documents";
+
+/** @see SOURCES_PART_ID — same reasoning, stable so a rewrite replaces it. */
+export const REFUSAL_PART_ID = "refusal";
+
+/**
  * The message shape shared by the route and the client.
  *
  * The `sources` data part is what carries citations. It is written *before* the
  * model's text, so a `[1]` arriving mid-stream already has something to resolve
  * against — chips appear as the answer is typed rather than after it finishes.
+ *
+ * The `refusal` part is the mirror image: it appears only when `sources` cannot,
+ * and it carries a reason rather than prose. What the reader is then offered —
+ * which documents were searched, how to add one — is rendered by the client from
+ * its own props. Nothing about the refusal is written by a model, which is the
+ * point: a turn that could not be grounded must not produce text that reads as
+ * though it were.
  */
-export type ChatUIMessage = UIMessage<never, { sources: ChatSource[] }>;
+export type ChatUIMessage = UIMessage<
+  never,
+  { sources: ChatSource[]; refusal: { reason: RefusalReason } }
+>;

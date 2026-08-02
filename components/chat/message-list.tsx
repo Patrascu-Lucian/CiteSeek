@@ -1,13 +1,15 @@
 import dynamic from "next/dynamic";
 import { MessageSquare } from "lucide-react";
 
-import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
+import type { ChatSource, ChatUIMessage, RefusalReason } from "@/lib/ai/types";
 import { cn } from "@/lib/utils";
 
+import { Refusal } from "./refusal";
+
 /**
- * The markdown renderer is loaded on demand, not with the page.
+ * The Markdown renderer is loaded on demand, not with the page.
  *
- * `Answer` pulls in Streamdown, which carries a markdown parser, a diagram
+ * `Answer` pulls in Streamdown, which carries a Markdown parser, a diagram
  * renderer, a syntax highlighter and a maths typesetter — **428 KB raw in one
  * chunk**, measured, and it was arriving in the initial HTML of every workspace
  * visit. Nobody needs it until an assistant message exists, and a guest opening
@@ -68,6 +70,22 @@ export function messageText(message: ChatUIMessage): string {
 }
 
 /**
+ * The refusal reason attached to a message, if it is a refusal.
+ *
+ * Present only when retrieval found nothing, which is also exactly when there
+ * are no sources — the two parts are mutually exclusive by construction, and a
+ * message carrying both would mean the route had grounded and refused the same
+ * turn.
+ */
+export function messageRefusal(message: ChatUIMessage): RefusalReason | null {
+  const part = message.parts.find(
+    (candidate) => candidate.type === "data-refusal",
+  );
+
+  return part && "data" in part ? part.data.reason : null;
+}
+
+/**
  * The sources attached to a message.
  *
  * Written by the route before any text, so this is populated from the first
@@ -102,10 +120,19 @@ export function MessageList({
   messages,
   onSelectSource,
   selectedChunkId,
+  workspaceId,
+  documents,
+  canUpload,
+  signedIn,
 }: {
   messages: readonly ChatUIMessage[];
   onSelectSource: (source: ChatSource) => void;
   selectedChunkId: string | null;
+  workspaceId: string;
+  /** Searchable filenames, for a refusal to say what it can answer from. */
+  documents: readonly string[];
+  canUpload: boolean;
+  signedIn: boolean;
 }) {
   if (messages.length === 0) return <EmptyState />;
 
@@ -113,6 +140,7 @@ export function MessageList({
     <ol className="space-y-4">
       {messages.map((message) => {
         const isUser = message.role === "user";
+        const refusal = messageRefusal(message);
 
         return (
           <li
@@ -142,12 +170,25 @@ export function MessageList({
               {isUser ? (
                 <p className="whitespace-pre-wrap">{messageText(message)}</p>
               ) : (
-                <Answer
-                  text={messageText(message)}
-                  sources={messageSources(message)}
-                  onSelectSource={onSelectSource}
-                  selectedChunkId={selectedChunkId}
-                />
+                <>
+                  <Answer
+                    text={messageText(message)}
+                    sources={messageSources(message)}
+                    onSelectSource={onSelectSource}
+                    selectedChunkId={selectedChunkId}
+                  />
+                  {/* Below the text, not instead of it: the sentence saying
+                      nothing was found is still the answer to the question. */}
+                  {refusal ? (
+                    <Refusal
+                      reason={refusal}
+                      documents={documents}
+                      canUpload={canUpload}
+                      signedIn={signedIn}
+                      workspaceId={workspaceId}
+                    />
+                  ) : null}
+                </>
               )}
             </div>
           </li>
