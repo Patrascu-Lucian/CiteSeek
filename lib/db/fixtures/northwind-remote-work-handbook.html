@@ -1,0 +1,182 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Northwind Remote Work Handbook</title>
+
+<!--
+  The source the demo PDF is generated from — see `scripts/build-demo-pdf.mts`.
+
+  HTML rather than the Markdown this replaced, because the generator renders a
+  page in Chromium and Markdown would need a parser to get there. One authored
+  source, no dependency added for a file that changes once a year.
+
+  A fictional handbook for a company that does not exist. That fact is recorded
+  here rather than inside the document, and deliberately so: an earlier draft
+  opened by explaining that it was a demo fixture, which put text about the
+  assistant into the assistant's own corpus. Ask "can I ask you something?" and
+  that paragraph was the nearest passage — a question about the product answered
+  by citing a sentence about the product, technically grounded and useless.
+
+  It has to run past one page. Every citation in a single-page PDF reads
+  "page 1", which demonstrates nothing about page-accurate citations.
+-->
+
+<style>
+  @page {
+    size: A4;
+    margin: 22mm 20mm;
+  }
+
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 11.5pt;
+    line-height: 1.55;
+    color: #111;
+  }
+
+  h1 {
+    font-size: 22pt;
+    margin: 0 0 4pt;
+  }
+
+  h2 {
+    font-size: 14pt;
+    margin: 22pt 0 6pt;
+    /* Keeps a heading from being stranded at the foot of a page, which would
+       put a section's title and its text on different pages — and therefore in
+       different citations. */
+    break-after: avoid;
+  }
+
+  p {
+    margin: 0 0 10pt;
+  }
+
+  .lede {
+    color: #444;
+    font-style: italic;
+  }
+</style>
+
+<h1>Northwind Remote Work Handbook</h1>
+<p class="lede">
+  Policies for employees working remotely at Northwind Ltd. Last reviewed March
+  2026. Questions about anything not covered here go to your line manager.
+</p>
+
+<h2>Expenses and reimbursement</h2>
+<p>
+  Employees may claim reimbursement for equipment, software licenses and
+  co-working space. Claims must be submitted within 60 days of purchase, and
+  <strong>reimbursement is paid within 30 days of an approved claim</strong>.
+  Claims over £500 require written approval from a line manager before the
+  purchase is made, not after.
+</p>
+<p>
+  Receipts are required for every claim regardless of value. A bank statement is
+  not a receipt. Claims submitted without a receipt are returned rather than
+  rejected, and the 60-day window pauses while a claim sits with the employee.
+</p>
+<p>
+  Reimbursement is paid through payroll and appears as a separate line on the
+  monthly statement. It is not taxed as income. Claims approved after the
+  payroll cut-off, which is the 18th of each month, are paid in the following
+  cycle rather than held.
+</p>
+
+<h2>Equipment</h2>
+<p>
+  Every remote employee receives a laptop, an external monitor and a desk chair.
+  The company retains ownership of equipment for three years, after which it
+  transfers to the employee at no cost. Equipment that fails within the
+  three-year period is replaced rather than repaired.
+</p>
+<p>
+  Employees may choose between a 14-inch and a 16-inch laptop. The choice is
+  made once at onboarding and cannot be changed until the three-year refresh.
+</p>
+<p>
+  Peripherals beyond the standard set — a second monitor, a standing desk, an
+  ergonomic keyboard — are claimed as expenses rather than issued, and follow
+  the reimbursement rules above. A desk assessment is offered at onboarding and
+  again on request.
+</p>
+
+<h2>Working hours and availability</h2>
+<p>
+  There are no fixed working hours. Employees are asked to overlap with their
+  team for at least four hours per day, and to record those overlap hours in the
+  shared calendar. Meetings scheduled outside a colleague's recorded overlap
+  hours may be declined without explanation.
+</p>
+<p>
+  Response time expectations are one working day for messages and three working
+  days for document review. Nothing in this handbook requires a response outside
+  working hours.
+</p>
+<p>
+  Employees working from a timezone more than six hours from their team's
+  registered location need their line manager's agreement, reviewed every six
+  months. The agreement covers the overlap requirement above and nothing else.
+</p>
+
+<h2>Time off</h2>
+<p>
+  Annual leave is 28 days plus public holidays, and unused leave does not carry
+  over. Leave requests of five days or fewer are approved automatically. Longer
+  requests need a line manager's approval and at least three weeks' notice.
+</p>
+<p>
+  Sick leave is not counted against annual leave and does not require a medical
+  certificate for absences of seven days or fewer.
+</p>
+<p>
+  Public holidays follow the employee's country of residence rather than the
+  company's registered office. An employee who works a public holiday may take
+  the day back within the same quarter.
+</p>
+
+<h2>Travel</h2>
+<p>
+  Travel to a company office is booked through the travel desk and does not need
+  a claim. Anything booked directly is treated as an expense and follows the
+  reimbursement rules, including the receipt requirement.
+</p>
+<p>
+  Rail is the default for journeys under five hours. Flights over five hours are
+  booked in premium economy where the fare difference is under £300. Hotel
+  bookings are capped at £180 per night outside London and £240 within it.
+</p>
+<p>
+  Time spent travelling during working hours counts as working time. Time spent
+  travelling outside them does not, and is taken back as time off in lieu within
+  the following month.
+</p>
+
+<h2>Data handling</h2>
+<p>
+  Company documents may not be uploaded to third-party services that have not
+  been approved by the security team. The approved list is maintained in the
+  internal wiki and reviewed quarterly. Personal accounts may not be used for
+  company work, including cloud storage and note-taking applications.
+</p>
+<p>
+  Laptops must have full-disk encryption enabled. This is checked automatically
+  at onboarding and cannot be disabled.
+</p>
+<p>
+  Documents classified as restricted may not leave company-managed devices at
+  all. Where a document's classification is unclear, treat it as restricted and
+  ask the security team, who answer within one working day.
+</p>
+
+<h2>Leaving the company</h2>
+<p>
+  Equipment is returned within ten working days of the final day, using a
+  prepaid shipping label issued by the IT team. Equipment older than three years
+  has already transferred to the employee and is not returned.
+</p>
+<p>
+  Outstanding expense claims must be submitted before the final day. Claims
+  received afterwards are paid at the company's discretion and are not covered
+  by the 30-day commitment above.
+</p>

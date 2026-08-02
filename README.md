@@ -160,8 +160,8 @@ does.
 
 | Layer       | Count | What it covers                                                                                  |
 | ----------- | ----- | ----------------------------------------------------------------------------------------------- |
-| Unit        | 456   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
-| Integration | 134   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
+| Unit        | 462   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
+| Integration | 136   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
 | E2E         | 55    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
@@ -220,8 +220,7 @@ cause is measured and recorded above; closing it means deferring chat hydration,
 worse trade than the points are worth.
 
 The relevance threshold that decides when to answer "I don't know" is a starting value, not a
-tuned one; it needs measuring against real documents with the real embedding model. The demo
-document is Markdown, so its citations show a filename but no page number.
+tuned one; it needs measuring against real documents with the real embedding model.
 
 Usage limits are enforced but their thresholds are provisional in the same way — they need
 real traffic to calibrate against, and are deliberately generous because shared addresses

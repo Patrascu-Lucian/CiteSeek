@@ -964,3 +964,43 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   directly would have been worse: the mock would follow the prop on every render, and the test
   would pass with or without the fix. It now holds the seed in `useState`, mirroring what the
   real hook does — and both tests fail without the key, which is the only reason to trust them.
+
+## The seed was idempotent toward the wrong thing
+
+- **Issue**: found while converting the demo document to a PDF, before it could bite.
+  `seedFixtureDocument` returned early whenever the demo workspace held **any** document. That is
+  idempotent in the sense CI checks — run it twice, nothing changes — and it also guaranteed that
+  no already-seeded database would ever pick up a change to the fixture. Switching the handbook
+  to a PDF would have been a no-op on every environment that mattered, production included, and
+  the seed would have printed a success line while doing nothing.
+
+- **Fix**: key the decision on the filename. The fixture is present and the run is a no-op; a
+  superseded version is present and gets replaced; neither is present and it gets created.
+  Anything else in the workspace is left alone, because this owns one document rather than the
+  workspace. The decision moved into a pure function so it could be tested without a database —
+  six cases, including "both filenames present", which is what a half-finished run leaves behind.
+
+- **Lesson**: **idempotence is not convergence.** "Running twice changes nothing" is satisfied
+  perfectly by a script that does nothing at all. What a seed actually has to promise is that the
+  database ends in the intended state, whatever state it started in. The check that made it
+  idempotent was the check that stopped it converging, and the two read identically at the call
+  site.
+
+## A PDF parser emptied the array it was given
+
+- **Issue**: a new integration test ingested the committed demo PDF twice — once to assert page
+  numbers, once to assert the text. The second failed with **"This PDF could not be read. It may
+  be corrupt or password-protected"**, about a file the first call had just read successfully.
+
+- **Cause**: PDF.js takes ownership of the typed array it is handed and detaches it. Measured on
+  the fixture: **68,066 bytes before the call, 0 after.** The second call is not reading a
+  different file, it is reading nothing.
+
+- **Fix**: read a fresh copy per ingestion in the test.
+
+- **Lesson**: **the codebase already said so.** `extract.ts` carries a comment written a
+  milestone earlier stating exactly this, ending "documented because the failure it would cause is
+  silent". The test was written against the function's name rather than its documentation. The
+  comment was also slightly optimistic — it predicted a later read would see an empty buffer,
+  where PDF.js in fact throws a message that blames the file — so it now records the measured
+  numbers and the wording of the error, which is what someone hitting this will search for.
