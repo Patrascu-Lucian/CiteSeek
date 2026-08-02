@@ -23,32 +23,28 @@ import { cn } from "@/lib/utils";
  */
 export function HeaderNavLink({
   href,
+  items,
+  className,
+  onNavigate,
   children,
 }: {
   href: string;
+  /**
+   * Every destination in the nav. Needed because "am I the current page" cannot
+   * be answered by one link alone once destinations nest — see `MainNav`.
+   */
+  items: readonly { href: string }[];
+  className?: string;
+  onNavigate?: () => void;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-
-  /*
-    Exact match for "/", prefix match otherwise, so `/w/<id>` stays marked while
-    reading a conversation inside it — but a prefix match on "/" would mark home
-    as current everywhere in the app.
-
-    This used to need an `excludes` prop, because the workspace link pointed at
-    `/w`, which is a prefix of *every* workspace including the shared demo: a
-    signed-in reader browsing the demo saw "Workspace" marked as current while
-    the page said otherwise. The header now links to the specific workspace, so
-    a different one simply does not match and the special case is gone.
-  */
-  const isCurrent =
-    href === "/"
-      ? pathname === "/"
-      : pathname === href || pathname.startsWith(`${href}/`);
+  const isCurrent = currentHref(pathname, items) === href;
 
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       aria-current={isCurrent ? "page" : undefined}
       className={cn(
         "focus-visible:ring-ring rounded-md text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
@@ -65,9 +61,40 @@ export function HeaderNavLink({
         isCurrent
           ? "text-foreground font-semibold"
           : "text-muted-foreground hover:text-foreground font-medium",
+        className,
       )}
     >
       {children}
     </Link>
+  );
+}
+
+/**
+ * Which single destination the reader is currently in.
+ *
+ * Longest match wins, which is the rule a reader already assumes: standing on
+ * `/w/<id>/usage` you are in Usage, not in Workspace, even though the workspace
+ * href is a prefix of it. Before Usage existed no destination contained another
+ * and every link could answer for itself; the first nested pair made two links
+ * announce "current page" at once.
+ *
+ * Exported for its own tests — the rule is small and the failure it prevents is
+ * invisible without a screen reader.
+ */
+export function currentHref(
+  pathname: string,
+  items: readonly { href: string }[],
+): string | null {
+  const matches = items.filter((item) =>
+    // "/" would otherwise prefix-match every route in the app.
+    item.href === "/"
+      ? pathname === "/"
+      : pathname === item.href || pathname.startsWith(`${item.href}/`),
+  );
+
+  return matches.reduce<string | null>(
+    (best, item) =>
+      best === null || item.href.length > best.length ? item.href : best,
+    null,
   );
 }

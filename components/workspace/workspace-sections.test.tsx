@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ChatUIMessage } from "@/lib/ai/types";
 import type { DocumentSummary } from "@/lib/documents/queries";
 
 import { WorkspaceSections } from "./workspace-sections";
@@ -21,20 +22,39 @@ const chat = vi.hoisted(() => ({
   onFinish: undefined as (() => void) | undefined,
 }));
 
-vi.mock("@ai-sdk/react", () => ({
-  useChat: (options: { onFinish?: () => void }) => {
-    chat.onFinish = options.onFinish;
-    return {
-      messages: [],
-      status: "ready",
-      error: undefined,
-      sendMessage: vi.fn(),
-      regenerate: vi.fn(),
-      stop: vi.fn(),
-      clearError: vi.fn(),
-    };
-  },
-}));
+vi.mock("@ai-sdk/react", async () => {
+  const { useState } = await import("react");
+
+  return {
+    useChat: (options: {
+      onFinish?: () => void;
+      messages?: readonly unknown[];
+    }) => {
+      chat.onFinish = options.onFinish;
+
+      /*
+        `useState`, not `options.messages` returned directly.
+
+        The real `useChat` seeds from the prop **once per mount** and then owns
+        its state, or a streaming answer would be wiped by every re-render. A
+        mock that echoed the prop back would follow it on every render — and a
+        test written against that mock would pass whether or not the transcript
+        actually follows the conversation, which is the exact bug below.
+      */
+      const [messages] = useState(options.messages ?? []);
+
+      return {
+        messages,
+        status: "ready",
+        error: undefined,
+        sendMessage: vi.fn(),
+        regenerate: vi.fn(),
+        stop: vi.fn(),
+        clearError: vi.fn(),
+      };
+    },
+  };
+});
 
 function doc(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
   return {
@@ -203,5 +223,83 @@ describe("WorkspaceSections — chat follows the document list", () => {
     expect(
       screen.getByRole("link", { name: /sign in to upload/i }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("WorkspaceSections — when the open conversation goes away", () => {
+  function renderWith(
+    activeChatId: string | null,
+    initialMessages: ChatUIMessage[],
+  ) {
+    return render(
+      <WorkspaceSections
+        workspaceId="w1"
+        initialDocuments={[doc(READY)]}
+        initialMessages={initialMessages}
+        chats={[]}
+        activeChatId={activeChatId}
+        canWrite
+        signedIn
+      />,
+    );
+  }
+
+  const answered: ChatUIMessage[] = [
+    { id: "m1", role: "user", parts: [{ type: "text", text: "A question" }] },
+  ];
+
+  it("clears the transcript when the last conversation is deleted", () => {
+    /*
+      The regression this exists for. `useChat` seeds from `initialMessages`
+      once and then owns its state, so a refreshed page handing it an empty
+      list changed nothing: the deleted conversation's messages stayed on
+      screen with no conversation behind them.
+    */
+    const { rerender } = renderWith("chat-1", answered);
+    expect(screen.getByText("A question")).toBeInTheDocument();
+
+    rerender(
+      <WorkspaceSections
+        workspaceId="w1"
+        initialDocuments={[doc(READY)]}
+        initialMessages={[]}
+        chats={[]}
+        activeChatId={null}
+        canWrite
+        signedIn
+      />,
+    );
+
+    expect(screen.queryByText("A question")).not.toBeInTheDocument();
+    // The empty state's own line — "Ask a question about your documents" also
+    // labels the composer, so it cannot tell the two apart.
+    expect(screen.getByText(/answers cite the passages/i)).toBeInTheDocument();
+  });
+
+  it("shows the newly opened conversation when switching between them", () => {
+    // The same defect seen from the other side, and the more damaging one: a
+    // transcript that does not follow the conversation shows another one's.
+    const { rerender } = renderWith("chat-1", answered);
+
+    rerender(
+      <WorkspaceSections
+        workspaceId="w1"
+        initialDocuments={[doc(READY)]}
+        initialMessages={[
+          {
+            id: "m2",
+            role: "user",
+            parts: [{ type: "text", text: "A different question" }],
+          },
+        ]}
+        chats={[]}
+        activeChatId="chat-2"
+        canWrite
+        signedIn
+      />,
+    );
+
+    expect(screen.getByText("A different question")).toBeInTheDocument();
+    expect(screen.queryByText("A question")).not.toBeInTheDocument();
   });
 });
