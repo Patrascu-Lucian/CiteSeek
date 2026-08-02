@@ -46,10 +46,19 @@ export function SiteFooter() {
           because one right-aligned line above two left-aligned ones reads as a
           mistake rather than a choice.
         */}
+        {/*
+          Labelled for what it holds. "Policies" was already stretched by the
+          Contact link and About would have made it plainly wrong — a landmark
+          whose name does not describe its contents is worse than an unnamed one,
+          because a screen-reader user navigates by that name.
+        */}
         <nav
-          aria-label="Policies"
+          aria-label="About this project"
           className="flex flex-wrap items-center gap-6 md:justify-end"
         >
+          <Link href="/about" className="hover:text-foreground underline">
+            About
+          </Link>
           <Link href="/privacy" className="hover:text-foreground underline">
             Privacy Policy
           </Link>

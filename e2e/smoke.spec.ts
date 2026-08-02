@@ -329,3 +329,35 @@ test.describe("what happens to an uploaded document", () => {
     ).toBeVisible();
   });
 });
+
+test.describe("about", () => {
+  test("is reachable from a route that is not the landing page", async ({
+    page,
+  }) => {
+    /*
+      The property the root-layout footer exists for, and the one nothing
+      asserted. A stranger deep in the app — reading a policy, or on a 404 —
+      still has a route to what this project is.
+    */
+    await page.goto("/terms");
+    await page.getByRole("link", { name: "About" }).click();
+
+    await expect(page).toHaveURL(/\/about$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: /about/i }),
+    ).toBeVisible();
+  });
+
+  test("explains the guarantee a stranger cannot read the README for", async ({
+    page,
+  }) => {
+    await page.goto("/about");
+
+    await expect(
+      page.getByText(/the model is never called at all/i),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /try the demo/i }),
+    ).toBeVisible();
+  });
+});

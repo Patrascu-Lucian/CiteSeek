@@ -10,6 +10,22 @@ here, not in the current branch.
   does not exist yet, and GitHub OAuth plus guest mode already satisfies the milestone's
   exit criteria. The Auth.js provider is a few lines once a sender is configured; the
   `verification_tokens` table it needs is already migrated.
+
+- **Google sign-in, if this is ever commercialized.** GitHub OAuth is a _developer_ credential:
+  the right signal for a portfolio project read by engineers, the wrong one for a customer who has
+  never made a GitHub account. Google is the highest-coverage consumer provider and costs no new
+  subprocessor — it is already named on the privacy page for Gemini.
+
+  **The provider config is not the work; account linking is.** Auth.js with a database adapter
+  refuses by default when someone signs in with Google using an email already registered through
+  GitHub — they get `OAuthAccountNotLinked`, which reads to a user as "your account is broken".
+  Decide deliberately between linking automatically on a verified email (convenient, and only safe
+  because both providers verify) and keeping the identities separate with an explanation. Whichever
+  is chosen, the privacy page's "GitHub — only if you sign in with it" line has to change with it.
+
+  Not needed for any milestone as scoped: the exit criterion is a stranger reaching a cited answer
+  in two minutes, which they do as a guest with no sign-in at all.
+
 - **Coverage thresholds in `vitest.config.ts`.** ~~The bar is ≥90% for `lib/rag` and
   `lib/ai`.~~ Done in Milestone 1 — both thresholds are enforced now that the directories
   have real content.
