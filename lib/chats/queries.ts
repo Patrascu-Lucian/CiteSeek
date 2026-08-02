@@ -18,27 +18,20 @@ export { MAX_TITLE_LENGTH, titleFromQuestion };
 /**
  * Every read and write of chat data.
  *
- * Same rule as `lib/documents/queries.ts`: each function takes the scope it needs
- * and filters on it **in SQL**, so there is no helper here capable of returning
- * another tenant's rows.
+ * Same rule as `lib/documents/queries.ts`, plus a second scope documents do not
+ * need: a workspace can be shared — the demo is readable by every guest — so
+ * scoping a chat to its workspace alone would let one reader load another's
+ * conversation. Every query filters on `workspaceId` **and** `userId`, and
+ * messages reach both by joining through their chat.
  *
- * Chats carry a second scope that documents do not. A workspace can be shared —
- * the demo workspace is readable by every guest — so scoping a chat to its
- * workspace alone would let one reader load another's conversation. Every query
- * below filters on `workspaceId` **and** `userId`, and messages reach both by
- * joining through their chat rather than trusting a chat id a caller supplied.
- *
- * Only signed-in users get persistence (ADR 013). Guest conversations live in
- * browser state, which keeps an unbounded write path off a public URL.
+ * Signed-in users only (ADR 013): guest conversations live in browser state,
+ * which keeps an unbounded write path off a public URL.
  */
 
 /**
- * The user's most recent chat in a workspace, or a new one.
- *
- * Milestone 2 gives each user a single running conversation per workspace;
- * Milestone 4 adds the history UI that makes more than one addressable. Picking
- * the most recent rather than creating one per request is what makes a reload
- * continue the conversation instead of starting a fresh one.
+ * The user's most recent chat in a workspace, or a new one. Picking the most
+ * recent rather than creating one per request is what makes a reload continue the
+ * conversation instead of starting a fresh one.
  */
 export async function getOrCreateChat(
   workspaceId: string,
@@ -73,10 +66,8 @@ export type ChatMessage = {
 };
 
 /**
- * A conversation, oldest first.
- *
- * Scoped through the chat's own workspace and user rather than by chat id alone:
- * an id is guessable, and ownership is the thing that must be checked.
+ * A conversation, oldest first. Scoped through the chat's workspace and user
+ * rather than by id alone — an id is guessable, ownership is the thing to check.
  */
 export async function listChatMessages(
   workspaceId: string,
@@ -126,14 +117,11 @@ export async function loadLatestChat(
 }
 
 /**
- * Resolves which conversation a turn belongs to.
- *
- * With history, the reader can be looking at any of their conversations, so the
- * client says which one — but a client-supplied id is exactly what must not be
- * trusted. The id is checked against this workspace *and* this user before it is
- * used; anything that does not match falls back to the most recent conversation
- * rather than erroring, because a stale id from a deleted chat should continue
- * the reader somewhere sensible instead of losing their question.
+ * Which conversation a turn belongs to. The client says which one, and a
+ * client-supplied id is exactly what must not be trusted — so it is checked
+ * against this workspace *and* this user. A mismatch falls back to the most
+ * recent rather than erroring, because a stale id from a chat deleted in another
+ * tab should not lose the reader's question.
  */
 export async function resolveChatForTurn(
   workspaceId: string,

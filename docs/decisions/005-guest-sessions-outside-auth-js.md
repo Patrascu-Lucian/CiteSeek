@@ -4,9 +4,9 @@
 
 ## Context
 
-Guest/demo mode is a product requirement, not a convenience: an interviewer with the URL
-must be able to use CiteSeek without signing up, and Milestone 5's exit criterion is that a
-stranger understands it cold. That means an unauthenticated visitor needs _some_ session.
+Guest/demo mode is a product requirement, not a convenience: someone arriving with only the
+URL must be able to use CiteSeek without signing up, and Milestone 5's exit criterion is that
+a stranger understands it cold. That means an unauthenticated visitor needs _some_ session.
 
 Auth.js is already in the project for GitHub OAuth. The obvious move is to make guests
 Auth.js users too, via a Credentials provider that mints an anonymous account.

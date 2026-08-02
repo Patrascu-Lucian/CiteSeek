@@ -10,9 +10,9 @@ fact, across chat, embeddings, the development key and the production key alike,
 Gemini's limits are per project rather than per key.
 
 So a single bot, or one bored visitor with a loop, can exhaust the day's allowance. The
-consequence is not a bill; on the free tier it is that **the demo stops answering**. The demo
-is the portfolio, and it going quiet during an interview is the failure this project most
-needs to avoid.
+consequence is not a bill; on the free tier it is that **the demo stops answering** — for
+everyone, until the quota resets. A public demo that is silent when someone opens it is the
+failure this project most needs to avoid, and it is caused by traffic nobody legitimate sent.
 
 ## The threat model
 

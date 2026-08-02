@@ -32,22 +32,15 @@ import type { DocumentSummary } from "@/lib/documents/queries";
 /**
  * Owns `documents` for the whole workspace, and everything that mutates it.
  *
- * Documents and chat are one stateful unit rather than two siblings, because
- * chat depends on the document list: with nothing processed there is nothing to
- * search, and the composer says so instead of letting every question return the
- * same refusal.
+ * One stateful unit rather than two siblings because chat depends on the document
+ * list — with nothing processed there is nothing to search. When
+ * `hasReadyDocuments` was computed during the *server* render instead, an upload
+ * updated the list by polling while chat kept the value it was born with and
+ * stayed on "Nothing to search yet" until a manual reload.
  *
- * That dependency is why the state lives here. It used to sit inside
- * `DocumentsPanel`, with the workspace page computing `hasReadyDocuments` during
- * the *server* render and passing it down — so an upload updated the document
- * list by polling while chat kept the value it was born with, and stayed stuck
- * on "Nothing to search yet" until the page was reloaded by hand.
- *
- * This is the second time that exact bug has appeared here. The first was
- * `DocumentList` seeding `useState(initialDocuments)` and ignoring every later
- * value. Both have the same shape: a second copy of state that no longer tracks
- * the first. One owner, and no prop copied into state, removes the class rather
- * than the instance.
+ * That was the second instance of the same shape (the first: `DocumentList`
+ * seeding `useState(initialDocuments)`). One owner and no prop copied into state
+ * removes the class rather than the instance.
  */
 
 const POLL_INTERVAL_MS = 2_000;

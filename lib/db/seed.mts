@@ -47,35 +47,22 @@ if (!connectionString) {
 }
 
 /**
- * Point the app's own database singleton at the same place this script is.
+ * One connection target for the whole script.
  *
- * This script talks to the database through *two* paths: its own client, built
- * from the string above, and the query helpers it imports from `lib/`, which use
- * the singleton in `lib/db/index.ts`. That singleton reads **`DATABASE_URL` and
- * only that** — it has never known about `DATABASE_URL_UNPOOLED`.
+ * This talks to the database through two paths — its own client, and the query
+ * helpers from `lib/`, whose singleton reads `DATABASE_URL` and nothing else. So
+ * `DATABASE_URL_UNPOOLED=<production> pnpm db:seed` used to split in half: the
+ * workspace lookup went to production, `listDocuments` went wherever
+ * `.env.local` pointed, and the script exited 0 having seeded nothing. Every
+ * line of output was true; the conclusion drawn from them was not.
  *
- * So `DATABASE_URL_UNPOOLED=<production> pnpm db:seed` used to split in half: the
- * workspace lookup went to production while `listDocuments` went wherever
- * `.env.local` pointed. The script then reported production's workspace id
- * beside a development database's document count, concluded there was nothing to
- * do, and exited successfully having seeded nothing. The failure is silent in the
- * worst way — every line of output is true, and the conclusion drawn from them is
- * not.
- *
- * Assigning it here makes one connection target for the whole script. It must
- * happen *before* the imports below, which is why they are dynamic.
+ * Must happen *before* the imports below, which is why they are dynamic.
  */
 process.env.DATABASE_URL = connectionString;
 
-// Imported *after* the env is loaded, and dynamically for that reason.
-//
-// `lib/db/index.ts` reads DATABASE_URL and throws at module load if it is
-// missing. ESM evaluates every static import before the first statement of this
-// file runs, so a static import here would reach that check before
-// `loadLocalEnv()` had a chance to put the variable on `process.env` — the
-// script would fail with "DATABASE_URL is not set" on a machine where it is very
-// much set. The modules above are safe to import statically because none of them
-// touch the environment at load time.
+// Dynamic because `lib/db/index.ts` throws at module load on a missing
+// DATABASE_URL, and ESM evaluates static imports before this file's first
+// statement — before `loadLocalEnv()` has run.
 const { createQueuedDocument, deleteDocumentInWorkspace, listDocuments } =
   await import("../documents/queries.ts");
 const { processDocument } = await import("../rag/ingest.ts");
@@ -84,24 +71,15 @@ const { resolveEmbeddingsProvider } = await import("../ai/provider.ts");
 /**
  * Refuses to seed a remote database with fake embeddings nobody asked for.
  *
- * This is not hypothetical caution. `.env.local` sets `EMBEDDINGS_PROVIDER=fake`
- * so development costs no quota, and `process.loadEnvFile` does not override a
- * variable already exported — but nobody exports that one when seeding
- * production, so the file wins and the seed silently embeds with the fake.
- *
- * The result is invisible. The rows land, the counts look right, the script says
- * "3 passages embedded". Only the live app disagrees, because it queries with the
- * real model, and vectors from two different models share no geometry. Every
- * question returns "I couldn't find anything relevant" and it reads like a model
- * problem rather than a seeding mistake. That is exactly how it happened once.
+ * Vectors from two models share no geometry, so a fake-seeded production reads
+ * as "I couldn't find anything relevant" on every question — invisible in the
+ * output, which still reports rows written. It has happened once.
  *
  * The test is **provenance, not value**: a fake you exported is a decision, a
- * fake the file supplied is an accident. That distinction is also why the escape
- * hatch cannot live in `.env.local` — an override stored there would authorize
- * the very thing it caused.
+ * fake `.env.local` supplied is an accident. Which is also why the escape hatch
+ * cannot live in that file.
  *
- * Local hosts are exempt because that is CI and Docker, where the fake is the
- * whole point and no real key exists.
+ * Local hosts are exempt — CI and Docker, where the fake is the point.
  */
 const LOCAL_HOSTS = new Set([
   "localhost",
@@ -143,17 +121,10 @@ function assertEmbedderWasChosen(url: string): void {
 export const DEMO_WORKSPACE_NAME = "CiteSeek Demo";
 
 /**
- * Committed to the repo so the demo is reproducible from a clean database.
- *
- * A fictional handbook for a company that does not exist. That fact is recorded
- * *here* rather than inside the document, and deliberately so: the fixture's
- * first draft opened by explaining that it was a demo fixture, which put text
- * about the assistant into the assistant's own corpus. Ask "can I ask you
- * something?" and that paragraph is the nearest passage — so the model answered
- * a question about the product by citing a sentence about the product, and the
- * citation was technically grounded and completely useless.
- *
- * A demo corpus must read like the documents it stands in for. Anything
+ * A fictional handbook, recorded as fictional *here* rather than inside the
+ * document. The first draft explained that it was a demo fixture, which put text
+ * about the assistant into the assistant's own corpus — ask "can I ask you
+ * something?" and that paragraph was the nearest passage. Anything
  * self-referential is retrievable, and users ask meta-questions first.
  */
 export const FIXTURE_FILENAME = "northwind-remote-work-handbook.pdf";
@@ -165,24 +136,18 @@ const FIXTURE_PATH = join(
 );
 
 /**
- * Fixture filenames this seed has used before, so a database seeded under an
- * older one converges instead of keeping both.
- *
- * The handbook was Markdown until the demo needed page numbers to cite. Text and
- * Markdown files have no pages, so every citation in the demo read as a passage
- * with no location — which is exactly the feature the demo exists to show.
+ * Filenames this fixture has used before, so an older database converges instead
+ * of keeping both. Markdown has no pages, so every demo citation read as a
+ * passage with no location.
  */
 const SUPERSEDED_FILENAMES = ["northwind-remote-work-handbook.md"];
 
 /**
- * Puts one document in the demo workspace, through the real ingestion pipeline.
+ * One document in the demo workspace, through the real ingestion pipeline.
  *
- * Guests can only read the demo, so without this there is nothing for a visitor
- * — or an end-to-end test — to ask about, and every question returns the same
- * refusal. Running it through `processDocument` rather than inserting rows
- * directly means the seeded chunks and offsets are produced exactly as an upload
- * would produce them; a hand-built fixture could drift from what the pipeline
- * actually does and hide a real break.
+ * Through `processDocument` rather than inserting rows: hand-built chunks and
+ * offsets could drift from what the pipeline actually produces and hide a real
+ * break.
  *
  * Which embedder runs is decided by `EMBEDDINGS_PROVIDER`, like everywhere else:
  * the real one where a key is configured, the deterministic fake in CI.

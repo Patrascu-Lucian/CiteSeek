@@ -329,16 +329,10 @@ export const messages = pgTable(
       .default([])
       .notNull(),
     /**
-     * Why this turn could not be grounded, or null if it was.
-     *
-     * Stored rather than derived. The alternative was comparing `content`
-     * against the fixed refusal sentence, which breaks silently the moment that
-     * sentence is reworded — and a refusal that loses its reason renders as bare
-     * text on the next visit, which is the bug this column exists to prevent.
-     *
-     * Deliberately a plain string rather than a pg enum: the set of reasons is
-     * application logic that will grow, and widening an enum needs a migration
-     * while widening a union does not. Nothing in SQL branches on this value.
+     * Why this turn could not be grounded, or null if it was. Stored rather than
+     * derived from `content`, which would break the moment the refusal sentence
+     * is reworded. A plain string rather than a pg enum because widening a union
+     * needs no migration and nothing in SQL branches on it.
      */
     refusalReason: text("refusal_reason").$type<RefusalReason>(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -373,19 +367,10 @@ export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 
 /**
- * What was spent, and by whom.
- *
- * Append-only, and the source of truth for three different questions asked at
- * three different scales: requests in the last minute (the rate limit), tokens
- * today for one caller (the personal cap), tokens today across everyone (the
- * global cap protecting the shared Gemini quota). One table rather than three
- * counters because the questions are all `where actor = ? and created_at > ?`
- * over the same rows, and because Milestone 4's usage dashboard is a fourth
- * question over the same data.
- *
- * Rows are pruned on a retention window rather than kept forever — see
- * `lib/usage/queries.ts`. Nothing here is needed once it is older than the
- * longest window any cap looks back over.
+ * What was spent, and by whom. Append-only, and the source for four questions at
+ * different scales — the rate limit, the personal cap, the global cap, and the
+ * usage dashboard — all of which are `where actor = ? and created_at > ?` over
+ * the same rows. Pruned on a retention window; see `lib/usage/queries.ts`.
  */
 export const usageKind = pgEnum("usage_kind", ["chat", "embedding"]);
 

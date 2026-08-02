@@ -6,15 +6,14 @@ import type { MessageCitation, RefusalReason } from "@/lib/db/schema";
  * One retrieved passage, as the model is told about it and as the client renders
  * it.
  *
- * `marker` is the number the model writes inline — `[1]`, `[2]` — and the client
- * resolves back to this record. The model chooses *which* marker to write; it
- * never supplies what a marker points at. That asymmetry is what makes a
- * fabricated citation impossible rather than merely discouraged: a marker with no
- * matching source renders as plain text, because there is nothing to render.
+ * The model chooses *which* marker to write; it never supplies what a marker
+ * points at. That asymmetry is what makes a fabricated citation impossible
+ * rather than discouraged — a marker with no matching source renders as plain
+ * text.
  *
- * This lives in its own module rather than beside the prompt builder because the
- * client imports it too, and a type-only import from a module full of prompt
- * strings is one refactor away from pulling them into the browser bundle.
+ * Its own module rather than beside the prompt builder: the client imports this,
+ * and a type-only import from a module full of prompt strings is one refactor
+ * away from pulling them into the browser bundle.
  */
 export type ChatSource = MessageCitation & {
   /** 1-based. Matches the `[n]` the model writes. */
@@ -23,40 +22,31 @@ export type ChatSource = MessageCitation & {
 };
 
 /**
- * The id the sources data part is written under.
- *
- * Stable rather than generated: writing the same id again replaces the part
- * rather than appending a second one, so a regenerated answer cannot leave a
- * stale source list behind next to the new one.
+ * Stable rather than generated, so writing the same id again replaces the part
+ * instead of appending a second one — a regenerated answer cannot leave a stale
+ * source list beside the new one.
  */
 export const SOURCES_PART_ID = "sources";
 
 /**
- * Re-exported from the schema, where the column that stores it lives.
- *
- * Defined there rather than here because this module already imports
- * `MessageCitation` from the schema, and defining it here would make the two
- * modules import each other. Type-only cycles are erased at compile time and
- * still confuse everything that reads the graph, humans included.
+ * Defined in the schema rather than here: this module already imports
+ * `MessageCitation` from it, and defining it here would make the two import each
+ * other.
  */
 export type { RefusalReason };
 
-/** @see SOURCES_PART_ID — same reasoning, stable so a rewrite replaces it. */
+/** @see SOURCES_PART_ID — same reasoning. */
 export const REFUSAL_PART_ID = "refusal";
 
 /**
  * The message shape shared by the route and the client.
  *
- * The `sources` data part is what carries citations. It is written *before* the
- * model's text, so a `[1]` arriving mid-stream already has something to resolve
- * against — chips appear as the answer is typed rather than after it finishes.
+ * `sources` is written *before* the model's text, so a `[1]` arriving mid-stream
+ * already has something to resolve against — chips appear as the answer is typed.
  *
- * The `refusal` part is the mirror image: it appears only when `sources` cannot,
- * and it carries a reason rather than prose. What the reader is then offered —
- * which documents were searched, how to add one — is rendered by the client from
- * its own props. Nothing about the refusal is written by a model, which is the
- * point: a turn that could not be grounded must not produce text that reads as
- * though it were.
+ * `refusal` is the mirror image: it appears only when `sources` cannot, and
+ * carries a reason rather than prose. What the reader is offered is rendered by
+ * the client, so nothing about a refusal is written by a model.
  */
 export type ChatUIMessage = UIMessage<
   never,

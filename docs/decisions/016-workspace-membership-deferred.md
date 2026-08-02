@@ -9,8 +9,8 @@ account page, and **workspace roles — owner / member / viewer — enforced in 
 query helpers rather than by hiding buttons**, alongside management of multiple workspaces per
 user.
 
-Roles are the item with the most obvious interview appeal in the milestone, which is exactly why
-it deserves an explicit decision rather than a quiet omission.
+Roles are the most visible item in the milestone, and the one whose absence would be noticed —
+which is exactly why it deserves an explicit decision rather than a quiet omission.
 
 ## Decision
 

@@ -25,7 +25,7 @@ const features = [
     icon: FileText,
     title: "Bring your own documents",
     description:
-      "Upload PDFs, Markdown, or plain text. Each file is parsed into passages that keep their page and character offsets.",
+      "Upload PDFs, Word documents, Markdown or plain text. Each file is parsed into passages that keep their page and character offsets.",
   },
   {
     icon: MessageSquareQuote,

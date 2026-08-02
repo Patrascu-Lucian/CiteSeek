@@ -77,22 +77,14 @@ export function ChatPanel({
         api: `/api/w/${workspaceId}/chat`,
       }),
       /*
-        The conversation list is server-rendered — its titles and message counts
-        come from the database — and nothing was telling it a turn had happened.
-        The count sat stale until the reader navigated or reloaded, and the title
-        a first question generates did not appear at all.
+        The conversation list is server-rendered, so its counts and titles sat
+        stale until a reload. Fired unconditionally — the route persists whatever
+        the reader was shown, a stopped answer included.
 
-        Fired unconditionally, including on abort and error: the route persists
-        whatever the reader was shown, a stopped answer included, so "the stream
-        ended" and "there may be something new to show" are the same event. A
-        refetch that finds nothing new costs one RSC request and renders the same
-        markup.
-
-        Safe to run the instant the stream closes, which is not obvious and is
-        asserted by an integration test: the route persists inside `streamText`'s
-        own `onFinish`, and that transaction has committed before the response
-        body ends. Were it the other way round, this would refetch a count one
-        turn behind and look like the same bug arriving a moment later.
+        Safe the instant the stream closes, which is not obvious: the route
+        persists inside `streamText`'s own `onFinish` and that transaction has
+        committed before the body ends. An integration test asserts it, because
+        otherwise this would refetch a count one turn behind.
       */
       onFinish: () => onTurnComplete?.(),
     });
@@ -100,28 +92,15 @@ export function ChatPanel({
   const isStreaming = status === "streaming" || status === "submitted";
 
   /*
-    Warm the Markdown chunk once the page is idle.
+    Warm the Markdown chunk at idle.
 
-    `MessageList` loads `Answer` on demand — it carries Streamdown and 428 KB of
-    parser, diagram and highlighter code that no empty conversation needs, and
-    keeping it out of the initial bundle is the point of the split.
+    `Answer` carries Streamdown and 428 KB of parser and highlighter code, kept
+    out of the initial bundle deliberately. Warming on *submit* was measurably
+    too late: the chunk arrived 449ms into a first answer that took 962ms, while
+    later answers took 46ms. It was not overlapping the wait, it was the wait.
 
-    This used to warm on submit, on the reasoning that retrieval and the first
-    token take about a second, which is ample time to fetch it. Measured against
-    a production build, that was wrong: the chunk arrived 449ms into a first
-    answer that took **962ms**, while every later answer on the same page took
-    **46ms**. It was not overlapping the wait, it *was* the wait — a visible
-    one-time stall on the first question of every visit, and the reason the first
-    answer looked like the page was reloading.
-
-    Idle time is the right moment instead. `requestIdleCallback` runs after the
-    page has settled, so this competes with nothing the reader is waiting on, and
-    it finishes long before anyone has typed a question. The bundle win survives
-    — the chunk is still absent from the initial HTML and payload — and the
-    stall does not.
-
-    Fire-and-forget by design: a failed prefetch is not an error, because the
-    real import still runs when the component renders.
+    Fire-and-forget: a failed prefetch is not an error, the real import still
+    runs when the component renders.
   */
   useEffect(() => {
     // Safari has only shipped `requestIdleCallback` recently; a timeout is the
