@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { SiteFooter } from "@/components/site-footer";
 import { THEME_COOKIE_NAME, isTheme, themeClass } from "@/lib/theme/theme";
 
 import "./globals.css";
@@ -79,6 +80,7 @@ export default async function RootLayout({
           Skip to main content
         </a>
         {children}
+        <SiteFooter />
       </body>
     </html>
   );

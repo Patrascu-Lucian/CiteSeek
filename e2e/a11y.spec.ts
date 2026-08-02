@@ -154,6 +154,16 @@ for (const theme of THEMES) {
         expect(await violationsOn(page)).toEqual([]);
       });
 
+      test("the privacy and terms pages", async ({ page }) => {
+        // Long prose pages, which is where heading order and link contrast go
+        // wrong quietly.
+        await page.goto("/privacy");
+        expect(await violationsOn(page)).toEqual([]);
+
+        await page.goto("/terms");
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
       test("the 404", async ({ page }) => {
         await page.goto("/no-such-page");
 

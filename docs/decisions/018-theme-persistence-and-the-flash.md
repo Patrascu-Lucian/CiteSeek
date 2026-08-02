@@ -1,6 +1,6 @@
 # 018 — Theme persistence, and the flash it usually causes
 
-**Status**: accepted · **Date**: 2026-08-02 · **Milestone**: 4
+**Status**: accepted · **Date**: 2026-08-03 · **Milestone**: 4
 
 ## Context
 

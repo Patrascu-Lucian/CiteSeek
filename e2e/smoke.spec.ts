@@ -304,3 +304,28 @@ test.describe("choosing a theme", () => {
     expect(dark.background).not.toBe(light.background);
   });
 });
+
+test.describe("what happens to an uploaded document", () => {
+  /**
+   * The policy pages carry claims a reader is entitled to rely on, so they have
+   * to be reachable rather than merely present. A page nobody can navigate to is
+   * a page that exists for the author.
+   */
+  test("privacy and terms are reachable from the landing page", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    await page.getByRole("link", { name: "Privacy Policy" }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: /privacy/i }),
+    ).toBeVisible();
+    await expect(page.getByText(/never the original files/i)).toBeVisible();
+
+    await page.goto("/");
+    await page.getByRole("link", { name: "Terms of Service" }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: /terms/i }),
+    ).toBeVisible();
+  });
+});

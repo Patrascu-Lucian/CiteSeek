@@ -115,9 +115,15 @@ Deliberately not built yet — see `docs/decisions/007-commercial-optionality.md
 each of these is reversible and therefore safe to defer.
 
 - **Vercel Pro ($20/mo).** Hobby is restricted to non-commercial personal use, so the first
-  paying customer makes the current plan a terms violation. A billing page, not a migration.
+  paying customer makes the current plan a terms of service violation. A billing page, not a migration.
 - **Privacy policy, terms of service, sub-processor list, DPA.** Required before taking
   money from EU customers; easier to write once the product's real data flows exist.
+
+  ↳ **Resolved in Milestone 4, against this entry.** The privacy page and terms shipped, and the
+  filing above was wrong: the trigger is not revenue but **processing**, and the app accepts
+  third-party uploads today. A DPA and a formal sub-processor list still belong here, because
+  those are commitments a company makes; saying accurately what happens to a file is not.
+
 - **A paid or DPA-covered model provider.** The current Gemini free tier is for development
   and the seeded demo only. Before real users upload their own documents, the provider needs
   either a paid tier or a data processing agreement — processing someone else's personal
