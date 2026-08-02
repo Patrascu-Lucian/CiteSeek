@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { REPOSITORY_URL } from "@/lib/links";
+
 /**
  * Footer for every route.
  *
@@ -54,6 +56,20 @@ export function SiteFooter() {
           <Link href="/terms" className="hover:text-foreground underline">
             Terms of Service
           </Link>
+          {/*
+            The privacy page promises somewhere to send an erasure request, and
+            until this link existed that promise pointed at nothing. A repository
+            rather than a form: a form needs an email sender, spam handling and
+            rate limiting to do what issues already do.
+          */}
+          <a
+            href={REPOSITORY_URL}
+            className="hover:text-foreground underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Contact
+          </a>
         </nav>
 
         <div className="border-border/60 mt-6 border-t pt-6">

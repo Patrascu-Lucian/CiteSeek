@@ -366,3 +366,29 @@ each of these is reversible and therefore safe to defer.
   it needs either two assets or inline SVG driven by `currentColor`. Ask for transparency and a
   single-color variant explicitly — the raster this replaced had no alpha at all, which forced a
   white plate in both themes and ruled out every filter-based approach.
+
+- **Trim the code comments across the codebase.** The convention going forward is that a comment
+  explains the non-obvious — a coupling, a measured number, a defect prevented, a rejected
+  alternative — and that everything else is noise. Much of the existing code predates that and
+  carries paragraphs on things any developer knows.
+
+  Worth doing as **one mechanical pass in its own commit**, not folded into feature work: mixed
+  into a diff that also changes behavior, a reviewer cannot tell the two apart, which is the
+  opposite of what a review-heavy project wants. The risk is deleting the sentence that was
+  actually load-bearing, so the rule when cutting is to keep anything naming a number, a file, or
+  a bug.
+
+- **A `/contact` page, once a domain is bought.** The privacy page has to name somewhere an
+  erasure request can go, and that currently points at the GitHub repository. It works, and it is
+  the wrong anchor: a repo that goes private takes the policy's only contact route with it —
+  the same failure as the sentence that once promised a link nobody had built.
+
+  **Waiting on a domain deliberately, because one purchase unblocks three parked items**: an
+  address on a domain you control rather than a personal inbox scraped off a public page, the
+  verified sending domain Resend needs before a contact form can send anything, and the same
+  sender that has magic-link sign-in parked above.
+
+  Ship the page with a plain address first and add the form after — a form that cannot send is
+  worse than no form, because it looks like it works. When the form lands, the privacy page needs
+  a paragraph for it: a contact form is a new personal-data flow, and this policy is specific
+  about what it stores, for how long, and who reads it.

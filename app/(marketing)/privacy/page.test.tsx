@@ -1,6 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { SiteFooter } from "@/components/site-footer";
+import { REPOSITORY_URL } from "@/lib/links";
+
 import PrivacyPage from "./page";
 import TermsPage from "../terms/page";
 
@@ -89,5 +92,26 @@ describe("the terms page", () => {
     const { container } = render(<TermsPage />);
 
     expect(container.querySelector("main#main")).not.toBeNull();
+  });
+});
+
+describe("the contact route the policy promises", () => {
+  it("links somewhere real for an erasure request", () => {
+    // This sentence shipped once while no repository link existed anywhere in
+    // the app — a policy promising a route to nothing.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByRole("link", { name: /the repository/i }),
+    ).toHaveAttribute("href", REPOSITORY_URL);
+  });
+
+  it("is reachable from the footer on every page", () => {
+    render(<SiteFooter />);
+
+    expect(screen.getByRole("link", { name: /contact/i })).toHaveAttribute(
+      "href",
+      REPOSITORY_URL,
+    );
   });
 });

@@ -50,20 +50,17 @@ export function HeaderNavLink({
       onClick={onNavigate}
       aria-current={isCurrent ? "page" : undefined}
       className={cn(
-        "focus-visible:ring-ring rounded-md text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
-        /*
-          Weight and color, not an underline. Two signals rather than one, which
-          matters because weight alone between `medium` and `semibold` is a
-          subtle difference — the shift from muted to full-contrast text is what
-          actually carries it at a glance.
-
-          An underline was the first attempt and reads as dated; it also
-          competes with the underline that means "link" elsewhere on the page,
-          which is a real ambiguity rather than only a stylistic one.
-        */
+        // Padding inside the link, so the filled block is the target. No fixed
+        // height: it fills whatever the container gives it. `ring-inset` because
+        // the link now touches the header's edges.
+        "focus-visible:ring-ring inline-flex items-center px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset",
+        // Background, contrast and weight together. Weight and color alone were
+        // too quiet to pick out of a row of four, and an underline competes with
+        // the one that means "link" elsewhere. The hover fill matters as much:
+        // without it the background only ever appears where you already are.
         isCurrent
-          ? "text-foreground font-semibold"
-          : "text-muted-foreground hover:text-foreground font-medium",
+          ? "bg-muted text-foreground font-semibold"
+          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground font-medium",
         className,
       )}
     >
