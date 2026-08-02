@@ -141,6 +141,14 @@ each of these is reversible and therefore safe to defer.
 - Bundle-size budget enforced in CI for the chat route.
 - Lighthouse CI as a PR gate rather than a manual measurement.
 
+- **One rule for confirming a destructive action.** There are three now and they do not agree:
+  deleting an account requires typing a word, deleting a conversation opens a dialog naming it,
+  deleting a document happens on the first click. The graduation is defensible — account, then
+  conversation, then a document that can be uploaded again — but it was arrived at one report at
+  a time rather than decided. Worth settling as a single rule, with undo considered as the
+  alternative to confirmation: a delete that can be taken back for a few seconds interrupts
+  nobody and protects the same mistake.
+
 ## Measured, for the bundle budget
 
 - **Workspace page initial JS: 694 KB uncompressed** (11 chunks), measured against the
@@ -339,7 +347,7 @@ each of these is reversible and therefore safe to defer.
     declared for `.dark` so the brand color is not what breaks when dark mode ships. Any real
     logo work should keep this split rather than replace it.
 
-  Worth recording about the brief that produced it: the research report in `.claude/` frames
+  Worth recording about the brief that produced it: the commissioned research report frames
   CiteSeek as a tool for **academic researchers** and benchmarks it against Google Scholar,
   Zotero and PubMed. Nothing in this project says that — the README says "AI document
   assistant", the demo fixture is a company handbook, and the positioning is EU-hosted and

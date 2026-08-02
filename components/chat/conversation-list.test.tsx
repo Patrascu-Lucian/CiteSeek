@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +18,19 @@ beforeEach(() => {
 });
 
 afterEach(() => vi.unstubAllGlobals());
+
+/**
+ * Deleting is behind a confirmation, so every delete in these tests goes through
+ * it. The dialog is part of the behavior now, not scaffolding around it.
+ */
+async function confirmDelete(name: string) {
+  await userEvent.click(screen.getByRole("button", { name }));
+  await userEvent.click(
+    within(await screen.findByRole("alertdialog")).getByRole("button", {
+      name: /delete conversation/i,
+    }),
+  );
+}
 
 const chats = [
   {
@@ -126,20 +139,61 @@ describe("ConversationList", () => {
     // would turn a successful delete into a broken page.
     const { onChanged } = renderList("chat-1");
 
-    await userEvent.click(
-      screen.getByRole("button", { name: "Delete Expenses policy" }),
-    );
+    await confirmDelete("Delete Expenses policy");
 
     expect(router.push).toHaveBeenCalledWith("/w/w1");
     expect(onChanged).toHaveBeenCalled();
   });
 
+  it("deletes nothing until the confirmation is accepted", async () => {
+    // The reason the dialog exists: the delete button sits beside rename in a
+    // dense list, both icon-only, so pressing it is easy to do by accident.
+    renderList();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Delete Expenses policy" }),
+    );
+
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("names the conversation it is about to delete", async () => {
+    // A confirmation that does not say which one is about to go does not help
+    // with the mistake it exists to catch.
+    renderList();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Delete Expenses policy" }),
+    );
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent(/Expenses policy/);
+    expect(dialog).toHaveTextContent(/cannot be undone/i);
+  });
+
+  it("keeps the conversation when the confirmation is declined", async () => {
+    renderList();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Delete Expenses policy" }),
+    );
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: /keep it/i,
+      }),
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Delete Expenses policy" }),
+    ).toBeInTheDocument();
+  });
+
   it("stays put when deleting a conversation that is not open", async () => {
     renderList("chat-1");
 
-    await userEvent.click(
-      screen.getByRole("button", { name: "Delete Untitled conversation" }),
-    );
+    await confirmDelete("Delete Untitled conversation");
 
     expect(router.push).not.toHaveBeenCalled();
   });
@@ -148,9 +202,7 @@ describe("ConversationList", () => {
     fetchMock.mockResolvedValue({ ok: false });
     const { onChanged } = renderList();
 
-    await userEvent.click(
-      screen.getByRole("button", { name: "Delete Expenses policy" }),
-    );
+    await confirmDelete("Delete Expenses policy");
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/didn't work/i);
     expect(onChanged).not.toHaveBeenCalled();

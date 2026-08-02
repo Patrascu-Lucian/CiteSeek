@@ -5,19 +5,16 @@ import { describe, expect, it, vi } from "vitest";
 import { Composer } from "./composer";
 
 function renderComposer(props: Partial<Parameters<typeof Composer>[0]> = {}) {
-  const handlers = { onChange: vi.fn(), onSubmit: vi.fn(), onStop: vi.fn() };
+  const handlers = { onSubmit: vi.fn(), onStop: vi.fn() };
 
   render(
-    <Composer
-      value="What is the policy?"
-      isStreaming={false}
-      disabled={false}
-      {...handlers}
-      {...props}
-    />,
+    <Composer isStreaming={false} disabled={false} {...handlers} {...props} />,
   );
 
-  return handlers;
+  return {
+    ...handlers,
+    textbox: screen.getByRole("textbox", { name: /ask a question/i }),
+  };
 }
 
 describe("Composer", () => {
@@ -30,28 +27,41 @@ describe("Composer", () => {
   });
 
   it("sends on Enter", async () => {
-    const { onSubmit } = renderComposer();
+    const { onSubmit, textbox } = renderComposer();
 
-    await userEvent.click(screen.getByRole("textbox"));
+    await userEvent.type(textbox, "What is the policy?");
     await userEvent.keyboard("{Enter}");
 
-    expect(onSubmit).toHaveBeenCalledOnce();
+    expect(onSubmit).toHaveBeenCalledExactlyOnceWith("What is the policy?");
+  });
+
+  it("hands up a trimmed question and clears itself", async () => {
+    // The panel receives what was asked; the field resets so a follow-up can be
+    // typed straight away.
+    const { onSubmit, textbox } = renderComposer();
+
+    await userEvent.type(textbox, "  What is the policy?  ");
+    await userEvent.keyboard("{Enter}");
+
+    expect(onSubmit).toHaveBeenCalledExactlyOnceWith("What is the policy?");
+    expect(textbox).toHaveValue("");
   });
 
   it("inserts a newline on Shift+Enter instead of sending", async () => {
     // A question about a document is often more than one line.
-    const { onSubmit } = renderComposer();
+    const { onSubmit, textbox } = renderComposer();
 
-    await userEvent.click(screen.getByRole("textbox"));
+    await userEvent.type(textbox, "What is the policy?");
     await userEvent.keyboard("{Shift>}{Enter}{/Shift}");
 
     expect(onSubmit).not.toHaveBeenCalled();
+    expect(textbox).toHaveValue("What is the policy?\n");
   });
 
   it("will not send an empty question", async () => {
-    const { onSubmit } = renderComposer({ value: "   " });
+    const { onSubmit, textbox } = renderComposer();
 
-    await userEvent.click(screen.getByRole("textbox"));
+    await userEvent.type(textbox, "   ");
     await userEvent.keyboard("{Enter}");
 
     expect(onSubmit).not.toHaveBeenCalled();
@@ -71,9 +81,9 @@ describe("Composer", () => {
   });
 
   it("does not send again while a reply is still streaming", async () => {
-    const { onSubmit } = renderComposer({ isStreaming: true });
+    const { onSubmit, textbox } = renderComposer({ isStreaming: true });
 
-    await userEvent.click(screen.getByRole("textbox"));
+    await userEvent.type(textbox, "What is the policy?");
     await userEvent.keyboard("{Enter}");
 
     expect(onSubmit).not.toHaveBeenCalled();

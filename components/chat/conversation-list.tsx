@@ -5,6 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MessageSquare, Pencil, Trash2 } from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { ChatSummary } from "@/lib/chats/queries";
 import { MAX_TITLE_LENGTH } from "@/lib/chats/titles";
@@ -153,16 +164,12 @@ export function ConversationList({
                   >
                     <Pencil aria-hidden="true" className="size-4" />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`Delete ${label}`}
-                    disabled={busyId === chat.id}
-                    onClick={() => void remove(chat.id)}
-                  >
-                    <Trash2 aria-hidden="true" className="size-4" />
-                  </Button>
+                  <DeleteConversation
+                    label={label}
+                    messageCount={chat.messageCount}
+                    busy={busyId === chat.id}
+                    onConfirm={() => void remove(chat.id)}
+                  />
                 </div>
               )}
             </li>
@@ -170,6 +177,73 @@ export function ConversationList({
         })}
       </ul>
     </div>
+  );
+}
+
+/**
+ * Confirmation for a deletion that cannot be undone.
+ *
+ * Deliberately lighter than the account dialog, which asks for a typed word:
+ * these controls sit in a dense list where the delete button is two pixels from
+ * the rename button and both are icon-only, so a misclick is easy — but what is
+ * lost is one conversation, not an account. A typed confirmation on every row
+ * would train the reader to type through it. Naming the conversation and its
+ * message count is what makes the dialog worth reading: it says *which* one is
+ * about to go, which is the thing a misclick got wrong.
+ *
+ * The documents list has the same shape of control and no confirmation. That is
+ * inconsistent, and the resolution belongs with deletion generally rather than
+ * bolted on here — filed in `docs/backlog.md`.
+ */
+function DeleteConversation({
+  label,
+  messageCount,
+  busy,
+  onConfirm,
+}: {
+  label: string;
+  messageCount: number;
+  busy: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={`Delete ${label}`}
+          disabled={busy}
+        >
+          <Trash2 aria-hidden="true" className="size-4" />
+        </Button>
+      </AlertDialogTrigger>
+
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          {/* The name is in the title because identifying the right
+              conversation is the entire job of this dialog. */}
+          <AlertDialogTitle>Delete “{label}”?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {messageCount === 1
+              ? "Its message will be permanently deleted."
+              : `Its ${messageCount} messages will be permanently deleted.`}{" "}
+            This cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep it</AlertDialogCancel>
+          {/* `AlertDialogAction` closes the dialog on click, which is right
+              here: a failure is reported by the list's own alert above, not
+              inside a dialog that would have to stay open to show it. */}
+          <AlertDialogAction variant="destructive" onClick={onConfirm}>
+            Delete conversation
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
