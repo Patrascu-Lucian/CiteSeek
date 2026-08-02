@@ -273,6 +273,20 @@ export const chats = pgTable(
 );
 
 /**
+ * Why an answer could not be grounded.
+ *
+ * Only the two cases the route can tell apart without a model. Anything
+ * finer-grained would be a guess about what the reader meant, and the whole
+ * design rests on a refusal being a fact about retrieval rather than an
+ * interpretation of the question. See ADR 017.
+ */
+export type RefusalReason =
+  /** Passages exist in this workspace; none of them cleared the relevance floor. */
+  | "no_relevant_passages"
+  /** Nothing has finished processing, so there was nothing to search at all. */
+  | "no_documents";
+
+/**
  * One citation as stored on a message. Chunk ids are kept alongside a snapshot of
  * the anchor so a rendered answer stays readable even if the source document is
  * later deleted -- a dangling citation should degrade, not crash the transcript.
@@ -314,6 +328,19 @@ export const messages = pgTable(
       .$type<MessageCitation[]>()
       .default([])
       .notNull(),
+    /**
+     * Why this turn could not be grounded, or null if it was.
+     *
+     * Stored rather than derived. The alternative was comparing `content`
+     * against the fixed refusal sentence, which breaks silently the moment that
+     * sentence is reworded — and a refusal that loses its reason renders as bare
+     * text on the next visit, which is the bug this column exists to prevent.
+     *
+     * Deliberately a plain string rather than a pg enum: the set of reasons is
+     * application logic that will grow, and widening an enum needs a migration
+     * while widening a union does not. Nothing in SQL branches on this value.
+     */
+    refusalReason: text("refusal_reason").$type<RefusalReason>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

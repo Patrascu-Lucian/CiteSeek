@@ -10,7 +10,8 @@ import {
 } from "vitest";
 
 import type { Actor } from "@/lib/auth/actor";
-import { listChats } from "@/lib/chats/queries";
+import { listChatMessages, listChats } from "@/lib/chats/queries";
+import { toUIMessages } from "@/lib/chats/to-ui-messages";
 import { usageEvents } from "@/lib/db/schema";
 import { PRODUCTION_USAGE_LIMITS } from "@/lib/usage/config";
 import { FAKE_ANSWER } from "@/lib/ai/fake-chat-model";
@@ -259,6 +260,44 @@ describe("POST /api/w/[workspaceId]/chat", () => {
     );
 
     expect(refusalOf(chunks)).toEqual({ reason: "no_documents" });
+  });
+
+  it("stores the reason, so a reload rebuilds the refusal rather than a bare sentence", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+
+    await readStream(
+      await postChat(workspace.id, "What is the capital of France?"),
+    );
+
+    // Read back the way the page reads it: stored rows, through the same
+    // converter the workspace uses to server-render a conversation.
+    const [chat] = await listChats(workspace.id, user.id);
+    const restored = toUIMessages(
+      await listChatMessages(workspace.id, user.id, chat!.id),
+    );
+
+    expect(restored[1]?.parts[0]).toEqual({
+      type: "data-refusal",
+      id: "refusal",
+      data: { reason: "no_relevant_passages" },
+    });
+  });
+
+  it("stores no reason against an answer it could ground", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+
+    await readStream(await postChat(workspace.id, PASSAGE));
+
+    const [chat] = await listChats(workspace.id, user.id);
+    const stored = await listChatMessages(workspace.id, user.id, chat!.id);
+
+    expect(stored[1]?.refusalReason).toBeNull();
   });
 
   it("attaches no refusal part to an answer it could ground", async () => {

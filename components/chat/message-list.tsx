@@ -18,9 +18,8 @@ import { Refusal } from "./refusal";
  * `ssr` stays on, so a signed-in reader's restored transcript still
  * server-renders. What changes is when the *client* chunk is fetched.
  *
- * `ChatPanel` warms it on submit, so it is in flight during the second or so
- * that retrieval and the first token take, rather than being requested at the
- * moment there is finally something to draw.
+ * `ChatPanel` warms it at idle — see `warmAnswer` below for why on submit was
+ * measurably too late.
  */
 const Answer = dynamic(() => import("./answer").then((m) => m.Answer), {
   /*

@@ -35,6 +35,7 @@ function stored(overrides: Partial<ChatMessage> = {}): ChatMessage {
     role: "assistant",
     content: "Paid within 30 days [1].",
     citations: [citation()],
+    refusalReason: null,
     createdAt: new Date("2026-07-30T10:00:00Z"),
     ...overrides,
   };
@@ -150,5 +151,57 @@ describe("toUIMessages", () => {
       "user",
       "assistant",
     ]);
+  });
+});
+
+describe("toUIMessages — a refused turn", () => {
+  it("rebuilds the refusal part from the stored reason", () => {
+    // Without this, a refused turn came back on the next visit as a bare
+    // sentence saying nothing was found — still true, and stripped of
+    // everything that told the reader what to do about it.
+    const [message] = toUIMessages([
+      stored({
+        content: "I couldn't find anything relevant.",
+        citations: [],
+        refusalReason: "no_relevant_passages",
+      }),
+    ]);
+
+    expect(message?.parts).toEqual([
+      {
+        type: "data-refusal",
+        id: "refusal",
+        data: { reason: "no_relevant_passages" },
+      },
+      { type: "text", text: "I couldn't find anything relevant." },
+    ]);
+  });
+
+  it("carries the reason through rather than flattening the two apart", () => {
+    const [message] = toUIMessages([
+      stored({ citations: [], refusalReason: "no_documents" }),
+    ]);
+
+    expect(message?.parts[0]).toMatchObject({
+      data: { reason: "no_documents" },
+    });
+  });
+
+  it("gives a grounded answer no refusal part", () => {
+    const [message] = toUIMessages([stored()]);
+
+    expect(message?.parts.some((p) => p.type === "data-refusal")).toBe(false);
+  });
+
+  it("prefers the refusal when a row somehow carries both", () => {
+    // The route cannot write both, and if a row ever did, the refusal is the
+    // claim that nothing was grounded — so it wins over a source list that
+    // should not exist. Rendering chips on a refusal is the one outcome this
+    // design must never produce.
+    const [message] = toUIMessages([
+      stored({ refusalReason: "no_relevant_passages" }),
+    ]);
+
+    expect(message?.parts.some((p) => p.type === "data-sources")).toBe(false);
   });
 });

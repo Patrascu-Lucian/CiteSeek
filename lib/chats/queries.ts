@@ -1,7 +1,12 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { type MessageCitation, chats, messages } from "@/lib/db/schema";
+import {
+  type MessageCitation,
+  type RefusalReason,
+  chats,
+  messages,
+} from "@/lib/db/schema";
 
 import { MAX_TITLE_LENGTH, titleFromQuestion } from "./titles";
 
@@ -62,6 +67,8 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   citations: MessageCitation[];
+  /** Non-null only when the turn could not be grounded. See ADR 017. */
+  refusalReason: RefusalReason | null;
   createdAt: Date;
 };
 
@@ -83,6 +90,7 @@ export async function listChatMessages(
       role: messages.role,
       content: messages.content,
       citations: messages.citations,
+      refusalReason: messages.refusalReason,
       createdAt: messages.createdAt,
     })
     .from(messages)
@@ -271,6 +279,8 @@ export type NewChatMessage = {
   role: "user" | "assistant";
   content: string;
   citations?: MessageCitation[];
+  /** Set on an assistant turn that could not be grounded. */
+  refusalReason?: RefusalReason | null;
 };
 
 /**
@@ -329,6 +339,7 @@ export async function appendMessages(
         role: row.role,
         content: row.content,
         citations: row.citations ?? [],
+        refusalReason: row.refusalReason ?? null,
       })),
     )
     .returning({ id: messages.id });

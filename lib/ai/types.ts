@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 
-import type { MessageCitation } from "@/lib/db/schema";
+import type { MessageCitation, RefusalReason } from "@/lib/db/schema";
 
 /**
  * One retrieved passage, as the model is told about it and as the client renders
@@ -32,18 +32,14 @@ export type ChatSource = MessageCitation & {
 export const SOURCES_PART_ID = "sources";
 
 /**
- * Why an answer could not be grounded.
+ * Re-exported from the schema, where the column that stores it lives.
  *
- * Only the two cases the *route* can tell apart without a model. Anything
- * finer-grained would be a guess about what the reader meant, and this whole
- * design rests on the refusal being a fact about retrieval rather than an
- * interpretation of the question.
+ * Defined there rather than here because this module already imports
+ * `MessageCitation` from the schema, and defining it here would make the two
+ * modules import each other. Type-only cycles are erased at compile time and
+ * still confuse everything that reads the graph, humans included.
  */
-export type RefusalReason =
-  /** Passages exist in this workspace; none of them cleared the relevance floor. */
-  | "no_relevant_passages"
-  /** Nothing has finished processing, so there was nothing to search at all. */
-  | "no_documents";
+export type { RefusalReason };
 
 /** @see SOURCES_PART_ID — same reasoning, stable so a rewrite replaces it. */
 export const REFUSAL_PART_ID = "refusal";
