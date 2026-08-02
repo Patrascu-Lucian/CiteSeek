@@ -19,9 +19,20 @@ const chat = vi.hoisted(() => ({
   regenerate: vi.fn(),
   stop: vi.fn(),
   clearError: vi.fn(),
+  onFinish: undefined as (() => void) | undefined,
 }));
 
-vi.mock("@ai-sdk/react", () => ({ useChat: () => chat }));
+/**
+ * The stub captures `onFinish` so a test can fire it. `useChat` owns the
+ * connection whose end would normally trigger it, and that connection is exactly
+ * what these tests replace.
+ */
+vi.mock("@ai-sdk/react", () => ({
+  useChat: (options: { onFinish?: () => void }) => {
+    chat.onFinish = options.onFinish;
+    return chat;
+  },
+}));
 
 const SOURCE: ChatSource = {
   marker: 1,
@@ -50,12 +61,17 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-function renderPanel(hasReadyDocuments = true, signedIn = false) {
+function renderPanel(
+  hasReadyDocuments = true,
+  signedIn = false,
+  onTurnComplete?: () => void,
+) {
   render(
     <ChatPanel
       workspaceId="w1"
       hasReadyDocuments={hasReadyDocuments}
       signedIn={signedIn}
+      onTurnComplete={onTurnComplete}
     />,
   );
 }
@@ -184,6 +200,25 @@ describe("ChatPanel — asking", () => {
       text: "What is the policy?",
     });
     expect(screen.getByRole("textbox")).toHaveValue("");
+  });
+
+  it("says a turn is finished, so a server-rendered list can catch up", () => {
+    // The conversation list's titles and message counts come from the database.
+    // Without this the count stayed stale until a reload, and the title a first
+    // question generates never appeared at all.
+    const onTurnComplete = vi.fn();
+    renderPanel(true, true, onTurnComplete);
+
+    chat.onFinish?.();
+
+    expect(onTurnComplete).toHaveBeenCalledOnce();
+  });
+
+  it("survives finishing a turn when nobody is listening", () => {
+    // Guests are rendered without the callback, and a stream still ends.
+    renderPanel(true, false);
+
+    expect(() => chat.onFinish?.()).not.toThrow();
   });
 
   it("stops a reply that is still streaming", async () => {

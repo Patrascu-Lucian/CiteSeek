@@ -35,6 +35,7 @@ export function ChatPanel({
   hasReadyDocuments,
   signedIn = false,
   initialMessages = [],
+  onTurnComplete,
 }: {
   workspaceId: string;
   /** Whether anything has finished processing. Nothing to search without it. */
@@ -50,6 +51,12 @@ export function ChatPanel({
    * whose chats are never persisted.
    */
   initialMessages?: ChatUIMessage[];
+  /**
+   * Called once a turn has been written down, so a server-rendered view of the
+   * conversation can be refetched. Omitted for guests, whose turns are never
+   * persisted and for whom a refetch would return the same thing.
+   */
+  onTurnComplete?: (() => void) | undefined;
 }) {
   const [selected, setSelected] = useState<ChatSource | null>(null);
 
@@ -59,6 +66,25 @@ export function ChatPanel({
       transport: new DefaultChatTransport({
         api: `/api/w/${workspaceId}/chat`,
       }),
+      /*
+        The conversation list is server-rendered — its titles and message counts
+        come from the database — and nothing was telling it a turn had happened.
+        The count sat stale until the reader navigated or reloaded, and the title
+        a first question generates did not appear at all.
+
+        Fired unconditionally, including on abort and error: the route persists
+        whatever the reader was shown, a stopped answer included, so "the stream
+        ended" and "there may be something new to show" are the same event. A
+        refetch that finds nothing new costs one RSC request and renders the same
+        markup.
+
+        Safe to run the instant the stream closes, which is not obvious and is
+        asserted by an integration test: the route persists inside `streamText`'s
+        own `onFinish`, and that transaction has committed before the response
+        body ends. Were it the other way round, this would refetch a count one
+        turn behind and look like the same bug arriving a moment later.
+      */
+      onFinish: () => onTurnComplete?.(),
     });
 
   const isStreaming = status === "streaming" || status === "submitted";

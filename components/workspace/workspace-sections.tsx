@@ -266,6 +266,9 @@ export function WorkspaceSections({
           )}
           signedIn={signedIn}
           initialMessages={initialMessages}
+          // Only for a signed-in reader: a guest's turns are never written
+          // down, so there is no server-rendered list for them to go stale.
+          onTurnComplete={signedIn ? refreshFromServer : undefined}
         />
       </section>
     </>
