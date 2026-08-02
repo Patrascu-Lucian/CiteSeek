@@ -1,8 +1,8 @@
 import Image from "next/image";
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { LogOut } from "lucide-react";
 
+import { HomeLink } from "@/components/home-link";
 import { MainNav } from "@/components/main-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -145,10 +145,13 @@ export async function SiteHeader() {
         aria-label="Main"
         className="mx-auto flex w-full max-w-5xl items-center gap-4 px-6 py-4"
       >
-        <Link
-          href="/"
-          className="focus-visible:ring-ring inline-flex shrink-0 items-center gap-1 rounded-md focus-visible:ring-2 focus-visible:outline-none"
-        >
+        {/*
+          Full header height, like the nav links, so the space above and below
+          the wordmark is clickable rather than dead. No fill though — a logo is
+          a destination, not a tab, and giving it the same block would make it
+          look like one of them.
+        */}
+        <HomeLink className="focus-visible:ring-ring -my-4 inline-flex shrink-0 items-center gap-1 self-stretch focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset">
           {/*
             One asset, inverted for dark.
 
@@ -177,7 +180,7 @@ export async function SiteHeader() {
             unoptimized
             priority
           />
-        </Link>
+        </HomeLink>
 
         {/*
           Only for someone who has somewhere to go. An anonymous visitor has no

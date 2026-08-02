@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { REPOSITORY_URL } from "@/lib/links";
+
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
@@ -157,11 +159,21 @@ export default function PrivacyPage() {
       <Section title="Contact">
         <p>
           This is a portfolio project rather than a company. Questions and
-          erasure requests go through the repository linked from the{" "}
-          <Link href="/" className="underline">
-            home page
-          </Link>
-          .
+          erasure requests go through{" "}
+          <a
+            href={REPOSITORY_URL}
+            className="underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            the repository
+          </a>
+          , which is linked in the footer of every page. You can also delete
+          everything yourself from the{" "}
+          <Link href="/account" className="underline">
+            account page
+          </Link>{" "}
+          without asking anyone.
         </p>
       </Section>
     </main>

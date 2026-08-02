@@ -60,10 +60,16 @@ export function MainNav({
 
   return (
     <>
-      {/* The same links twice, rather than one list moved by CSS: the mobile
-          copy needs to close the sheet on navigation, which the desktop copy
-          must not do. */}
-      <div className="hidden items-center gap-4 md:flex">
+      {/*
+        Two copies rather than one moved by CSS: the sheet copy closes on
+        navigation, this one must not.
+
+        `self-stretch -my-4` is what makes the active block reach the header's
+        full height — stretching alone stops at the content box, and the negative
+        margin cancels the row's `py-4` so the fill bleeds through it. The two
+        values are coupled; changing one needs the other.
+      */}
+      <div className="-my-4 hidden self-stretch md:flex">
         {items.map((item) => (
           <HeaderNavLink key={item.href} href={item.href} items={items}>
             {item.label}
@@ -115,16 +121,25 @@ export function MainNav({
             <SheetTitle>Menu</SheetTitle>
           </SheetHeader>
 
-          {/* Unlabelled: the header row already owns the "Main" navigation landmark,
-              and two landmarks with the same name is worse than one with none.
-              The sheet title above says what this is. */}
-          <nav className="flex flex-col gap-1 px-4">
+          {/*
+            Unlabelled: the row above already owns the "Main" landmark, and two
+            with the same name is worse than one with none.
+
+            No padding or gap — the rows are the targets, so their fill runs edge
+            to edge and they meet. The spacing around the group is this element's
+            margin; it used to be `mt-4` on the block below, which put the gap on
+            the wrong side of a divider it does not own.
+          */}
+          <nav className="my-4 flex flex-col">
             {items.map((item) => (
               <HeaderNavLink
                 key={item.href}
                 href={item.href}
                 items={items}
-                className="rounded-md px-2 py-2 text-base"
+                // Full-width rows: in a vertical list the space beside a label is
+                // what people aim at. No rounding, because these fills touch.
+                // `px-6` matches `SheetHeader`, so all text shares one edge.
+                className="w-full px-6 py-3 text-base"
                 // Tapping a link inside an open sheet navigates behind it, and
                 // the sheet would still be covering the page it navigated to.
                 onNavigate={() => setOpen(false)}
@@ -135,21 +150,16 @@ export function MainNav({
           </nav>
 
           {/*
-            A session with no visible exit is a trap on a shared machine, and
-            hiding the control below `md` would have made that true on exactly
-            the devices most likely to be shared.
+            A session with no visible exit is a trap on a shared machine, most of
+            all on the devices this sheet exists for.
 
-            The two child selectors are doing real work. This block is the header
-            row's markup reused vertically, and its parts carry insets meant for
-            a horizontal row: the email is a bare span with none, and the button
-            brings the `px-3` every button here has. Stacked under links that sit
-            at `px-2`, that reads as three different left edges. Normalizing them
-            here keeps the alignment with the thing it has to line up against,
-            rather than pushing layout choices into the shared markup, where they
-            would then be wrong on desktop.
+            The child selectors strip insets meant for a horizontal row — the
+            button brings its own `px-3` — so everything here lines up on the
+            same left edge as the links. Done here rather than in the shared
+            markup, where it would be wrong on desktop.
           */}
           {children ? (
-            <div className="border-border/60 mt-4 flex flex-col items-start gap-2 border-t px-4 pt-4 [&_button]:px-2 [&>span]:px-2">
+            <div className="border-border/60 flex flex-col items-start gap-2 border-t px-6 pt-4 [&_button]:px-0 [&>span]:px-0">
               {children}
             </div>
           ) : null}
