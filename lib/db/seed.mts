@@ -25,6 +25,7 @@ import postgres from "postgres";
 // project by `allowImportingTsExtensions` in tsconfig.json.
 import { loadLocalEnv } from "../env/load-local-env.ts";
 import * as schema from "./schema.ts";
+import { planFixtureSeed } from "./seed-plan.ts";
 import { workspaces } from "./schema.ts";
 
 // Captured *before* `.env.local` is applied, so the guard below can tell a
@@ -75,7 +76,7 @@ process.env.DATABASE_URL = connectionString;
 // script would fail with "DATABASE_URL is not set" on a machine where it is very
 // much set. The modules above are safe to import statically because none of them
 // touch the environment at load time.
-const { createQueuedDocument, listDocuments } =
+const { createQueuedDocument, deleteDocumentInWorkspace, listDocuments } =
   await import("../documents/queries.ts");
 const { processDocument } = await import("../rag/ingest.ts");
 const { resolveEmbeddingsProvider } = await import("../ai/provider.ts");
@@ -155,12 +156,23 @@ export const DEMO_WORKSPACE_NAME = "CiteSeek Demo";
  * A demo corpus must read like the documents it stands in for. Anything
  * self-referential is retrievable, and users ask meta-questions first.
  */
-export const FIXTURE_FILENAME = "northwind-remote-work-handbook.md";
+export const FIXTURE_FILENAME = "northwind-remote-work-handbook.pdf";
+const FIXTURE_MIME = "application/pdf";
 const FIXTURE_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
   "fixtures",
-  "citeseek-handbook.md",
+  FIXTURE_FILENAME,
 );
+
+/**
+ * Fixture filenames this seed has used before, so a database seeded under an
+ * older one converges instead of keeping both.
+ *
+ * The handbook was Markdown until the demo needed page numbers to cite. Text and
+ * Markdown files have no pages, so every citation in the demo read as a passage
+ * with no location — which is exactly the feature the demo exists to show.
+ */
+const SUPERSEDED_FILENAMES = ["northwind-remote-work-handbook.md"];
 
 /**
  * Puts one document in the demo workspace, through the real ingestion pipeline.
@@ -178,11 +190,21 @@ const FIXTURE_PATH = join(
 async function seedFixtureDocument(workspaceId: string) {
   const existing = await listDocuments(workspaceId);
 
-  if (existing.length > 0) {
-    console.log(
-      `Demo workspace already has ${existing.length} document(s) — leaving them alone.`,
-    );
-    return;
+  // The decision lives in `seed-plan.ts`, where it can be tested without a
+  // database. This function keeps the I/O.
+  const plan = planFixtureSeed({
+    existing,
+    filename: FIXTURE_FILENAME,
+    supersededFilenames: SUPERSEDED_FILENAMES,
+  });
+
+  console.log(`Demo workspace: ${plan.reason}.`);
+  if (!plan.create) return;
+
+  for (const id of plan.remove) {
+    // Chunks and embeddings go with it through ON DELETE CASCADE, so nothing is
+    // left pointing at text that is no longer the demo's.
+    await deleteDocumentInWorkspace(workspaceId, id);
   }
 
   const bytes = new Uint8Array(await readFile(FIXTURE_PATH));
@@ -193,13 +215,13 @@ async function seedFixtureDocument(workspaceId: string) {
 
   const document = await createQueuedDocument(workspaceId, {
     filename: FIXTURE_FILENAME,
-    mimeType: "text/markdown",
+    mimeType: FIXTURE_MIME,
     sizeBytes: bytes.length,
   });
 
   // Awaited rather than backgrounded: this is a script, and it must not exit
   // with the work half done.
-  await processDocument(workspaceId, document.id, bytes, "text/markdown");
+  await processDocument(workspaceId, document.id, bytes, FIXTURE_MIME);
 
   const [seeded] = await listDocuments(workspaceId);
   console.log(

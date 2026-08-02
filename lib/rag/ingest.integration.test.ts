@@ -314,3 +314,95 @@ describe("sanitizeError", () => {
     );
   });
 });
+
+/**
+ * The demo's own fixture, through the pipeline that will ingest it.
+ *
+ * The demo workspace is what a stranger sees, and it is seeded from a committed
+ * file rather than built by a test — so nothing else in the suite would notice
+ * if that file stopped producing what the demo depends on. It was Markdown until
+ * this milestone, and Markdown has no pages: every citation in the demo read as
+ * a passage with no location, which is the feature the demo exists to show.
+ */
+describe("the committed demo fixture", () => {
+  const DEMO_PDF_PATH = join(
+    import.meta.dirname,
+    "..",
+    "db",
+    "fixtures",
+    "northwind-remote-work-handbook.pdf",
+  );
+
+  /*
+    A fresh copy per call, not one shared array.
+
+    PDF.js takes ownership of the buffer it is given and detaches it — see the
+    note in `extract.ts`. Reading the fixture once into a constant and ingesting
+    it in two tests left the second with a zero-length array, and the failure
+    presented as "this PDF could not be read", about a file that reads fine.
+  */
+  const demoPdf = () => new Uint8Array(readFileSync(DEMO_PDF_PATH));
+
+  it("produces citations that can name more than one page", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "handbook.pdf");
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      demoPdf(),
+      "application/pdf",
+      {
+        embedder: workingEmbedder,
+      },
+    );
+
+    const stored = await db
+      .select()
+      .from(chunks)
+      .where(eq(chunks.documentId, document.id))
+      .orderBy(asc(chunks.chunkIndex));
+
+    const pages = new Set(stored.map((chunk) => chunk.pageNumber));
+
+    // A one-page PDF makes every citation "page 1" and demonstrates nothing.
+    expect(pages.size).toBeGreaterThan(1);
+    expect([...pages].every((page) => typeof page === "number")).toBe(true);
+  });
+
+  it("still contains the sentence the end-to-end suite asks about", async () => {
+    /*
+      `e2e/chat.spec.ts` and `e2e/a11y.spec.ts` ask "When is reimbursement paid?"
+      in five places, and rely on this passage being the nearest match. PDF
+      extraction rewraps text, so the sentence survives the conversion with a
+      line break inside it — which is what a real PDF does, and why this asserts
+      on the words rather than on an exact string.
+    */
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "handbook.pdf");
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      demoPdf(),
+      "application/pdf",
+      {
+        embedder: workingEmbedder,
+      },
+    );
+
+    const [stored] = await db
+      .select()
+      .from(chunks)
+      .where(eq(chunks.documentId, document.id))
+      .orderBy(asc(chunks.chunkIndex));
+
+    const all = await findDocumentInWorkspace(workspace.id, document.id);
+    const text = (all?.contentText ?? "").replace(/\s+/g, " ");
+
+    expect(stored).toBeDefined();
+    expect(text).toContain(
+      "reimbursement is paid within 30 days of an approved claim",
+    );
+  });
+});

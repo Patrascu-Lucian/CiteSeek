@@ -62,6 +62,11 @@ export class UnreadableDocumentError extends Error {
  * before dispatching, and no format falls back to a second parser. It is
  * documented because the failure it would cause is silent: a fallback parser
  * handed the same array would simply find an empty document.
+ *
+ * Measured, when a test read one fixture twice: 68,066 bytes before the call and
+ * **0 after**, with the second call throwing "could not be read. It may be
+ * corrupt or password-protected" — about a file that is neither. Any caller
+ * extracting the same buffer more than once has to hand over a fresh copy.
  */
 async function extractPdf(bytes: Uint8Array): Promise<ExtractedDocument> {
   const { extractText } = await import("unpdf");

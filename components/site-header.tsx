@@ -117,7 +117,7 @@ export async function SiteHeader() {
       */}
       <span
         title={sessionLabel}
-        className="text-muted-foreground max-w-[14rem] truncate text-sm"
+        className="text-muted-foreground max-w-56 truncate text-sm"
       >
         {sessionLabel}
       </span>
