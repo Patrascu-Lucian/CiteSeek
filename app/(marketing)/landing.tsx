@@ -93,22 +93,6 @@ export function Landing({ primary, secondary }: LandingCallsToAction) {
           </ul>
         </div>
       </section>
-
-      {/*
-        Both lines earn their place. The description tells a stranger what this
-        is inside one sentence; the notice says who owns it. The repository is
-        public with no license file, so everything is already all rights
-        reserved — this states it rather than leaving it to be inferred.
-      */}
-      <footer className="border-border/60 border-t">
-        <div className="text-muted-foreground mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-6 py-8 text-sm">
-          <p>
-            A portfolio project exploring retrieval-augmented generation with
-            verifiable citations.
-          </p>
-          <p>© {new Date().getFullYear()} Lucian Patrascu</p>
-        </div>
-      </footer>
     </main>
   );
 }

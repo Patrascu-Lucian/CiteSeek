@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { AlertCircle, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -154,6 +155,28 @@ export function UploadDropzone({
           PDF, Word (.docx), Markdown or text — up to 4&nbsp;MB each
         </span>
       </button>
+
+      {/*
+        The warning belongs here, not only on the privacy page.
+
+        Document text is sent to a third-party model provider, and this
+        deployment is on that provider's free tier — under whose standard terms
+        submitted content may be used to improve their services. Someone deciding
+        what to upload is deciding it *at this control*, and a caveat they would
+        have to go looking for is a caveat written for the writer rather than the
+        reader.
+
+        It stays until the deployment is on a paid tier or covered by written
+        data-processing terms, at which point this sentence and the matching
+        paragraph on the privacy page change together.
+      */}
+      <p className="text-muted-foreground mt-2 text-xs">
+        Document text is sent to Google&rsquo;s Gemini API for processing, on a
+        free tier — please don&rsquo;t upload anything confidential.{" "}
+        <Link href="/privacy" className="underline">
+          What is stored
+        </Link>
+      </p>
 
       <input
         ref={inputRef}

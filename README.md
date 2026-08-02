@@ -6,7 +6,7 @@ clickable citations to exact source passages.
 **Live:** [cite-seek.vercel.app](https://cite-seek.vercel.app) — click **Try the demo**;
 no account needed.
 
-> **Status: Milestone 3 complete, Milestone 4 in progress.** Upload a PDF, Word document,
+> **Status: Milestone 4 complete.** Upload a PDF, Word document,
 > Markdown or text file, then ask questions about it. Answers stream, and every claim carries a
 > numbered citation that opens the source document scrolled to the exact passage. When nothing
 > relevant is found, the answer says so, cites nothing, and shows what the documents _do_
@@ -15,7 +15,9 @@ no account needed.
 > Signed in, conversations are kept: each has its own URL, and they can be listed, resumed,
 > renamed and deleted. There is an account page with real deletion, and a per-workspace usage
 > page reporting provider calls and tokens. Light, dark and system themes, with no flash on
-> first paint and no JavaScript required.
+> first paint and no JavaScript required. A [privacy page](<app/(marketing)/privacy/page.tsx>)
+> that states what is stored, where, and who else sees it — written from the code rather than a
+> template.
 >
 > What each milestone covers is in [`docs/strategy-plan.md`](docs/strategy-plan.md). This
 > line is the status; that document is the plan.
@@ -176,9 +178,9 @@ does.
 
 | Layer       | Count | What it covers                                                                                  |
 | ----------- | ----- | ----------------------------------------------------------------------------------------------- |
-| Unit        | 462   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
+| Unit        | 478   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
 | Integration | 136   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
-| E2E         | 55    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
+| E2E         | 73    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
 
@@ -219,6 +221,14 @@ Built with AI-assisted tooling (Claude Code) under close review — see
 [`docs/decisions/`](docs/decisions/) for the architectural reasoning.
 
 ## Known gaps at this milestone
+
+**The model provider is on a free tier, and anyone who signs in can upload to it.** Under the
+standard free-tier terms, submitted content may be used to improve the provider's services — so
+the [privacy page](<app/(marketing)/privacy/page.tsx>) says so plainly and the warning is repeated
+beside the upload control rather than buried. This is the gap that would have to close before
+anyone uploaded a document that mattered: a paid tier, or written data-processing terms. It is
+listed here rather than quietly deferred because the alternative is a policy that overstates its
+protections, which is worse than having none.
 
 Guest conversations are not saved — a reload starts over. That is deliberate: persisting them
 would put an unbounded write path behind a public URL
