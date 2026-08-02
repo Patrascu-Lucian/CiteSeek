@@ -353,3 +353,10 @@ each of these is reversible and therefore safe to defer.
   assistant", the demo fixture is a company handbook, and the positioning is EU-hosted and
   GDPR-first. The persona appears to be inferred from the word "citations". Re-brief before
   commissioning anything.
+
+- **A logo asset with more than one usable color.** The current placeholder is an SVG whose every
+  fill is `#1A1A1A`, which is what lets dark mode be a single `invert`. The constraint to carry
+  into a real brief: the moment the mark carries a brand color, inversion stops being correct and
+  it needs either two assets or inline SVG driven by `currentColor`. Ask for transparency and a
+  single-color variant explicitly — the raster this replaced had no alpha at all, which forced a
+  white plate in both themes and ruled out every filter-based approach.

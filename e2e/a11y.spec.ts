@@ -64,101 +64,139 @@ async function gotoDemo(page: Page) {
   ).toBeVisible();
 }
 
-test.describe("automated accessibility", () => {
-  test("the landing page", async ({ page }) => {
-    await page.goto("/");
-
-    expect(await violationsOn(page)).toEqual([]);
-  });
-
-  test("sign-in", async ({ page }) => {
-    await page.goto("/sign-in");
-
-    expect(await violationsOn(page)).toEqual([]);
-  });
-
-  test("the workspace, as a guest", async ({ page }) => {
-    await gotoDemo(page);
-
-    expect(await violationsOn(page)).toEqual([]);
-  });
-
-  test("a conversation with an answer and citations in it", async ({
-    page,
-  }) => {
-    await gotoDemo(page);
-    await page
-      .getByRole("textbox", { name: /ask a question/i })
-      .fill("When is reimbursement paid?");
-    await page.getByRole("button", { name: /send/i }).click();
-    await expect(
-      page.getByRole("button", { name: /citation 1/i }),
-    ).toBeVisible();
-
-    // Scanned after the answer lands, not before: the chips, the live region and
-    // the message list only exist once there is a conversation, and an empty
-    // panel is not the state anyone reads.
-    expect(await violationsOn(page)).toEqual([]);
-  });
-
-  test("the source panel, open", async ({ page }) => {
-    await gotoDemo(page);
-    await page
-      .getByRole("textbox", { name: /ask a question/i })
-      .fill("When is reimbursement paid?");
-    await page.getByRole("button", { name: /send/i }).click();
-    await page
-      .getByRole("button", { name: /citation 1/i })
-      .first()
-      .click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-
-    expect(await violationsOn(page)).toEqual([]);
-  });
-
-  test("the 404", async ({ page }) => {
-    await page.goto("/no-such-page");
-
-    expect(await violationsOn(page)).toEqual([]);
-  });
-
-  /**
-   * The mobile menu, which is a second copy of the navigation and therefore a
-   * second chance to get the landmarks wrong. The specific risk it introduced:
-   * the header row already owns a `nav` named "Main", and a second one with the
-   * same name is a duplicate landmark that axe does flag.
-   */
-  test("the navigation menu on a small screen, open", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await gotoDemo(page);
-
-    await page.getByRole("button", { name: /menu/i }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-
-    expect(await violationsOn(page)).toEqual([]);
-  });
-});
-
 /**
- * The half axe cannot reach.
+ * Both palettes, over the same specs rather than a second copy of them.
  *
- * Each of these encodes a specific way the automated pass gives a false
- * negative — a rule that is satisfied while the experience is broken.
+ * Dark mode doubles the accessibility surface, and that is its real cost. A
+ * contrast pair that is fine in one palette can fail in the other, and the
+ * duplicated-spec version of this file would drift the first time someone
+ * updated only the copy they were looking at.
+ *
+ * The cookie is what selects the palette — the server reads it and writes the
+ * class, so there is nothing to wait for on the client.
  */
-test.describe("what automated checks cannot see", () => {
-  test("a citation chip is distinguishable from the bubble behind it", async ({
-    page,
-  }) => {
-    await gotoDemo(page);
-    await page
-      .getByRole("textbox", { name: /ask a question/i })
-      .fill("When is reimbursement paid?");
-    await page.getByRole("button", { name: /send/i }).click();
+const THEMES = ["light", "dark"] as const;
 
-    const chip = page.getByRole("button", { name: /^Citation 1:/ });
-    await expect(chip).toBeVisible();
+async function useTheme(page: Page, theme: (typeof THEMES)[number]) {
+  // One navigation first, so the context has an origin to attach a cookie to.
+  await page.goto("/");
+  await page
+    .context()
+    .addCookies([{ name: "citeseek_theme", value: theme, url: page.url() }]);
+}
 
-    /*
+for (const theme of THEMES) {
+  test.describe(`${theme} theme`, () => {
+    test.beforeEach(({ page }) => useTheme(page, theme));
+
+    test("paints the palette it was asked for", async ({ page }) => {
+      /*
+        Guards the parameterisation itself. Without it, a broken cookie or a
+        server that ignored it would run every check below against the light
+        palette twice and report full coverage of both.
+      */
+      await page.goto("/");
+      const classes = await page.locator("html").getAttribute("class");
+
+      if (theme === "dark") expect(classes).toContain("dark");
+      else expect(classes).toContain("light");
+    });
+
+    test.describe("automated accessibility", () => {
+      test("the landing page", async ({ page }) => {
+        await page.goto("/");
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
+      test("sign-in", async ({ page }) => {
+        await page.goto("/sign-in");
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
+      test("the workspace, as a guest", async ({ page }) => {
+        await gotoDemo(page);
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
+      test("a conversation with an answer and citations in it", async ({
+        page,
+      }) => {
+        await gotoDemo(page);
+        await page
+          .getByRole("textbox", { name: /ask a question/i })
+          .fill("When is reimbursement paid?");
+        await page.getByRole("button", { name: /send/i }).click();
+        await expect(
+          page.getByRole("button", { name: /citation 1/i }),
+        ).toBeVisible();
+
+        // Scanned after the answer lands, not before: the chips, the live region and
+        // the message list only exist once there is a conversation, and an empty
+        // panel is not the state anyone reads.
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
+      test("the source panel, open", async ({ page }) => {
+        await gotoDemo(page);
+        await page
+          .getByRole("textbox", { name: /ask a question/i })
+          .fill("When is reimbursement paid?");
+        await page.getByRole("button", { name: /send/i }).click();
+        await page
+          .getByRole("button", { name: /citation 1/i })
+          .first()
+          .click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
+      test("the 404", async ({ page }) => {
+        await page.goto("/no-such-page");
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
+      /**
+       * The mobile menu, which is a second copy of the navigation and therefore a
+       * second chance to get the landmarks wrong. The specific risk it introduced:
+       * the header row already owns a `nav` named "Main", and a second one with the
+       * same name is a duplicate landmark that axe does flag.
+       */
+      test("the navigation menu on a small screen, open", async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await gotoDemo(page);
+
+        await page.getByRole("button", { name: /menu/i }).click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+    });
+
+    /**
+     * The half axe cannot reach.
+     *
+     * Each of these encodes a specific way the automated pass gives a false
+     * negative — a rule that is satisfied while the experience is broken.
+     */
+    test.describe("what automated checks cannot see", () => {
+      test("a citation chip is distinguishable from the bubble behind it", async ({
+        page,
+      }) => {
+        await gotoDemo(page);
+        await page
+          .getByRole("textbox", { name: /ask a question/i })
+          .fill("When is reimbursement paid?");
+        await page.getByRole("button", { name: /send/i }).click();
+
+        const chip = page.getByRole("button", { name: /^Citation 1:/ });
+        await expect(chip).toBeVisible();
+
+        /*
       The regression this exists for: the chip was `bg-muted` on a `bg-muted`
       bubble. It was drawn every time, in exactly the color behind it — labeled,
       operable, `aria-pressed` toggling, and invisible.
@@ -168,55 +206,60 @@ test.describe("what automated checks cannot see", () => {
       compliant pair. Nothing automated measures whether a control announces
       itself as one. So this compares the two backgrounds directly.
     */
-    const { chipBackground, bubbleBackground } = await chip.evaluate((node) => {
-      // No fallback ancestor on purpose. An earlier draft fell back to
-      // `parentElement`, which is a transparent inline element — so the
-      // comparison passed without ever looking at the bubble. A test that cannot
-      // fail is worse than no test, so a missing marker is an error here.
-      const bubble = node.closest("[data-message-bubble]");
-      if (!bubble) throw new Error("No [data-message-bubble] ancestor found.");
+        const { chipBackground, bubbleBackground } = await chip.evaluate(
+          (node) => {
+            // No fallback ancestor on purpose. An earlier draft fell back to
+            // `parentElement`, which is a transparent inline element — so the
+            // comparison passed without ever looking at the bubble. A test that cannot
+            // fail is worse than no test, so a missing marker is an error here.
+            const bubble = node.closest("[data-message-bubble]");
+            if (!bubble)
+              throw new Error("No [data-message-bubble] ancestor found.");
 
-      return {
-        chipBackground: getComputedStyle(node).backgroundColor,
-        bubbleBackground: getComputedStyle(bubble).backgroundColor,
-      };
-    });
+            return {
+              chipBackground: getComputedStyle(node).backgroundColor,
+              bubbleBackground: getComputedStyle(bubble).backgroundColor,
+            };
+          },
+        );
 
-    expect(bubbleBackground).not.toBe("rgba(0, 0, 0, 0)");
-    expect(chipBackground).not.toBe(bubbleBackground);
-  });
+        expect(bubbleBackground).not.toBe("rgba(0, 0, 0, 0)");
+        expect(chipBackground).not.toBe(bubbleBackground);
+      });
 
-  test("the source text can be scrolled by keyboard alone", async ({
-    page,
-  }) => {
-    await gotoDemo(page);
-    await page
-      .getByRole("textbox", { name: /ask a question/i })
-      .fill("When is reimbursement paid?");
-    await page.getByRole("button", { name: /send/i }).click();
-    await page
-      .getByRole("button", { name: /^Citation 1:/ })
-      .first()
-      .click();
+      test("the source text can be scrolled by keyboard alone", async ({
+        page,
+      }) => {
+        await gotoDemo(page);
+        await page
+          .getByRole("textbox", { name: /ask a question/i })
+          .fill("When is reimbursement paid?");
+        await page.getByRole("button", { name: /send/i }).click();
+        await page
+          .getByRole("button", { name: /^Citation 1:/ })
+          .first()
+          .click();
 
-    const panel = page.getByRole("dialog");
-    await expect(panel).toBeVisible();
+        const panel = page.getByRole("dialog");
+        await expect(panel).toBeVisible();
 
-    /*
+        /*
       A document is longer than the panel and the region holds no focusable
       children, so without a tab stop of its own there is nothing for arrow keys
       to act on — a keyboard reader could open a citation and never reach the
       rest of the passage. axe found this one (`scrollable-region-focusable`);
       the test is here so it stays fixed.
     */
-    const region = panel.getByRole("region", { name: /source text of/i });
-    await expect(region).toBeVisible();
-    await expect(region).toHaveAttribute("tabindex", "0");
+        const region = panel.getByRole("region", { name: /source text of/i });
+        await expect(region).toBeVisible();
+        await expect(region).toHaveAttribute("tabindex", "0");
 
-    await region.focus();
-    await expect(region).toBeFocused();
+        await region.focus();
+        await expect(region).toBeFocused();
+      });
+    });
   });
-});
+}
 
 test.describe("controls look interactive", () => {
   /**

@@ -1,13 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { LogOut } from "lucide-react";
 
 import { MainNav } from "@/components/main-nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { leaveDemoAction, signOutAction } from "@/lib/auth/actions";
 import { getActor } from "@/lib/auth/actor";
 import { findDemoWorkspace } from "@/lib/auth/demo";
 import { findPersonalWorkspace } from "@/lib/workspaces/personal";
+import { THEME_COOKIE_NAME, type Theme, isTheme } from "@/lib/theme/theme";
 
 /**
  * Header for every route, including the landing page.
@@ -31,6 +34,11 @@ import { findPersonalWorkspace } from "@/lib/workspaces/personal";
  */
 export async function SiteHeader() {
   const actor = await getActor();
+
+  // Read here rather than inside the toggle so the header stays one round of
+  // cookie reads, and so the control is a pure function of its props.
+  const storedTheme = (await cookies()).get(THEME_COOKIE_NAME)?.value;
+  const theme: Theme = isTheme(storedTheme) ? storedTheme : "system";
 
   /*
     Resolve the workspace here so the link points at it directly.
@@ -141,12 +149,32 @@ export async function SiteHeader() {
           href="/"
           className="focus-visible:ring-ring inline-flex shrink-0 items-center gap-1 rounded-md focus-visible:ring-2 focus-visible:outline-none"
         >
+          {/*
+            One asset, inverted for dark.
+
+            Vector rather than the raster of the same mark: **942 bytes against
+            7.2 KB**, and crisp at any pixel density rather than at exactly one.
+            A wordmark is line art, which is what vector formats are for.
+
+            `invert` is exact here rather than a trick, and that is a property of
+            this artwork rather than a general rule — every fill in the file is
+            the same `#1A1A1A`, so there is no hue for inversion to distort.
+            Near-black becomes near-white and nothing else moves. The moment the
+            mark carries a brand color this stops being correct and needs either
+            two assets or inline SVG driven by `currentColor`.
+
+            `unoptimized` because the optimizer has nothing to do with an SVG —
+            there are no pixels to resize or re-encode, so Next serves the file
+            as-is either way, and saying so avoids a needless round trip through
+            `/_next/image`.
+          */}
           <Image
-            src="/citeseek-logo.png"
+            src="/placeholder-logo.svg"
             alt="CiteSeek"
-            width={405}
-            height={120}
-            className="h-6 w-auto rounded-sm bg-white"
+            width={123}
+            height={40}
+            className="h-6 w-auto dark:invert"
+            unoptimized
             priority
           />
         </Link>
@@ -161,16 +189,17 @@ export async function SiteHeader() {
           resolve to the *same page*, and a signed-in reader already has "Open
           the demo" on the landing page.
         */}
-        {actor ? <MainNav items={items}>{sessionExit}</MainNav> : null}
-
-        {/* The same control the sheet shows, for the row that has space for
-            it. Rendered twice rather than moved with CSS, because the sheet is
-            a different subtree, not a rearrangement of this one. */}
         {actor ? (
-          <div className="ml-auto hidden items-center gap-3 md:flex">
+          <MainNav items={items} trailing={<ThemeToggle current={theme} />}>
             {sessionExit}
+          </MainNav>
+        ) : (
+          // An anonymous visitor has no destinations and no session, but does
+          // have eyes: the theme control is not gated on having an account.
+          <div className="ml-auto flex items-center">
+            <ThemeToggle current={theme} />
           </div>
-        ) : null}
+        )}
       </nav>
     </header>
   );

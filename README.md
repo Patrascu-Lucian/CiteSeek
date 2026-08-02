@@ -14,7 +14,8 @@ no account needed.
 >
 > Signed in, conversations are kept: each has its own URL, and they can be listed, resumed,
 > renamed and deleted. There is an account page with real deletion, and a per-workspace usage
-> page reporting provider calls and tokens.
+> page reporting provider calls and tokens. Light, dark and system themes, with no flash on
+> first paint and no JavaScript required.
 >
 > What each milestone covers is in [`docs/strategy-plan.md`](docs/strategy-plan.md). This
 > line is the status; that document is the plan.
@@ -147,6 +148,21 @@ anonymous run scores a different page entirely.
 | `/` landing — deployed             | 98          | 100           | 100            | 100 |
 | `/w/[id]` guest — deployed, before | 87          | 100           | 100            | 100 |
 | `/w/[id]` guest — local build      | 84 → **90** | 100           | 100            | 100 |
+
+**Dark mode cost nothing measurable**, which is the point of storing the preference in a cookie
+rather than `localStorage` ([ADR 018](docs/decisions/018-theme-persistence-and-the-flash.md)).
+The usual implementation needs a render-blocking inline script to correct the first paint; a
+cookie arrives with the request, so the server writes the right class and there is nothing to
+correct. Landing page, local build, three runs each:
+
+|        | Performance | Total blocking time | Script evaluation |
+| ------ | ----------- | ------------------- | ----------------- |
+| before | 95, 95, 95  | 30, 30, 20 ms       | 189, 186, 179 ms  |
+| after  | 97, 95, 95  | 40, 20, 20 ms       | 173, 176, 180 ms  |
+
+The first attempt at this compared **one** run against one and reported 99 → 93 with blocking
+time up from 50 ms to 300 ms. That regression does not exist; total blocking time is the noisiest
+metric Lighthouse reports, and a single pair cannot tell a change from variance.
 
 The workspace page is short of the 95 target and the reason is specific: 124 KB of the
 remaining bundle is unused Vercel AI SDK and Zod, reachable only by deferring `useChat` —

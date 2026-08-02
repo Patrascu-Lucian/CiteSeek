@@ -2,7 +2,33 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+  The `dark:` variant has to cover both ways a reader ends up in the dark
+  palette, or the two disagree.
+
+  The palette itself switches on either an explicit `.dark` class (set by the
+  server from a cookie) or `prefers-color-scheme` for anyone who has not chosen.
+  A variant written only as `&:is(.dark *)` covers the first and silently misses
+  the second — and `dark:` utilities are all over the shadcn components
+  (`dark:bg-input/30`, `dark:border-input`, `dark:hover:bg-muted/50`). A
+  system-dark reader would get the dark palette with every one of those rules
+  inert: light-mode component styling over a dark background, on the path most
+  readers arrive by, and invisible to any test that sets the cookie.
+
+  The block form takes both, with `@slot` standing in for the utility's own
+  declarations. `:not(.light)` is what keeps an explicit light choice winning.
+*/
+@custom-variant dark {
+  &:is(.dark *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:is(:root:not(.light) *) {
+      @slot;
+    }
+  }
+}
 
 @theme inline {
   --color-background: var(--background);
@@ -119,6 +145,60 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+/*
+  The same palette, for a reader who has expressed no preference here.
+
+  `.dark` above is set by the server from a cookie, so an explicit choice needs
+  no JavaScript and cannot flash. This block covers everyone else: it follows the
+  operating system through `prefers-color-scheme`, which also needs no
+  JavaScript, so the theme is right on the first paint in every state including
+  one where scripts never run.
+
+  `:not(.light)` is what lets an explicit *light* choice win on a machine set to
+  dark. Without it the media query would keep repainting over the readers choice
+  and the toggle would appear broken on exactly the machines it matters on.
+
+  The duplication below is real and deliberate: a media query is not a selector,
+  so there is no way to write one rule that matches both cases. It is guarded by
+  a test that parses this file and fails if the two blocks ever describe
+  different variables -- see `app/globals.test.ts`.
+*/
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+  }
 }
 
 @layer base {

@@ -38,6 +38,7 @@ export type NavItem = { href: string; label: string };
 export function MainNav({
   items,
   children,
+  trailing,
 }: {
   items: readonly NavItem[];
   /**
@@ -48,6 +49,12 @@ export function MainNav({
    * applies depends on the actor, which this component has no business knowing.
    */
   children?: React.ReactNode;
+  /**
+   * Sits in the header row at every size, outside the sheet. The theme control
+   * goes here: it is not a destination, and a preference worth changing is worth
+   * reaching in one tap.
+   */
+  trailing?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -64,23 +71,37 @@ export function MainNav({
         ))}
       </div>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="ml-auto md:hidden"
-        // The label moves to `aria-label` rather than disappearing. A button
-        // whose only content is a decorative icon has no accessible name at
-        // all, which makes it unreachable by screen reader and by name-based
-        // queries — the hamburger is a convention to sighted readers only.
-        aria-label="Menu"
-        aria-expanded={open}
-        // No `aria-controls`: the sheet's markup does not exist until it opens,
-        // so the id would dangle for as long as the button is useful.
-        onClick={() => setOpen(true)}
-      >
-        <Menu aria-hidden="true" className="size-5" />
-      </Button>
+      {/*
+        One owner for the right-hand side of the row. The theme control sits at
+        every size — it is not a destination, so hiding it behind the menu would
+        make a two-tap job of a one-tap one — while the session's identity and
+        exit move into the sheet below `md`, where the row has no space for them.
+      */}
+      <div className="ml-auto flex items-center gap-2">
+        {trailing}
+
+        {children ? (
+          <div className="hidden items-center gap-3 md:flex">{children}</div>
+        ) : null}
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          // The label moves to `aria-label` rather than disappearing. A button
+          // whose only content is a decorative icon has no accessible name at
+          // all, which makes it unreachable by screen reader and by name-based
+          // queries — the hamburger is a convention to sighted readers only.
+          aria-label="Menu"
+          aria-expanded={open}
+          // No `aria-controls`: the sheet's markup does not exist until it
+          // opens, so the id would dangle for as long as the button is useful.
+          onClick={() => setOpen(true)}
+        >
+          <Menu aria-hidden="true" className="size-5" />
+        </Button>
+      </div>
 
       <Sheet open={open} onOpenChange={setOpen}>
         {/*
