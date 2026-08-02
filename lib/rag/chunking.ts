@@ -3,32 +3,24 @@ import { type PageSpan, pageNumberForOffset } from "./normalize";
 /**
  * Splitting canonical text into retrievable passages.
  *
- * The governing constraint is not retrieval quality — it is that every chunk
- * must be locatable in the source. `text.slice(charStart, charEnd)` has to equal
- * `content` for every chunk produced here, because Milestone 2's citations are
- * literally that slice. A chunker that returns good passages with drifting
- * offsets produces an app that cites confidently and wrongly, and nothing in the
- * system notices.
+ * The governing constraint is not retrieval quality: `text.slice(charStart,
+ * charEnd)` must equal `content` for every chunk, because a citation is
+ * literally that slice. Drifting offsets produce an app that cites confidently
+ * and wrongly, and nothing notices.
  *
- * So this never rewrites text. It only chooses cut points, and content is always
- * a verbatim slice of the input.
+ * So this never rewrites text — it only chooses cut points.
  */
 
 /**
- * Sizes, revised down from 1,200 / 1,500 / 200 after seeing citations on the
- * deployed app.
+ * Revised down from 1,200 / 1,500 / 200 after seeing citations on the deployed
+ * app: a 1,200-character chunk makes a *1,200-character highlight*, so the
+ * source panel lit up a whole section rather than the "exact source passage" the
+ * product claims. **Citation precision is bounded by chunk size and nothing
+ * else.**
  *
- * The original numbers were explicitly defaults rather than findings (ADR 008),
- * to be revisited once there was something to observe. What there is to observe
- * is that a 1,200-character chunk makes a *1,200-character highlight* — the
- * source panel lit up an entire document section, which is a passage but not the
- * "exact source passage" the product claims. Citation precision is bounded by
- * chunk size and nothing else.
- *
- * These are still not tuned against measured answer quality; that needs a
- * before/after on real questions and is Milestone 3's business. This trades some
- * context per passage for a sharper citation, on the reasoning that retrieval
- * returns several passages and the reader only ever reads one highlight.
+ * Still not tuned against measured answer quality. This trades context per
+ * passage for a sharper citation, since retrieval returns several passages and
+ * the reader reads one highlight.
  */
 export const CHUNK_TARGET_CHARS = 600;
 export const CHUNK_MAX_CHARS = 800;
@@ -36,13 +28,10 @@ export const CHUNK_OVERLAP_CHARS = 100;
 
 /**
  * A ceiling on chunks per document, so one pathological upload cannot consume a
- * day's embedding quota.
- *
- * Deliberately unchanged by the size revision. Quota is spent per *embedding
- * call*, one per chunk, so this number is the actual cost ceiling and moving it
- * would raise the bill it exists to cap. The consequence is that the longest
- * supported document roughly halves — around 250 pages of dense text rather than
- * 500 — which is still far beyond anything this product is for.
+ * day's embedding quota. Unchanged by the size revision: quota is spent per
+ * embedding call, one per chunk, so this *is* the cost ceiling. The longest
+ * supported document roughly halved as a result — ~250 dense pages, still far
+ * beyond what this is for.
  */
 export const MAX_CHUNKS_PER_DOCUMENT = 600;
 

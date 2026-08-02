@@ -88,18 +88,12 @@ function parseMessages(body: unknown): ChatUIMessage[] | null {
 }
 
 /**
- * The refusal, streamed in the same shape as a real answer.
- *
- * Emitted as a UI message stream rather than a plain JSON response so the client
- * has one code path: a refusal is an assistant message like any other, with no
- * sources part and therefore no chips.
+ * The refusal, streamed in the same shape as a real answer so the client has one
+ * code path — an assistant message with no sources part and therefore no chips.
  *
  * The text is a fixed server-side string and the model is never called, which is
  * what makes "I don't know" structural rather than instructed. The `refusal`
- * data part carries *why* — the client turns that into what the reader can
- * actually do next, from its own props. Written before the text for the same
- * reason `sources` is: the part that explains a message should already be there
- * when the message renders.
+ * part carries *why*; the client turns that into what the reader can do next.
  */
 function refusalStream(reason: RefusalReason) {
   return createUIMessageStream<ChatUIMessage>({
@@ -169,12 +163,10 @@ export async function POST(
   const asked: string = question;
 
   /**
-   * Recorded before either branch returns.
-   *
-   * The query is embedded *before* the relevance floor is applied, so a question
-   * that matches nothing has still been paid for. Metering only the answered
-   * branch would leave the cheapest way to spend someone's quota — asking
-   * nonsense repeatedly — entirely uncounted.
+   * Before either branch returns: the query is embedded *before* the relevance
+   * floor applies, so a question that matches nothing has still been paid for.
+   * Metering only the answered branch would leave repeated nonsense — the
+   * cheapest way to spend someone's quota — uncounted.
    */
   await recordUsage({
     actorType,
@@ -185,17 +177,12 @@ export async function POST(
     inputTokens: retrievalTokens,
   });
 
-  // Signed-in conversations persist; guests keep theirs in browser state only.
-  // A guest is anonymous and unlimited, so writing rows for one would put an
-  // unbounded write path behind a public URL — the concern ADR 005 raised about
-  // the demo workspace, which chat would otherwise reintroduce.
+  // Signed-in only: a guest is anonymous and unlimited, so writing rows for one
+  // would put an unbounded write path behind a public URL (ADR 005).
   //
-  // Which conversation, when the reader may have several: the client sends the
-  // one it is showing. `resolveChatForTurn` checks that id against this
-  // workspace and this user before using it, so a guessed or stale id cannot
-  // append to someone else's transcript — it falls back to the most recent
-  // conversation instead of failing, because a question typed into a chat that
-  // was deleted in another tab should still go somewhere.
+  // The client sends which conversation it is showing; `resolveChatForTurn`
+  // checks that id against this workspace and user, so a guessed or stale id
+  // cannot append to someone else's transcript.
   const chatId =
     actorType === "user"
       ? (await resolveChatForTurn(scope, actorId, requestedChatId)).id
@@ -245,17 +232,12 @@ export async function POST(
   const stream = createUIMessageStream<ChatUIMessage>({
     /**
      * The provider's own quota error, which arrives *after* a 200 has been sent.
+     * Our caps refuse before the stream opens as a JSON 429; Gemini's limits are
+     * per project, so it can still return `RESOURCE_EXHAUSTED` once the status
+     * line is gone. Emitting the same JSON body means one parser classifies both.
      *
-     * Our caps refuse before the stream opens, as a JSON 429. Gemini's limits are
-     * per project, so ours can be correctly configured and the provider can still
-     * return `RESOURCE_EXHAUSTED` — at which point the status line is long gone
-     * and the only channel left is an error part inside the stream. Emitting the
-     * same JSON body means the client classifies both with one parser.
-     *
-     * The SDK's default here is `() => "An error occurred."`, which exists to
-     * stop server internals leaking to the browser. That default is kept for
-     * everything else: only a recognized 429 is described, and it is described
-     * with our own wording rather than the provider's.
+     * The SDK default (`"An error occurred."`) is kept for everything else, so
+     * server internals cannot leak — only a recognized 429 is described.
      */
     onError: (error) =>
       APICallError.isInstance(error) && error.statusCode === 429
@@ -301,15 +283,12 @@ export async function POST(
         // A tool call and then an answer. Without a bound, a model that keeps
         // calling the tool loops until the function times out.
         stopWhen: stepCountIs(2),
-        // Fires once the model has finished, including when the reader pressed
-        // Stop — a partial answer is still what they were shown, so it is still
-        // what the transcript should say.
+        // Fires once the model finishes, Stop included — a partial answer is
+        // still what the reader was shown.
         //
-        // `usage` here is **aggregated across all steps**, which matters because
-        // `stopWhen: stepCountIs(2)` means a turn that calls the tool runs two.
-        // A per-step figure would bill every tool-using turn at a fraction of
-        // what it cost. (`totalUsage` is the deprecated alias for this same
-        // value — the distinction between them belonged to an older SDK.)
+        // `usage` is **aggregated across steps**, which matters because
+        // `stopWhen: stepCountIs(2)` means a tool-using turn runs two; a per-step
+        // figure would bill it at a fraction of what it cost.
         onFinish: async ({ text, usage }) => {
           await persist(text, sources);
           await recordUsage({

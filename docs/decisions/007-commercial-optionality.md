@@ -55,13 +55,13 @@ would grant anyone the right to commercialize the code. Revisit only if revenue 
 ## Consequences
 
 - **The plan does not change.** Milestones 1–6 are the same whether this ever
-  earns anything, because a product good enough to charge for and a project good enough to
-  interview on are largely the same artifact.
+  earns anything, because a product good enough to charge for and a project worth showing are
+  largely the same artifact.
 - **The repository is public**, which resolves two earlier open questions: GitHub branch
   protection is free on public repositories, and Actions minutes are unlimited. The advice
   to consider GitHub Pro no longer applies.
-- **Guest mode stays.** It exists so an interviewer can evaluate the product in thirty
-  seconds; it is also, coincidentally, a frictionless trial. The abuse controls it needs are
+- **Guest mode stays.** It exists so anyone can evaluate the product in thirty seconds
+  without an account, which is equally a frictionless trial. The abuse controls it needs are
   the same in both readings.
 - If commercial intent ever hardens, the first three items to revisit are a privacy policy,
   Vercel Pro, and a cross-tenant leakage test in CI. Not billing.

@@ -13,20 +13,14 @@ import { UnreadableDocumentError, extractText } from "./extract";
 /**
  * Extraction → chunking → embedding → storage.
  *
- * Runs inside `after()`, so it executes after the upload response has been sent
- * but still within the same serverless invocation. Two consequences shape the
- * design:
+ * Runs inside `after()`, within the same serverless invocation as the upload
+ * response. Two consequences shape it: **it can be killed at any moment**, so
+ * progress is persisted per batch and a watchdog marks abandoned documents
+ * failed; and **nothing is watching it**, so every failure must be written to the
+ * document row or it is lost.
  *
- * 1. **It can be killed at any moment.** A function timeout ends the pipeline
- *    with no chance to record why, which is why progress is persisted per batch
- *    rather than at the end, and why a separate watchdog marks abandoned
- *    documents failed.
- * 2. **Nothing is watching it.** There is no caller to return an error to, so
- *    every failure has to be written to the document row or it is lost entirely.
- *
- * Errors stored in `documents.error` are sanitized: a truncated exception
- * message and never document text. An error column is a log by another name,
- * and document contents do not belong in logs.
+ * Errors in `documents.error` are sanitized — a truncated message, never
+ * document text. An error column is a log by another name.
  */
 
 /** How many chunks are embedded per provider call. */
@@ -219,13 +213,9 @@ export async function processDocument(
  */
 
 /**
- * Retry a failed document without re-extracting it.
- *
- * Only meaningful when extraction already succeeded — the text and chunks are
- * still there, and just the embeddings are incomplete. A document that failed
- * during parsing has no chunks to resume, so the caller is told to delete and
- * re-upload instead: re-running a parser that already rejected the file would
- * fail identically.
+ * Retry without re-extracting. Only meaningful when extraction succeeded and just
+ * the embeddings are incomplete — a parse failure has no chunks to resume, and
+ * re-running a parser that already rejected the file would fail identically.
  */
 export async function resumeEmbedding(
   workspaceId: string,

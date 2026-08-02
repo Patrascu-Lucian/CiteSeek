@@ -22,14 +22,11 @@ import {
 /**
  * Every read and write of document data.
  *
- * **Each function takes a `workspaceId` and filters on it in SQL.** Tenant
- * isolation is structural rather than conventional: there is no helper here that
- * can return another tenant's rows, because there is no helper here that omits
- * the scope. See ADR 007 for why this is treated as a one-way door.
- *
- * Chunks have no `workspace_id` of their own — they inherit it through their
- * document — so chunk queries join to `documents` and filter there rather than
- * trusting a document id that a caller supplied.
+ * **Each function takes a `workspaceId` and filters on it in SQL** — there is no
+ * helper here that omits the scope, which is what makes tenant isolation
+ * structural rather than conventional (ADR 007). Chunks inherit their scope
+ * through their document, so chunk queries join to `documents` rather than
+ * trusting a caller-supplied id.
  */
 
 /** Documents stuck in `processing` longer than this are presumed dead. */
@@ -57,18 +54,11 @@ export type DocumentSummary = {
 export async function listDocuments(
   workspaceId: string,
 ): Promise<DocumentSummary[]> {
-  // A LEFT JOIN with a grouped count rather than a correlated subquery.
-  //
-  // The subquery form is the obvious way to write this and it silently does not
-  // work: inside a `sql` template Drizzle emits column references *unqualified*,
-  // so `WHERE ${chunks.documentId} = ${documents.id}` renders as
-  // `WHERE "document_id" = "id"` — and within `FROM "chunks"` both names resolve
-  // to chunks' own columns. It compares a chunk's foreign key to its own primary
-  // key, matches nothing, and returns 0 forever. In a join Drizzle qualifies
-  // every reference, because it has to.
-  //
-  // `count(chunks.embedding)` counts non-null values, which is exactly the
-  // progress figure wanted, and LEFT JOIN keeps documents that have no chunks.
+  // LEFT JOIN with a grouped count, not a correlated subquery: inside a `sql`
+  // template Drizzle emits column references *unqualified*, so the subquery form
+  // compares a chunk's foreign key to its own primary key and returns 0 forever.
+  // A join forces qualification. `count(chunks.embedding)` counts non-nulls,
+  // which is the progress figure wanted.
   return db
     .select({
       id: documents.id,
@@ -106,17 +96,11 @@ export async function findDocumentInWorkspace(
 }
 
 /**
- * Returns an explicit column list rather than a bare `.returning()`.
- *
- * A bare `.returning()` asks Postgres for every column the *schema* declares,
- * including ones the caller never reads. That made this insert fail against any
- * database whose schema had drifted — which is exactly what happened in
- * production: migration 0001 added `content_text` and `page_spans`, the
- * migration had not been applied there, and uploads returned a 500 with no body
- * while the documents list kept working because it selects columns explicitly.
- *
- * Asking only for what is used means schema drift breaks the queries that
- * actually depend on the missing column, and nothing else.
+ * Explicit column list, not a bare `.returning()`, which asks for every column
+ * the *schema* declares. That made this insert fail in production against a
+ * database missing migration 0001, while the documents list kept working because
+ * it selects explicitly. Asking only for what is used confines drift to the
+ * queries that actually need the missing column.
  */
 export async function createQueuedDocument(
   workspaceId: string,
@@ -140,18 +124,11 @@ export async function createQueuedDocument(
 }
 
 /**
- * Status transitions and extraction results.
- *
- * `updatedAt` is set explicitly on every write, using the database's clock via
- * `now()` rather than a JavaScript `Date`.
- *
- * That distinction is load-bearing. `createdAt`/`updatedAt` default to
- * `defaultNow()`, which is Postgres' clock, and the database is on another
- * machine. Passing `new Date()` from the app mixes two clocks in one column, and
- * with even a few milliseconds of skew an update can write a timestamp *earlier*
- * than the insert it follows — observed at 23 ms against Neon. The
- * stale-processing watchdog compares these timestamps, so a column that can move
- * backwards is a correctness problem rather than a cosmetic one.
+ * `updatedAt` uses the database clock via `now()`, never a JavaScript `Date`.
+ * The columns default to Postgres' clock, so passing one from the app mixes two
+ * clocks in one column — observed at 23 ms of skew against Neon, enough for an
+ * update to timestamp *earlier* than the insert it follows. The stale-processing
+ * watchdog compares these, so backwards movement is a correctness bug.
  */
 export async function updateDocument(
   workspaceId: string,
@@ -285,16 +262,13 @@ export async function setChunkEmbeddings(
 }
 
 /**
- * How many passages in this workspace are actually searchable.
+ * How many passages are actually searchable — a chunk with no embedding cannot be
+ * retrieved, so "has documents" and "has something to search" differ while one is
+ * still processing.
  *
- * A chunk with no embedding cannot be retrieved, so "has documents" and "has
- * something to search" are different questions — a document still processing
- * answers yes to the first and no to the second.
- *
- * Called only when retrieval comes back empty, to tell a workspace that has
- * nothing indexed apart from one where nothing matched. The two need different
- * things said to the reader, and guessing between them from the outside would
- * mean telling someone to upload a document they have already uploaded.
+ * Called only when retrieval comes back empty, to tell "nothing indexed" apart
+ * from "nothing matched". Guessing between them means telling someone to upload a
+ * document they already uploaded.
  */
 export async function countSearchableChunks(workspaceId: string) {
   const [row] = await db
@@ -326,15 +300,11 @@ export async function countChunks(workspaceId: string, documentId: string) {
 /**
  * Marks abandoned work as failed.
  *
- * `after()` runs inside the request's serverless invocation, so a function
- * timeout kills ingestion mid-flight with no chance to record the failure. The
- * document would otherwise sit in `processing` forever, showing a spinner that
- * never resolves and offering no retry. Called from the list endpoint, so the
- * act of looking at a stuck document is what unsticks it.
- *
- * Deliberately global rather than workspace-scoped: it is a maintenance sweep
- * over abandoned rows, reads nothing back, and returning per-workspace results
- * would make it a data-access path.
+ * `after()` runs inside the serverless invocation, so a timeout kills ingestion
+ * with no chance to record it and the document sits in `processing` forever.
+ * Called from the list endpoint, so looking at a stuck document is what unsticks
+ * it. Global rather than workspace-scoped: a maintenance sweep that reads nothing
+ * back is not a data-access path.
  */
 export async function failStaleProcessing(): Promise<number> {
   // The cutoff is computed by Postgres too. Deriving it from `Date.now()` would
