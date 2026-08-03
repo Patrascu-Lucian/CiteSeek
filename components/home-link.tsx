@@ -24,8 +24,8 @@ export function HomeLink({
     <Link
       href="/"
       className={className}
-      // The accessible name still comes from the image's alt text. `title` adds
-      // the hint for a pointer without renaming the link for a screen reader.
+      // The accessible name comes from the wordmark text. `title` adds the hint
+      // for a pointer without renaming the link for a screen reader.
       title={isHome ? undefined : "Back to home"}
       aria-current={isHome ? "page" : undefined}
     >

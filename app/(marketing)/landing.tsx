@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FileText, MessageSquareQuote, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { prefetchFor } from "@/lib/links";
 import {
   Card,
   CardDescription,
@@ -58,11 +59,16 @@ export function Landing({ primary, secondary }: LandingCallsToAction) {
         </p>
 
         <div className="mt-10 flex flex-wrap items-center gap-3">
+          {/* Both hrefs vary by actor, and two of the four write. */}
           <Button asChild size="lg">
-            <Link href={primary.href}>{primary.label}</Link>
+            <Link href={primary.href} prefetch={prefetchFor(primary.href)}>
+              {primary.label}
+            </Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link href={secondary.href}>{secondary.label}</Link>
+            <Link href={secondary.href} prefetch={prefetchFor(secondary.href)}>
+              {secondary.label}
+            </Link>
           </Button>
         </div>
       </section>

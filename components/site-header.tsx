@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { cookies } from "next/headers";
 import { LogOut } from "lucide-react";
 
@@ -60,10 +59,10 @@ export async function SiteHeader() {
     : [];
 
   /*
-    Two operations behind one affordance: a user has a session row Auth.js must
-    delete, a guest only a signed cookie. Built once, rendered in both the header
-    row above `md` and the sheet below it — a session with no visible exit is a
-    trap on a shared machine, most of all on the devices the sheet is for.
+    Two operations behind one affordance: a user has a session row to delete, a
+    guest only a cookie. Rendered in both the header row and the sheet — a
+    session with no visible exit is a trap on a shared machine. The label itself
+    is sheet-only: an email is unbounded, and `/account` already states it.
   */
   const sessionLabel =
     actor?.type === "user"
@@ -71,26 +70,12 @@ export async function SiteHeader() {
       : "Guest session";
 
   const sessionExit = actor ? (
-    <>
-      {/*
-        The row's only element allowed to give way, and clipping keeps the part
-        that identifies the account. `max-w` because truncation needs a width to
-        truncate against — otherwise the flex item sizes to its content.
-      */}
-      <span
-        title={sessionLabel}
-        className="text-muted-foreground max-w-56 truncate text-sm"
-      >
-        {sessionLabel}
-      </span>
-
-      <form action={actor.type === "user" ? signOutAction : leaveDemoAction}>
-        <Button type="submit" variant="ghost" size="sm">
-          <LogOut aria-hidden="true" className="size-4" />
-          {actor.type === "user" ? "Sign out" : "Leave demo"}
-        </Button>
-      </form>
-    </>
+    <form action={actor.type === "user" ? signOutAction : leaveDemoAction}>
+      <Button type="submit" variant="ghost" size="sm">
+        <LogOut aria-hidden="true" className="size-4" />
+        {actor.type === "user" ? "Sign out" : "Leave demo"}
+      </Button>
+    </form>
   ) : null;
 
   return (
@@ -104,20 +89,9 @@ export async function SiteHeader() {
           is clickable. No fill: a logo is a destination, not a tab.
         */}
         <HomeLink className="focus-visible:ring-ring -my-4 inline-flex shrink-0 items-center gap-1 self-stretch focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset">
-          {/*
-            `dark:invert` is exact only because every fill is the same `#1A1A1A`,
-            with no hue for inversion to distort. A brand color would break it and
-            need two assets, or inline SVG on `currentColor`.
-          */}
-          <Image
-            src="/placeholder-logo.svg"
-            alt="CiteSeek"
-            width={123}
-            height={40}
-            className="h-6 w-auto dark:invert"
-            unoptimized
-            priority
-          />
+          {/* Text, so it follows the theme with no second asset — and because the
+            placeholder image read "LOGO", leaving the product unnamed here. */}
+          <span className="font-wordmark text-lg tracking-wide">CiteSeek</span>
         </HomeLink>
 
         {/*
@@ -126,7 +100,11 @@ export async function SiteHeader() {
           "Demo" tab: for a guest it resolves to the same page as Workspace.
         */}
         {actor ? (
-          <MainNav items={items} trailing={<ThemeToggle current={theme} />}>
+          <MainNav
+            items={items}
+            trailing={<ThemeToggle current={theme} />}
+            sessionLabel={sessionLabel}
+          >
             {sessionExit}
           </MainNav>
         ) : (

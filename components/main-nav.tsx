@@ -15,20 +15,15 @@ import {
 export type NavItem = { href: string; label: string };
 
 /**
- * The header's destinations, at both sizes.
- *
- * Current-page detection lives here rather than in the link: `/w/<id>/usage`
- * starts with `/w/<id>`, so per-link prefix matching announced "current page"
- * twice. Only the container sees every href, so only it can take the longest
- * match — while prefix matching still keeps Workspace marked at `/w/<id>/c/<id>`.
- *
- * The sheet below `md` exists because four destinations in a row with space for
- * two made the browser resolve the overflow by shrinking the wordmark.
+ * The header's destinations, at both sizes. Current-page detection lives here
+ * because only the container sees every href, and per-link prefix matching
+ * announced "current page" twice on `/w/<id>/usage`.
  */
 export function MainNav({
   items,
   children,
   trailing,
+  sessionLabel,
 }: {
   items: readonly NavItem[];
   /** Passed through rather than rebuilt: sign-out vs leave-demo depends on the
@@ -37,6 +32,8 @@ export function MainNav({
   /** Stays in the header row at every size — not a destination, so it should be
    * one tap rather than two. */
   trailing?: React.ReactNode;
+  /** Sheet only: an email is unbounded and crowded the horizontal row. */
+  sessionLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -112,17 +109,18 @@ export function MainNav({
             ))}
           </nav>
 
-          {/*
-            A session with no visible exit is a trap on a shared machine, most of
-            all on the devices this sheet exists for.
-
-            The child selectors strip insets meant for a horizontal row — the
-            button brings its own `px-3` — so everything here lines up on the
-            same left edge as the links. Done here rather than in the shared
-            markup, where it would be wrong on desktop.
-          */}
+          {/* The child selectors strip insets meant for the horizontal row, so
+            everything lines up on the links' left edge. Here rather than in the
+            shared markup, where it would be wrong on desktop. */}
           {children ? (
-            <div className="border-border/60 flex flex-col items-start gap-2 border-t px-6 pt-4 [&_button]:px-0 [&>span]:px-0">
+            <div className="border-border/60 flex flex-col items-start gap-2 border-t px-6 pt-4 [&_button]:px-0">
+              {sessionLabel ? (
+                // Its own line, so a long email wraps rather than pushing
+                // anything — the reason it is not in the row above.
+                <span className="text-muted-foreground text-sm break-all">
+                  {sessionLabel}
+                </span>
+              ) : null}
               {children}
             </div>
           ) : null}

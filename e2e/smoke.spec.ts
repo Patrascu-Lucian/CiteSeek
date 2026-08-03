@@ -100,34 +100,26 @@ test.describe("a URL that does not exist", () => {
   test("shows the same page for a workspace the reader may not see", async ({
     page,
   }) => {
-    // Authorization answers "not found" rather than "forbidden" so the two are
-    // indistinguishable. That only holds if both render the same thing.
-    //
-    // Visited as a guest, so the proxy does not redirect a credential-less
-    // request to sign-in before the page gets to answer.
+    // Authorization answers "not found" rather than "forbidden", which only holds
+    // if both render the same thing. As a guest, or the proxy redirects to
+    // sign-in before the page can answer.
     await page.goto("/demo");
     await page.goto("/w/00000000-0000-4000-8000-000000000000");
 
     await expect(
       page.getByRole("heading", { level: 1, name: /workspace not available/i }),
     ).toBeVisible();
-    // Deliberately not asserting a 404 status here: this segment has a
-    // `loading.tsx`, whose Suspense boundary lets Next flush the shell — and
-    // commit a 200 — before the page calls `notFound()`. Measured, not assumed:
-    // removing `loading.tsx` turns this into a real 404. The skeleton is worth
-    // more than a status code on a route search engines never see, and the
-    // status is correct where it matters, on the app-wide 404 above.
+    // No status assertion: this segment's `loading.tsx` lets Next flush the shell
+    // — committing a 200 — before `notFound()` runs. Measured: removing it turns
+    // this into a real 404. The skeleton is worth more on a route crawlers never
+    // see, and the status is asserted on the app-wide 404 above.
   });
 });
 
 /**
- * The body background, as the browser computes it.
- *
- * Compared against a measured reference rather than a literal: the tokens are
- * `oklch`, and Chrome reports the resolved value in `lab()` — a first version
- * of this asserted `rgb(255, 255, 255)` and failed against `lab(100 0 0)`,
- * which is the same white. Comparing two measurements sidesteps the whole
- * question of which notation the engine prefers today.
+ * Compared against a measured reference, not a literal: the tokens are `oklch`
+ * and Chrome resolves them to `lab()`, so `rgb(255, 255, 255)` failed against
+ * `lab(100 0 0)` — the same white.
  */
 async function backgroundUnder(
   browser: Browser,
@@ -139,23 +131,9 @@ async function backgroundUnder(
     const page = await context.newPage();
     await page.goto("/");
     await hydrated(page);
-    if (choose) {
-      await page.getByRole("button", { name: choose }).click();
-      /*
-        Wait for the class before measuring anything.
-
-        The click posts to a server action and the page re-renders from the
-        response — so there is a window where the old palette is still painted.
-        Reading the background inside it measured the palette the reader was
-        leaving. This passed when the file ran alone and failed under the full
-        suite, which is the signature of a race rather than a bug in the code
-        being tested.
-      */
-      await expect(page.locator("html")).toHaveClass(
-        choose === "Dark" ? /dark/ : /light/,
-        THEME_ROUND_TRIP,
-      );
-    }
+    // Waits for the class before measuring: the click re-renders from the server
+    // response, and reading inside that window measured the palette being left.
+    if (choose) await chooseTheme(page, choose);
 
     return {
       background: await page
@@ -169,34 +147,43 @@ async function backgroundUnder(
 }
 
 /*
-  Above Playwright's 5s default, because that default was measuring server
-  contention rather than correctness.
-
-  Choosing a theme is a server action: it sets a cookie, revalidates the layout
-  and the page comes back re-rendered. Driven on its own that round trip
-  completes in well under a second — six runs out of six — but the suite runs
-  four workers against one Next process, and under that load it occasionally
-  exceeded 5s and failed here while passing when this file ran alone. That
-  pattern is contention, not a race in the code being tested.
+  Above the 5s default, which was measuring contention rather than correctness:
+  the theme round trip finishes well under a second alone, and only exceeds 5s
+  with four workers against one Next process.
 */
 const THEME_ROUND_TRIP = { timeout: 15_000 };
 
 /**
- * Waits for React to take over the form before clicking it.
+ * The control is a form posting a server action: the browser submits it natively
+ * before hydration, React after. A click *during* the handover is dropped rather
+ * than delayed, so no timeout helps.
  *
- * The theme control is a server action in a plain form, so it works twice over:
- * before hydration the browser posts it natively, and after hydration React
- * intercepts. A click landing *during* hydration can be lost between the two —
- * the submission is dropped rather than delayed, which is why raising the
- * timeout never helped and why the failure appeared only under a loaded suite,
- * where hydration takes longer.
- *
- * A real reader can hit the same window. It is narrow, the control is not on the
- * critical path, and the fix belongs to the framework rather than here — but the
- * test should not pretend the window does not exist.
+ * This was `waitForLoadState("networkidle")`, which worked only because the
+ * landing page's prefetches kept the network busy until hydration finished.
  */
 async function hydrated(page: Page) {
-  await page.waitForLoadState("networkidle");
+  await page.waitForFunction(() => {
+    const button = document.querySelector('button[name="theme"]');
+    return (
+      button !== null &&
+      Object.keys(button).some((key) => key.startsWith("__reactFiber$"))
+    );
+  });
+}
+
+/**
+ * Retries the click, not just the assertion: `hydrated()` is necessary and not
+ * sufficient, since React tags the node before the action is wired. A real reader
+ * can hit the same window.
+ */
+async function chooseTheme(page: Page, label: "Light" | "Dark") {
+  await expect(async () => {
+    await page.getByRole("button", { name: label }).click();
+    await expect(page.locator("html")).toHaveClass(
+      label === "Dark" ? /dark/ : /light/,
+      { timeout: 3_000 },
+    );
+  }).toPass(THEME_ROUND_TRIP);
 }
 
 test.describe("choosing a theme", () => {
@@ -212,9 +199,8 @@ test.describe("choosing a theme", () => {
     await expect(page.locator("html")).not.toHaveClass(/dark/);
     await hydrated(page);
 
-    await page.getByRole("button", { name: "Dark" }).click();
+    await chooseTheme(page, "Dark");
 
-    await expect(page.locator("html")).toHaveClass(/dark/, THEME_ROUND_TRIP);
     await expect(page.getByRole("button", { name: "Dark" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -244,52 +230,49 @@ test.describe("choosing a theme", () => {
     browser,
   }) => {
     /*
-      The two ways into the dark palette must agree, and for one commit they did
-      not. The palette itself is driven by CSS variables, but `dark:` utilities
-      throughout the shadcn components are driven by the *variant* — which
-      matched only the explicit class. A reader arriving by operating-system
-      preference got the dark palette with those rules inert.
+      The palette is CSS variables, but `dark:` utilities are driven by the
+      variant — which for one commit matched only the explicit class, leaving them
+      inert for a reader arriving by system preference. So the probe must carry a
+      `dark:` utility: "Sign in to upload" has `dark:bg-input/30`.
 
-      The logo is the probe because it is the one element guaranteed to be the
-      same on both paths: the header renders differently for a visitor with a
-      session than for one without, so comparing "the first link matching demo"
-      compared two different components and reported a difference that was not
-      one.
+      As a guest, since the landing page's calls to action differ per actor.
     */
-    const logoFilter = async (
+    const probeBackground = async (
       colorScheme: "light" | "dark",
       choose?: "Dark",
     ) => {
       const context = await browser.newContext({ colorScheme });
       try {
         const page = await context.newPage();
-        await page.goto("/");
+        await page.goto("/demo");
         await hydrated(page);
         if (choose) {
-          await page.getByRole("button", { name: choose }).click();
-          await expect(page.locator("html")).toHaveClass(
-            /dark/,
-            THEME_ROUND_TRIP,
-          );
+          await chooseTheme(page, choose);
+          // Reloaded, so the button is painted rather than mid-transition: the
+          // probe carries `transition-all`, and reading it straight after the
+          // click returned an interpolated alpha that matched neither palette.
+          await page.reload();
+          await hydrated(page);
         }
 
         // Awaited, not returned: `finally` closes the context, and returning
         // the promise lets that happen before it resolves.
         return await page
-          .locator("header img")
-          .evaluate((el) => getComputedStyle(el).filter);
+          .getByRole("link", { name: /^sign in to upload$/i })
+          .evaluate((el) => getComputedStyle(el).backgroundColor);
       } finally {
         await context.close();
       }
     };
 
-    const cookieDark = await logoFilter("light", "Dark");
-    const systemDark = await logoFilter("dark");
-    const light = await logoFilter("light");
+    const cookieDark = await probeBackground("light", "Dark");
+    const systemDark = await probeBackground("dark");
+    const light = await probeBackground("light");
 
-    expect(cookieDark).toContain("invert");
+    // The assertion is that the two dark paths agree *and* that dark differs
+    // from light — without the second, two equally broken paths would pass.
     expect(systemDark).toBe(cookieDark);
-    expect(light).not.toContain("invert");
+    expect(cookieDark).not.toBe(light);
   });
 
   test("follows the operating system when nothing has been chosen", async ({

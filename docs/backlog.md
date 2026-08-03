@@ -97,6 +97,27 @@ here, not in the current branch.
   `docs/decisions/002-embedding-model-and-dimension.md` and
   `docs/decisions/007-commercial-optionality.md`.
 
+## Known defects
+
+- **A client-side navigation occasionally commits the route and renders no page.** Reproduced
+  under load — `--repeat-each=40 --workers=4` against one Next process, on the wordmark's
+  `/sign-in` → `/` transition — at roughly **2 in 40**. Not a slow render: the accessibility
+  snapshot at 15 seconds has the header and the footer and **no `<main>` at all**, so neither
+  the page nor `(marketing)/loading.tsx` is on screen, plus an empty `role="alert"` that matches
+  nothing this app renders in that state.
+
+  **Pre-existing, and measured as such**: the same 2-in-40 on `main` in a separate worktree, so
+  it predates the wordmark and the prefetch work. It is also what shows up by hand as "a route
+  change sometimes takes too long" locally.
+
+  **Timeouts do not fix it, and that is the useful part of the finding.** Raising the assertion
+  to 15s and then to 30s changed the failure rate not at all — it waits the full thirty seconds
+  and the element never appears. So whatever the router is waiting for never arrives, rather
+  than arriving late, and no amount of patience in the test is the answer.
+
+  Worth a look at whether it survives outside the four-worker harness, and whether it can happen
+  on a deployed instance at all. Until then CI's two retries absorb it.
+
 ## Deployment
 
 - ~~**Nothing ties a schema change to a production migration.**~~ Closed in Milestone 3 — see
@@ -346,42 +367,36 @@ each of these is reversible and therefore safe to defer.
 
 ## Branding
 
-- **The logo is a placeholder, and the wordmark is deliberately not one.** `app/icon.png`,
-  `app/apple-icon.png` and `public/citeseek-mark.png` are crops of a generated lockup, kept
-  because they replaced create-next-app's default favicon — a scaffold tell visible in every
-  browser tab, and the same class of defect as the `title: "Create Next App"` fixed in Milestone 0. What they are not is a considered identity.
+- **There is no mark, only a wordmark, and that is the current position rather than a gap.**
+  The header sets "CiteSeek" as text in Audiowide. Two placeholder images preceded it — a raster
+  "C" composed against the text "iteSeek", then an SVG that read "LOGO" — and both were worse
+  than nothing: the first was a half-real lockup nobody kept noticing was provisional, and the
+  second removed the product's own name from its own header.
 
-  The header uses the mark as the letter "C" followed by the text "iteSeek" — a placeholder
-  device that gets a real logo into the top-left without pretending the artwork is finished.
-  The link carries `aria-label="CiteSeek"` and the fragment is `aria-hidden`, because half a
-  word is not a name.
+  Text is also the cheaper position to hold. It follows the theme with no second asset and no
+  `invert`, stays crisp at any density, and is selectable and searchable. A real mark should be
+  added _beside_ it rather than replacing it.
 
-  Three specific things to fix when the real mark is commissioned in Milestone 5:
+- **The favicons are still the mark the header no longer uses.** `app/icon.png` and
+  `app/apple-icon.png` are crops of the old generated lockup — a navy "C" over a magnifier,
+  raster, on an opaque plate. The header went vector and monochrome without them, so the tab
+  and the page now show two different identities. Not urgent, because both beat the
+  create-next-app default they replaced, but it is the sort of thing a stranger sees first and
+  it should be resolved in the same pass as the real mark rather than separately.
 
-  - **The source has an opaque white background**, so it is shown on a deliberate white tile
-    rather than dropped onto the header. A transparent SVG would let it take the page's
-    background in both themes and remove the tile.
-  - **It is raster.** An SVG would be sharp at any density, would scale to a hero without a
-    second asset, and could inherit `currentColor` for dark mode.
-  - **The wordmark stays as text on purpose** — it follows the theme for free, is crisp at any
-    density, and stays selectable. Its color is `--brand`, sampled from the artwork (the mean
-    of 34,247 inked pixels, `#0b3259`) rather than guessed, with a lighter value already
-    declared for `.dark` so the brand color is not what breaks when dark mode ships. Any real
-    logo work should keep this split rather than replace it.
-
-  Worth recording about the brief that produced it: the commissioned research report frames
+  Worth recording about the brief that produced the original: the commissioned research report frames
   CiteSeek as a tool for **academic researchers** and benchmarks it against Google Scholar,
   Zotero and PubMed. Nothing in this project says that — the README says "AI document
   assistant", the demo fixture is a company handbook, and the positioning is EU-hosted and
   GDPR-first. The persona appears to be inferred from the word "citations". Re-brief before
   commissioning anything.
 
-- **A logo asset with more than one usable color.** The current placeholder is an SVG whose every
-  fill is `#1A1A1A`, which is what lets dark mode be a single `invert`. The constraint to carry
-  into a real brief: the moment the mark carries a brand color, inversion stops being correct and
-  it needs either two assets or inline SVG driven by `currentColor`. Ask for transparency and a
-  single-color variant explicitly — the raster this replaced had no alpha at all, which forced a
-  white plate in both themes and ruled out every filter-based approach.
+- **A logo asset, briefed against what the wordmark already gets for free.** Ask for
+  transparency, vector, and a single-color variant explicitly. The reason is what both
+  placeholders cost: the raster had no alpha at all, forcing a white plate in both palettes, and
+  the SVG that replaced it only worked in dark because every fill was the same `#1A1A1A` — a
+  mark carrying a brand color needs two assets or inline SVG on `currentColor`. Text needs
+  none of that, so a mark has to earn its place beside it.
 
 - **Trim the code comments across the codebase.** The convention going forward is that a comment
   explains the non-obvious — a coupling, a measured number, a defect prevented, a rejected

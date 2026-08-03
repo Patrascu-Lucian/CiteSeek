@@ -1111,3 +1111,82 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   **When a tool and a reading of the source disagree, the source wins and the tool is the defect.**
   The instinct is to explain the discrepancy — this file is small, percentages are noisy. The
   useful move is to assume the instrument is wrong and go check it.
+
+## Screenshots the test fakes were not allowed to take
+
+- **Issue**: the README needed four screenshots, and the obvious way to produce them was the
+  setup the E2E suite already uses — a local production build with `CHAT_PROVIDER=fake` and
+  `EMBEDDINGS_PROVIDER=fake`. Deterministic, offline, no quota spent. It would have produced
+  images that lie.
+
+- **Why**: the fake embedder is a hashing bag-of-words vectorizer. That is the right shape for
+  its actual job — it proves the pipeline stores, retrieves and orders — but it is not semantic,
+  and nothing in the suite depends on it being semantic. Asking the seeded handbook _"do I have
+  to keep receipts for expenses?"_ under the fake retrieves the **laptop-encryption** passage.
+  The answer streams, the chip renders, the panel opens on a highlighted passage, and every
+  assertion in the E2E suite passes — because each one checks that a citation _resolves_, not
+  that it is _right_.
+
+  A screenshot has no assertions at all. It shows a reader the chip and the passage side by
+  side, which is precisely the thing the fake gets wrong, on the one claim the whole project is
+  built on.
+
+- **Fix**: shoot the deployed app. Real embeddings, real model, a guest session on the public
+  demo. The cost is output that is not byte-reproducible and a little quota per run, both
+  recorded in the script's header so the next person does not "fix" it back.
+
+- **Lesson**: **a fake is scoped to the assertions written against it, and an image asserts
+  nothing.** Every existing use of this embedder is sound; the same fake became dishonest the
+  moment the output was a picture instead of a boolean. Before reusing a test double in a new
+  context, ask what it is allowed to be wrong about — and whether the new consumer is checking
+  that.
+
+## A link that started a session for everyone who looked at it
+
+- **Issue**: reported from the outside as a rendering glitch — click the wordmark on the landing
+  page and the calls to action change from "Get started" to "Continue in the demo", but the
+  header keeps showing no navigation until you visit another page or reload.
+
+- **Cause, which is not a rendering bug at all.** `/demo` is a `GET` route handler that sets a
+  guest cookie, and Next prefetches `<Link>` targets as they enter the viewport. So loading the
+  landing page _ran the handler_, and every visitor was handed a guest session without touching
+  anything. Measured rather than reasoned: `/privacy` (no demo link) minted no cookie, `/` minted
+  `citeseek.guest`, and `/` with JavaScript disabled minted none.
+
+  The two-part symptom then follows exactly. The cookie arrives with the same response that
+  rendered the page, so that render is still anonymous. The next request has the cookie, and the
+  route segment re-renders as a guest — while the **header lives in a layout**, which a
+  same-layout navigation reuses rather than re-renders. Page updated, header did not.
+
+- **Worse next door**: `/w` is the same shape and calls `getOrCreatePersonalWorkspace`. A
+  prefetched link to it creates a workspace.
+
+- **Fix**: `prefetchFor()` in `lib/links.ts`, one list of the GET routes that write, applied at
+  every link to them. A list rather than seven scattered `prefetch={false}` props, because the
+  failure is silent and the next link is easy to add without one. An E2E test asserts that
+  loading the landing page leaves no session cookie.
+
+- **Then it took a test down with it, which is the more interesting half.** Disabling those
+  prefetches broke `a choice applies immediately and survives navigation`. The theme control is a
+  form posting to a server action, and a click landing before hydration is **dropped, not
+  delayed**. The suite's guard against that was `waitForLoadState("networkidle")` — and it had
+  only ever worked because the prefetch traffic happened to keep the network busy until
+  hydration finished. Removing the prefetches removed a guard nobody knew was load-bearing. It
+  now waits for React's own `__reactFiber$` key on the button, which is the actual signal; the
+  suite is also ~10s faster for not waiting on idle network.
+
+- **Lesson**: three.
+
+  **A `GET` that writes will eventually be called by something that never clicked.** Prefetchers,
+  crawlers, tab restore, link previews. This is the third instance in this project — `/c/new` was
+  a link until the same defect made it a form POST — which is why the rule is now a list in code
+  rather than a habit.
+
+  **A user-visible symptom can be two bugs deep.** "The header does not update" is true, and
+  fixing the header would have left every visitor still collecting a session cookie from a page
+  they only read.
+
+  **A test can pass for a reason unrelated to what it asserts.** `networkidle` never checked
+  hydration; it correlated with it. Correlation held until an unrelated change removed the
+  traffic, and then a real assertion started failing for a reason that had nothing to do with the
+  thing it tests.

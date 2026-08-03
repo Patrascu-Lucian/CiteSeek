@@ -27,6 +27,7 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx lib/db/seed.mts",
     "demo:pdf": "tsx scripts/build-demo-pdf.mts",
+    "demo:shots": "tsx scripts/build-readme-shots.mts",
     "db:check": "tsx lib/db/check-migrations.mts"
   },
   "dependencies": {

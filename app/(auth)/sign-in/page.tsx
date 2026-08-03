@@ -89,6 +89,7 @@ export default async function SignInPage({
             Just looking around?{" "}
             <Link
               href="/demo"
+              prefetch={false}
               className="text-foreground underline underline-offset-4"
             >
               Try the demo

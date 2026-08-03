@@ -5,17 +5,13 @@ import { Button } from "@/components/ui/button";
 import type { RefusalReason } from "@/lib/ai/types";
 
 /**
- * What a reader is offered when their question could not be grounded. "How do I
- * upload a file?" is refused because the answer is in nobody's documents —
- * correct, and useless without saying so.
+ * What a reader is offered when their question could not be grounded. Two
+ * alternatives rejected in ADR 017: a document about the product would be
+ * self-referential text in the corpus, and a second ungrounded path would give
+ * the model somewhere to answer from that is not the documents.
  *
- * Two alternatives rejected (ADR 017): seeding a document about the product puts
- * self-referential text in the corpus where it can be cited as the reader's own,
- * and a second ungrounded path gives the model somewhere to answer from that is
- * not the documents.
- *
- * **Every word here is written by us, none by a model** — a turn that could not
- * be grounded must not produce prose that reads as if it had been.
+ * **Every word here is ours, none a model's** — an ungrounded turn must not
+ * produce prose that reads as if it had been grounded.
  */
 export function Refusal({
   reason,
@@ -76,11 +72,6 @@ export function Refusal({
         </>
       )}
 
-      {/*
-        The affordance mirrors the read-only card in `WorkspaceSections`: a
-        reader who cannot upload is not told to, because that is an instruction
-        they are unable to follow.
-      */}
       <Affordance
         canUpload={canUpload}
         signedIn={signedIn}
@@ -91,13 +82,9 @@ export function Refusal({
 }
 
 /**
- * What to do next, which depends entirely on who is reading.
- *
- * Mirrors the read-only card in `WorkspaceSections`: someone who cannot upload
- * here is never told to, because that is an instruction they are unable to
- * follow. A writer needs no link — the dropzone is already on this page, above
- * the conversation — so they get a sentence pointing at it rather than a button
- * navigating them to where they already are.
+ * What to do next, mirroring the read-only card in `WorkspaceSections`: a reader
+ * who cannot upload is never told to. A writer needs no link either — the
+ * dropzone is already above the conversation.
  */
 function Affordance({
   canUpload,
@@ -129,7 +116,10 @@ function Affordance({
           : "This is a shared demo, so it is read-only."}
       </p>
       <Button asChild size="sm" variant="outline">
-        <Link href={signedIn ? "/w" : "/sign-in"}>
+        <Link
+          href={signedIn ? "/w" : "/sign-in"}
+          prefetch={signedIn ? false : undefined}
+        >
           {signedIn ? "Go to your workspace" : "Sign in to upload your own"}
         </Link>
       </Button>

@@ -11,20 +11,12 @@ import {
 } from "@/components/ui/card";
 
 /**
- * Not-found and unauthorized are deliberately the same response.
+ * Not-found and unauthorized answer the same, or workspace ids could be
+ * enumerated by comparing a 404 against a 403.
  *
- * Distinguishing them would let anyone enumerate which workspace ids exist by
- * comparing a 404 against a 403. The cost is a slightly less helpful message for
- * the rare legitimate case; the benefit is that ids stay unguessable.
- *
- * A segment boundary rather than a component the page renders directly, which is
- * what it was before: returning this from `page.tsx` produced the right words
- * with a **200 status**. A soft 404 tells crawlers and uptime monitoring the URL
- * is fine, and makes "is the workspace missing?" unanswerable from logs.
- * `notFound()` renders this file *and* sets the status.
- *
- * The copy stays specific rather than falling back to the app-wide 404: someone
- * who followed a shared link needs "sign in" or "try the demo", not "go home".
+ * A segment boundary, not a component `page.tsx` returns: that produced the right
+ * words with a **200**, which tells crawlers and monitoring the URL is fine.
+ * `notFound()` renders this *and* sets the status.
  */
 export default function WorkspaceNotFound() {
   return (
@@ -48,7 +40,9 @@ export default function WorkspaceNotFound() {
             <Link href="/sign-in">Sign in</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/demo">Try the demo</Link>
+            <Link href="/demo" prefetch={false}>
+              Try the demo
+            </Link>
           </Button>
         </CardContent>
       </Card>
