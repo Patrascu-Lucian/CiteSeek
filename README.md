@@ -6,7 +6,77 @@ clickable citations to exact source passages.
 **Live:** [cite-seek.vercel.app](https://cite-seek.vercel.app) — click **Try the demo**;
 no account needed.
 
-> **Status: Milestone 4 complete.** Upload a PDF, Word document,
+<a href="docs/images/answer.png"><img src="docs/images/answer.png" width="560" alt="A cited answer in the demo workspace, with numbered citation chips"></a>
+
+<sub>Screenshots are thumbnails — click for full size. Regenerate with `pnpm demo:shots`.</sub>
+
+## The problem this solves
+
+An assistant that reads your documents is easy to build and hard to trust. The failure mode
+is not a wrong answer — it is a **plausible** answer you cannot check, or a citation that
+looks authoritative and points at nothing.
+
+So the work here is not the chat. It is making a citation a **verifiable claim about
+retrieval**: every chunk stores the character offsets it came from, the answer carries those
+offsets forward, and clicking `[1]` opens the source document scrolled to that exact passage
+with the text highlighted. If the stored quote no longer matches the document, the panel says
+so rather than highlighting the wrong paragraph.
+
+<a href="docs/images/source.png"><img src="docs/images/source.png" width="620" alt="The source panel open on the cited passage, highlighted, with its page number"></a>
+
+The part worth stealing is the guarantee underneath it. **When nothing retrieved clears the
+relevance floor, the model is never called at all** — the route returns a refusal it wrote
+itself. A hallucinated citation is not unlikely here; it is unreachable, because there was no
+generation step in which to invent one
+([ADR 011](docs/decisions/011-retrieval-and-citation-strategy.md)).
+
+## How a question is answered
+
+```mermaid
+flowchart LR
+    A[Question] --> B[Embed]
+    B --> C[(pgvector<br/>scoped in SQL)]
+    C --> D{Clears the<br/>relevance floor?}
+    D -- no --> E[Refusal we wrote.<br/>No model call.]
+    D -- yes --> F[Citations first,<br/>then the model]
+```
+
+Read the two edges out of the decision node together — they are the whole design.
+
+The refusal branch never reaches a model, which is what makes "no relevant passages" a
+structural outcome rather than a prompt instruction the model may ignore. The answer branch
+writes **the citations before generation begins**, so a marker resolves against a payload
+that already exists. The model chooses which passages to cite; it cannot invent what it is
+citing.
+
+That ordering is also why the [Numbers](#numbers) below report two separate figures: the
+stream's first byte at ~460 ms is the citation payload, and the first token of prose at
+~1.03 s is the model. They are different events, and quoting only the smaller one would be
+flattering and wrong.
+
+Workspace scoping is enforced in the SQL of that vector search, not by filtering afterwards
+in JavaScript. Every query helper takes a workspace id; unscoped ones do not exist, and a
+cross-tenant integration test keeps it that way.
+
+## Decisions worth defending
+
+Full reasoning for each is in [`docs/decisions/`](docs/decisions/); these are the ones that
+shaped the product rather than the toolchain.
+
+| ADR                                                                          | Decision                                      | Why it matters                                                                          |
+| ---------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [006](docs/decisions/006-deployment-topology.md)                             | Functions in `fra1`, beside the database      | Cut a database-backed route by 66%; every query had been crossing the Atlantic twice    |
+| [008](docs/decisions/008-chunking-strategy.md)                               | Structure-aware chunks with character offsets | Offsets are what make a citation resolvable to a passage rather than to a document      |
+| [011](docs/decisions/011-retrieval-and-citation-strategy.md)                 | Relevance floor short-circuits generation     | A refusal cannot cite, because no model runs on that branch                             |
+| [013](docs/decisions/013-chat-persistence.md)                                | Guest conversations are never written down    | Keeps an unbounded write path off a public URL                                          |
+| [014](docs/decisions/014-usage-limiting.md)                                  | Count provider calls, not questions           | A refusal still costs an embedding, and refusals are what an abuser generates           |
+| [016](docs/decisions/016-workspace-membership-deferred.md)                   | No roles table                                | A role column whose only value is `owner` adds a branch no user can reach               |
+| [017](docs/decisions/017-answering-questions-the-documents-cannot-answer.md) | The refusal says where the answer lives       | Every word written by us — an ungrounded turn must not read as if it were grounded      |
+| [018](docs/decisions/018-theme-persistence-and-the-flash.md)                 | Theme in a cookie, not `localStorage`         | The server renders the right palette on the first byte, so there is no flash to correct |
+
+## What works today
+
+> **Status: Milestone 5.** Upload a PDF, Word document,
 > Markdown or text file, then ask questions about it. Answers stream, and every claim carries a
 > numbered citation that opens the source document scrolled to the exact passage. When nothing
 > relevant is found, the answer says so, cites nothing, and shows what the documents _do_
@@ -21,52 +91,6 @@ no account needed.
 >
 > What each milestone covers is in [`docs/strategy-plan.md`](docs/strategy-plan.md). This
 > line is the status; that document is the plan.
-
-## Stack
-
-Next.js 16 (App Router) · React 19 · TypeScript 5.9 (strict) · Tailwind v4 ·
-shadcn/ui · Postgres 18 + pgvector · Drizzle ORM · Auth.js v5 · Vitest + Testing Library ·
-Playwright · GitHub Actions · Vercel + Neon
-
-## Getting started
-
-Requires Node 24 (see `.nvmrc`) and pnpm 11.
-
-```bash
-nvm use                      # Node 24 LTS
-pnpm install                 # also enables the git hooks in .githooks/
-cp .env.example .env.local   # fill in DATABASE_URL
-docker compose up -d         # or point DATABASE_URL at a Neon branch
-pnpm db:migrate
-pnpm db:seed
-pnpm dev                     # http://localhost:3000
-```
-
-## Commands
-
-```bash
-pnpm dev               # dev server
-pnpm build             # production build
-pnpm test              # vitest unit tests (no database needed)
-pnpm test:integration  # vitest against a real Postgres (needs DATABASE_URL)
-pnpm test:e2e          # playwright (builds and serves automatically)
-pnpm lint              # eslint, type-aware
-pnpm typecheck         # tsc --noEmit
-pnpm format            # prettier --write
-```
-
-Database:
-
-```bash
-docker compose up -d   # local Postgres 18 + pgvector
-pnpm db:migrate        # apply migrations (creates the vector extension too)
-pnpm db:seed           # demo workspace; idempotent
-pnpm db:generate       # emit a new migration after editing lib/db/schema.ts
-pnpm db:studio         # browse the database
-```
-
-`format:check`, `lint`, `typecheck`, `test`, `build`, integration tests, and the
-Playwright smoke suite all gate every pull request.
 
 ## Numbers
 
@@ -166,6 +190,8 @@ The first attempt at this compared **one** run against one and reported 99 → 9
 time up from 50 ms to 300 ms. That regression does not exist; total blocking time is the noisiest
 metric Lighthouse reports, and a single pair cannot tell a change from variance.
 
+<a href="docs/images/dark.png"><img src="docs/images/dark.png" width="400" alt="The same workspace in the dark palette"></a>
+
 The workspace page is short of the 95 target and the reason is specific: 124 KB of the
 remaining bundle is unused Vercel AI SDK and Zod, reachable only by deferring `useChat` —
 which would delay the composer becoming interactive. Trading the product's primary interaction
@@ -174,13 +200,119 @@ chat panel's empty-state text, and its breakdown is 20 ms of server time against
 render delay, so the remaining cost is script evaluation rather than anything the database
 does.
 
+## Known gaps at this milestone
+
+**The model provider is on a free tier, and anyone who signs in can upload to it.** Under the
+standard free-tier terms, submitted content may be used to improve the provider's services — so
+the [privacy page](<app/(marketing)/privacy/page.tsx>) says so plainly and the warning is repeated
+beside the upload control rather than buried. This is the gap that would have to close before
+anyone uploaded a document that mattered: a paid tier, or written data-processing terms. It is
+listed here rather than quietly deferred because the alternative is a policy that overstates its
+protections, which is worse than having none.
+
+Guest conversations are not saved — a reload starts over. That is deliberate: persisting them
+would put an unbounded write path behind a public URL
+([ADR 013](docs/decisions/013-chat-persistence.md)). Signed-in conversations are kept, listed
+and addressable; the demo has no history because nothing about a guest is written down.
+
+Workspaces have a single owner and cannot be shared. Roles and membership were planned for
+Milestone 4 and deliberately cut: the structural claim they would make — authorization enforced
+in the data layer rather than by hiding buttons — is already true and proven by the cross-tenant
+tests, and a role column whose only production value is `owner` adds a branch no user can reach
+([ADR 016](docs/decisions/016-workspace-membership-deferred.md)).
+
+The workspace page scores 90 on Lighthouse rather than the 95 this project set as its bar. The
+cause is measured and recorded above; closing it means deferring chat hydration, which is a
+worse trade than the points are worth.
+
+The relevance threshold that decides when to answer "I don't know" is a starting value, not a
+tuned one; it needs measuring against real documents with the real embedding model.
+
+Usage limits are enforced but their thresholds are provisional in the same way — they need
+real traffic to calibrate against, and are deliberately generous because shared addresses
+(office networks, mobile carriers) put many visitors in one bucket
+([ADR 014](docs/decisions/014-usage-limiting.md)).
+
+Email magic-link sign-in is deferred until an email sender is configured — GitHub OAuth and
+guest mode both work. The demo workspace is read-only by design, so uploading requires signing
+in. Tracked in [`docs/backlog.md`](docs/backlog.md).
+
+## What's next
+
+**Milestone 6 is an in-browser inference mode**: the same documents and the same citation
+path, with a small model running locally through WebGPU. Nothing leaves the machine, which
+turns the free-tier caveat in [Known gaps](#known-gaps-at-this-milestone) from a limitation
+into a choice the reader makes per question. Quality drops; the guarantee that a refusal
+cannot cite does not, because it is enforced before any model is reached.
+
+The calibration work the gaps section names comes with it. The relevance floor and the usage
+thresholds are both starting values, and both need real documents and real traffic rather
+than another round of reasoning.
+
+## Stack
+
+Next.js 16 (App Router) · React 19 · TypeScript 5.9 (strict) · Tailwind v4 ·
+shadcn/ui · Postgres 18 + pgvector · Drizzle ORM · Auth.js v5 · Vitest + Testing Library ·
+Playwright · GitHub Actions · Vercel + Neon
+
+## Getting started
+
+Requires Node 24 (see `.nvmrc`) and pnpm 11.
+
+```bash
+nvm use                      # Node 24 LTS
+pnpm install                 # also enables the git hooks in .githooks/
+cp .env.example .env.local   # fill in DATABASE_URL
+docker compose up -d         # or point DATABASE_URL at a Neon branch
+pnpm db:migrate
+pnpm db:seed
+pnpm dev                     # http://localhost:3000
+```
+
+## Commands
+
+```bash
+pnpm dev               # dev server
+pnpm build             # production build
+pnpm test              # vitest unit tests (no database needed)
+pnpm test:integration  # vitest against a real Postgres (needs DATABASE_URL)
+pnpm test:e2e          # playwright (builds and serves automatically)
+pnpm lint              # eslint, type-aware
+pnpm typecheck         # tsc --noEmit
+pnpm format            # prettier --write
+```
+
+Database:
+
+```bash
+docker compose up -d   # local Postgres 18 + pgvector
+pnpm db:migrate        # apply migrations (creates the vector extension too)
+pnpm db:seed           # demo workspace; idempotent
+pnpm db:generate       # emit a new migration after editing lib/db/schema.ts
+pnpm db:studio         # browse the database
+```
+
+Every `db:*` command reads `DATABASE_URL` from `.env.local`, which points at a **development**
+branch. Production is a different branch of the same Neon project, and because Neon branches
+are copy-on-write clones they carry **identical row ids** — so a command aimed at production
+and run against dev succeeds, prints ids that look right, and changes nothing anybody can see.
+The hostname is the only thing that distinguishes them, which is why the seed prints it. Pass
+the production URL explicitly:
+
+```bash
+DATABASE_URL='<production-url>' pnpm db:migrate
+```
+
+`format:check`, `lint`, `typecheck`, `test`, `build`, integration tests, and the
+Playwright smoke suite all gate every pull request.
+
 ## Testing
 
 | Layer       | Count | What it covers                                                                                  |
 | ----------- | ----- | ----------------------------------------------------------------------------------------------- |
-| Unit        | 478   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
+| Unit        | 487   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
 | Integration | 136   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
-| E2E         | 73    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
+| E2E         | 76    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
 
@@ -219,40 +351,3 @@ public repositories but requires a paid plan for private ones.
 
 Built with AI-assisted tooling (Claude Code) under close review — see
 [`docs/decisions/`](docs/decisions/) for the architectural reasoning.
-
-## Known gaps at this milestone
-
-**The model provider is on a free tier, and anyone who signs in can upload to it.** Under the
-standard free-tier terms, submitted content may be used to improve the provider's services — so
-the [privacy page](<app/(marketing)/privacy/page.tsx>) says so plainly and the warning is repeated
-beside the upload control rather than buried. This is the gap that would have to close before
-anyone uploaded a document that mattered: a paid tier, or written data-processing terms. It is
-listed here rather than quietly deferred because the alternative is a policy that overstates its
-protections, which is worse than having none.
-
-Guest conversations are not saved — a reload starts over. That is deliberate: persisting them
-would put an unbounded write path behind a public URL
-([ADR 013](docs/decisions/013-chat-persistence.md)). Signed-in conversations are kept, listed
-and addressable; the demo has no history because nothing about a guest is written down.
-
-Workspaces have a single owner and cannot be shared. Roles and membership were planned for
-Milestone 4 and deliberately cut: the structural claim they would make — authorization enforced
-in the data layer rather than by hiding buttons — is already true and proven by the cross-tenant
-tests, and a role column whose only production value is `owner` adds a branch no user can reach
-([ADR 016](docs/decisions/016-workspace-membership-deferred.md)).
-
-The workspace page scores 90 on Lighthouse rather than the 95 this project set as its bar. The
-cause is measured and recorded above; closing it means deferring chat hydration, which is a
-worse trade than the points are worth.
-
-The relevance threshold that decides when to answer "I don't know" is a starting value, not a
-tuned one; it needs measuring against real documents with the real embedding model.
-
-Usage limits are enforced but their thresholds are provisional in the same way — they need
-real traffic to calibrate against, and are deliberately generous because shared addresses
-(office networks, mobile carriers) put many visitors in one bucket
-([ADR 014](docs/decisions/014-usage-limiting.md)).
-
-Email magic-link sign-in is deferred until an email sender is configured — GitHub OAuth and
-guest mode both work. The demo workspace is read-only by design, so uploading requires signing
-in. Tracked in [`docs/backlog.md`](docs/backlog.md).
