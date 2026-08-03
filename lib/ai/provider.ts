@@ -21,11 +21,11 @@ export type ProviderEnv = {
   [key: string]: string | undefined;
 };
 
-export const EMBEDDING_MODEL_ID = "gemini-embedding-001";
-
 /** `-001`, not `-2`: the newer model returns a *single aggregated* embedding for
  * multiple inputs and rejects `taskType`, so it would quietly produce a retrieval
  * system that cannot retrieve. ADR 002. */
+export const EMBEDDING_MODEL_ID = "gemini-embedding-001";
+
 export function resolveEmbeddingsProvider(
   env: ProviderEnv = process.env,
 ): EmbeddingsProviderName {
