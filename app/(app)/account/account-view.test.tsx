@@ -112,4 +112,14 @@ describe("AccountView — a guest", () => {
       "/sign-in",
     );
   });
+
+  it("offers a way to end the session", () => {
+    // The header gave this up to offer the way *in* instead, so this page is
+    // where it has to be — a session with no exit anywhere is the failure.
+    render(<AccountView kind="guest" />);
+
+    expect(
+      screen.getByRole("button", { name: /leave the demo/i }),
+    ).toBeInTheDocument();
+  });
 });

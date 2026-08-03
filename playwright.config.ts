@@ -1,20 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Overridable so the suite can run while a dev server holds 3000. The default is
-// unchanged, and `reuseExistingServer: false` below still applies either way —
-// this picks a free port for a server Playwright starts itself, it does not
-// attach to one somebody else started.
+// Overridable so the suite can run while a dev server holds 3000.
 const PORT = Number(process.env.E2E_PORT ?? 3000);
-// `localhost`, not `127.0.0.1`: Next normalizes redirect targets to the host it
-// was started on, so a test browsing 127.0.0.1 would be redirected to localhost
-// and lose its cookies at the origin boundary. Chrome treats localhost as a
-// secure context, so `Secure` cookies still work over plain HTTP here.
+// `localhost`, not `127.0.0.1`: Next normalizes redirects to the host it was
+// started on, so a test on 127.0.0.1 loses its cookies at the origin boundary.
 const baseURL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
-  // Fail the build if a `test.only` was committed by accident.
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
@@ -29,38 +23,23 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  // Run against a production build: dev-mode timings are not representative,
-  // and TTFT numbers in Milestone 3 have to be measured against real output.
+  // A production build: dev-mode timings would not be representative of the
+  // TTFT numbers measured elsewhere.
   webServer: {
     command: `pnpm start --port ${PORT}`,
     url: baseURL,
     /*
-      Never reuse a server this config did not start.
-
-      `env` below is only applied to a server Playwright spawns. With reuse
-      enabled, a `pnpm start` left on this port by anything else is attached to
-      silently — **without `USAGE_LIMITS=off`** — and the suite then fails on
-      "too many requests" or "capacity reached", symptoms with no visible
-      connection to the cause. That cost three separate debugging sessions
-      before the pattern was recognized.
-
-      The trade is a server start per run (a few seconds) and a hard failure if
-      the port is occupied. Both are better than silently testing a differently
-      configured server, which is the failure this replaces.
+      `env` below applies only to a server Playwright spawns, so reusing a stray
+      one attaches without `USAGE_LIMITS=off` and the suite fails on "capacity
+      reached" — a symptom with no visible link to the cause. Three debugging
+      sessions before that was spotted. The trade is a start per run.
     */
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
-      // Every spec arrives from one address, against one demo workspace, and CI
-      // retries twice — so any honest per-minute cap would fail this suite for
-      // being a test suite. Loosening the production numbers until it fits would
-      // be tuning the product to its tests, so the harness declares its own
-      // configuration instead. The 429 paths are covered by integration tests,
-      // which can seed usage rows directly.
-      //
-      // `off` does not skip the check: the counting queries still run and the
-      // decision is still made, so these specs prove enforcement does not break
-      // the happy path.
+      // Every spec arrives from one address and CI retries twice, so any honest
+      // cap would fail the suite for being one. `off` does not skip the check —
+      // the queries still run — and integration tests cover the 429 paths.
       USAGE_LIMITS: "off",
     },
   },

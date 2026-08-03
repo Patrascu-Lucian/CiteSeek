@@ -113,12 +113,9 @@ test.describe("route protection", () => {
 
 test.describe("navigation", () => {
   /*
-    These replace four "back link" tests. The header used to be a back link and a
-    wordmark, because there were only two destinations; it is now a nav, and the
-    back link went with the change — it pointed at the same place the wordmark
-    does, which its own comment had already flagged as redundant on the landing
-    page. What must still hold is the property those tests were protecting: every
-    page has a visible, keyboard-reachable way out of it.
+    These replace four "back link" tests. The link went when the header became a
+    nav — it pointed where the wordmark already does. The property they protected
+    still holds: every page has a visible, keyboard-reachable way out.
   */
   test("every page offers a way home", async ({ page }) => {
     for (const path of ["/", "/sign-in", "/demo-unavailable"]) {
@@ -254,11 +251,9 @@ test.describe("documents in the demo workspace", () => {
   test("lists the seeded document, so there is something to ask about", async ({
     page,
   }) => {
-    // This used to assert the empty state. The demo is now seeded with a
-    // fixture, because a guest can only read it — without a document, every
-    // question returns the same refusal and the demo shows nothing of what the
-    // product does. The empty state itself is covered in `document-list.test.tsx`,
-    // where it can be rendered on demand rather than depending on seed data.
+    // The demo is seeded now: a guest can only read it, so with no document every
+    // question returns the same refusal. The empty state is covered in
+    // `document-list.test.tsx`, without depending on seed data.
     await page.goto("/demo");
 
     await expect(
@@ -289,22 +284,17 @@ test.describe("ending a session", () => {
     await page.goto("/demo");
     const workspaceUrl = page.url();
 
-    await page.getByRole("button", { name: /leave demo/i }).click();
+    // The exit lives on `/account` now: the header offers a guest the way *in*
+    // instead, since abandoning read access to a public demo exposes nothing.
+    await page.goto("/account");
+    await page.getByRole("button", { name: /leave the demo/i }).click();
     await expect(page).toHaveURL(/\/$/);
 
     /*
-      Poll the cookie itself rather than reading it once.
-
-      `toHaveURL` matches as soon as the client-side URL changes, which can be
-      before the navigation response — and its `Set-Cookie` deletion — has been
-      applied. An earlier version waited on rendered content first, on the theory
-      that a painted landing page implied the response had landed. It narrowed
-      the window without closing it, and started failing about half the time once
-      `reuseExistingServer: false` made every run start against a cold server.
-
-      Waiting for a proxy signal is guesswork about ordering. Polling the actual
-      property is not, and it is what Playwright's auto-waiting does everywhere
-      else in this suite.
+      Poll the cookie rather than read it once: `toHaveURL` matches as soon as the
+      client-side URL changes, which can precede the response carrying the
+      `Set-Cookie` deletion. Waiting on rendered content instead narrowed the
+      window without closing it, and failed half the time against a cold server.
     */
     await expect
       .poll(
@@ -321,26 +311,29 @@ test.describe("ending a session", () => {
   test("shows the guest they are in a guest session", async ({ page }) => {
     await page.goto("/demo");
 
-    // The exit names what it exits, since the header no longer spells out
-    // "Guest session" beside it.
-    await expect(
-      page.getByRole("button", { name: /leave demo/i }),
-    ).toBeVisible();
+    // The badge and the nav label, since the header no longer spells out
+    // "Guest session" beside an exit control.
     await expect(page.getByText(/read-only demo/i)).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: /main/i })
+        .getByRole("link", { name: /demo workspace/i }),
+    ).toBeVisible();
   });
 
   test("offers no session exit to a visitor who has none", async ({ page }) => {
     await page.goto("/sign-in");
 
     await expect(
-      page.getByRole("button", { name: /leave demo|sign out/i }),
+      page.getByRole("button", { name: /leave the demo|sign out/i }),
     ).toHaveCount(0);
   });
 
   test("the exit control is keyboard operable", async ({ page }) => {
     await page.goto("/demo");
+    await page.goto("/account");
 
-    const leave = page.getByRole("button", { name: /leave demo/i });
+    const leave = page.getByRole("button", { name: /leave the demo/i });
     await leave.focus();
     await expect(leave).toBeFocused();
     await page.keyboard.press("Enter");
@@ -366,12 +359,9 @@ test.describe("sign-in page", () => {
 
     const cta = page.getByRole("link", { name: /get started/i });
 
-    // Tabs until the control is reached rather than pressing Tab a fixed number
-    // of times. The header sits between the skip link and the call to action, so
-    // a hard-coded count asserts the shape of the navigation instead of the
-    // thing that matters — that a keyboard user can get there at all. It broke
-    // the moment the header was added to this page, which is a change in layout
-    // rather than a regression in access.
+    // Tabs until reached rather than a fixed count, which asserts the shape of
+    // the navigation instead of the thing that matters. A hard-coded count broke
+    // the moment the header was added — a layout change, not a lost affordance.
     for (let i = 0; i < 10; i += 1) {
       if (await cta.evaluate((el) => el === document.activeElement)) break;
       await page.keyboard.press("Tab");

@@ -3,38 +3,22 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
 /**
- * Automated accessibility checks across the surfaces a reader actually reaches.
+ * **axe is a floor, not the pass.** A citation chip here once rendered in exactly
+ * the color of the bubble behind it — labeled, operable, invisible — and every
+ * automated check passed, contrast included, because those compare text to its
+ * own background. What failed was affordance, which nothing automated measures.
  *
- * **axe is a floor, not the pass.** It is worth being precise about that here,
- * because "axe clean" reads like a stronger claim than it is. A citation chip in
- * this codebase once rendered in exactly the color of the bubble behind it:
- * correctly labeled, keyboard operable, `aria-pressed` toggling, invisible. Every
- * automated check passed, including the contrast rules — those compare text to
- * its background, and `text-muted-foreground` on `bg-muted` is a designed pair.
- * What failed was affordance, and nothing automated measures affordance.
- *
- * So this file catches the mechanical failures — missing names, bad contrast,
- * broken landmark structure — and the keyboard specs below it plus manual review
- * cover what it cannot see.
+ * So this catches the mechanical failures; the keyboard specs below cover the rest.
  */
 
 /**
- * WCAG 2.2 AA, which is the bar the project claims.
- *
- * `best-practice` is deliberately excluded: it mixes genuine issues with
- * stylistic opinions, and a suite that fails on an opinion trains people to
- * ignore it.
+ * WCAG 2.2 AA, the bar the project claims. `best-practice` is excluded: it mixes
+ * real issues with opinion, and a suite that fails on an opinion gets ignored.
  */
 const WCAG_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
-/**
- * Runs axe and returns its violations reduced to something readable.
- *
- * A raw `expect(violations).toEqual([])` prints the entire rule object — every
- * tag, every related node, hundreds of lines — and buries the one sentence that
- * says what is wrong. This keeps the rule id, the impact, and the offending
- * markup, which is all anyone needs to start.
- */
+/** Reduced to the rule id, impact and markup: a raw `toEqual([])` prints hundreds
+ * of lines and buries the one sentence saying what is wrong. */
 async function violationsOn(page: Page, selector?: string) {
   const builder = new AxeBuilder({ page }).withTags(WCAG_AA);
   const results = await (
@@ -49,14 +33,8 @@ async function violationsOn(page: Page, selector?: string) {
   }));
 }
 
-/**
- * Reaching a workspace at all requires a credential.
- *
- * `proxy.ts` redirects a credential-less `/w/*` to `/sign-in`, so scanning that
- * URL directly would report a clean sign-in page and say nothing about the
- * workspace. Visiting `/demo` first mints the guest cookie and lands on the real
- * thing — the same reason the performance numbers have to be measured that way.
- */
+/** `proxy.ts` redirects a credential-less `/w/*` to `/sign-in`, so scanning that
+ * URL would report a clean sign-in page. `/demo` mints the cookie first. */
 async function gotoDemo(page: Page) {
   await page.goto("/demo");
   await expect(
@@ -65,15 +43,9 @@ async function gotoDemo(page: Page) {
 }
 
 /**
- * Both palettes, over the same specs rather than a second copy of them.
- *
- * Dark mode doubles the accessibility surface, and that is its real cost. A
- * contrast pair that is fine in one palette can fail in the other, and the
- * duplicated-spec version of this file would drift the first time someone
- * updated only the copy they were looking at.
- *
- * The cookie is what selects the palette — the server reads it and writes the
- * class, so there is nothing to wait for on the client.
+ * Both palettes over the same specs, not a second copy: a contrast pair fine in
+ * one can fail in the other, and duplicated specs drift the first time someone
+ * updates only the copy in front of them.
  */
 const THEMES = ["light", "dark"] as const;
 
@@ -90,11 +62,8 @@ for (const theme of THEMES) {
     test.beforeEach(({ page }) => useTheme(page, theme));
 
     test("paints the palette it was asked for", async ({ page }) => {
-      /*
-        Guards the parameterisation itself. Without it, a broken cookie or a
-        server that ignored it would run every check below against the light
-        palette twice and report full coverage of both.
-      */
+      // Guards the parameterization itself: a cookie the server ignored would
+      // run every check below against the light palette twice.
       await page.goto("/");
       const classes = await page.locator("html").getAttribute("class");
 
@@ -173,12 +142,8 @@ for (const theme of THEMES) {
         expect(await violationsOn(page)).toEqual([]);
       });
 
-      /**
-       * The mobile menu, which is a second copy of the navigation and therefore a
-       * second chance to get the landmarks wrong. The specific risk it introduced:
-       * the header row already owns a `nav` named "Main", and a second one with the
-       * same name is a duplicate landmark that axe does flag.
-       */
+      /** A second copy of the navigation, so a second chance at a duplicate
+       * landmark — the header row already owns a `nav` named "Main". */
       test("the navigation menu on a small screen, open", async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await gotoDemo(page);
@@ -190,12 +155,8 @@ for (const theme of THEMES) {
       });
     });
 
-    /**
-     * The half axe cannot reach.
-     *
-     * Each of these encodes a specific way the automated pass gives a false
-     * negative — a rule that is satisfied while the experience is broken.
-     */
+    /** Each of these is a way the automated pass gives a false negative: a rule
+     * satisfied while the experience is broken. */
     test.describe("what automated checks cannot see", () => {
       test("a citation chip is distinguishable from the bubble behind it", async ({
         page,
@@ -210,14 +171,9 @@ for (const theme of THEMES) {
         await expect(chip).toBeVisible();
 
         /*
-      The regression this exists for: the chip was `bg-muted` on a `bg-muted`
-      bubble. It was drawn every time, in exactly the color behind it — labeled,
-      operable, `aria-pressed` toggling, and invisible.
-
-      axe passed, and would pass again: its contrast rules compare *text* to its
-      own background, and `text-muted-foreground` on `bg-muted` is a designed,
-      compliant pair. Nothing automated measures whether a control announces
-      itself as one. So this compares the two backgrounds directly.
+      The chip was `bg-muted` on a `bg-muted` bubble: drawn every time, in exactly
+      the color behind it. axe passed and would again — its contrast rules compare
+      *text* to its own background. So this compares the two backgrounds.
     */
         const { chipBackground, bubbleBackground } = await chip.evaluate(
           (node) => {
@@ -256,13 +212,9 @@ for (const theme of THEMES) {
         const panel = page.getByRole("dialog");
         await expect(panel).toBeVisible();
 
-        /*
-      A document is longer than the panel and the region holds no focusable
-      children, so without a tab stop of its own there is nothing for arrow keys
-      to act on — a keyboard reader could open a citation and never reach the
-      rest of the passage. axe found this one (`scrollable-region-focusable`);
-      the test is here so it stays fixed.
-    */
+        // The region scrolls and holds no focusable children, so without a tab
+        // stop arrow keys have nothing to act on. axe found it
+        // (`scrollable-region-focusable`); this keeps it fixed.
         const region = panel.getByRole("region", { name: /source text of/i });
         await expect(region).toBeVisible();
         await expect(region).toHaveAttribute("tabindex", "0");
@@ -276,15 +228,9 @@ for (const theme of THEMES) {
 
 test.describe("controls look interactive", () => {
   /**
-   * Tailwind v4's Preflight sets `cursor: default` on buttons, matching the
-   * browser default where v3 set `cursor: pointer`. Upgrading therefore removed
-   * the pointer from every button in the app at once, silently, while links kept
-   * theirs — so the app was inconsistent with itself and buttons read as
-   * decoration.
-   *
-   * axe cannot see this: a button with a default cursor is a perfectly valid
-   * button. It is the same category as the citation chip drawn in the color of
-   * the bubble behind it — present, labeled, operable, not evidently a control.
+   * Tailwind v4's Preflight sets `cursor: default` on buttons where v3 set
+   * `pointer`, so upgrading silently removed it from every button while links
+   * kept theirs. axe cannot see it: a default cursor is a valid button.
    */
   test("buttons offer a pointer, and disabled ones do not", async ({
     page,
@@ -295,10 +241,10 @@ test.describe("controls look interactive", () => {
       locator.evaluate((el) => getComputedStyle(el).cursor);
 
     await expect(
-      page.getByRole("button", { name: /leave demo/i }),
+      page.getByRole("link", { name: /^sign in$/i }).first(),
     ).toBeVisible();
     expect(
-      await cursorOf(page.getByRole("button", { name: /leave demo/i })),
+      await cursorOf(page.getByRole("link", { name: /^sign in$/i }).first()),
     ).toBe("pointer");
 
     // Disabled deliberately keeps the default: a pointer on a control that will

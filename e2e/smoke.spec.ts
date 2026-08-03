@@ -72,8 +72,12 @@ test.describe("the landing page knows who is reading it", () => {
     await page.goto("/demo");
     await page.goto("/");
 
+    // A guest's session is visible through the nav it gets, not through an exit
+    // control — the header spends that slot on signing in instead.
     await expect(
-      page.getByRole("button", { name: /leave demo/i }),
+      page
+        .getByRole("navigation", { name: /main/i })
+        .getByRole("link", { name: /account/i }),
     ).toBeVisible();
     // "Back to home" would point at the page you are already on.
     await expect(page.getByRole("link", { name: /back to home/i })).toHaveCount(
@@ -154,12 +158,10 @@ async function backgroundUnder(
 const THEME_ROUND_TRIP = { timeout: 15_000 };
 
 /**
- * The control is a form posting a server action: the browser submits it natively
- * before hydration, React after. A click *during* the handover is dropped rather
- * than delayed, so no timeout helps.
- *
- * This was `waitForLoadState("networkidle")`, which worked only because the
- * landing page's prefetches kept the network busy until hydration finished.
+ * The control is a form posting a server action — submitted natively before
+ * hydration, by React after — and a click during the handover is dropped rather
+ * than delayed, so no timeout helps. This was `networkidle`, which worked only
+ * because the landing page's prefetches kept the network busy.
  */
 async function hydrated(page: Page) {
   await page.waitForFunction(() => {
@@ -342,5 +344,66 @@ test.describe("about", () => {
     await expect(
       page.getByRole("link", { name: /try the demo/i }),
     ).toBeVisible();
+  });
+});
+
+test.describe("signing in from the header", () => {
+  test("an anonymous reader can reach sign-in from a page that is not the landing page", async ({
+    page,
+  }) => {
+    // The gap this closes: the nav is empty for someone with no session, so deep
+    // in the app the only route to sign-in was back via the landing page.
+    await page.goto("/terms");
+
+    await page
+      .getByRole("navigation", { name: /main/i })
+      .getByRole("link", { name: /^sign in$/i })
+      .click();
+
+    await expect(page).toHaveURL(/\/sign-in/);
+  });
+
+  test("offers no sign-in to someone already on the sign-in page", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in");
+
+    await expect(
+      page
+        .getByRole("navigation", { name: /main/i })
+        .getByRole("link", { name: /^sign in$/i }),
+    ).toHaveCount(0);
+  });
+
+  test("offers a guest the way in rather than the way out", async ({
+    page,
+  }) => {
+    // Signing in is what a guest might actually want; leaving read access to a
+    // public demo is not, so that control moved to `/account`.
+    await page.goto("/demo");
+
+    const nav = page.getByRole("navigation", { name: /main/i });
+    await expect(nav.getByRole("link", { name: /^sign in$/i })).toBeVisible();
+    await expect(
+      nav.getByRole("button", { name: /leave the demo/i }),
+    ).toHaveCount(0);
+  });
+});
+
+test.describe("the footer", () => {
+  test("puts what this project is before the policies", async ({ page }) => {
+    await page.goto("/");
+
+    const links = await page
+      .getByRole("navigation", { name: /about this project/i })
+      .getByRole("link")
+      .allInnerTexts();
+
+    expect(links).toEqual([
+      "About",
+      "Contact",
+      "Privacy Policy",
+      "Terms of Service",
+    ]);
   });
 });
