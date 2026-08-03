@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { hydrated, WORDMARK } from "./hydration";
+
 test.describe("guest mode", () => {
   test("reading the landing page starts no session", async ({
     page,
@@ -22,6 +24,7 @@ test.describe("guest mode", () => {
     page,
   }) => {
     await page.goto("/");
+    await hydrated(page, WORDMARK);
     await page.getByRole("link", { name: /try the demo/i }).click();
 
     await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}$/);
@@ -130,6 +133,7 @@ test.describe("navigation", () => {
 
   test("the wordmark returns to the landing page", async ({ page }) => {
     await page.goto("/sign-in");
+    await hydrated(page, WORDMARK);
     await page.getByRole("link", { name: "CiteSeek" }).click();
 
     await expect(page).toHaveURL(/\/$/);

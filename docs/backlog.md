@@ -99,24 +99,36 @@ here, not in the current branch.
 
 ## Known defects
 
-- **A client-side navigation occasionally commits the route and renders no page.** Reproduced
-  under load — `--repeat-each=40 --workers=4` against one Next process, on the wordmark's
-  `/sign-in` → `/` transition — at roughly **2 in 40**. Not a slow render: the accessibility
-  snapshot at 15 seconds has the header and the footer and **no `<main>` at all**, so neither
-  the page nor `(marketing)/loading.tsx` is on screen, plus an empty `role="alert"` that matches
-  nothing this app renders in that state.
+- **A link clicked during hydration commits the URL and never renders the destination.**
 
-  **Pre-existing, and measured as such**: the same 2-in-40 on `main` in a separate worktree, so
-  it predates the wordmark and the prefetch work. It is also what shows up by hand as "a route
-  change sometimes takes too long" locally.
+  Diagnosed rather than guessed. Under load — `--repeat-each=40 --workers=4` against one Next
+  process, on the wordmark's `/sign-in` → `/` transition — it fails about **3 times in 120
+  runs**. Waiting for React to own the anchor first: **0 in 80**.
 
-  **Timeouts do not fix it, and that is the useful part of the finding.** Raising the assertion
-  to 15s and then to 30s changed the failure rate not at all — it waits the full thirty seconds
-  and the element never appears. So whatever the router is waiting for never arrives, rather
-  than arriving late, and no amount of patience in the test is the answer.
+  What the failure looks like is what identifies it. The accessibility snapshot has the header
+  and the footer, **no `<main>` at all** — so neither the page nor `(marketing)/loading.tsx` is
+  on screen — and Next's route announcer is present but **empty**, which is its state until a
+  navigation completes and announces a title. The URL has already changed. So the router began a
+  transition, committed the URL, and never finished it.
 
-  Worth a look at whether it survives outside the four-worker harness, and whether it can happen
-  on a deployed instance at all. Until then CI's two retries absorb it.
+  **Timeouts are not the answer**, which is the part worth keeping: raising the assertion to 15s
+  and then to 30s changed the failure rate not at all. It waits the full thirty seconds. Whatever
+  the router is waiting for never arrives rather than arriving late.
+
+  The window is between paint and hydration, and it is the same window in which a click on the
+  theme control is dropped — different symptom, one cause. A real reader can hit it, and it is
+  the likely explanation for "a route change sometimes takes too long" locally, where a remote
+  database in Frankfurt (measured: 34 ms per query, ~100 ms for a workspace render) lengthens
+  every server render and with it the time before hydration finishes.
+
+  **Not ours to fix directly.** It reproduces on `main`, so it predates the recent header work,
+  and the project is already on Next 16.2.12 — the latest release. What shortens the window is a
+  smaller client bundle, which the README's own numbers show is where the workspace route's
+  remaining weight is (124 KB of unused AI SDK and Zod).
+
+  The E2E suite waits for hydration before clicking (`e2e/hydration.ts`) because it is testing
+  the wordmark, not the handover. That is a workaround, and the underlying defect is this entry.
+  Worth filing upstream with the reproduction above.
 
 ## Deployment
 

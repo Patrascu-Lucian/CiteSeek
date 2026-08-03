@@ -1190,3 +1190,33 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   hydration; it correlated with it. Correlation held until an unrelated change removed the
   traffic, and then a real assertion started failing for a reason that had nothing to do with the
   thing it tests.
+
+## A space that existed in the source and not on the page
+
+- **Issue**: reported by reading the deployed privacy policy, which said CiteSeek stores the text
+  "extractedfrom documents you upload". The source had a perfectly ordinary space:
+  `<strong>text extracted</strong> from documents you`.
+
+- **Not a typo, and not stale output.** Checked the bytes — a plain `0x20`, no non-breaking
+  space, no zero-width character. Checked the build was current by confirming an unrelated change
+  from the same branch appeared in the served HTML. The React payload itself showed the space
+  already gone: `"stores the "`, the `strong` element, then `"from documents..."`.
+
+  The same construct on `/about` — `<em>is</em> right,` — renders its space correctly. I could
+  not explain the difference from inspection, and stopped trying rather than invent a reason.
+
+- **Fix**: restructure so no whitespace sits at the tag boundary — the emphasis now ends the
+  clause and is followed by a comma. The first attempt, an explicit `{" "}`, **was silently
+  reverted by Prettier**, which collapses it back into the plain space that gets dropped. So the
+  obvious fix is not just fragile, it does not survive `pnpm format`.
+
+- **Lesson**: two.
+
+  **Whitespace in JSX is not a character you typed, it is an output of a transform.** Anywhere a
+  space sits between an inline tag and a word, it is a value being computed rather than stored,
+  and it can be computed to nothing. Phrasing that keeps punctuation at the boundary has no such
+  dependency.
+
+  **A formatter can revert a fix.** The `{" "}` looked right, passed review by eye, and was gone
+  by the time the file was saved. Any fix that consists of formatting-significant whitespace has
+  to be re-read _after_ the formatter has run, not before.

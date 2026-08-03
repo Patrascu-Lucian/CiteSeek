@@ -1,6 +1,8 @@
 import type { Browser, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
+import { hydrated as waitForHydration, THEME_BUTTON } from "./hydration";
+
 test.describe("landing page", () => {
   test("renders the value proposition and both entry points", async ({
     page,
@@ -157,21 +159,7 @@ async function backgroundUnder(
 */
 const THEME_ROUND_TRIP = { timeout: 15_000 };
 
-/**
- * The control is a form posting a server action — submitted natively before
- * hydration, by React after — and a click during the handover is dropped rather
- * than delayed, so no timeout helps. This was `networkidle`, which worked only
- * because the landing page's prefetches kept the network busy.
- */
-async function hydrated(page: Page) {
-  await page.waitForFunction(() => {
-    const button = document.querySelector('button[name="theme"]');
-    return (
-      button !== null &&
-      Object.keys(button).some((key) => key.startsWith("__reactFiber$"))
-    );
-  });
-}
+const hydrated = (page: Page) => waitForHydration(page, THEME_BUTTON);
 
 /**
  * Retries the click, not just the assertion: `hydrated()` is necessary and not
