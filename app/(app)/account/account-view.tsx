@@ -9,15 +9,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { signOutAction } from "@/lib/auth/actions";
+import { leaveDemoAction, signOutAction } from "@/lib/auth/actions";
 
 /**
- * This page exists for account deletion, which used to sit in the header — an
- * irreversible action one stray click from a wordmark, with no room to say what
- * it destroys.
- *
- * Split from `page.tsx` because resolving the actor makes a component async and
- * reaches into Auth.js, neither of which RTL can render.
+ * Account deletion, which used to sit in the header — an irreversible action one
+ * stray click from a wordmark. Split from `page.tsx` because resolving the actor
+ * makes a component async and reaches into Auth.js, neither of which RTL renders.
  */
 export type AccountViewProps =
   | { kind: "guest" }
@@ -51,14 +48,22 @@ function GuestNotice() {
         </CardTitle>
         <CardDescription>
           Guest sessions store nothing on the server, so there is no account
-          here to manage or delete. Closing the tab or clearing cookies ends it,
-          and conversations you have as a guest are never written down.
+          here to manage or delete, and conversations you have as a guest are
+          never written down. Leaving the demo clears the session from this
+          browser.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-wrap items-center gap-3">
         <Button asChild>
           <Link href="/sign-in">Sign in to keep your work</Link>
         </Button>
+        {/* The exit the header gave up to offer the way in instead. Here because
+          this is the page that explains what a guest session is. */}
+        <form action={leaveDemoAction}>
+          <Button type="submit" variant="outline">
+            Leave the demo
+          </Button>
+        </form>
       </CardContent>
     </Card>
   );

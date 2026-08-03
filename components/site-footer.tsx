@@ -3,51 +3,35 @@ import Link from "next/link";
 import { REPOSITORY_URL } from "@/lib/links";
 
 /**
- * Footer for every route. It lived inside the landing page's `<main>`, which was
- * wrong twice: the privacy page was reachable only from marketing, and **a
- * `<footer>` inside `<main>` is not a `contentinfo` landmark** — the role is
- * granted only to one not scoped to a section, so it looked right and exposed
- * nothing.
+ * Footer for every route. It lived inside the landing page's `<main>`, where **a
+ * `<footer>` is not a `contentinfo` landmark** — the role is granted only to one
+ * not scoped to a section, so it looked right and exposed nothing.
  *
- * In the root layout rather than the three group layouts, so it also reaches
- * `not-found.tsx` and `error.tsx`, which have no header at all.
+ * In the root layout, so it reaches `not-found.tsx` and `error.tsx` too.
  */
 export function SiteFooter() {
   return (
     <footer className="border-border/60 mt-auto border-t">
       <div className="text-muted-foreground mx-auto w-full max-w-5xl px-6 py-8 text-sm">
         {/*
-          Its own row above a divider, with names spelled out: "Privacy" alone
-          could be a setting, and someone looking for what happens to their
-          documents scans for the words they already have in mind.
-
-          Right-aligned from `md` up, which is where the row below stops wrapping
-          — measured: 640px still stacks, 768px does not. Below that everything is
-          left-aligned, since one right-aligned line above two left ones reads as
-          a mistake.
-
-          Labeled "About this project": a landmark whose name does not describe
-          its contents is worse than an unnamed one.
+          Names spelled out: "Privacy" alone could be a setting. Right-aligned
+          from `md`, measured as where the row below stops wrapping — 640px still
+          stacks, 768px does not. Labeled for what it holds, since a landmark
+          whose name does not describe its contents is worse than an unnamed one.
         */}
         <nav
           aria-label="About this project"
           className="flex flex-wrap items-center gap-6 md:justify-end"
         >
+          {/* About and Contact first: they are what this landmark is named for,
+            and the two anyone actually clicks. The policies are reference. */}
           <Link href="/about" className="hover:text-foreground underline">
             About
           </Link>
-          <Link href="/privacy" className="hover:text-foreground underline">
-            Privacy Policy
-          </Link>
-          <Link href="/terms" className="hover:text-foreground underline">
-            Terms of Service
-          </Link>
-          {/*
-            The privacy page promises somewhere to send an erasure request, and
+          {/* The privacy page promises somewhere to send an erasure request, and
             until this link existed that promise pointed at nothing. A repository
-            rather than a form: a form needs an email sender, spam handling and
-            rate limiting to do what issues already do.
-          */}
+            rather than a form, which would need a sender and spam handling to do
+            what issues already do. */}
           <a
             href={REPOSITORY_URL}
             className="hover:text-foreground underline"
@@ -56,6 +40,12 @@ export function SiteFooter() {
           >
             Contact
           </a>
+          <Link href="/privacy" className="hover:text-foreground underline">
+            Privacy Policy
+          </Link>
+          <Link href="/terms" className="hover:text-foreground underline">
+            Terms of Service
+          </Link>
         </nav>
 
         <div className="border-border/60 mt-6 border-t pt-6">

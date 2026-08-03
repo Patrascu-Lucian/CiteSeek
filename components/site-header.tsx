@@ -1,11 +1,13 @@
 import { cookies } from "next/headers";
 import { LogOut } from "lucide-react";
 
+import { HEADER_CONTROL_HEIGHT } from "@/components/header-control-height";
 import { HomeLink } from "@/components/home-link";
 import { MainNav } from "@/components/main-nav";
+import { SignInLink } from "@/components/sign-in-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { leaveDemoAction, signOutAction } from "@/lib/auth/actions";
+import { signOutAction } from "@/lib/auth/actions";
 import { getActor } from "@/lib/auth/actor";
 import { findDemoWorkspace } from "@/lib/auth/demo";
 import { findPersonalWorkspace } from "@/lib/workspaces/personal";
@@ -13,7 +15,7 @@ import { THEME_COOKIE_NAME, type Theme, isTheme } from "@/lib/theme/theme";
 
 /**
  * Header for every route. Account deletion lives on `/account` — an irreversible
- * action does not belong one click from a wordmark. Ending a session stays here.
+ * action does not belong one click from a wordmark.
  */
 export async function SiteHeader() {
   const actor = await getActor();
@@ -23,13 +25,10 @@ export async function SiteHeader() {
   const theme: Theme = isTheme(storedTheme) ? storedTheme : "system";
 
   /*
-    Resolved here so the link points at `/w/<id>` directly. `/w` is a redirecting
-    route handler, and a 307 is a full page navigation — the router never
-    commits, so `loading.tsx` never renders and the old page just sits there
-    through two cold starts.
-
-    A read, never a write: creating a workspace stays in `/w`, which is what a
-    reader without one still falls back to, paying the redirect once.
+    Resolved here so the link points at `/w/<id>` directly: `/w` redirects, and a
+    307 is a full navigation, so `loading.tsx` never renders. A read, never a
+    write — creating a workspace stays in `/w`, which a reader without one still
+    falls back to.
   */
   const workspaceId =
     actor?.type === "user"
@@ -59,24 +58,36 @@ export async function SiteHeader() {
     : [];
 
   /*
-    Two operations behind one affordance: a user has a session row to delete, a
-    guest only a cookie. Rendered in both the header row and the sheet — a
-    session with no visible exit is a trap on a shared machine. The label itself
-    is sheet-only: an email is unbounded, and `/account` already states it.
+    Sheet-only: an email is unbounded, and it crowded the horizontal row to say
+    what `/account` already states.
   */
   const sessionLabel =
     actor?.type === "user"
       ? (actor.email ?? actor.name ?? "Signed in")
       : "Guest session";
 
-  const sessionExit = actor ? (
-    <form action={actor.type === "user" ? signOutAction : leaveDemoAction}>
-      <Button type="submit" variant="ghost" size="sm">
-        <LogOut aria-hidden="true" className="size-4" />
-        {actor.type === "user" ? "Sign out" : "Leave demo"}
-      </Button>
-    </form>
-  ) : null;
+  /*
+    A user gets an exit — a session left on a shared machine exposes their
+    documents. A guest gets the way *in*: theirs is read access to a public demo
+    with no row behind it, so abandoning it exposes nothing. Their exit is on
+    `/account`.
+  */
+  const sessionExit =
+    actor?.type === "user" ? (
+      <form action={signOutAction}>
+        <Button
+          type="submit"
+          variant="ghost"
+          size="sm"
+          className={HEADER_CONTROL_HEIGHT}
+        >
+          <LogOut aria-hidden="true" className="size-4" />
+          Sign out
+        </Button>
+      </form>
+    ) : (
+      <SignInLink />
+    );
 
   return (
     <header className="border-border/60 border-b">
@@ -109,8 +120,9 @@ export async function SiteHeader() {
           </MainNav>
         ) : (
           // The theme control is not gated on having an account.
-          <div className="ml-auto flex items-center">
+          <div className="ml-auto flex items-center gap-2">
             <ThemeToggle current={theme} />
+            <SignInLink />
           </div>
         )}
       </nav>
