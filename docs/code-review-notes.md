@@ -1220,3 +1220,42 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   **A formatter can revert a fix.** The `{" "}` looked right, passed review by eye, and was gone
   by the time the file was saved. Any fix that consists of formatting-significant whitespace has
   to be re-read _after_ the formatter has run, not before.
+
+## The third database mix-up, and why the guard from the second one missed it
+
+- **Issue**: `pnpm db:seed`, aimed at production, ran against the development branch and reported
+  complete success. The deployed demo went on serving the old fixture through a redeploy while
+  every line of the seed's output said it had worked.
+
+- **Cause, in two halves.** `.env.local` supplies `DATABASE_URL` to any shell that did not
+  **export** one, so a terminal where the production URL was set rather than exported quietly got
+  the development one.
+
+  The half that made it invisible: **Neon branches are copy-on-write clones.** The dev branch was
+  created from production, so it carries the same workspace id, the same document ids, the same
+  row counts. Every identifier the script printed was correct against either database. There was
+  no wrong-looking value in the output to notice.
+
+  **The hostname is the only field that distinguishes them** — and it is the one nobody reads.
+  The script did print it.
+
+- **Why the existing guard did not help.** `assertEmbedderWasChosen` refuses to seed a remote
+  database with the fake embedder. That is the _previous_ incident in this family, and the guard
+  is shaped exactly like it: it checks which embedder, never which database. The next bug in the
+  same family walked straight past it.
+
+- **Fix**: none yet in code — recorded in `docs/backlog.md` as a host guard in the same shape as
+  the embedder one. The seed already resolves and prints the host, so refusing an unconfirmed one
+  is cheap.
+
+- **Lesson**: three occurrences make this the project's most repeated defect, and each had a
+  different mechanism — an env var read by two clients, a pooled/unpooled split, and now an
+  unexported variable against an identical clone.
+
+  **A guard is shaped like the bug that produced it.** Writing one closes that instance, and it
+  is tempting to treat the class as handled. The useful question after fixing any near-miss is
+  what _else_ could produce the same outcome, because the next occurrence will arrive by a route
+  the guard does not inspect.
+
+  **Printing a value is not checking it.** The distinguishing field was on screen every single
+  run. Output a human is expected to compare is not a control; a control refuses.

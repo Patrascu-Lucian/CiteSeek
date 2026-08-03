@@ -99,6 +99,17 @@ here, not in the current branch.
 
 ## Known defects
 
+- **`pnpm db:seed` cannot tell which database it reached.** It resolves and prints the hostname,
+  and that is the whole protection — the third mix-up in this family got past it because printing
+  is not comparing (`docs/code-review-notes.md`). Neon branches are copy-on-write clones, so every
+  other identifier in the output matches either database.
+
+  The guard already in the file, `assertEmbedderWasChosen`, is the right shape and the wrong
+  subject: it refuses a remote host with the fake embedder, and says nothing about _which_ remote
+  host. The same treatment for the host — refuse one that was not named explicitly, with the two
+  `export` lines in the error — is a handful of lines and closes the class rather than the
+  instance. Not built yet, and it should be before anything else is seeded into production.
+
 - **A link clicked during hydration commits the URL and never renders the destination.**
 
   Diagnosed rather than guessed. Under load — `--repeat-each=40 --workers=4` against one Next
