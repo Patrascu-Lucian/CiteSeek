@@ -87,3 +87,8 @@ property of this artwork, not a general rule: the moment the mark carries a bran
 stops being correct and it needs either two assets or inline SVG driven by `currentColor`. The
 raster it replaced had **no transparent pixels at all**, which forced a white plate in both
 palettes and put every filter-based approach out of reach.
+
+↳ **Amended:** the wordmark is now text rather than an image, so nothing is inverted and the
+constraint above no longer binds. The reason was not the palette — the placeholder read "LOGO",
+which left the product's name absent from its own header. Text follows the theme with no second
+asset, and the tradeoff recorded here applies again the moment a real mark is introduced.

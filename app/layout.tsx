@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Audiowide, Geist, Geist_Mono } from "next/font/google";
 
 import { SiteFooter } from "@/components/site-footer";
 import { THEME_COOKIE_NAME, isTheme, themeClass } from "@/lib/theme/theme";
@@ -15,6 +15,22 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+/**
+ * The wordmark only; a display face at body sizes is unreadable.
+ *
+ * `next/font` self-hosts at build time. Beyond the round trip, a CDN link would
+ * put every reader's IP in front of Google unasked — unlawful in the EU since
+ * the 2022 Munich ruling.
+ */
+const audiowide = Audiowide({
+  // Named for the face, not the role: `--font-wordmark` in globals.css points
+  // here, and a key pointing at itself resolves to nothing (see the note there).
+  variable: "--font-audiowide",
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -61,6 +77,7 @@ export default async function RootLayout({
       className={[
         geistSans.variable,
         geistMono.variable,
+        audiowide.variable,
         theme,
         "h-full antialiased",
       ]

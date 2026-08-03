@@ -1,6 +1,23 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("guest mode", () => {
+  test("reading the landing page starts no session", async ({
+    page,
+    context,
+  }) => {
+    /*
+      `/demo` is a GET that sets a cookie, and Next prefetches `<Link>` targets —
+      so reading the landing page handed every visitor a session. `networkidle`
+      because a prefetch has not happened yet when `load` fires.
+    */
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    expect(
+      (await context.cookies()).map((cookie) => cookie.name),
+    ).not.toContain("citeseek.guest");
+  });
+
   test("a visitor can enter the demo and see the workspace without signing up", async ({
     page,
   }) => {
@@ -304,7 +321,12 @@ test.describe("ending a session", () => {
   test("shows the guest they are in a guest session", async ({ page }) => {
     await page.goto("/demo");
 
-    await expect(page.getByText(/guest session/i)).toBeVisible();
+    // The exit names what it exits, since the header no longer spells out
+    // "Guest session" beside it.
+    await expect(
+      page.getByRole("button", { name: /leave demo/i }),
+    ).toBeVisible();
+    await expect(page.getByText(/read-only demo/i)).toBeVisible();
   });
 
   test("offers no session exit to a visitor who has none", async ({ page }) => {

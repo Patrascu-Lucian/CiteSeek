@@ -86,11 +86,8 @@ function assertEmbedderWasChosen(url: string): void {
     [
       `Refusing to seed ${hostname} with the fake embedder.`,
       "",
-      "EMBEDDINGS_PROVIDER resolves to 'fake', but it came from .env.local rather",
-      "than from your shell — loadEnvFile fills in any variable you did not export.",
-      "",
-      "Fake vectors are meaningless to the real model, so the seeded document would",
-      "store cleanly and then never be retrievable. Say which you meant:",
+      "EMBEDDINGS_PROVIDER resolves to 'fake' from .env.local rather than your",
+      "shell, and fake vectors are unretrievable by the real model. Say which:",
       "",
       "  export EMBEDDINGS_PROVIDER=google   # real embeddings (production)",
       "  export EMBEDDINGS_PROVIDER=fake     # deliberately fake (a scratch branch)",
@@ -98,7 +95,7 @@ function assertEmbedderWasChosen(url: string): void {
   );
 }
 
-export const DEMO_WORKSPACE_NAME = "CiteSeek Demo";
+export const DEMO_WORKSPACE_NAME = "Demo workspace";
 
 /** Fictional, recorded *here* not inside the document: the first draft said it was
  * a demo fixture, which put text about the assistant into its own corpus and
@@ -192,6 +189,19 @@ async function main() {
 
     if (existing) {
       console.log(`Demo workspace already present (${existing.id}).`);
+
+      // Converges rather than freezing on first write: the name is only applied
+      // on insert, so renaming the constant alone would leave every database
+      // that has ever been seeded on the old one. Same trap the fixture filename
+      // hit.
+      if (existing.name !== DEMO_WORKSPACE_NAME) {
+        await db
+          .update(workspaces)
+          .set({ name: DEMO_WORKSPACE_NAME })
+          .where(eq(workspaces.id, existing.id));
+        console.log(`Renamed ${existing.name} to ${DEMO_WORKSPACE_NAME}.`);
+      }
+
       // The workspace may predate the fixture.
       await seedFixtureDocument(existing.id);
       return;

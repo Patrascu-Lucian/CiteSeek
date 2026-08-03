@@ -175,7 +175,10 @@ export function WorkspaceSections({
             </CardHeader>
             <CardContent>
               <Button asChild variant="outline">
-                <Link href={signedIn ? "/w" : "/sign-in"}>
+                <Link
+                  href={signedIn ? "/w" : "/sign-in"}
+                  prefetch={signedIn ? false : undefined}
+                >
                   {signedIn ? "Go to your workspace" : "Sign in to upload"}
                 </Link>
               </Button>
@@ -225,23 +228,15 @@ export function WorkspaceSections({
           Ask
         </h2>
 
-        {/*
-          Guests may ask questions of the demo — chat is a read operation, and
-          the route authorizes `read` for exactly that reason. What they do not
-          get is persistence: their conversation lives in browser state and is
-          gone on reload, which is what keeps an unbounded write path off a
-          public URL.
-        */}
+        {/* Guests may ask — chat is a read — but get no persistence: the
+          conversation lives in browser state, which keeps an unbounded write path
+          off a public URL. */}
         <ChatPanel
           /*
-            `useChat` seeds from `initialMessages` once and then owns its state —
-            by design, or a streaming answer would be wiped by every re-render.
-            So a *new* prop is ignored, and deleting the last conversation left
-            its messages on screen with nothing behind them.
-
-            Keying is the honest fix rather than syncing prop into state: the
-            conversation is this component's identity. `"none"` because a key must
-            be a string, and an empty workspace is a real state to key on.
+            `useChat` seeds from `initialMessages` once and then owns its state, so
+            a *new* prop is ignored — deleting the last conversation left its
+            messages on screen with nothing behind them. Keying rather than syncing
+            prop into state: the conversation is this component's identity.
           */
           key={activeChatId ?? "none"}
           workspaceId={workspaceId}

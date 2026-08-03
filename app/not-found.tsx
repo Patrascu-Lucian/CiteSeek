@@ -14,17 +14,9 @@ import {
 export const metadata: Metadata = { title: "Not found" };
 
 /**
- * The 404 for the whole app.
- *
- * Without this file Next renders its own unstyled page, which is the one screen
- * in the product that would look like a different product. It is also reached
- * more often than it looks: `authorizeWorkspace` answers "not found" for a
- * workspace the caller may not see, deliberately, so that a 404 and a 403 are
- * indistinguishable and nobody can probe which ids exist.
- *
- * So the wording has to cover both cases honestly without hinting at which one
- * happened — "no longer here, or was never yours" is true of both and reveals
- * neither.
+ * The 404 for the whole app. Reached more often than it looks: authorization
+ * answers "not found" for a workspace the caller may not see, so a 404 and a 403
+ * are indistinguishable. The wording has to be true of both without saying which.
  */
 export default function NotFound() {
   return (
@@ -54,7 +46,9 @@ export default function NotFound() {
             <Link href="/">Go to the home page</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/demo">Try the demo</Link>
+            <Link href="/demo" prefetch={false}>
+              Try the demo
+            </Link>
           </Button>
         </CardContent>
       </Card>

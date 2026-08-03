@@ -79,7 +79,9 @@ export async function WorkspaceView({
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             {workspace.isDemo
-              ? "A shared, read-only workspace for trying CiteSeek out."
+              ? // "Read-only" is the badge beside this, and the heading is now
+                // the workspace's own name rather than the product's.
+                "A shared workspace for trying CiteSeek out."
               : "Your documents and chats live here."}
           </p>
         </div>
