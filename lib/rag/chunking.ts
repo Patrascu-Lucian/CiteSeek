@@ -11,28 +11,17 @@ import { type PageSpan, pageNumberForOffset } from "./normalize";
  * So this never rewrites text — it only chooses cut points.
  */
 
-/**
- * Revised down from 1,200 / 1,500 / 200 after seeing citations on the deployed
- * app: a 1,200-character chunk makes a *1,200-character highlight*, so the
- * source panel lit up a whole section rather than the "exact source passage" the
- * product claims. **Citation precision is bounded by chunk size and nothing
- * else.**
- *
- * Still not tuned against measured answer quality. This trades context per
- * passage for a sharper citation, since retrieval returns several passages and
- * the reader reads one highlight.
- */
+/** Revised down from 1,200/1,500/200: a 1,200-character chunk makes a
+ * 1,200-character highlight, so the panel lit up a whole section rather than the
+ * "exact passage" claimed. **Precision is bounded by chunk size and nothing
+ * else.** Not yet tuned against answer quality. */
 export const CHUNK_TARGET_CHARS = 600;
 export const CHUNK_MAX_CHARS = 800;
 export const CHUNK_OVERLAP_CHARS = 100;
 
-/**
- * A ceiling on chunks per document, so one pathological upload cannot consume a
- * day's embedding quota. Unchanged by the size revision: quota is spent per
- * embedding call, one per chunk, so this *is* the cost ceiling. The longest
- * supported document roughly halved as a result — ~250 dense pages, still far
- * beyond what this is for.
- */
+/** One embedding call per chunk, so this *is* the cost ceiling — unchanged by the
+ * size revision, which halved the longest supported document to ~250 dense
+ * pages. */
 export const MAX_CHUNKS_PER_DOCUMENT = 600;
 
 export type Chunk = {
@@ -55,13 +44,8 @@ export class DocumentTooLargeError extends Error {
 
 type Boundary = { start: number; end: number };
 
-/**
- * Split a range on a separator, keeping absolute offsets.
- *
- * Returns null when the separator does not divide the range, so callers can fall
- * through to a finer strategy rather than looping on a split that achieved
- * nothing.
- */
+/** Null when the separator does not divide the range, so callers fall through to
+ * a finer strategy rather than looping on a no-op split. */
 function splitOn(
   text: string,
   range: Boundary,
@@ -86,13 +70,9 @@ function splitOn(
   return parts.length > 1 ? parts : null;
 }
 
-/**
- * Reduce an oversized range to pieces within the maximum, trying progressively
- * finer separators: sentences, then any whitespace, then — for a minified file,
- * a base64 blob, or a language written without spaces — an arbitrary cut. Each
- * fallback loses a little meaning, so it is reached only when the previous one
- * could not help.
- */
+/** Progressively finer separators: sentences, whitespace, then an arbitrary cut
+ * for minified files, base64 blobs or languages written without spaces. Each
+ * fallback loses meaning, so it is reached only when the previous failed. */
 function segmentBySize(text: string, range: Boundary): Boundary[] {
   if (range.end - range.start <= CHUNK_MAX_CHARS) return [range];
 
@@ -108,14 +88,9 @@ function segmentBySize(text: string, range: Boundary): Boundary[] {
   return pieces;
 }
 
-/**
- * Break the document into atomic pieces the packer can group.
- *
- * Paragraphs are split *unconditionally*, not only when a range is oversized:
- * they are the strongest semantic boundary extracted text has, and a chunk that
- * runs across one purely because the combined length happened to fit is a worse
- * passage for no benefit. Sizing is the packer's job, below.
- */
+/** Paragraphs split *unconditionally*, not only when oversized: they are the
+ * strongest semantic boundary extracted text has, and running across one because
+ * the length happened to fit is a worse passage for no benefit. */
 function segment(text: string, range: Boundary): Boundary[] {
   const paragraphs = splitOn(text, range, /\n{2,}/g) ?? [range];
   return paragraphs.flatMap((paragraph) => segmentBySize(text, paragraph));
@@ -193,10 +168,8 @@ export function chunkText(
       piece.start,
     );
 
-    // Overlap is context, not an entitlement: if carrying it forward would push
-    // the next chunk past the maximum, drop it. That happens with unbroken runs
-    // where each piece is already max-sized -- and where overlapping text has no
-    // semantic value to preserve anyway.
+    // Overlap is context, not an entitlement: dropped when it would push the next
+    // chunk past the maximum, which only happens on unbroken max-sized runs.
     pending =
       piece.end - resumeAt <= CHUNK_MAX_CHARS
         ? { start: resumeAt, end: piece.end }

@@ -4,24 +4,13 @@ import { Send, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /**
- * The question input.
+ * Enter sends, Shift+Enter newlines — hence a textarea, since a question about a
+ * document is often longer than one line.
  *
- * Enter sends, Shift+Enter inserts a newline — the convention every chat client
- * uses, and the reason this is a textarea rather than an input: a question about
- * a document is often longer than one line.
- *
- * **The draft lives here, not in `ChatPanel`.** It used to be lifted, which made
- * every keystroke re-render the panel and everything under it — including
- * `MessageList`, which re-renders each `Answer`, each of which re-parses its
- * Markdown through Streamdown. On a conversation with a few answers in it,
- * typing one character rebuilt the entire transcript, and it looked like the
- * page was reloading as you typed.
- *
- * Lifting state is the right default and it was wrong here for a specific
- * reason: **nothing above this component reads the draft.** The panel only needs
- * the text at the moment of submission, which `onSubmit` hands it. State belongs
- * at the lowest level that can serve every reader of it, and that level is this
- * form.
+ * **The draft lives here, not in `ChatPanel`.** Lifted, every keystroke
+ * re-rendered the panel and re-parsed every `Answer` through Streamdown —
+ * measured at 20 transcript renders for 19 characters. Lifting is the right
+ * default and was wrong here for one reason: **nothing above reads the draft.**
  */
 export function Composer({
   onSubmit,

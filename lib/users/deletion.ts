@@ -4,27 +4,17 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 
 /**
- * GDPR right to erasure.
- *
- * One statement, because the schema was built to make it one: every table that
- * holds a user's data references them through a chain of `ON DELETE CASCADE`
- * foreign keys.
+ * GDPR erasure, as one statement — the schema was built to make it one:
  *
  *   users ─┬─ accounts
  *          ├─ sessions
  *          ├─ workspaces ── documents ── chunks
  *          └─ chats ── messages
  *
- * The requirement that deleting a document removes the file, its chunks *and*
- * their embeddings is met structurally rather than by application code
- * remembering to tidy up:
- * embeddings live in `chunks.embedding`, so they go with the chunk row. And
- * because extracted text is stored in `documents.contentText` rather than as
- * uploaded files in object storage, there is nothing left behind to orphan —
- * see ADR 009.
- *
- * Guest sessions need no equivalent: their token is self-contained and signed,
- * and nothing about a guest is ever written to the database.
+ * Structural rather than application code remembering to tidy up: embeddings
+ * live in `chunks.embedding` so they go with the row, and text is stored in
+ * `documents.contentText` rather than object storage, so nothing orphans
+ * (ADR 009). Guests need no equivalent — nothing about one is ever written.
  */
 export async function deleteUserAccount(userId: string): Promise<boolean> {
   const deleted = await db

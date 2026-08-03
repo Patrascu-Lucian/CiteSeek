@@ -1,11 +1,6 @@
-// The server → client boundary for chat. `page.tsx` is a Server Component and
-// imports this directly; everything this file imports is pulled into the client
-// bundle with it and needs no directive of its own.
-//
-// Kept here and nowhere below on purpose: the directive *is* the boundary, so
-// repeating it on every component hides where the split actually happens — and
-// makes Next's TypeScript plugin treat each one as a server-facing entry, which
-// it then (correctly, for an entry) flags for taking function props.
+// The server → client boundary. Repeating the directive below would hide where
+// the split happens, and make Next treat each component as a client entry whose
+// function props must be Server Actions.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -21,14 +16,9 @@ import { MessageList, warmAnswer } from "./message-list";
 import { SourcePanel } from "./source-panel";
 
 /**
- * Owns the conversation and everything that mutates it.
- *
- * Same shape as `DocumentsPanel`: one owner of state, presentational children,
- * no prop copied into state. `useChat` holds the messages; this component adds
- * which source the reader has opened.
- *
- * The draft question is deliberately *not* here — see `Composer`. Holding it at
- * this level re-rendered the whole transcript on every keystroke.
+ * Owns the conversation. One owner of state, presentational children, no prop
+ * copied into state. The draft question is deliberately *not* here — holding it
+ * at this level re-rendered the whole transcript on every keystroke.
  */
 export function ChatPanel({
   workspaceId,
@@ -42,30 +32,18 @@ export function ChatPanel({
   workspaceId: string;
   /** Whether anything has finished processing. Nothing to search without it. */
   hasReadyDocuments: boolean;
-  /**
-   * Filenames of what is searchable now. Only a refusal reads these — to say
-   * what it *can* answer from, which is the thing that makes it useful rather
-   * than merely correct.
-   */
+  /** Searchable filenames. Only a refusal reads these, to say what it *can*
+   * answer from. */
   documents?: readonly string[];
   /** Changes what a refusal offers: upload, or sign in, or neither. */
   canUpload?: boolean;
-  /**
-   * Changes what a capacity refusal offers, not whether one happens. A guest is
-   * told signing in gives them their own headroom, which is true because the
-   * global cap reserves room below the guest ceiling.
-   */
+  /** Changes what a capacity refusal offers, not whether one happens — signing in
+   * really does buy headroom, since the global cap reserves it. */
   signedIn?: boolean;
-  /**
-   * A signed-in user's stored conversation, server-rendered. Empty for guests,
-   * whose chats are never persisted.
-   */
+  /** Server-rendered; empty for guests, whose chats are never persisted. */
   initialMessages?: ChatUIMessage[];
-  /**
-   * Called once a turn has been written down, so a server-rendered view of the
-   * conversation can be refetched. Omitted for guests, whose turns are never
-   * persisted and for whom a refetch would return the same thing.
-   */
+  /** Fires once a turn is written down, so server-rendered views refetch. Omitted
+   * for guests, where a refetch returns the same thing. */
   onTurnComplete?: (() => void) | undefined;
 }) {
   const [selected, setSelected] = useState<ChatSource | null>(null);
@@ -77,14 +55,11 @@ export function ChatPanel({
         api: `/api/w/${workspaceId}/chat`,
       }),
       /*
-        The conversation list is server-rendered, so its counts and titles sat
-        stale until a reload. Fired unconditionally — the route persists whatever
-        the reader was shown, a stopped answer included.
-
-        Safe the instant the stream closes, which is not obvious: the route
-        persists inside `streamText`'s own `onFinish` and that transaction has
-        committed before the body ends. An integration test asserts it, because
-        otherwise this would refetch a count one turn behind.
+        The conversation list is server-rendered, so counts and titles sat stale
+        until a reload. Unconditional — the route persists whatever was shown, a
+        stopped answer included — and safe the instant the stream closes, since
+        the route commits inside `streamText`'s `onFinish` before the body ends.
+        An integration test pins that, or this refetches a count one turn behind.
       */
       onFinish: () => onTurnComplete?.(),
     });
@@ -92,15 +67,12 @@ export function ChatPanel({
   const isStreaming = status === "streaming" || status === "submitted";
 
   /*
-    Warm the Markdown chunk at idle.
+    `Answer` carries Streamdown and 428 KB of parser and highlighter, kept out of
+    the initial bundle. Warming on *submit* was measurably too late — the chunk
+    arrived 449ms into a 962ms first answer, against 46ms for later ones. It was
+    not overlapping the wait, it was the wait.
 
-    `Answer` carries Streamdown and 428 KB of parser and highlighter code, kept
-    out of the initial bundle deliberately. Warming on *submit* was measurably
-    too late: the chunk arrived 449ms into a first answer that took 962ms, while
-    later answers took 46ms. It was not overlapping the wait, it was the wait.
-
-    Fire-and-forget: a failed prefetch is not an error, the real import still
-    runs when the component renders.
+    Fire-and-forget: the real import still runs when the component renders.
   */
   useEffect(() => {
     // Safari has only shipped `requestIdleCallback` recently; a timeout is the
@@ -118,9 +90,8 @@ export function ChatPanel({
     void sendMessage({ text: question });
   }
 
-  // Every question against an empty workspace retrieves nothing and gets the
-  // same refusal, which reads like a broken feature rather than an empty one.
-  // Say why up front instead.
+  // Every question here would retrieve nothing and get the same refusal, which
+  // reads as broken rather than empty.
   if (!hasReadyDocuments && messages.length === 0) {
     return (
       <div className="border-border text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
@@ -182,9 +153,8 @@ export function ChatPanel({
 
       <Composer
         onSubmit={ask}
-        // `void` rather than passing it straight through: the prop is typed to
-        // return void, and a floating promise on an event handler is the shape
-        // that silently swallows rejections.
+        // `void`: a floating promise on an event handler silently swallows
+        // rejections.
         onStop={() => void stop()}
         isStreaming={isStreaming}
         disabled={false}

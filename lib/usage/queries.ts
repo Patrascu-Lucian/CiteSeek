@@ -4,32 +4,18 @@ import { db } from "@/lib/db";
 import { usageEvents } from "@/lib/db/schema";
 
 /**
- * Reading and writing what things cost.
- *
  * Three questions, one table, three indexes. Every read is a range scan over a
- * time window, which is why `created_at` is the trailing column of each index
- * rather than the leading one.
+ * window, so `created_at` trails in each index rather than leading.
  *
- * Unlike `lib/documents/queries.ts` these are not workspace-scoped, and
- * deliberately so: a limit that only counted a caller's usage *inside one
- * workspace* would be trivially escaped by making another. The scope here is the
- * actor, and for a guest the address they arrive from.
- *
- * Reads for the **usage dashboard** are the opposite — "what has this workspace
- * spent" is a question about a place — and they live in `dashboard.ts` for that
- * reason. Do not widen the helpers here to take a workspace: the two scopes look
- * interchangeable and are not, and one file each is what keeps them from being
- * confused.
+ * Deliberately **not** workspace-scoped: a limit counting usage inside one
+ * workspace is escaped by making another. The scope is the actor, or for a guest
+ * the address. Dashboard reads are the opposite question — about a place — and
+ * live in `dashboard.ts`. Do not widen these to take a workspace.
  */
 
-/**
- * How long a row is worth keeping.
- *
- * Comfortably longer than the widest window any cap looks back over (a day), and
- * long enough for Milestone 4's usage dashboard to draw a month. Past that a row
- * answers no question anyone asks, and keeping a hashed address forever to
- * answer nothing is not a defensible position.
- */
+/** Longer than the widest cap window (a day) and enough for the dashboard's
+ * month. Past that a row answers nothing, and keeping a hashed address to answer
+ * nothing is not defensible. */
 export const RETENTION_DAYS = 30;
 
 export type UsageKind = "chat" | "embedding";
@@ -44,15 +30,9 @@ export type UsageEventInput = {
   outputTokens?: number;
 };
 
-/**
- * Records one metered event.
- *
- * Resolves rather than throws when the insert fails. A request that has already
- * succeeded must not be turned into an error because its accounting row did not
- * land — but the caller is told, because usage silently failing to record means
- * every cap silently stops applying, and a safety mechanism that fails quietly
- * is worse than one that is absent.
- */
+/** Resolves rather than throws: a succeeded request must not fail because its
+ * accounting row did not land. The caller is told, because unrecorded usage means
+ * every cap silently stops applying. */
 export async function recordUsage(
   event: UsageEventInput,
 ): Promise<{ recorded: boolean }> {
@@ -96,13 +76,8 @@ export async function countRequestsSince(
   return row?.total ?? 0;
 }
 
-/**
- * Requests by everyone since a moment — the global cap, and the reserve.
- *
- * Unkeyed on purpose, so it uses `usage_events_created_at_idx` rather than
- * scanning: this one runs on every admitted request and is the only query here
- * whose cost grows with total traffic rather than with one caller's.
- */
+/** Unkeyed so it uses `usage_events_created_at_idx` — this runs on every admitted
+ * request and is the only query whose cost grows with total traffic. */
 export async function countAllRequestsSince(since: Date): Promise<number> {
   const [row] = await db
     .select({ total: count() })
@@ -151,14 +126,9 @@ export async function sumAllTokensSince(since: Date): Promise<number> {
   return Number(row?.total ?? 0);
 }
 
-/**
- * Deletes rows past the retention window.
- *
- * Swept from a request path rather than a cron, the same way
- * `failStaleProcessing` is: this project has no scheduler, and adding one to
- * delete a few rows would be a lot of infrastructure for a `DELETE`. The cutoff
- * is computed by Postgres, not the app, so it cannot drift with clock skew.
- */
+/** Swept from a request path rather than a cron — no scheduler exists, and adding
+ * one for a `DELETE` is a lot of infrastructure. Postgres computes the cutoff, so
+ * it cannot drift with clock skew. */
 export async function pruneUsageEvents(): Promise<number> {
   const deleted = await db
     .delete(usageEvents)

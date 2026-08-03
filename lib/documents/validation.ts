@@ -1,15 +1,9 @@
 /**
- * What we accept from an upload form.
+ * **Nothing the client sends about a file is true** — `File.type` is derived from
+ * the extension, or from whatever an attacker typed. The declared MIME type never
+ * chooses a parser: the extension proposes, the leading bytes must agree.
  *
- * The governing assumption is that **nothing the client sends about a file is
- * true**. A browser's `File.type` is derived from the extension, an attacker's
- * is whatever they typed. So the declared MIME type is never used to choose a
- * parser — the extension proposes a type and the file's own leading bytes have
- * to agree before anything opens it.
- *
- * This is pure and synchronous: it inspects a byte prefix, touches no network,
- * and writes nothing. Rejection here is the cheapest possible outcome, which is
- * the point of doing it before a row is created.
+ * Pure and synchronous, so rejection costs a byte prefix and no row.
  */
 
 /** 4 MB. Large enough for a long report, small enough to hold in memory safely. */
@@ -51,13 +45,8 @@ const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d] as const;
 /** `PK\x03\x04` — docx is a ZIP archive. */
 const ZIP_MAGIC = [0x50, 0x4b, 0x03, 0x04] as const;
 
-/**
- * Whether the bytes look like the format the extension claims.
- *
- * Text formats have no signature, so there is nothing to check here — an
- * invalid-UTF-8 `.txt` is caught by the decoder during extraction, which is the
- * only place that can tell. Claiming to verify text here would be theatre.
- */
+/** Text formats have no signature — invalid UTF-8 is caught by the decoder during
+ * extraction, the only place that can tell. Verifying it here would be theatre. */
 function contentMatchesExtension(
   extension: AcceptedExtension,
   bytes: Uint8Array,
@@ -74,13 +63,8 @@ function contentMatchesExtension(
   }
 }
 
-/**
- * `bytes` need only be the file's leading bytes — enough for a signature check.
- * `totalBytes` defaults to their length, which is correct on the server where
- * the whole file is already in memory. The browser passes `File.size` instead,
- * so a 4 MB file can be rejected for being oversized after reading 8 bytes of
- * it rather than all of it.
- */
+/** `bytes` need only be the leading bytes. The browser passes `File.size` as
+ * `totalBytes`, so an oversized file is rejected after reading 8 bytes. */
 export function validateUpload(
   filename: string,
   bytes: Uint8Array,

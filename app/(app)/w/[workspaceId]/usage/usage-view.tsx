@@ -11,16 +11,11 @@ import {
 import type { WorkspaceUsage } from "@/lib/usage/dashboard";
 
 /**
- * What this workspace has spent.
+ * Split from `page.tsx` so every state is a prop and none needs a database.
  *
- * Split from `page.tsx` so every state is a prop and none of them needs a
- * database — the same shape as `AccountView` and `Landing`.
- *
- * **Tokens, never money.** The free tier costs nothing, so a figure derived from
- * the paid price list would be a number for a tier this app is not on. Inventing
- * one would be the same failure as the bundle claim the README had to correct:
- * a plausible number nobody measured. If a cost column is ever wanted it has to
- * be labeled with the rate it assumes.
+ * **Tokens, never money.** The free tier costs nothing, so a figure from the paid
+ * price list would describe a tier this app is not on — a plausible number nobody
+ * measured. A cost column would have to name the rate it assumes.
  */
 export function UsageView({
   workspaceId,
@@ -162,13 +157,10 @@ function Total({ label, value }: { label: string; value: number }) {
 }
 
 /**
- * The one number on this page that is about the system rather than the reader.
- *
- * `recordUsage` swallows its own failures deliberately — a metering error must
- * not break someone's answer — and returns a flag nothing consumed. If recording
- * ever stops, the caps silently stop applying and nothing anywhere raises. A
- * visible timestamp is what makes that merely quiet rather than invisible: a
- * date that stops moving while the app is plainly in use is the signal.
+ * The one number here about the system rather than the reader. `recordUsage`
+ * swallows its failures deliberately, so if recording stops the caps silently
+ * stop applying and nothing raises. A date that stops moving while the app is in
+ * use is the only signal.
  */
 function LastRecorded({ at }: { at: Date | null }) {
   return (

@@ -3,46 +3,30 @@ import type { RetrievedChunk } from "@/lib/rag/retrieve";
 import type { ChatSource } from "./types";
 
 /**
- * The grounded prompt.
+ * The grounded prompt. Pure and synchronous, so what the model is told can be
+ * asserted directly rather than inferred from a live reply.
  *
- * Pure and synchronous on purpose: everything that decides what the model is told
- * is a string transformation over retrieved rows, so it can be asserted directly
- * in unit tests rather than inferred from what a live model happened to reply.
- *
- * Two rules do the real work here. Passages are **numbered**, and the number is
- * all the model gets to choose — the mapping from `[2]` to a chunk id lives on the
- * server and is never shown to it, so a citation cannot be invented, only
- * mis-selected. And passages are **delimited and declared as data**, because
- * retrieved text is untrusted input: a document that says "ignore previous
- * instructions" is a document quoting an attack, not an instruction.
+ * Two rules do the work. Passages are **numbered**, and the number is all the
+ * model chooses — the marker-to-chunk mapping never leaves the server, so a
+ * citation can be mis-selected but not invented. And passages are **delimited
+ * and declared as data**: a document saying "ignore previous instructions" is
+ * quoting an attack, not issuing one.
  */
 
-/** Opening/closing markers for retrieved content. */
 const PASSAGE_OPEN = "<passage";
 const PASSAGE_CLOSE = "</passage>";
 
-/**
- * Neutralizes delimiter syntax inside retrieved text.
- *
- * Without this, a document containing `</passage>` could close its own block and
- * have the text after it read as though it sat outside the untrusted region.
- * Replacing the angle bracket keeps the passage readable while making the
- * sequence unparseable as a tag — the model still sees the words, which matters
- * if the user is genuinely asking about a document that discusses XML.
- */
+/** A document containing `</passage>` could otherwise close its own block and
+ * have the rest read as trusted. Replacing the bracket keeps the words readable
+ * while making the sequence unparseable as a tag. */
 export function neutralizeDelimiters(content: string): string {
   return content
     .replaceAll(PASSAGE_CLOSE, "‹/passage›")
     .replaceAll(PASSAGE_OPEN, "‹passage");
 }
 
-/**
- * Assigns marker numbers to retrieved chunks.
- *
- * Order is retrieval order, so `[1]` is always the closest passage. The `quote` is
- * the chunk's own text — the same string the source panel will highlight, which is
- * what keeps the citation invariant checkable end to end.
- */
+/** Retrieval order, so `[1]` is the closest passage. `quote` is the chunk's own
+ * text — the same string the source panel highlights. */
 export function buildSources(
   retrieved: readonly RetrievedChunk[],
 ): ChatSource[] {
@@ -75,14 +59,8 @@ Rules, in order of precedence:
 6. Be concise. Quote the source when the exact wording matters; otherwise summarize.
 7. When you decline under rule 1, write it for the person asking, not about the passages. Say plainly that the documents do not cover it, and name what they do cover if that is nearby. Never open with a phrase like "the provided passages" or "the context does not contain" — that describes your inputs rather than answering the reader.`;
 
-/**
- * Renders passages as delimited, numbered blocks.
- *
- * The filename and page ride along because they are useful grounding for the
- * model's prose ("according to handbook.pdf, page 3"), not because the model is
- * trusted to reproduce them — the chip's label comes from the server-side source
- * record either way.
- */
+/** Filename and page ride along as grounding for the model's prose, not because
+ * it is trusted to reproduce them — the chip's label comes from the server. */
 export function formatPassages(sources: readonly ChatSource[]): string {
   return sources
     .map((source) => {
@@ -100,14 +78,9 @@ export function formatPassages(sources: readonly ChatSource[]): string {
     .join("\n\n");
 }
 
-/**
- * The full system prompt for a grounded answer.
- *
- * Callers must not reach this with an empty source list: no passages means the
- * relevance floor was not cleared, and the answer is `NO_RELEVANT_PASSAGES_REPLY`
- * without a model call at all. Throwing makes that a bug rather than a prompt that
- * quietly invites the model to answer from memory.
- */
+/** Throws on an empty source list: no passages means the floor was not cleared
+ * and there should be no model call at all. Silently proceeding would invite the
+ * model to answer from memory. */
 export function buildSystemPrompt(sources: readonly ChatSource[]): string {
   if (sources.length === 0) {
     throw new Error(

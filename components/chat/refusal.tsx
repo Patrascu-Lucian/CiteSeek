@@ -5,22 +5,17 @@ import { Button } from "@/components/ui/button";
 import type { RefusalReason } from "@/lib/ai/types";
 
 /**
- * What a reader is offered when their question could not be grounded.
+ * What a reader is offered when their question could not be grounded. "How do I
+ * upload a file?" is refused because the answer is in nobody's documents —
+ * correct, and useless without saying so.
  *
- * The problem this exists for: "how do I upload a file?" is a reasonable thing
- * to type into a chat box, and it is refused, because the answer is not in
- * anyone's documents. The refusal was correct and useless — it said nothing had
- * been found and left the reader to guess whether the product was broken.
+ * Two alternatives rejected (ADR 017): seeding a document about the product puts
+ * self-referential text in the corpus where it can be cited as the reader's own,
+ * and a second ungrounded path gives the model somewhere to answer from that is
+ * not the documents.
  *
- * Three things were considered and two rejected (ADR 017). Seeding a document
- * about the product would put self-referential text in the corpus, where it can
- * be retrieved and cited as though it were the reader's own content. A second,
- * ungrounded answering path would give the model somewhere to answer from that
- * is not the documents, which is the guarantee the whole design rests on.
- *
- * What is left is this: say what the assistant can answer from, and point at the
- * interface. **Every word here is written by us, none by a model** — a turn that
- * could not be grounded must not produce prose that reads as if it had been.
+ * **Every word here is written by us, none by a model** — a turn that could not
+ * be grounded must not produce prose that reads as if it had been.
  */
 export function Refusal({
   reason,

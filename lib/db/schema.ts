@@ -14,14 +14,9 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 
-/* ---------------------------------------------------------------------------
- * Auth.js tables
- *
- * These five column shapes are dictated by @auth/drizzle-adapter, which reads
- * properties by name (`refresh_token`, not `refreshToken`). They are copied from
- * the adapter's own type definitions rather than from memory -- a mismatch here
- * fails at runtime during sign-in, not at compile time.
- * ------------------------------------------------------------------------- */
+/* Auth.js tables. Column names are dictated by @auth/drizzle-adapter, which reads
+ * them by name (`refresh_token`, not `refreshToken`); a mismatch fails at
+ * sign-in, not at compile time. */
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -85,12 +80,8 @@ export const verificationTokens = pgTable(
  * Application tables
  * ------------------------------------------------------------------------- */
 
-/**
- * Ingestion is a background job, so a document's state has to be readable from
- * the database rather than inferred from whether a request is still open. These
- * are the states the documents list renders -- including the failure state,
- * which needs to be visible and retryable rather than silently absent.
- */
+/** Ingestion is a background job, so state lives in the row rather than in an
+ * open request. `failed` is visible and retryable, not swallowed. */
 export const documentStatus = pgEnum("document_status", [
   "queued",
   "processing",
@@ -100,11 +91,8 @@ export const documentStatus = pgEnum("document_status", [
 
 export const messageRole = pgEnum("message_role", ["user", "assistant"]);
 
-/**
- * Page boundaries within a document's extracted text. Mirrors `PageSpan` in
- * `lib/rag/normalize.ts`; declared here so the schema does not depend on the
- * RAG layer, and asserted equal to it by a type test.
- */
+/** Mirrors `PageSpan` in `lib/rag/normalize.ts` — duplicated so the schema does
+ * not depend on the RAG layer, and asserted equal by a type test. */
 export type DocumentPageSpan = {
   pageNumber: number;
   charStart: number;
@@ -116,12 +104,8 @@ export const workspaces = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
-    /**
-     * Null for the seeded demo workspace, which belongs to no one. Guest
-     * sessions read it; nothing writes to it. Keeping ownership nullable is
-     * what lets authorization be a single rule ("you own it, or it is the demo
-     * and you are read-only") instead of a special case threaded everywhere.
-     */
+    /** Null for the demo workspace, which belongs to no one. Nullable ownership
+     * keeps authorization one rule instead of a threaded special case. */
     ownerId: uuid("owner_id").references(() => users.id, {
       onDelete: "cascade",
     }),
@@ -151,28 +135,16 @@ export const documents = pgTable(
     mimeType: text("mime_type").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     status: documentStatus("status").default("queued").notNull(),
-    /**
-     * Populated only when status is 'failed'; surfaced in the UI, not swallowed.
-     * Sanitized before storage -- an exception message, never document text.
-     */
+    /** Sanitized before storage: an exception message, never document text. */
     error: text("error"),
     /**
-     * The canonical extracted text. Every `chunks.charStart` / `charEnd` indexes
-     * into this exact string, so a citation is a substring slice of it.
-     *
-     * The uploaded file itself is discarded after parsing: keeping only text
-     * means erasure is one SQL delete with no orphaned blobs, and there is no
-     * second data location to reason about under GDPR.
+     * Canonical text. Every `chunks.charStart`/`charEnd` indexes into this exact
+     * string, so a citation is a slice of it. The uploaded file is discarded
+     * after parsing — erasure is one DELETE with no orphaned blobs (ADR 009).
      */
     contentText: text("content_text"),
-    /**
-     * Where each page begins and ends within `contentText`. Null for formats
-     * with no page concept (docx, markdown, plain text).
-     *
-     * Persisted rather than recomputed because the original bytes are gone --
-     * adding this column later would require re-uploading every document, which
-     * makes it effectively one-way.
-     */
+    /** Null for formats with no pages. Persisted rather than recomputed: the
+     * original bytes are gone, so adding this later means re-uploading. */
     pageSpans: jsonb("page_spans").$type<DocumentPageSpan[]>(),
     pageCount: integer("page_count"),
     chunkCount: integer("chunk_count"),
@@ -196,18 +168,11 @@ export const chunks = pgTable(
     /** Position within the document, so retrieved chunks can be re-ordered and neighbors fetched. */
     chunkIndex: integer("chunk_index").notNull(),
     content: text("content").notNull(),
-    /**
-     * 768 dimensions, not the model default of 3072: pgvector's HNSW and IVFFlat
-     * indexes cap the `vector` type at 2000. See
-     * docs/decisions/002-embedding-model-and-dimension.md.
-     */
+    /** 768, not the model default 3072: pgvector's HNSW/IVFFlat cap `vector` at
+     * 2000. See ADR 002. */
     embedding: vector("embedding", { dimensions: 768 }),
-    /**
-     * Citation anchors. These are the whole point of the product -- without the
-     * page and character span there is no way to open a source document scrolled
-     * to the passage an answer came from, so they are stored at ingestion time
-     * rather than recomputed later.
-     */
+    /** Citation anchors, stored at ingestion. Without the page and span there is
+     * no way to open a source at the passage an answer came from. */
     pageNumber: integer("page_number"),
     charStart: integer("char_start").notNull(),
     charEnd: integer("char_end").notNull(),
@@ -221,12 +186,8 @@ export const chunks = pgTable(
       table.documentId,
       table.chunkIndex,
     ),
-    /**
-     * HNSW over cosine distance. Cosine because the embeddings are normalized and
-     * we care about direction, not magnitude. Built now that the dimension is
-     * settled; on an empty table this is free, and adding it later would mean a
-     * migration that rebuilds over every row.
-     */
+    /** HNSW over cosine — embeddings are normalized, so direction is what
+     * matters. Built on an empty table; later means rebuilding every row. */
     index("chunks_embedding_idx").using(
       "hnsw",
       table.embedding.op("vector_cosine_ops"),
@@ -272,33 +233,21 @@ export const chats = pgTable(
   ],
 );
 
-/**
- * Why an answer could not be grounded.
- *
- * Only the two cases the route can tell apart without a model. Anything
- * finer-grained would be a guess about what the reader meant, and the whole
- * design rests on a refusal being a fact about retrieval rather than an
- * interpretation of the question. See ADR 017.
- */
+/** Only the two cases the route can distinguish without a model — a refusal is a
+ * fact about retrieval, not an interpretation of the question. ADR 017. */
 export type RefusalReason =
   /** Passages exist in this workspace; none of them cleared the relevance floor. */
   | "no_relevant_passages"
   /** Nothing has finished processing, so there was nothing to search at all. */
   | "no_documents";
 
-/**
- * One citation as stored on a message. Chunk ids are kept alongside a snapshot of
- * the anchor so a rendered answer stays readable even if the source document is
- * later deleted -- a dangling citation should degrade, not crash the transcript.
- */
+/** Chunk id plus a snapshot of the anchor, so a dangling citation degrades
+ * rather than crashing the transcript when its document is deleted. */
 export type MessageCitation = {
   chunkId: string;
   documentId: string;
-  /**
-   * Part of the snapshot, not a join. A chip has to be able to name its source
-   * even after the document is deleted, and reading the name live would also let
-   * a rename silently rewrite what an old answer appears to have cited.
-   */
+  /** Snapshot, not a join: a chip must name its source after deletion, and a live
+   * read would let a rename rewrite what an old answer cited. */
   filename: string;
   pageNumber: number | null;
   charStart: number;
@@ -313,17 +262,12 @@ export const messages = pgTable(
     chatId: uuid("chat_id")
       .notNull()
       .references(() => chats.id, { onDelete: "cascade" }),
-    /**
-     * Position within the conversation, for the same reason `chunks` carries
-     * `chunkIndex`: `created_at` defaults to `now()`, which is the *transaction*
-     * timestamp, so every row written by one statement shares it. A turn inserts
-     * the question and the answer together, leaving the tiebreak to a random
-     * UUIDv4 primary key — which rendered transcripts in arbitrary order.
-     */
+    /** `created_at` is the *transaction* timestamp, so both rows of a turn share
+     * it and the tiebreak falls to a random UUIDv4 — transcripts came out in
+     * arbitrary order. */
     position: integer("position").notNull(),
     role: messageRole("role").notNull(),
     content: text("content").notNull(),
-    /** Empty array for user messages; populated for grounded assistant answers. */
     citations: jsonb("citations")
       .$type<MessageCitation[]>()
       .default([])
@@ -379,22 +323,14 @@ export const usageEvents = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
 
-    /**
-     * Who spent it. A guest's id comes from a cookie they can clear, so it is
-     * recorded for reading rather than relied on for limiting — `ipHash` is the
-     * key that actually constrains a guest.
-     */
+    /** A guest's id comes from a clearable cookie, so it is recorded for reading;
+     * `ipHash` is what actually constrains them. */
     actorType: text("actor_type").notNull(),
     actorId: text("actor_id").notNull(),
 
-    /**
-     * `HMAC-SHA256(clientIp, AUTH_SECRET)`, never the address itself.
-     *
-     * Equality on the hash counts identically to equality on the address, so
-     * nothing about enforcement changes, and the table never holds an IP.
-     * Rotating `AUTH_SECRET` re-keys every hash and so resets every limit —
-     * acceptable, and the same trade already made for guest cookies.
-     */
+    /** `HMAC-SHA256(clientIp, AUTH_SECRET)`. Equality on the hash counts the same
+     * as on the address, so the table never holds an IP. Rotating the secret
+     * resets every limit — the trade guest cookies already make. */
     ipHash: text("ip_hash"),
 
     /** Nullable: a request refused before authorization has no workspace yet. */
@@ -404,10 +340,8 @@ export const usageEvents = pgTable(
 
     kind: usageKind("kind").notNull(),
 
-    /**
-     * Almost always 1. Kept as a column rather than counting rows so a future
-     * batched write stays expressible without a migration.
-     */
+    /** Almost always 1; a column rather than a row count so a batched write stays
+     * expressible without a migration. */
     requests: integer("requests").default(1).notNull(),
 
     /** Embedding spend lands in `inputTokens`; it produces no output tokens. */

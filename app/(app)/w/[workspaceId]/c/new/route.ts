@@ -7,28 +7,18 @@ import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 export const runtime = "nodejs";
 
 /**
- * "New conversation" — creates one, then redirects to it.
+ * Creates a conversation, then redirects to it.
  *
- * **POST, not GET, and that is the whole point of this file's history.**
+ * **POST, not GET.** The first version was a GET so the control could be a link.
+ * Next prefetches `<Link>` targets in the viewport, and a prefetch *executes the
+ * handler* — so every page load created a conversation.
  *
- * The first version was a `GET` so the control could be an ordinary link, with
- * a comment arguing the exception was safe because "the worst case is one empty
- * conversation". It was not safe. Next prefetches `<Link>` targets in the
- * viewport, and a prefetch of this href *executes the handler* — so every page
- * load created a conversation, and clicking between conversations re-rendered
- * the list and created more. Empty conversations appeared without anyone asking
- * for one, which is exactly the failure the same comment warned about for pages
- * before dismissing it for handlers.
+ * **A GET must not create a resource**: prefetchers, crawlers, link previews and
+ * tab restore all issue GETs nobody clicked. The cost is a submit button rather
+ * than a link — no middle-click, no open-in-new-tab.
  *
- * The rule holds without exception: **a GET must not create a resource.** A
- * prefetcher, a crawler, a link preview in a chat app, and a browser restoring
- * tabs will all issue GETs nobody clicked. The cost of the fix is that the
- * control is a submit button rather than a link — no middle-click, no
- * open-in-new-tab — which is a small price for an operation that should never
- * have been idempotent-looking in the first place.
- *
- * Note this route shares a segment with `/c/[chatId]`. A literal path wins over
- * a dynamic one in Next's matching, so "new" is never read as a chat id.
+ * Shares a segment with `/c/[chatId]`; a literal path wins over a dynamic one, so
+ * "new" is never read as a chat id.
  */
 export async function POST(
   request: Request,

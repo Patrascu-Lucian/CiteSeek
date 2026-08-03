@@ -1,23 +1,14 @@
 /**
- * What seeding the demo fixture should do, given what the workspace already
- * holds.
+ * Split out of `seed.mts` so the decision is testable without a database. The
+ * script keeps the I/O; this keeps the rule.
  *
- * Split out of `seed.mts` so the decision can be tested without a database and
- * without running a script whose whole purpose is to write to one. The script
- * keeps the I/O; this keeps the rule.
- *
- * The rule it replaced was "if the workspace has any document at all, do
- * nothing". That is idempotent in the narrow sense — a second run changes
- * nothing — while quietly guaranteeing that **no already-seeded database would
- * ever pick up a change to the fixture**. Switching the handbook to a PDF would
- * have been a no-op everywhere it mattered, production included, and the seed
- * would have reported success. Idempotence toward whatever landed first is not
- * the property wanted; convergence toward the intended state is.
+ * It replaced "if the workspace has any document, do nothing" — idempotent in the
+ * narrow sense, and a guarantee that **no already-seeded database could pick up a
+ * fixture change**. Idempotence toward whatever landed first is not the property
+ * wanted; convergence is.
  */
 export type FixtureSeedPlan = {
-  /** Whether the fixture has to be ingested. */
   create: boolean;
-  /** Ids of documents superseded by it, to delete first. */
   remove: string[];
   /** One line for the log, so a run says what it decided rather than only that it ran. */
   reason: string;
@@ -30,7 +21,6 @@ export function planFixtureSeed({
 }: {
   existing: readonly { id: string; filename: string }[];
   filename: string;
-  /** Filenames earlier versions of this fixture used. */
   supersededFilenames: readonly string[];
 }): FixtureSeedPlan {
   if (existing.some((document) => document.filename === filename)) {

@@ -1,19 +1,11 @@
 /**
- * Regenerates the demo workspace's seeded PDF from its HTML source.
+ * Regenerates the demo PDF from its HTML source. Run by hand (`pnpm demo:pdf`),
+ * never by the seed — CI's integration job installs no browser, and depending on
+ * Chromium would trade a committed 68 KB file for a 300 MB download.
  *
- * Run by hand when the handbook's wording changes — `pnpm demo:pdf` — and never
- * by the seed. The seed runs in CI's integration job, which installs no browser,
- * and making it depend on Chromium would trade a committed 30 KB file for a
- * 300 MB download on every run. The generated PDF is committed instead;
- * `.gitattributes` already declares `*.pdf binary`, so it diffs as one line.
- *
- * Chromium via Playwright rather than a PDF library, because Playwright is
- * already installed for the E2E suite. `page.pdf()` emits a real text layer, not
- * an image of one, which is the only kind of PDF worth using here: the whole
+ * Playwright rather than a PDF library because it is already installed, and
+ * `page.pdf()` emits a real text layer rather than an image of one — the whole
  * point is that extraction pulls text and page numbers back out.
- *
- * Uses the browser Playwright already downloaded. If it reports a missing
- * executable, run the E2E suite once rather than `playwright install`.
  */
 import { chromium } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
@@ -45,9 +37,8 @@ try {
 
   const pdf = await page.pdf({
     format: "A4",
-    // The @page rule in the source owns the margins. Printing headers and
-    // footers would put a URL and a date into the extracted text, where they
-    // would become retrievable passages of the demo corpus.
+    // The source's @page rule owns margins. Headers and footers would put a URL
+    // and a date into the extracted text, as retrievable passages.
     printBackground: true,
     displayHeaderFooter: false,
   });

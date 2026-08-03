@@ -10,29 +10,21 @@ import {
 
 import { MAX_TITLE_LENGTH, titleFromQuestion } from "./titles";
 
-// Re-exported so existing callers and tests keep one import site for chat
-// concerns; the definitions live in `titles.ts` because a client component needs
-// the limit and must not pull the database in with it.
+// Defined in `titles.ts` because a client component needs the limit and must not
+// pull the database in with it.
 export { MAX_TITLE_LENGTH, titleFromQuestion };
 
 /**
  * Every read and write of chat data.
  *
- * Same rule as `lib/documents/queries.ts`, plus a second scope documents do not
- * need: a workspace can be shared — the demo is readable by every guest — so
- * scoping a chat to its workspace alone would let one reader load another's
- * conversation. Every query filters on `workspaceId` **and** `userId`, and
- * messages reach both by joining through their chat.
- *
- * Signed-in users only (ADR 013): guest conversations live in browser state,
- * which keeps an unbounded write path off a public URL.
+ * Two scopes, not one: a workspace can be shared, so `workspaceId` alone would
+ * let one reader load another's conversation. Every query filters on
+ * `workspaceId` **and** `userId`; messages reach both by joining through their
+ * chat. Signed-in users only (ADR 013).
  */
 
-/**
- * The user's most recent chat in a workspace, or a new one. Picking the most
- * recent rather than creating one per request is what makes a reload continue the
- * conversation instead of starting a fresh one.
- */
+/** Most recent, or a new one — creating per request would make every reload start
+ * a fresh conversation. */
 export async function getOrCreateChat(
   workspaceId: string,
   userId: string,
@@ -65,10 +57,8 @@ export type ChatMessage = {
   createdAt: Date;
 };
 
-/**
- * A conversation, oldest first. Scoped through the chat's workspace and user
- * rather than by id alone — an id is guessable, ownership is the thing to check.
- */
+/** Oldest first, scoped through the chat's workspace and user: an id is
+ * guessable, ownership is the thing to check. */
 export async function listChatMessages(
   workspaceId: string,
   userId: string,
@@ -96,7 +86,6 @@ export async function listChatMessages(
     .orderBy(asc(messages.position));
 }
 
-/** The user's latest conversation in a workspace, ready to render. */
 export async function loadLatestChat(
   workspaceId: string,
   userId: string,
@@ -116,13 +105,9 @@ export async function loadLatestChat(
   };
 }
 
-/**
- * Which conversation a turn belongs to. The client says which one, and a
- * client-supplied id is exactly what must not be trusted — so it is checked
- * against this workspace *and* this user. A mismatch falls back to the most
- * recent rather than erroring, because a stale id from a chat deleted in another
- * tab should not lose the reader's question.
- */
+/** The client says which conversation, so the id is checked against this
+ * workspace and user. A mismatch falls back to the most recent rather than
+ * erroring — a stale id should not lose the reader's question. */
 export async function resolveChatForTurn(
   workspaceId: string,
   userId: string,
@@ -168,16 +153,9 @@ export type ChatSummary = {
 };
 
 /**
- * Every conversation this user has in this workspace, newest first.
- *
- * A LEFT JOIN with a grouped count rather than a correlated subquery, for the
- * reason `listDocuments` records: inside a `sql` template Drizzle emits column
- * references unqualified, so a correlated `WHERE` compares a table to itself and
- * silently returns zero. A join forces qualification.
- *
- * Ordered by `updatedAt` so a conversation returns to the top when it is added
- * to, which is what makes "most recent" mean "most recently used" rather than
- * "most recently created".
+ * Newest first. LEFT JOIN with a grouped count, not a correlated subquery — see
+ * `listDocuments` for why that silently returns zero. Ordered by `updatedAt`, so
+ * "most recent" means most recently *used*.
  */
 export async function listChats(
   workspaceId: string,
@@ -198,18 +176,12 @@ export async function listChats(
 }
 
 /**
- * Renames a conversation.
+ * Returns whether a row changed, so a caller distinguishes "not yours" from
+ * "done" without a second query. Scoped on chat, workspace *and* user: read
+ * access to a shared workspace must not imply write access inside it.
  *
- * Returns whether a row was changed, so a caller can tell "not yours" from
- * "done" without a second query. Scoped on all three of chat, workspace and
- * user: a chat id is a guessable UUID and read access to a shared workspace must
- * not imply write access to someone else's conversation inside it.
- *
- * Reuses `MAX_TITLE_LENGTH` rather than inventing a second limit, so a renamed
- * chat and an auto-titled one cannot disagree about how long a title may be.
- * An empty title clears it, which returns the chat to being described by its
- * first question — a rename box is not the place to enforce that a chat must
- * have a name.
+ * An empty title clears it, returning the chat to being described by its first
+ * question.
  */
 export async function renameChat(
   workspaceId: string,
@@ -236,14 +208,8 @@ export async function renameChat(
   return updated.length > 0;
 }
 
-/**
- * Deletes a conversation and everything in it.
- *
- * The messages go with it through `ON DELETE CASCADE` on the foreign key rather
- * than a second statement here — the same reason account deletion is one
- * statement. Nothing in application code walks the tree, so no code path can
- * forget a child.
- */
+/** Messages go with it through `ON DELETE CASCADE`. No application code walks the
+ * tree, so no path can forget a child. */
 export async function deleteChat(
   workspaceId: string,
   userId: string,
@@ -272,17 +238,12 @@ export type NewChatMessage = {
 };
 
 /**
- * Appends a turn to a conversation.
+ * Verifies ownership before writing — otherwise a guessed id appends to someone
+ * else's conversation.
  *
- * Verifies the chat belongs to this user in this workspace before writing
- * anything — without that check a caller could append to someone else's
- * conversation by guessing an id, the same hole `insertChunks` closes for
- * documents.
- *
- * Citations are stored as the **full numbered source list in marker order**, so
- * `[n]` resolves to `citations[n - 1]` identically while streaming and after a
- * reload. Storing only the passages the model happened to cite would renumber
- * them and silently repoint every marker.
+ * Citations are stored as the **full numbered list in marker order**, so `[n]`
+ * resolves to `citations[n - 1]` both while streaming and after a reload. Storing
+ * only the cited subset would renumber and repoint every marker.
  */
 export async function appendMessages(
   workspaceId: string,
@@ -306,9 +267,8 @@ export async function appendMessages(
 
   if (!owned) return 0;
 
-  // Positions continue from what is already stored. Ordering cannot rely on
-  // `createdAt`: it defaults to `now()`, the *transaction* timestamp, so both
-  // rows of one turn share it exactly and the tiebreak falls to a random UUID.
+  // Ordering cannot use `createdAt`: it is the transaction timestamp, so both
+  // rows of a turn share it and the tiebreak falls to a random UUID.
   const [last] = await db
     .select({ position: messages.position })
     .from(messages)
@@ -338,10 +298,8 @@ export async function appendMessages(
   await db
     .update(chats)
     .set({
-      // `now()` rather than a JavaScript Date: `createdAt` defaults to the
-      // database's clock, and mixing two machines' clocks in one column lets an
-      // update write a timestamp earlier than the insert it follows. Chats are
-      // ordered by this column, so it must not move backwards.
+      // `now()`, not a JS Date: the column defaults to the database clock, and
+      // mixing two machines' clocks lets an update predate its own insert.
       updatedAt: sql`now()`,
       ...(owned.title === null && firstQuestion
         ? { title: titleFromQuestion(firstQuestion) }

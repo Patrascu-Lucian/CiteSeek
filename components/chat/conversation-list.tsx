@@ -20,21 +20,14 @@ import { MAX_TITLE_LENGTH } from "@/lib/chats/titles";
 import { cn } from "@/lib/utils";
 
 /**
- * Past conversations, as links.
+ * Past conversations, as links — routes rather than client state, so one can be
+ * linked, bookmarked and reached with the back button.
  *
- * No `"use client"` of its own: it is reached only through `WorkspaceSections`,
- * which is where this subtree crosses the boundary. Repeating the directive here
- * would hide where the split actually happens, and would make Next treat this as
- * a client *entry* — at which point its function props have to be Server
- * Actions, which `onChanged` is not and should not be.
+ * No `"use client"`: reached only through `WorkspaceSections`, which owns the
+ * boundary. A directive here would make Next treat this as a client *entry*,
+ * whose function props must be Server Actions — `onChanged` is not one.
  *
- * Each is a route rather than a click handler swapping client state, so a
- * conversation can be linked, bookmarked and reached with the back button. The
- * open one is marked with `aria-current="page"` for the same reason the nav is:
- * "which of these am I reading" has to be available without seeing the styling.
- *
- * Signed-in only. Guest conversations are never written down (ADR 013), so a
- * guest has no history to list and this does not render for them.
+ * Signed-in only; guest conversations are never written down (ADR 013).
  */
 export function ConversationList({
   workspaceId,
@@ -185,19 +178,12 @@ export function ConversationList({
 }
 
 /**
- * Confirmation for a deletion that cannot be undone.
+ * Lighter than the account dialog's typed word: what is lost is one conversation,
+ * and a typed confirmation on every row trains the reader to type through it.
+ * Naming the conversation is the job — a misclick got *which one* wrong.
  *
- * Deliberately lighter than the account dialog, which asks for a typed word:
- * these controls sit in a dense list where the delete button is two pixels from
- * the rename button and both are icon-only, so a misclick is easy — but what is
- * lost is one conversation, not an account. A typed confirmation on every row
- * would train the reader to type through it. Naming the conversation and its
- * message count is what makes the dialog worth reading: it says *which* one is
- * about to go, which is the thing a misclick got wrong.
- *
- * The documents list has the same shape of control and no confirmation. That is
- * inconsistent, and the resolution belongs with deletion generally rather than
- * bolted on here — filed in `docs/backlog.md`.
+ * The documents list has the same control and no confirmation; filed in
+ * `docs/backlog.md` rather than bolted on here.
  */
 function DeleteConversation({
   label,
@@ -273,11 +259,9 @@ function RenameForm({
       }}
     >
       <input
-        // The field replaces a control the reader just activated, so focus has
-        // to follow it — otherwise a keyboard user is left on a button that no
-        // longer exists. This is the case autofocus is legitimate for: a
-        // deliberate action moved the interface, rather than a page load
-        // stealing focus from someone who did not ask.
+        // The field replaces the control just activated, so focus must follow or
+        // a keyboard user is left on a button that no longer exists. The case
+        // autofocus is legitimate for.
         autoFocus
         aria-label="Conversation name"
         maxLength={MAX_TITLE_LENGTH}

@@ -12,16 +12,12 @@ import {
 import { signOutAction } from "@/lib/auth/actions";
 
 /**
- * Everything about the person, rather than about their documents.
+ * This page exists for account deletion, which used to sit in the header — an
+ * irreversible action one stray click from a wordmark, with no room to say what
+ * it destroys.
  *
- * The reason this page exists is account deletion. It used to be triggered from
- * the navigation header, which put an irreversible action one stray click from a
- * wordmark, on every route, with no room to say what it destroys. A destructive
- * action wants a page that can explain itself.
- *
- * Split from `page.tsx` for the same reason `Landing` is: resolving the actor
- * makes a component async and reaches into Auth.js, and React Testing Library
- * can render neither. Everything visual is here, and every state is a prop.
+ * Split from `page.tsx` because resolving the actor makes a component async and
+ * reaches into Auth.js, neither of which RTL can render.
  */
 export type AccountViewProps =
   | { kind: "guest" }
@@ -29,12 +25,8 @@ export type AccountViewProps =
       kind: "user";
       name: string | null;
       email: string | null;
-      /**
-       * Display labels, already resolved — this component does no lookups.
-       * `readonly` for the same reason `Answer` takes `readonly ChatSource[]`:
-       * nothing here mutates it, and saying so lets a caller pass a frozen
-       * literal without a cast.
-       */
+      /** Already resolved — this component does no lookups. `readonly` so a caller
+       * can pass a frozen literal without a cast. */
       providers: readonly string[];
     };
 
@@ -48,11 +40,8 @@ export function AccountView(props: AccountViewProps) {
   );
 }
 
-/**
- * `/demo` mints a session with no database row behind it, so "delete my account"
- * has no referent. This says so before the attempt rather than after — the same
- * thing `DELETE /api/account` returns to a guest, moved to where they would look.
- */
+/** A guest session has no database row, so "delete my account" has no referent.
+ * Said before the attempt rather than after. */
 function GuestNotice() {
   return (
     <Card className="mt-6">

@@ -31,12 +31,8 @@ import { retrieveChunks } from "@/lib/rag/retrieve";
 /** Node runtime: retrieval reaches the database and the fake model uses node APIs. */
 export const runtime = "nodejs";
 
-/**
- * Shorter than ingestion's 300s. A chat request that has not produced a first
- * token in a minute is not going to produce a useful one — the user has already
- * given up, and holding the function open costs quota for an answer nobody will
- * read.
- */
+/** Shorter than ingestion's 300s: a request with no first token after a minute
+ * is an answer nobody will read, still burning quota. */
 export const maxDuration = 60;
 
 /** Read access, not write: a guest may ask questions of the demo workspace. */
@@ -46,12 +42,8 @@ function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
 }
 
-/**
- * The text of the most recent user turn.
- *
- * v7 messages carry a `parts` array rather than a string, so a message can mix
- * text with tool calls and data. Only text is a question.
- */
+/** v7 messages carry `parts`, which can mix text with tool calls and data. Only
+ * text is a question. */
 function lastUserText(messages: readonly ChatUIMessage[]): string | null {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i]!;
@@ -88,12 +80,9 @@ function parseMessages(body: unknown): ChatUIMessage[] | null {
 }
 
 /**
- * The refusal, streamed in the same shape as a real answer so the client has one
- * code path — an assistant message with no sources part and therefore no chips.
- *
- * The text is a fixed server-side string and the model is never called, which is
- * what makes "I don't know" structural rather than instructed. The `refusal`
- * part carries *why*; the client turns that into what the reader can do next.
+ * Streamed in the same shape as a real answer, so the client has one code path.
+ * Fixed server-side text and no model call — this is what makes "I don't know"
+ * structural rather than instructed. The `refusal` part carries *why*.
  */
 function refusalStream(reason: RefusalReason) {
   return createUIMessageStream<ChatUIMessage>({
@@ -155,19 +144,14 @@ export async function POST(
     question,
   );
 
-  // Pulled out before the closure below rather than read through `auth` and
-  // `question` inside it: TypeScript drops narrowing at a function boundary, so
-  // both would widen back to their unnarrowed types. Plain values need no
-  // narrowing to survive.
+  // Destructured before the closure: TypeScript drops narrowing at a function
+  // boundary, so reading through `auth` inside it would widen these back.
   const { workspaceId: scope, actorType, actorId } = auth;
   const asked: string = question;
 
-  /**
-   * Before either branch returns: the query is embedded *before* the relevance
-   * floor applies, so a question that matches nothing has still been paid for.
-   * Metering only the answered branch would leave repeated nonsense — the
-   * cheapest way to spend someone's quota — uncounted.
-   */
+  /** Before either branch: the query is embedded *before* the floor applies, so a
+   * question that matched nothing was still paid for. Metering only the answered
+   * branch leaves repeated nonsense uncounted. */
   await recordUsage({
     actorType,
     actorId,
@@ -177,12 +161,9 @@ export async function POST(
     inputTokens: retrievalTokens,
   });
 
-  // Signed-in only: a guest is anonymous and unlimited, so writing rows for one
-  // would put an unbounded write path behind a public URL (ADR 005).
-  //
-  // The client sends which conversation it is showing; `resolveChatForTurn`
-  // checks that id against this workspace and user, so a guessed or stale id
-  // cannot append to someone else's transcript.
+  // Signed-in only: persisting guest turns would put an unbounded write path
+  // behind a public URL (ADR 005). `resolveChatForTurn` validates the id the
+  // client sends, so a guess cannot append to someone else's transcript.
   const chatId =
     actorType === "user"
       ? (await resolveChatForTurn(scope, actorId, requestedChatId)).id
@@ -201,24 +182,20 @@ export async function POST(
     ]);
   }
 
-  // The relevance floor, and the reason "I don't know" is structural: with no
-  // passages the model is never called, so there is nothing to answer from and
-  // nothing to cite. Compare with instructing a model to refuse, which works
-  // most of the time.
+  // The relevance floor. No passages means no model call, so there is nothing to
+  // cite — as opposed to instructing a model to refuse, which mostly works.
   if (retrieved.length === 0) {
-    // One extra query, and only on this branch: "nothing matched" and "there was
-    // nothing to match against" need different things said to the reader, and
-    // telling someone to upload a document they have already uploaded is the
-    // failure this distinction exists to avoid.
+    // One extra query, only on this branch: "nothing matched" and "nothing to
+    // match against" need different copy, or we tell someone to upload a document
+    // they already uploaded.
     const reason: RefusalReason =
       (await countSearchableChunks(scope)) === 0
         ? "no_documents"
         : "no_relevant_passages";
 
-    // Persisted like any other turn. A refusal is part of the conversation, and
-    // a reload that silently dropped it would make the transcript a lie. The
-    // reason rides along so the panel can be rebuilt rather than inferred from
-    // the text, which would break the moment that sentence is reworded.
+    // Persisted like any other turn — dropping it on reload would make the
+    // transcript a lie. The reason rides along so the panel is rebuilt rather
+    // than inferred from text that could be reworded.
     await persist(NO_RELEVANT_PASSAGES_REPLY, [], reason);
     return createUIMessageStreamResponse({ stream: refusalStream(reason) });
   }
@@ -231,13 +208,11 @@ export async function POST(
 
   const stream = createUIMessageStream<ChatUIMessage>({
     /**
-     * The provider's own quota error, which arrives *after* a 200 has been sent.
-     * Our caps refuse before the stream opens as a JSON 429; Gemini's limits are
-     * per project, so it can still return `RESOURCE_EXHAUSTED` once the status
-     * line is gone. Emitting the same JSON body means one parser classifies both.
-     *
-     * The SDK default (`"An error occurred."`) is kept for everything else, so
-     * server internals cannot leak — only a recognized 429 is described.
+     * The provider's quota error arrives *after* a 200. Our caps refuse before
+     * the stream opens as a JSON 429, but Gemini's limits are per project, so
+     * `RESOURCE_EXHAUSTED` can still land once the status line is gone. Same JSON
+     * body, so one parser handles both. Everything else keeps the SDK's opaque
+     * default rather than leaking internals.
      */
     onError: (error) =>
       APICallError.isInstance(error) && error.statusCode === 429
@@ -283,12 +258,9 @@ export async function POST(
         // A tool call and then an answer. Without a bound, a model that keeps
         // calling the tool loops until the function times out.
         stopWhen: stepCountIs(2),
-        // Fires once the model finishes, Stop included — a partial answer is
-        // still what the reader was shown.
-        //
-        // `usage` is **aggregated across steps**, which matters because
-        // `stopWhen: stepCountIs(2)` means a tool-using turn runs two; a per-step
-        // figure would bill it at a fraction of what it cost.
+        // Fires on Stop too — a partial answer is still what was shown. `usage`
+        // aggregates across steps, which matters because `stepCountIs(2)` means a
+        // tool-using turn runs two.
         onFinish: async ({ text, usage }) => {
           await persist(text, sources);
           await recordUsage({

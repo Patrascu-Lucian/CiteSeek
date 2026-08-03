@@ -1084,3 +1084,30 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   guaranteed identical on both paths. **A comparison test is only as good as its claim that the
   two things being compared are the same thing**, and that claim deserves the same scrutiny as the
   assertion.
+
+## The metric that could not see half of what it measured
+
+- **Issue**: found by reading, not by the tool. After a pass that reported comment density down to
+  21.5%, `components/site-header.tsx` still carried an 18-line block justifying two class names and
+  a 19-line block explaining one ternary. The number said the work was done; the file said it was
+  not.
+
+- **Cause**: the script counted a line as a comment when it started with `/*`, `*` or `//`. A JSX
+  comment starts with `{/*`, and the prose inside it is indented plain text with no leading `*`.
+  So **every JSX comment in the codebase was counted as code** — both missing from the numerator
+  and inflating the denominator. In components, which is where the longest blocks were, the
+  measurement was blind to precisely the comments being audited.
+
+- **Fix**: track block state properly — open on `{/*` or `/*`, close on `*/`, count everything
+  between. The corrected figure for the same tree was **23.4%**, not 21.5%. Every intermediate
+  number reported during that pass was understated.
+
+- **Lesson**: two.
+
+  **A measurement that only ever moves in the direction you want is not yet evidence.** The number
+  fell steadily through the pass and each drop read as progress, which is exactly when nobody
+  re-derives it. It took a human opening a file and seeing an essay to expose it.
+
+  **When a tool and a reading of the source disagree, the source wins and the tool is the defect.**
+  The instinct is to explain the discrepancy — this file is small, percentages are noisy. The
+  useful move is to assume the instrument is wrong and go check it.
