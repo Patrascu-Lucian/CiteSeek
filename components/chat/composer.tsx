@@ -27,6 +27,17 @@ export function Composer({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [value, setValue] = useState("");
 
+  /* `auto` first, or `scrollHeight` can only ever grow. The border is added back
+     because `border-box` counts it in `height` and `scrollHeight` does not. */
+  function fit(element: HTMLTextAreaElement) {
+    const style = getComputedStyle(element);
+    const border =
+      parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight + border}px`;
+  }
+
   function submit(event?: FormEvent) {
     event?.preventDefault();
     const question = value.trim();
@@ -37,6 +48,9 @@ export function Composer({
     // Focus stays in the composer so a follow-up question can be typed without
     // reaching for the mouse.
     textareaRef.current?.focus();
+    // Back to two rows: the value is cleared here rather than by typing, so
+    // nothing else would measure it.
+    if (textareaRef.current) fit(textareaRef.current);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -57,10 +71,16 @@ export function Composer({
         rows={2}
         value={value}
         disabled={disabled}
-        onChange={(event) => setValue(event.target.value)}
+        onChange={(event) => {
+          setValue(event.target.value);
+          fit(event.target);
+        }}
         onKeyDown={handleKeyDown}
         placeholder="Ask a question about your documents…"
-        className="border-input bg-background focus-visible:ring-ring flex-1 resize-none rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+        // Grows with the question and stops at `max-h-40`, after which it
+        // scrolls — a composer that can take the whole panel leaves nowhere to
+        // read the answer it is about to get.
+        className="border-input bg-background focus-visible:ring-ring max-h-40 flex-1 resize-none overflow-y-auto rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
       />
 
       {isStreaming ? (

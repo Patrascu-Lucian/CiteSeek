@@ -280,3 +280,43 @@ test.describe("usage", () => {
     );
   });
 });
+
+test.describe("the composer", () => {
+  test("grows with a long question and stops before it takes the panel", async ({
+    page,
+  }) => {
+    // Narrow, because a long question still fits two lines on a desktop width —
+    // measured, and the reason an earlier version of this test proved nothing.
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.goto("/demo");
+
+    const box = page.getByRole("textbox", { name: /ask a question/i });
+    const height = () =>
+      box.evaluate((el) => Math.round(el.getBoundingClientRect().height));
+
+    const initial = await height();
+
+    await box.fill(
+      "What can I claim back for a hotel in London, and do I need to keep a receipt for every single expense?",
+    );
+    const grown = await height();
+    expect(grown).toBeGreaterThan(initial);
+
+    // Capped rather than unbounded, and scrolling past the cap rather than
+    // clipping — a composer that eats the panel leaves nowhere to read the answer.
+    await box.fill(
+      "Please explain the whole reimbursement policy. ".repeat(20),
+    );
+    const capped = await height();
+    expect(capped).toBeLessThanOrEqual(160);
+    expect(
+      await box.evaluate((el) => el.scrollHeight > el.clientHeight + 1),
+    ).toBe(true);
+
+    // Back to where it started once the question is sent.
+    await box.fill("When is reimbursement paid?");
+    await page.getByRole("button", { name: /send/i }).click();
+    await expect(box).toHaveValue("");
+    expect(await height()).toBe(initial);
+  });
+});

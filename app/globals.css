@@ -3,20 +3,9 @@
 @import "shadcn/tailwind.css";
 
 /*
-  The `dark:` variant has to cover both ways a reader ends up in the dark
-  palette, or the two disagree.
-
-  The palette itself switches on either an explicit `.dark` class (set by the
-  server from a cookie) or `prefers-color-scheme` for anyone who has not chosen.
-  A variant written only as `&:is(.dark *)` covers the first and silently misses
-  the second — and `dark:` utilities are all over the shadcn components
-  (`dark:bg-input/30`, `dark:border-input`, `dark:hover:bg-muted/50`). A
-  system-dark reader would get the dark palette with every one of those rules
-  inert: light-mode component styling over a dark background, on the path most
-  readers arrive by, and invisible to any test that sets the cookie.
-
-  The block form takes both, with `@slot` standing in for the utility's own
-  declarations. `:not(.light)` is what keeps an explicit light choice winning.
+  Both ways into the dark palette, or `dark:` utilities go inert for whichever
+  path is missed — which is what happened, silently, for system-dark readers
+  (ADR 018). `:not(.light)` keeps an explicit light choice winning.
 */
 @custom-variant dark {
   &:is(.dark *) {
@@ -33,10 +22,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* These must match the `variable` names given to next/font in app/layout.tsx.
-     shadcn's init assumes --font-sans; create-next-app emits --font-geist-sans.
-     Left mismatched, `--font-sans: var(--font-sans)` is self-referential and
-     every font-sans utility silently resolves to nothing. */
+  /* Must match the `variable` names in app/layout.tsx: a key pointing at itself
+     is self-referential and resolves to nothing, silently. */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
@@ -97,6 +84,7 @@
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
+  --scrollbar-thumb: oklch(0.8 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.87 0 0);
@@ -132,6 +120,7 @@
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
+  --scrollbar-thumb: oklch(0.4 0 0);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
   --chart-1: oklch(0.87 0 0);
@@ -150,22 +139,9 @@
 }
 
 /*
-  The same palette, for a reader who has expressed no preference here.
-
-  `.dark` above is set by the server from a cookie, so an explicit choice needs
-  no JavaScript and cannot flash. This block covers everyone else: it follows the
-  operating system through `prefers-color-scheme`, which also needs no
-  JavaScript, so the theme is right on the first paint in every state including
-  one where scripts never run.
-
-  `:not(.light)` is what lets an explicit *light* choice win on a machine set to
-  dark. Without it the media query would keep repainting over the readers choice
-  and the toggle would appear broken on exactly the machines it matters on.
-
-  The duplication below is real and deliberate: a media query is not a selector,
-  so there is no way to write one rule that matches both cases. It is guarded by
-  a test that parses this file and fails if the two blocks ever describe
-  different variables -- see `app/globals.test.ts`.
+  The same palette for anyone who has chosen nothing. The duplication is
+  unavoidable — a media query is not a selector — and `app/globals.test.ts`
+  parses this file and fails if the two blocks ever list different variables.
 */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
@@ -185,6 +161,7 @@
     --accent-foreground: oklch(0.985 0 0);
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
+    --scrollbar-thumb: oklch(0.4 0 0);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
     --chart-1: oklch(0.87 0 0);
@@ -212,27 +189,21 @@
   }
   html {
     @apply font-sans;
+
+    /* Both properties inherit, so one declaration covers every scroll
+       container. `stable` reserves the gutter so Windows stops shifting the
+       layout when a page grows past the fold. */
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   /*
-    Restores the pointer cursor on interactive controls.
-
-    Tailwind v4's Preflight sets `cursor: default` on buttons, deliberately, to
-    match the browser's own default — v3's Preflight set `cursor: pointer`. The
-    consequence here was that every button in the app lost its pointer at once
-    and nothing said so: sign out, delete account, the confirmation dialog, send,
-    delete document, "Continue with GitHub". Links kept theirs, so the app was
-    inconsistent with itself, and a control that does not change the cursor reads
-    as decoration.
-
-    Applied at the base layer rather than on the `Button` component so it also
-    covers controls that are not ours — Radix renders its own buttons for dialog
-    and select triggers.
-
-    `:disabled` and `aria-disabled` are excluded: a pointer on a control that
-    will not respond is a promise the interface does not keep. `not-allowed`
-    would be the other option, and it is worse — it reads as an error rather than
-    as "not yet".
+    Tailwind v4's Preflight sets `cursor: default` on buttons where v3 set
+    `pointer`, so upgrading silently took it from every button while links kept
+    theirs. At the base layer because Radix renders buttons we do not own.
+    Disabled controls are excluded: a pointer that will not respond is a promise
+    the interface does not keep.
   */
   button:not(:disabled, [aria-disabled="true"]),
   [role="button"]:not(:disabled, [aria-disabled="true"]),
