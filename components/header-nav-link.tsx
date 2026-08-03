@@ -4,25 +4,16 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 /**
- * A navigation link that says where you are.
+ * A navigation link that says where you are. No `"use client"`: `MainNav` owns
+ * the boundary, and an entry may not take a plain function prop.
  *
- * No `"use client"` of its own — see `MainNav`, which owns the boundary this
- * sits behind. It carried one until the nav grew a container; being imported
- * directly by the server-rendered header made it an entry, and an entry may not
- * take a plain function prop like `onNavigate`.
+ * `aria-current="page"` is the part that matters — styling alone leaves the
+ * information visual-only, the same failure as a styled span standing in for
+ * `<strong>`.
  *
- * Nothing marked the current page before this — every destination looked
- * identical whichever one you were on. `aria-current="page"` is the part that
- * matters: a screen reader announces "current page", and a sighted reader gets
- * the weight and the contrast. Styling alone would leave the information
- * visual-only, which is the same failure as a `<span class="font-semibold">`
- * standing in for `<strong>`.
- *
- * This deliberately carries no pending indicator. An earlier version did, using
- * `useLinkStatus`, until measuring showed the feedback belongs a layer up: a
- * `loading.tsx` boundary lets the router commit the route immediately and stream
- * the page into it, which is both quicker to perceive and says *where* you are
- * going. A spinner beside the link only ever describes the wait.
+ * No pending indicator: measuring showed the feedback belongs a layer up, in a
+ * `loading.tsx` boundary that says *where* you are going rather than only that
+ * you are waiting.
  */
 export function HeaderNavLink({
   href,
@@ -32,10 +23,7 @@ export function HeaderNavLink({
   children,
 }: {
   href: string;
-  /**
-   * Every destination in the nav. Needed because "am I the current page" cannot
-   * be answered by one link alone once destinations nest — see `MainNav`.
-   */
+  /** "Am I current" cannot be answered by one link once destinations nest. */
   items: readonly { href: string }[];
   className?: string;
   onNavigate?: () => void;
@@ -70,16 +58,10 @@ export function HeaderNavLink({
 }
 
 /**
- * Which single destination the reader is currently in.
- *
- * Longest match wins, which is the rule a reader already assumes: standing on
- * `/w/<id>/usage` you are in Usage, not in Workspace, even though the workspace
- * href is a prefix of it. Before Usage existed no destination contained another
- * and every link could answer for itself; the first nested pair made two links
- * announce "current page" at once.
- *
- * Exported for its own tests — the rule is small and the failure it prevents is
- * invisible without a screen reader.
+ * Longest match wins: on `/w/<id>/usage` you are in Usage, not Workspace, though
+ * the workspace href is a prefix. The first nested pair made two links announce
+ * "current page" at once. Exported for its own tests — the failure is invisible
+ * without a screen reader.
  */
 export function currentHref(
   pathname: string,

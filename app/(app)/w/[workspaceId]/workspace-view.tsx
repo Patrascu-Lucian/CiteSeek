@@ -13,16 +13,10 @@ import { toUIMessages } from "@/lib/chats/to-ui-messages";
 import { listDocuments } from "@/lib/documents/queries";
 
 /**
- * The workspace, with one conversation open.
- *
- * Shared by two routes rather than duplicated between them: `/w/<id>` opens
- * whichever conversation was last used, and `/w/<id>/c/<chatId>` opens a named
- * one. Everything else — the heading, the documents, the read-only badge — is
- * identical, and two copies of it would drift the first time either changed.
- *
- * A conversation gets its own URL so it can be linked, bookmarked, and reached
- * with the back button. That is also what makes the history list a list of
- * destinations rather than a widget holding client state.
+ * Shared by `/w/<id>` (last-used conversation) and `/w/<id>/c/<chatId>` (a named
+ * one) rather than duplicated — everything else is identical and two copies would
+ * drift. A conversation having its own URL is what makes the history list a set
+ * of destinations rather than client state.
  */
 export async function WorkspaceView({
   workspaceId,
@@ -35,9 +29,8 @@ export async function WorkspaceView({
   const actor = await getActor();
   const workspace = await findWorkspaceById(workspaceId);
 
-  // Renders `not-found.tsx` in this segment *with a 404 status*. Returning the
-  // page body directly produced the right words under a 200 — a soft 404, which
-  // tells crawlers and monitoring the URL is fine.
+  // `not-found.tsx` *with a 404 status*. Returning the body directly gave the
+  // right words under a 200 — a soft 404 tells crawlers the URL is fine.
   if (!workspace || accessToWorkspace(actor, workspace) === "none") {
     notFound();
   }

@@ -8,14 +8,9 @@ import { resolveEmbeddingsProvider } from "@/lib/ai/provider";
 import { type Embedder, embedQuery } from "./embeddings";
 import { RETRIEVAL_LIMIT, maxDistanceFor } from "./retrieval-config";
 
-/**
- * Vector search over a workspace's passages.
- *
- * Like every helper in `lib/documents/queries.ts`, this takes a `workspaceId` and
- * filters on it **in SQL**. Chunks carry no workspace of their own — they inherit
- * it through their document — so the scope is applied on the joined `documents`
- * row rather than trusting anything the caller passed about the chunk itself.
- */
+/** Scoped in SQL like every helper in `lib/documents/queries.ts`. Chunks inherit
+ * their workspace through their document, so the filter lands on the joined
+ * `documents` row. */
 
 // Re-exported so callers keep one import for retrieval, while the constants stay
 // reachable without pulling in a database connection.
@@ -41,14 +36,9 @@ export type RetrieveOptions = {
   signal?: AbortSignal;
 };
 
-/**
- * What a retrieval cost, alongside what it found.
- *
- * The query is embedded *before* the relevance floor is applied, so a question
- * that matches nothing has still been paid for. Returning the token count means
- * a caller metering usage can charge for the refusal branch too — which is
- * exactly the traffic anyone abusing the endpoint would generate.
- */
+/** Tokens alongside results: the query is embedded *before* the floor applies, so
+ * the refusal branch was paid for too — and that is the traffic abuse
+ * generates. */
 export type RetrievalResult = {
   chunks: RetrievedChunk[];
   tokens: number;
@@ -76,15 +66,11 @@ export async function retrieveChunks(
   const { vector, tokens } = await embedQuery(query, { embedder, signal });
   const distance = cosineDistance(chunks.embedding, vector);
 
-  // Two-step on purpose. The inner query is the shape pgvector's HNSW index can
-  // actually accelerate: order by the distance operator, take the top k. Adding
-  // `WHERE distance <= x` to *that* query would force the planner to compute a
-  // distance for every candidate row instead, because an approximate index cannot
-  // answer a threshold predicate — it only knows how to walk its graph outward
-  // from the query point.
-  //
-  // So the floor is applied outside, over at most `limit` rows that have already
-  // been found. Same result, and the index still does the work.
+  // Two-step on purpose. The inner query is the shape HNSW accelerates: order by
+  // the distance operator, take top k. `WHERE distance <= x` inside it would
+  // force a distance for every candidate row — an approximate index cannot answer
+  // a threshold predicate, it only walks its graph outward from the query point.
+  // So the floor is applied outside, over at most `limit` rows already found.
   const candidates = db
     .select({
       id: chunks.id,

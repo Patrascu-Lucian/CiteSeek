@@ -1,27 +1,15 @@
 /**
- * Refuses to build when the database is behind the migrations in the repo.
+ * Fails the build when the database is behind the repo's migrations. Wired into
+ * Vercel's build command.
  *
- * Run with `pnpm db:check`, and wired into Vercel's build command so a deploy
- * fails rather than shipping code against a schema that cannot serve it.
+ * Migration 0001 was applied to the development branch only, and production
+ * returned 500s with no body on upload while the documents list kept working —
+ * it selects columns explicitly, the insert did not.
  *
- * This has gone wrong twice. Migration 0001 added `content_text` and
- * `page_spans`, was applied to the development branch only, and production
- * returned 500s with no body on upload — while the documents list kept working,
- * because it selects columns explicitly and the insert did not. Nothing in the
- * pipeline connected "a migration exists" to "the database has it".
- *
- * **It checks; it does not migrate.** That distinction is the whole design:
- *
- * - Running migrations in the build would mutate a database from a build step,
- *   and a *preview* build would mutate whichever database the Preview
- *   environment points at. Getting that mapping wrong once is a preview
- *   deployment altering production.
- * - Failing at startup instead would take the whole app down on drift, and a
- *   demo that is down is the failure this project most wants to avoid.
- *
- * Failing the build keeps the previously deployed version serving, costs
- * nothing when everything is in order, and turns "I forgot to migrate" into a
- * red deploy instead of a 500 on the first request that touches a new column.
+ * **It checks; it does not migrate.** Migrating from a build step would let a
+ * *preview* build mutate whichever database Preview points at; failing at startup
+ * would take the app down on drift. Failing the build keeps the previous version
+ * serving and turns "I forgot to migrate" into a red deploy.
  */
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -72,9 +60,8 @@ async function main() {
   const client = postgres(connectionString!, { max: 1 });
 
   try {
-    // Drizzle records one row per applied migration. The table does not exist
-    // at all on a database that has never been migrated, which is itself the
-    // answer rather than an error worth surfacing raw.
+    // One row per applied migration. No table at all means never migrated, which
+    // is the answer rather than an error worth surfacing raw.
     const [row] = await client<{ applied: number }[]>`
       select count(*)::int as applied
       from drizzle.__drizzle_migrations

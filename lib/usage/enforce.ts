@@ -12,17 +12,12 @@ import {
 import { countAllRequestsSince, countRequestsSince } from "./queries";
 
 /**
- * The admission check every metered route runs, straight after authorization.
+ * Admission, not settlement: refusing *after* the provider call would meter the
+ * request it was meant to prevent. Runs after `authorizeWorkspace`, so a 404 for
+ * a workspace you cannot see is never turned into a 429 revealing it exists.
  *
- * Admission-based rather than settled afterward: the point is to refuse *before*
- * spending a provider call, and a check that ran at the end would meter the very
- * request it was meant to prevent. It sits after `authorizeWorkspace` so an
- * unauthorized caller is refused on the cheaper ground first — and so a 404 for a
- * workspace you cannot see is never turned into a 429 that reveals it exists.
- *
- * Not in `proxy.ts`: middleware runs on Edge, the Postgres client is Node-only,
- * and that exact constraint already caused one production outage. Enforcement
- * lives in the route handlers, which declare `runtime = "nodejs"`.
+ * Not in `proxy.ts` — middleware is Edge, the Postgres client is Node-only, and
+ * that constraint already caused one production outage.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -30,14 +25,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Re-exported under the name route callers already use. */
 export type UsageRefusalBody = RefusalBody;
 
-/**
- * How a caller is counted.
- *
- * A guest is counted by the address they arrive from, because `/demo` mints a
- * fresh signed cookie on every visit and a self-assigned identity is worthless
- * as a limit key. A signed-in user is counted by their user id, which they
- * cannot mint more of. See ADR 014.
- */
+/** A guest is counted by address — `/demo` mints a fresh cookie per visit, so a
+ * self-assigned identity is worthless as a limit key. ADR 014. */
 function countingKey(
   auth: Pick<AuthorizedWorkspace, "actorType" | "actorId">,
   ipHash: string,
@@ -45,18 +34,12 @@ function countingKey(
   return auth.actorType === "guest" ? { ipHash } : { actorId: auth.actorId };
 }
 
-/**
- * Returns a 429 to hand straight back, or `null` when the request may proceed.
- *
- * The `null`-means-allowed shape mirrors `isDenied`: the caller writes one
- * guard clause and cannot accidentally continue past a refusal.
- */
+/** A 429 to hand back, or `null` to proceed — the shape `isDenied` uses, so a
+ * caller cannot accidentally continue past a refusal. */
 export async function enforceUsageLimits(
   auth: Pick<AuthorizedWorkspace, "actorType" | "actorId">,
   ipHash: string,
-  // Annotated rather than inferred from the default: `process.env` widens to
-  // `ProcessEnv`, which demands `NODE_ENV` and would force every caller to
-  // supply an irrelevant value. Same reason `ProviderEnv` exists.
+  // Annotated: inferring widens to `ProcessEnv`, which demands `NODE_ENV`.
   env: UsageLimitsEnv = process.env,
 ): Promise<NextResponse<UsageRefusalBody> | null> {
   const limits = resolveUsageLimits(env);
@@ -66,9 +49,8 @@ export async function enforceUsageLimits(
   const minuteAgo = new Date(now - RATE_WINDOW_SECONDS * 1000);
   const dayAgo = new Date(now - DAY_MS);
 
-  // Three independent range scans, issued together rather than in sequence:
-  // they do not depend on each other, and serializing them would add two round
-  // trips to every admitted request.
+  // Issued together: independent scans, and serializing adds two round trips to
+  // every admitted request.
   const [requestsInLastMinute, requestsToday, globalRequestsToday] =
     await Promise.all([
       countRequestsSince(key, minuteAgo),

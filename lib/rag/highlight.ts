@@ -1,30 +1,17 @@
 /**
- * Locating a cited passage inside its source document.
- *
- * This is the last link in the chain the offsets exist for. Chunking recorded
- * `charStart`/`charEnd` against the canonical text (ADR 008), ingestion stored
- * that same text as `documents.contentText`, and retrieval carried the offsets
- * through to the citation. Here they are finally used:
+ * The last link in the chain the offsets exist for:
  * `contentText.slice(charStart, charEnd)` should be exactly the passage that was
- * embedded, quoted and cited.
- *
- * "Should be" is doing work in that sentence, which is why this function checks
- * rather than assumes.
+ * embedded, quoted and cited. "Should be" is doing work there, which is why this
+ * checks rather than assumes.
  */
 
 export type CitationHighlight = {
   before: string;
   cited: string;
   after: string;
-  /**
-   * Whether the sliced text still matches the quote captured at answer time.
-   *
-   * False means the document changed underneath the citation — re-uploaded,
-   * re-extracted by a different parser version — so the offsets now point
-   * somewhere else. Highlighting the wrong passage confidently is the single
-   * worst failure this product can have: the citation looks precise and is
-   * wrong. Better to detect it and say so.
-   */
+  /** False means the document changed underneath the citation, so the offsets now
+   * point elsewhere. Highlighting the wrong passage confidently is the worst
+   * failure this product can have — precise-looking and wrong. */
   matchesQuote: boolean;
 };
 

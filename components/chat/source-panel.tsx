@@ -12,16 +12,12 @@ import type { ChatSource } from "@/lib/ai/types";
 import { highlightForCitation } from "@/lib/rag/highlight";
 
 /**
- * The source document, opened at the passage an answer cited.
+ * The source document, opened at the cited passage. Everything upstream — chunk
+ * offsets, retrieval anchors, the marker the model wrote — exists so clicking
+ * `[1]` lands on the exact text.
  *
- * This panel is the point of the whole milestone. Everything upstream — the
- * offsets recorded during chunking, the anchors carried through retrieval, the
- * marker the model wrote — exists so that clicking `[1]` lands here, on the
- * exact text the claim came from. Until this renders, a citation is a promise.
- *
- * The whole document is shown rather than the passage alone, because a citation
- * you cannot read around is not much better than no citation: the surrounding
- * paragraph is often what tells you whether the answer used it fairly.
+ * The whole document is shown, not the passage alone: the surrounding paragraph
+ * is often what tells you whether the answer used it fairly.
  */
 
 type LoadState =
@@ -44,18 +40,11 @@ export function SourcePanel({
 
   return (
     /*
-      Non-modal, deliberately.
-
-      A modal sheet dims and hides the conversation behind it — which defeats the
-      point of opening a source. Checking a citation means reading the claim and
-      the passage together, so the answer has to stay visible and the reader has
-      to be able to move between them.
-
-      What is given up is the focus *trap*, which was never wanted here. Radix
-      still moves focus into the panel on open and restores it on close, and
-      Escape still dismisses. Clicking outside deliberately does not — a
-      reference panel that vanishes when you click back into the conversation
-      would be unusable.
+      Non-modal: checking a citation means reading the claim and the passage
+      together, and a modal sheet dims the conversation behind it. What that
+      gives up is the focus trap, which was never wanted — Radix still moves
+      focus in, restores it, and dismisses on Escape. Outside clicks deliberately
+      do not dismiss, or the panel would vanish on the way back to the answer.
     */
     <Sheet open modal={false} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
@@ -72,12 +61,9 @@ export function SourcePanel({
           </SheetDescription>
         </SheetHeader>
 
-        {/*
-          Keyed by document, so opening a citation from a different source
-          remounts with a fresh loading state. The alternative — resetting state
-          from inside the fetch effect — is the pattern React now warns about,
-          and a key says the same thing without a render's worth of stale text.
-        */}
+        {/* Keyed by document so a citation from another source remounts clean,
+          rather than resetting state inside the fetch effect and rendering one
+          frame of the previous document's text. */}
         <SourceBody
           key={source.documentId}
           source={source}
@@ -158,18 +144,10 @@ function SourceBody({
 
   return (
     /*
-      Focusable, because it scrolls.
-
-      A document is usually longer than the panel, and this region contains no
-      focusable children — the passage is text. Without a tab stop of its own a
-      keyboard-only reader can open a citation and then be unable to scroll to
-      the rest of the document: arrow keys need something focused to act on.
-      Caught by axe (`scrollable-region-focusable`, serious), on the product's
-      headline feature.
-
-      `role="region"` with a name rather than a bare `tabIndex`: an unnamed tab
-      stop is a place focus lands with nothing announced, which trades one
-      problem for another.
+      Scrolls, and holds no focusable children — so without a tab stop of its own
+      a keyboard-only reader cannot reach the rest of the document. Caught by axe
+      as `scrollable-region-focusable`. Named `role="region"` rather than a bare
+      `tabIndex`, which would be a stop that announces nothing.
     */
     <div
       role="region"
@@ -233,12 +211,8 @@ function SourceBody({
             </div>
           ) : null}
 
-          {/*
-            One text node per region rather than a virtualized list. A document
-            is a few hundred kilobytes at most, the browser renders it once, and
-            it is scrolled once — virtualization would break both the
-            highlight's scroll target and find-in-page.
-          */}
+          {/* Not virtualized: a document is a few hundred kilobytes at most, and
+            windowing would break both the scroll target and find-in-page. */}
           <p className="text-sm leading-relaxed whitespace-pre-wrap">
             {highlight.before}
             <mark

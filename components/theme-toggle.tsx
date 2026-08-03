@@ -11,22 +11,12 @@ const OPTIONS = [
 ] as const satisfies readonly { value: Theme; label: string; Icon: unknown }[];
 
 /**
- * Choosing a palette.
+ * Three submit buttons rather than a client toggle: the class must be right on
+ * the first byte of the next response, which only the server can do. Works with
+ * JavaScript disabled as a result.
  *
- * A form of three submit buttons rather than a client component toggling a
- * class. The class has to be right on the *first byte* of the next response, and
- * only the server can put it there — a client-side toggle would be correct for
- * the current page and flash on the next one. The side effect is that this keeps
- * working with JavaScript disabled: the form posts, the cookie is set, the page
- * returns in the new palette.
- *
- * `aria-pressed` rather than a radio group. These are buttons that *do*
- * something on activation, not fields collecting a value to submit later — and
- * a radio group with no submit button is a form a keyboard user can change
- * without applying, which is the worse of the two shapes here.
- *
- * "System" is a choice, not the absence of one: it means "keep following the
- * operating system", including when that flips at sunset.
+ * `aria-pressed`, not a radio group — these *do* something on activation, and a
+ * radio group with no submit button can be changed without applying.
  */
 export function ThemeToggle({ current }: { current: Theme }) {
   return (

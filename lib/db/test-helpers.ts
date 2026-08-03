@@ -5,26 +5,15 @@ import postgres from "postgres";
 import * as schema from "./schema";
 import { usageEvents, users, workspaces } from "./schema";
 
-/**
- * Shared scaffolding for integration suites.
- *
- * These tests write to a real database, so every row they create is prefixed and
- * removed afterward. Centralizing that here keeps cleanup consistent — a suite
- * that invents its own prefix leaves rows behind, and the next run's assertions
- * start depending on them.
- */
+/** Integration suites write to a real database, so rows are prefixed and removed.
+ * A suite inventing its own prefix leaves rows the next run depends on. */
 
-/** Every row created by an integration test carries this prefix in its name. */
 export const TEST_PREFIX = "__integration_test__";
 
 export const EMBEDDING_DIMENSIONS = 768;
 
-/**
- * SQLSTATE codes. Asserting on these rather than on message text: Drizzle wraps
- * driver errors in its own "Failed query: ..." message, and the wording of both
- * layers is free to change between releases. The code is part of the Postgres
- * wire protocol and is not.
- */
+/** Asserted instead of message text: Drizzle wraps driver errors and both layers'
+ * wording can change between releases. The code is wire protocol. */
 export const PG_ERROR = {
   dataException: "22000",
   notNullViolation: "23502",
@@ -47,33 +36,22 @@ export function createTestClient() {
 
 export type TestDatabase = ReturnType<typeof createTestClient>["db"];
 
-/**
- * Removes everything a suite created. Workspaces cascade to documents and
- * chunks; users cascade to their workspaces, accounts and sessions.
- */
+/** Workspaces cascade to documents and chunks; users to workspaces, accounts and
+ * sessions. */
 export async function cleanupTestRows(db: TestDatabase): Promise<void> {
   await db.delete(users).where(like(users.name, `${TEST_PREFIX}%`));
   await db.delete(workspaces).where(like(workspaces.name, `${TEST_PREFIX}%`));
 }
 
-/**
- * Empties `usage_events`.
- *
- * Not covered by `cleanupTestRows`: usage rows are deliberately not
- * workspace-scoped, so nothing about them carries the test prefix, and rows with
- * no workspace do not cascade. The global-cap query reads *every* row by
- * definition, which makes a leftover from another test a wrong answer rather
- * than noise.
- */
+/** Not covered by `cleanupTestRows`: usage rows carry no workspace, so no prefix
+ * and no cascade. The global-cap query reads *every* row, so a leftover is a
+ * wrong answer rather than noise. */
 export async function clearUsageEvents(db: TestDatabase): Promise<void> {
   await db.delete(usageEvents);
 }
 
-/**
- * Runs an operation expected to fail and returns the driver error's SQLSTATE.
- * Throws if it unexpectedly succeeds, so a silently-passing constraint test
- * cannot masquerade as a green one.
- */
+/** Throws if the operation unexpectedly succeeds, so a silently-passing constraint
+ * test cannot masquerade as a green one. */
 export async function failureOf(
   operation: () => Promise<unknown>,
 ): Promise<{ code?: string; message: string }> {

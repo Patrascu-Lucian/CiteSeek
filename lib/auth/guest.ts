@@ -1,20 +1,13 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 
 /**
- * Guest sessions.
+ * A guest is deliberately *not* an Auth.js user: no account, owns nothing, reads
+ * only the demo. Modeling them as users would mean anonymous `users` rows and
+ * ownership checks special-cased everywhere.
  *
- * A guest is deliberately *not* an Auth.js user. They have no account, own
- * nothing, and may only read the seeded demo workspace. Modeling them as users
- * would mean anonymous rows in `users` and ownership checks special-cased at
- * every call site; keeping them separate leaves authorization as one rule.
- *
- * The token is a signed value rather than an opaque database row so that entering
- * the demo costs no writes -- an unauthenticated visitor should not be able to
- * make us insert anything.
- *
- * Format: `<base64url(payload)>.<base64url(hmac-sha256)>`
- * The payload is readable by design; it carries no secret, only an id and
- * timestamps. The signature is what makes it unforgeable.
+ * A signed token rather than a database row, so entering the demo costs no
+ * writes. Format `<base64url(payload)>.<base64url(hmac-sha256)>` — the payload is
+ * readable by design and carries no secret; the signature makes it unforgeable.
  */
 
 export { GUEST_COOKIE_NAME } from "./cookies";
@@ -23,21 +16,11 @@ export { GUEST_COOKIE_NAME } from "./cookies";
 export const GUEST_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24; // 24 hours
 
 export type GuestPayload = {
-  /**
-   * Random per-session id. Never an identity, and — as of Milestone 3 —
-   * deliberately **not** the key rate limiting counts on.
-   *
-   * `/demo` mints a fresh cookie on every visit, so this id is self-assigned:
-   * clearing it produces a new one, and a script gets one per request for free.
-   * Guest limits count the client address instead, which the visitor does not
-   * control. See ADR 014. This id remains useful for reading usage back, and the
-   * signature that protects it is still load-bearing for access, just not for
-   * limiting.
-   */
+  /** Never an identity, and **not** what rate limiting counts: `/demo` mints a
+   * fresh cookie per visit, so this is self-assigned and a script gets one per
+   * request. Limits count the client address instead (ADR 014). */
   id: string;
-  /** Issued-at, epoch seconds. */
   iat: number;
-  /** Expires-at, epoch seconds. */
   exp: number;
 };
 

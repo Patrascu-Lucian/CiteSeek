@@ -6,17 +6,12 @@ import { Button } from "@/components/ui/button";
 import { ACCEPT_ATTRIBUTE, validateUpload } from "@/lib/documents/validation";
 
 /**
- * Drag-and-drop, multi-file upload.
+ * Validated client-side with **the same function the server runs**, so a rejected
+ * file never leaves the machine. The server repeats it regardless — this is a
+ * courtesy, not a control.
  *
- * Files are validated **client-side using the same function the server runs**,
- * so a rejected file never leaves the machine and the user sees why immediately
- * rather than after uploading 4 MB. The server repeats the check regardless —
- * this is a courtesy, not a control, and anything that skips the browser hits
- * the identical validation on the route.
- *
- * The drop target is also a real `<button>`. A div with drag handlers is
- * invisible to keyboard and screen-reader users, and "upload a document" cannot
- * be a mouse-only capability.
+ * The drop target is a real `<button>`: a div with drag handlers is invisible to
+ * keyboard and screen-reader users.
  */
 
 type QueuedFile = {
@@ -31,11 +26,8 @@ export function UploadDropzone({
   onUploaded,
 }: {
   workspaceId: string;
-  /**
-   * Awaited before the local row is cleared, so the document is already in the
-   * real list by the time this component stops showing it — no gap where an
-   * uploaded file appears nowhere.
-   */
+  /** Awaited before the local row clears, so there is no gap where an uploaded
+   * file appears nowhere. */
   onUploaded: () => Promise<void>;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -101,9 +93,8 @@ export function UploadDropzone({
     for (const file of Array.from(selected)) {
       const id = crypto.randomUUID();
 
-      // Only the first bytes are read, for the signature check — reading 4 MB
-      // to reject a mislabelled file is wasted work. The real size comes from
-      // `File.size`, which the browser already knows.
+      // First bytes only, for the signature — reading 4 MB to reject a
+      // mislabelled file is wasted work. Size comes from `File.size`.
       const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
       const validation = validateUpload(file.name, head, file.size);
 
@@ -184,9 +175,8 @@ export function UploadDropzone({
         multiple
         accept={ACCEPT_ATTRIBUTE}
         className="sr-only"
-        // The visible control is the button above; this input exists only to
-        // open the picker. `sr-only` rather than `hidden` so it stays reachable
-        // to assistive technology that prefers the native control.
+        // Exists only to open the picker. `sr-only` rather than `hidden`, so
+        // assistive technology preferring the native control can still reach it.
         aria-label="Choose documents to upload"
         onChange={(event) => {
           void handleFiles(event.target.files);

@@ -1,11 +1,5 @@
-/**
- * Vector helpers. Pure, no I/O, no provider knowledge.
- *
- * Embeddings are stored L2-normalized (unit length) so that cosine distance and
- * inner product agree, and so pgvector's `vector_cosine_ops` index behaves
- * predictably. Normalization happens exactly once, at the boundary where vectors
- * arrive from a provider -- see the note on `l2Normalize` for why that matters.
- */
+/** Pure vector helpers. Embeddings are stored L2-normalized so cosine distance and
+ * inner product agree and `vector_cosine_ops` behaves predictably. */
 
 export const EMBEDDING_DIMENSIONS = 768;
 
@@ -19,22 +13,17 @@ export function l2Norm(vector: readonly number[]): number {
 }
 
 /**
- * Scale a vector to unit length.
- *
- * **Call this once per vector.** It is mathematically idempotent but not
- * bit-exact: re-normalizing an already-unit vector divides by a norm of
- * 0.9999999999999999 rather than exactly 1, which perturbs the low bits of every
- * component. Nothing breaks numerically, but exact-equality assertions start
- * failing for reasons that look like a logic bug and are not. The pipeline
- * therefore normalizes at one place only -- when a provider returns raw vectors.
+ * **Once per vector.** Idempotent mathematically, not bit-exact: re-normalizing
+ * divides by 0.9999999999999999 rather than 1, perturbing low bits. Nothing
+ * breaks numerically, but exact-equality assertions start failing in ways that
+ * look like a logic bug.
  */
 export function l2Normalize(vector: readonly number[]): number[] {
   const norm = l2Norm(vector);
 
   if (norm === 0 || !Number.isFinite(norm)) {
-    // A zero vector has no direction, so there is no meaningful unit form. This
-    // indicates a provider returned garbage; failing loudly beats storing NaNs
-    // that would silently poison every similarity search afterward.
+    // No direction, so no unit form. Failing loudly beats storing NaNs that
+    // poison every similarity search afterward.
     throw new Error(
       "Cannot normalize a zero-length or non-finite vector — the embedding provider returned unusable output.",
     );
@@ -51,11 +40,8 @@ export function isUnitVector(
   return Math.abs(l2Norm(vector) - 1) <= epsilon;
 }
 
-/**
- * Cosine similarity in [-1, 1]. For unit vectors this is just the dot product,
- * but the general form is kept so callers cannot silently depend on inputs
- * happening to be normalized.
- */
+/** Cosine similarity in [-1, 1]. The general form, so callers cannot silently
+ * depend on inputs happening to be normalized. */
 export function cosineSimilarity(
   a: readonly number[],
   b: readonly number[],
@@ -77,11 +63,8 @@ export function cosineSimilarity(
   return dotProduct / denominator;
 }
 
-/**
- * Guard at the storage boundary. The `chunks.embedding` column is `vector(768)`
- * and Postgres rejects anything else, but failing here gives a message that
- * names the provider misconfiguration rather than surfacing a SQLSTATE 22000.
- */
+/** Postgres would reject a wrong-width vector anyway; failing here names the
+ * provider misconfiguration rather than surfacing SQLSTATE 22000. */
 export function assertEmbeddingShape(
   vector: readonly number[],
   dimensions: number = EMBEDDING_DIMENSIONS,

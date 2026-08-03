@@ -7,22 +7,13 @@ import {
 import type { ChatMessage } from "./queries";
 
 /**
- * Turning a stored conversation back into what the client renders.
+ * A reloaded message must be indistinguishable from a streamed one, or chips stop
+ * working after a refresh.
  *
- * A reloaded message has to be indistinguishable from a streamed one, or the
- * chips stop working after a refresh. That means rebuilding the `data-sources`
- * part from the stored citations, in the same shape and the same order the route
- * wrote it during streaming.
- *
- * The `marker` is the array position, not a stored field, which is why
- * `appendMessages` saves the **whole numbered source list** rather than only the
- * passages the model happened to cite. Saving a subset would renumber it here and
- * silently repoint every marker in the text.
- *
- * A refusal is the same requirement seen from the other side: it carries a
- * `data-refusal` part rebuilt from the stored reason. Without it, a refused turn
- * came back on the next visit as a bare sentence saying nothing was found —
- * still true, and stripped of everything that made it useful.
+ * `marker` is the array position, not a stored field, which is why
+ * `appendMessages` saves the **whole numbered list** — a subset would renumber
+ * here and repoint every marker. A refusal rebuilds its `data-refusal` part from
+ * the stored reason for the same reason.
  */
 export function toUIMessages(stored: readonly ChatMessage[]): ChatUIMessage[] {
   return stored.map((message) => {
@@ -34,10 +25,8 @@ export function toUIMessages(stored: readonly ChatMessage[]): ChatUIMessage[] {
       };
     }
 
-    // Checked before citations rather than after: the two are mutually exclusive
-    // by construction, and if a row ever carried both, the refusal is the claim
-    // that nothing was grounded — so it wins over a source list that should not
-    // exist.
+    // Before citations: the two are mutually exclusive, and a row carrying both
+    // means the refusal wins over a source list that should not exist.
     if (message.refusalReason) {
       return {
         id: message.id,

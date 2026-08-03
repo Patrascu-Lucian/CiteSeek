@@ -5,16 +5,12 @@ import { Button } from "@/components/ui/button";
 import type { LimitRefusal } from "@/lib/usage/limits";
 
 /**
- * Why a question did not get answered, and what to do about it.
+ * Three states, because the useful action differs and offering the wrong one is
+ * worse than none: a retry under "daily capacity is gone" cannot work, and
+ * teaches the reader the product is broken rather than busy.
  *
- * Three states rather than one, because the useful action differs and offering
- * the wrong one is worse than offering none. A retry button under "the daily
- * capacity is gone" is a button that cannot work — the reader presses it, waits,
- * and gets the same message, which teaches them the product is broken rather
- * than busy.
- *
- * Every state is a live region with an action. The quality bar is that no async
- * surface is a dead end; a failure that only describes itself is a dead end.
+ * Every state is a live region with an action — a failure that only describes
+ * itself is a dead end.
  */
 export function ChatError({
   refusal,
@@ -39,9 +35,8 @@ export function ChatError({
         }
         action={
           signedIn ? null : (
-            // A real way forward rather than a consolation: the global cap
-            // reserves headroom below the guest ceiling, so a signed-in reader
-            // genuinely can keep working at a point where guests cannot.
+            // Not a consolation link: the global cap reserves headroom below the
+            // guest ceiling, so signing in genuinely does keep working.
             <Button asChild variant="outline" size="sm">
               <Link href="/sign-in">Sign in</Link>
             </Button>
@@ -89,11 +84,8 @@ export function ChatError({
   );
 }
 
-/**
- * `role="alert"` on the container, so the whole message is announced as one
- * thing. Splitting the announcement across nested regions reads the title and
- * the detail as separate interruptions.
- */
+/** `role="alert"` on the container: nested regions read the title and detail as
+ * separate interruptions. */
 function Alert({
   icon,
   tone,

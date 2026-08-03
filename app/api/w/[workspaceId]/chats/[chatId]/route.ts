@@ -7,33 +7,24 @@ import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 export const runtime = "nodejs";
 
 /**
- * Renaming and deleting one conversation.
+ * Two checks, and not the same check. `authorizeWorkspace` authorises **read** —
+ * a conversation is not a mutation of the workspace, and the demo is read-only
+ * for everyone. Ownership of the *chat* is enforced in SQL, filtering on user as
+ * well as workspace.
  *
- * Two checks, and they are not the same check. `authorizeWorkspace` answers
- * "may this caller touch this workspace at all" — it authorises **read** here,
- * because a conversation is not a mutation of the workspace and the demo is
- * read-only for everyone. Ownership of the *chat* is then enforced in SQL by the
- * query helpers, which filter on user as well as workspace.
+ * Read access to a shared workspace must not imply write access to a conversation
+ * inside it. Authorising `write` would fail the other way, refusing a signed-in
+ * user renaming their own conversation in the demo.
  *
- * That split matters: read access to a shared workspace must not imply write
- * access to a conversation inside it, and the demo workspace is readable by
- * every guest. Authorising `write` instead would have been wrong in the other
- * direction — it would refuse a signed-in user renaming their own conversation
- * in the demo, which is theirs.
- *
- * Guests are refused outright. Their conversations are never persisted (ADR
- * 013), so there is no row for them to address, and a guest reaching here is
- * either confused or probing.
+ * Guests are refused outright: their conversations are never persisted (ADR 013),
+ * so there is no row to address.
  */
 const GUEST_REFUSAL = {
   error: "Guest conversations are not saved, so there is nothing to change.",
 } as const;
 
-/**
- * Tagged rather than distinguished by an `in` check: without the discriminant,
- * TypeScript widens the union at the call site and `response` reads as possibly
- * undefined, which the handlers would then have to assert away.
- */
+/** Tagged rather than an `in` check: without the discriminant TypeScript widens
+ * the union and `response` reads as possibly undefined. */
 type Authorised =
   | { ok: false; response: NextResponse }
   | { ok: true; workspaceId: string; userId: string };

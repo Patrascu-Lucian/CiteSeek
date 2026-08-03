@@ -1,17 +1,11 @@
 /**
- * The one canonical text transform.
- *
- * Every character offset stored in `chunks` refers to the output of this
- * function. That makes it load-bearing in a way that is easy to miss: normalize
- * twice, or normalize after chunking, and every offset silently points a few
- * characters off. Citations would still render — just the wrong text, with no
- * error anywhere. So this runs exactly once, immediately after extraction and
+ * The one canonical text transform. Every offset in `chunks` indexes its output,
+ * so normalizing twice — or after chunking — silently shifts every citation to
+ * the wrong text with no error anywhere. Runs exactly once, after extraction and
  * before anything measures a position.
  *
- * Kept deliberately conservative. It is tempting to collapse runs of spaces or
- * trim every line, but each transformation that removes characters is one more
- * chance for an offset to drift from what a reader sees, and PDF extraction
- * already produces enough irregular whitespace to make aggressive cleanup risky.
+ * Conservative on purpose: every character removed is another chance for an
+ * offset to drift from what the reader sees.
  */
 
 /** Separator between page texts when joining a PDF into one document. */
@@ -32,10 +26,9 @@ export function normalizeText(input: string): string {
       // tracked explicitly via pageSpans, so these carry no information and
       // would only show up as stray glyphs in a citation.
       .replace(/\f/g, "\n")
-      // Non-breaking and other exotic spaces render as spaces but break word
-      // splitting in the chunker. Written as escapes rather than literal bytes so
-      // the diff shows which codepoints are covered:
-      //   U+00A0 no-break space, U+2007 figure space, U+202F narrow no-break
+      // Exotic spaces render as spaces but break word splitting in the chunker.
+      // Escapes rather than literal bytes so the diff shows the codepoints:
+      //   U+00A0 no-break, U+2007 figure, U+202F narrow no-break
       .replace(/[\u00a0\u2007\u202f]/g, " ")
       // Three or more blank lines collapse to one blank line. PDF extraction
       // routinely emits long vertical gaps; left alone they push chunk budgets
@@ -45,15 +38,8 @@ export function normalizeText(input: string): string {
   );
 }
 
-/**
- * Join per-page text into one document while recording where each page starts
- * and ends.
- *
- * Pages are normalized individually and then joined, rather than joined and then
- * normalized, so that the spans returned here are guaranteed to be positions in
- * the string this function returns. Normalizing afterward could shift every
- * boundary.
- */
+/** Normalize each page then join, not the reverse: the spans returned must be
+ * positions in the string returned, and normalizing after would shift them. */
 export function joinPages(pages: readonly string[]): {
   text: string;
   pageSpans: PageSpan[];
@@ -89,15 +75,9 @@ export type PageSpan = {
 };
 
 /**
- * Which page a character offset falls on.
- *
- * Returns null when the document has no page concept (docx, markdown, plain
- * text) so callers store null rather than inventing "page 1" for a format that
- * has no pages — a citation claiming a page number that cannot be verified is
- * worse than one that admits it has none.
- *
- * An offset landing in the separator between two pages is attributed to the page
- * that just ended, which is where the surrounding text actually came from.
+ * Null for formats with no pages, rather than inventing "page 1" — a citation
+ * claiming an unverifiable page is worse than one admitting it has none. An
+ * offset inside a page separator belongs to the page that just ended.
  */
 export function pageNumberForOffset(
   offset: number,

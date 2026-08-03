@@ -3,14 +3,8 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { type Workspace, workspaces } from "@/lib/db/schema";
 
-/**
- * A signed-in user's own workspace.
- *
- * Auth.js's adapter creates a `users` row and nothing else, so without this a
- * successful sign-in leaves the account with nowhere to go. That was the actual
- * bug: sign-in worked, then every route sent the user back to the landing page
- * because no workspace existed to send them to.
- */
+/** Auth.js's adapter creates a `users` row and nothing else, so sign-in worked and
+ * then every route bounced the user back to the landing page. */
 
 function personalWorkspaceName(displayName: string | null): string {
   const first = displayName?.trim().split(/\s+/)[0];
@@ -33,21 +27,13 @@ export async function findPersonalWorkspace(
 }
 
 /**
- * Idempotent. Called from `events.createUser` on first sign-in, and again as a
- * self-healing fallback for accounts that predate this code -- which is why it
- * looks before it writes rather than relying on the signup path alone.
+ * Idempotent, and looks before it writes: called on first sign-in and again as a
+ * self-healing fallback for accounts predating this code.
  *
- * There is no unique constraint backing this, deliberately: one user owning
- * several workspaces is a shape the schema should not rule out, and a constraint
- * added here would have to be dropped to allow it. Two concurrent
- * first-requests could therefore create two rows; the `orderBy` above means both
- * would still resolve to the same one afterward.
- *
- * An earlier version of this comment justified the absence by naming Milestone 4
- * as the milestone that would add multiple workspaces. It does not — see
- * `docs/decisions/016-workspace-membership-deferred.md`. The reasoning above
- * stands on its own, which is what it should have done in the first place: a
- * comment that promises a milestone becomes wrong the moment scope moves.
+ * No unique constraint deliberately — one user owning several workspaces is a
+ * shape the schema should not rule out, and a constraint here would have to be
+ * dropped to allow it. Concurrent first-requests could create two rows; the
+ * `orderBy` means both still resolve to the same one.
  */
 export async function getOrCreatePersonalWorkspace(user: {
   id: string;

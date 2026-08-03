@@ -1,11 +1,6 @@
-// The server → client boundary for the workspace body. `page.tsx` is a Server
-// Component and imports this directly; everything below is reached only through
-// it and carries no directive of its own.
-//
-// Kept here and nowhere below on purpose: the directive *is* the boundary, so
-// repeating it on every component hides where the split actually happens — and
-// makes Next's TypeScript plugin treat each one as a server-facing entry, which
-// it then flags for taking function props.
+// The server → client boundary. Repeating the directive below would hide where
+// the split happens, and make Next treat each component as a client entry whose
+// function props must be Server Actions.
 "use client";
 
 import Link from "next/link";
@@ -30,17 +25,13 @@ import type { ChatSummary } from "@/lib/chats/queries";
 import type { DocumentSummary } from "@/lib/documents/queries";
 
 /**
- * Owns `documents` for the whole workspace, and everything that mutates it.
+ * Owns `documents` and everything that mutates it. One unit rather than two
+ * siblings because chat depends on the list — computed during the *server* render
+ * instead, chat kept the value it was born with and stayed on "Nothing to search
+ * yet" until a manual reload.
  *
- * One stateful unit rather than two siblings because chat depends on the document
- * list — with nothing processed there is nothing to search. When
- * `hasReadyDocuments` was computed during the *server* render instead, an upload
- * updated the list by polling while chat kept the value it was born with and
- * stayed on "Nothing to search yet" until a manual reload.
- *
- * That was the second instance of the same shape (the first: `DocumentList`
- * seeding `useState(initialDocuments)`). One owner and no prop copied into state
- * removes the class rather than the instance.
+ * Second instance of that shape (first: `DocumentList` seeding
+ * `useState(initialDocuments)`). One owner, no prop copied into state.
  */
 
 const POLL_INTERVAL_MS = 2_000;
@@ -157,19 +148,16 @@ export function WorkspaceSections({
             canWrite={canWrite}
             busyId={busyId}
             pollError={pollError}
-            // `void` rather than passing the async functions directly: the
-            // handler props are typed to return void, and a floating promise
-            // handed to an event attribute is the shape that silently swallows
-            // rejections.
+            // `void`: the prop returns void, and a floating promise on an event handler
+            // silently swallows rejections.
             onRetry={(id) => void retry(id)}
             onDelete={(id) => void remove(id)}
           />
         </div>
 
         {!canWrite ? (
-          // Read-only visitors get a way forward rather than a dead end. A
-          // signed-in visitor already has an account, so offering them
-          // "Sign in" would go nowhere.
+          // A way forward rather than a dead end — a signed-in visitor already has
+          // an account, so "Sign in" would go nowhere.
           <Card>
             <CardHeader>
               <FileText
@@ -210,17 +198,11 @@ export function WorkspaceSections({
               Conversations
             </h2>
             {/*
-              A form POST, not a link — and this was a link, which was a bug.
-
-              Next prefetches `<Link>` targets in the viewport, and prefetching
-              this href executed the handler behind it: conversations appeared on
-              every page load and every time the list re-rendered. Creating a
-              resource is not something a GET may do, because prefetchers,
-              crawlers and tab-restore all issue GETs nobody clicked.
-
-              The cost is losing middle-click and open-in-new-tab. A button that
-              only acts when pressed is worth more than a link that acts when
-              looked at.
+              A form POST, not a link — and this was a link, which was the bug:
+              Next prefetches `<Link>` targets in the viewport, so conversations
+              appeared on every page load. Creating a resource is not something a
+              GET may do; prefetchers, crawlers and tab-restore all issue GETs
+              nobody clicked. The cost is middle-click and open-in-new-tab.
             */}
             <form action={`/w/${workspaceId}/c/new`} method="post">
               <Button type="submit" variant="outline" size="sm">
@@ -252,21 +234,14 @@ export function WorkspaceSections({
         */}
         <ChatPanel
           /*
-            Remounts when the open conversation changes, which is the only way
-            the transcript can follow it.
+            `useChat` seeds from `initialMessages` once and then owns its state —
+            by design, or a streaming answer would be wiped by every re-render.
+            So a *new* prop is ignored, and deleting the last conversation left
+            its messages on screen with nothing behind them.
 
-            `useChat` seeds itself from `initialMessages` once and then owns its
-            own state — by design, or a streaming answer would be wiped by every
-            re-render. The consequence is that a *new* `initialMessages` prop is
-            ignored, so deleting the last conversation left its messages on
-            screen with nothing behind them, and switching conversations would
-            have shown the previous one's transcript.
-
-            A key is the honest fix rather than syncing the prop into state: the
-            conversation is the identity of this component, so a different
-            conversation is a different component. `"none"` rather than `null`
-            because a key must be a string, and an empty workspace is a real
-            state to be keyed on.
+            Keying is the honest fix rather than syncing prop into state: the
+            conversation is this component's identity. `"none"` because a key must
+            be a string, and an empty workspace is a real state to key on.
           */
           key={activeChatId ?? "none"}
           workspaceId={workspaceId}

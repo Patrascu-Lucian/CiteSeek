@@ -3,40 +3,25 @@ import { createHash } from "node:crypto";
 import { EMBEDDING_DIMENSIONS } from "@/lib/rag/vector";
 
 /**
- * A deterministic stand-in for a real embedding provider.
+ * A deterministic stand-in, so ingestion and retrieval can run without an API key
+ * in CI, E2E and offline.
  *
- * Ingestion and retrieval are the widest code paths in the project, and without
- * this they could only be exercised with a live API key — which means CI cannot
- * run them, E2E cannot run them, and nobody can develop offline. Those are the
- * conditions under which a pipeline goes untested and breaks silently.
+ * A **hashing bag-of-words vectorizer**: each word hashes to a dimension and is
+ * counted there. That buys the property a hash of the whole string cannot —
+ * **text sharing words lands close together**. Hashing the whole input would
+ * make a question orthogonal to the passage answering it, so only a query
+ * identical to a stored passage could retrieve anything.
  *
- * This is a **hashing bag-of-words vectorizer**: each word is hashed to a
- * dimension and counted there. That is a real technique, not a toy — it is what
- * a `HashingVectorizer` does — and it buys the one property a pure hash of the
- * whole string cannot give: **text that shares words lands close together.**
+ * Not semantic: "reimbursement" and "expenses" are unrelated here, only literal
+ * overlap counts. It proves the pipeline stores, retrieves and orders — not
+ * quality, and **the relevance floor must not be tuned against these numbers**.
  *
- * That matters because a hash of the entire input makes "how are expenses
- * reimbursed?" orthogonal to the passage answering it, so the only query that
- * could ever retrieve anything is one identical to a stored passage. No
- * realistic question is. The end-to-end test would have had nothing to click.
- *
- * What it emphatically is not is semantic. "Reimbursement" and "expenses" are
- * unrelated to it; only literal word overlap counts. It proves the pipeline
- * stores, retrieves and orders correctly. Retrieval *quality* can only be judged
- * against the real provider, and the relevance floor must not be tuned against
- * these numbers.
- *
- * Deliberately returns un-normalized vectors so that the real and fake paths
- * share one normalization step rather than each having their own.
+ * Returns un-normalized vectors so real and fake share one normalization step.
  */
 
-/**
- * Words carrying no signal, removed so two unrelated sentences do not look
- * similar merely for both being English. Without this, "what is the capital of
- * France?" overlaps an expenses policy on `what`, `is`, `the` and `of` — enough
- * to drag an unrelated question under the relevance floor and quietly break the
- * refusal path this project is built around.
- */
+/** Removed so two unrelated sentences do not look similar merely for both being
+ * English: "what is the capital of France?" overlaps an expenses policy on
+ * `what`, `is`, `the`, `of` — enough to drag it under the floor. */
 const STOPWORDS = new Set([
   "a",
   "an",

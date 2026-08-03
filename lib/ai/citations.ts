@@ -56,7 +56,6 @@ export function linkCitationMarkers(
   });
 }
 
-/** The marker a citation href points at, or null if it is an ordinary link. */
 export function parseCitationHref(href: string | undefined): number | null {
   if (!href?.startsWith(CITATION_HREF_PREFIX)) return null;
 

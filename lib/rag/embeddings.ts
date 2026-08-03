@@ -13,14 +13,10 @@ import {
 } from "./vector";
 
 /**
- * Turning text into vectors.
- *
- * Passages and queries are embedded with *different* task types. This is not a
- * detail: `gemini-embedding-001` produces asymmetric embeddings, so a passage
- * embedded as a query lands in a different part of the space than the same
- * passage embedded as a document. Mixing them degrades retrieval in a way that
- * looks like poor chunking rather than a configuration error, which is why the
- * two entry points below are separate functions rather than a boolean argument.
+ * `gemini-embedding-001` is **asymmetric**: the same text embedded as a query
+ * lands elsewhere than embedded as a document. Mixing them degrades retrieval in
+ * a way that looks like poor chunking, which is why the two entry points are
+ * separate functions rather than a boolean.
  */
 
 type EmbedOptions = {
@@ -29,15 +25,8 @@ type EmbedOptions = {
   signal?: AbortSignal;
 };
 
-/**
- * What a provider returns: the vectors, and what they cost.
- *
- * The token count is carried rather than discarded because embedding is billed
- * and quota-limited like generation is, and a cost ceiling can only be enforced
- * over numbers something actually reports. `embedMany` returns usage; this seam
- * used to drop it on the floor, which made "what has this workspace spent?" a
- * question with no answer.
- */
+/** Tokens carried rather than discarded: embedding is billed and quota-limited,
+ * and a ceiling can only be enforced over numbers something reports. */
 export type EmbeddingResult = {
   vectors: number[][];
   /** Total tokens consumed. Zero from the fake, which costs nothing. */
@@ -51,11 +40,8 @@ export type Embedder = (
   signal?: AbortSignal,
 ) => Promise<EmbeddingResult>;
 
-/**
- * Bounded rather than unlimited. Free-tier request-per-minute limits are the
- * binding constraint on a 600-chunk document, and firing every batch at once is
- * the fastest way to get rate-limited into a failed ingest.
- */
+/** Bounded: request-per-minute limits are the binding constraint on a 600-chunk
+ * document, and firing every batch at once fails the ingest. */
 const MAX_PARALLEL_CALLS = 2;
 const MAX_RETRIES = 5;
 
@@ -74,10 +60,8 @@ const googleEmbedder: Embedder = async (texts, taskType, signal) => {
     },
   });
 
-  // Optional chaining because a provider that reports no usage should cost a
-  // zero, not an exception. Embedding is on the ingestion path: crashing a
-  // 600-chunk upload because a usage field was absent trades a real feature for
-  // an accounting detail.
+  // A provider reporting no usage should cost zero, not crash a 600-chunk upload
+  // over an accounting detail.
   return { vectors: embeddings, tokens: usage?.tokens ?? 0 };
 };
 
@@ -88,11 +72,8 @@ export function getEmbedder(): Embedder {
   return resolveEmbeddingsProvider() === "fake" ? fakeEmbedder : googleEmbedder;
 }
 
-/**
- * Providers return raw vectors; this is the single point at which they are
- * normalized. `l2Normalize` is mathematically idempotent but not bit-exact, so
- * normalizing again downstream would perturb stored values for no benefit.
- */
+/** The single normalization point: `l2Normalize` is idempotent mathematically but
+ * not bit-exact, so doing it again downstream perturbs stored values. */
 async function embedWithTaskType(
   texts: readonly string[],
   taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY",
@@ -104,9 +85,8 @@ async function embedWithTaskType(
   const { vectors, tokens } = await embedder(texts, taskType, options.signal);
 
   if (vectors.length !== texts.length) {
-    // The `gemini-embedding-2` failure mode: multiple inputs collapsing into one
-    // aggregated vector. Caught here rather than surfacing as a foreign-key or
-    // off-by-one error deep in the ingestion loop.
+    // The `-2` failure mode: many inputs collapsing to one aggregated vector.
+    // Caught here rather than as an off-by-one deep in the ingestion loop.
     throw new Error(
       `Embedding provider returned ${vectors.length} vectors for ${texts.length} inputs. ` +
         `An aggregating model (such as gemini-embedding-2) cannot be used for per-chunk retrieval.`,
@@ -130,14 +110,8 @@ export function embedPassages(
   return embedWithTaskType(texts, "RETRIEVAL_DOCUMENT", options);
 }
 
-/**
- * Embed a search query.
- *
- * Returns the token cost alongside the vector because a query is embedded
- * *before* the relevance floor is applied — so a question that retrieves nothing
- * has still been paid for. Anything metering usage has to see that, or the
- * cheapest way to spend someone's quota is to ask nonsense.
- */
+/** Returns token cost with the vector: a query is embedded *before* the floor
+ * applies, so a question that retrieved nothing was still paid for. */
 export async function embedQuery(
   text: string,
   options: EmbedOptions = {},

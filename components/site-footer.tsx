@@ -3,54 +3,31 @@ import Link from "next/link";
 import { REPOSITORY_URL } from "@/lib/links";
 
 /**
- * Footer for every route.
+ * Footer for every route. It lived inside the landing page's `<main>`, which was
+ * wrong twice: the privacy page was reachable only from marketing, and **a
+ * `<footer>` inside `<main>` is not a `contentinfo` landmark** — the role is
+ * granted only to one not scoped to a section, so it looked right and exposed
+ * nothing.
  *
- * It used to live inside the landing page's `<main>`, which was wrong twice
- * over. Discoverability first: the privacy page states what happens to an
- * uploaded document, and it was reachable only from the marketing page — so a
- * signed-in reader standing at the upload control had no route to it from where
- * the question actually occurs to them. A policy nobody can navigate to is a
- * policy written for its author.
- *
- * The second is structural, and worth knowing generally: **a `<footer>` nested
- * inside `<main>` is not a `contentinfo` landmark.** The role is granted only to
- * a footer that is not scoped to an article or section, so the old markup
- * produced a footer that looked right and exposed nothing to a screen reader
- * navigating by landmark. Hoisting it to a direct child of `<body>` in the root
- * layout is what makes it one.
- *
- * Rendered in the root layout rather than in the three group layouts, so it also
- * reaches the root `not-found.tsx` and `error.tsx` — which sit outside every
- * group and therefore have no header at all.
+ * In the root layout rather than the three group layouts, so it also reaches
+ * `not-found.tsx` and `error.tsx`, which have no header at all.
  */
 export function SiteFooter() {
   return (
     <footer className="border-border/60 mt-auto border-t">
       <div className="text-muted-foreground mx-auto w-full max-w-5xl px-6 py-8 text-sm">
         {/*
-          The policies get their own row, above a divider.
+          Its own row above a divider, with names spelled out: "Privacy" alone
+          could be a setting, and someone looking for what happens to their
+          documents scans for the words they already have in mind.
 
-          They were sharing a line with the copyright, which put the two things a
-          reader might actually click beside the one thing they never will — and
-          left them fighting for space on a narrow screen. Their names are spelled
-          out for the same reason: "Privacy" alone could be a setting, and someone
-          looking for what happens to their documents is scanning for the words
-          they already have in mind.
-        */}
-        {/*
-          Right-aligned from `md` up, which is where the row below stops
-          wrapping — measured, not guessed: at 640px the description and the
-          copyright still stack, at 768px they sit at opposite ends. Above that
-          the policies line up exactly with the copyright (both right edges land
-          on 1128 at a 1280px viewport). Below it everything is left-aligned,
-          because one right-aligned line above two left-aligned ones reads as a
-          mistake rather than a choice.
-        */}
-        {/*
-          Labelled for what it holds. "Policies" was already stretched by the
-          Contact link and About would have made it plainly wrong — a landmark
-          whose name does not describe its contents is worse than an unnamed one,
-          because a screen-reader user navigates by that name.
+          Right-aligned from `md` up, which is where the row below stops wrapping
+          — measured: 640px still stacks, 768px does not. Below that everything is
+          left-aligned, since one right-aligned line above two left ones reads as
+          a mistake.
+
+          Labeled "About this project": a landmark whose name does not describe
+          its contents is worse than an unnamed one.
         */}
         <nav
           aria-label="About this project"
@@ -82,13 +59,8 @@ export function SiteFooter() {
         </nav>
 
         <div className="border-border/60 mt-6 border-t pt-6">
-          {/*
-            Both lines earn their place. The description tells a stranger what
-            this is inside one sentence; the notice says who owns it. The
-            repository is public with no license file, so everything is already
-            all rights reserved — this states it rather than leaving it to be
-            inferred.
-          */}
+          {/* The repository is public with no license file, so everything is
+            already all rights reserved — stated rather than inferred. */}
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
             <p>
               A portfolio project exploring retrieval-augmented generation with

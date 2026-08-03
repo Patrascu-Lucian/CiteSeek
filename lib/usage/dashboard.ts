@@ -6,21 +6,11 @@ import { usageEvents } from "@/lib/db/schema";
 import { RETENTION_DAYS } from "./queries";
 
 /**
- * Reading usage back, for the person who spent it.
- *
- * Deliberately a separate module from `queries.ts` rather than more functions in
- * it, because the two ask different questions and the difference is easy to
- * erase by accident:
- *
- * - **Limit reads are actor-scoped and span every workspace.** A cap that only
- *   counted usage inside one workspace would be escaped by making another, which
- *   is why `queries.ts` says its helpers are not workspace-scoped.
- * - **Dashboard reads are workspace-scoped.** "What has this workspace spent" is
- *   a question about a place, and answering it with an actor-scoped helper would
- *   show one member's total on every workspace they belong to.
- *
- * Keeping them apart means neither can be widened into the other by someone
- * adding a parameter that looks harmless.
+ * A separate module from `queries.ts` because the two scopes look
+ * interchangeable and are not: limit reads are **actor**-scoped across every
+ * workspace (a cap counting one workspace is escaped by making another),
+ * dashboard reads are **workspace**-scoped. Apart, neither can be widened into
+ * the other by a parameter that looks harmless.
  */
 
 /** One day's spend. `day` is a UTC calendar date, formatted `YYYY-MM-DD`. */
@@ -34,35 +24,22 @@ export type UsageDay = {
 export type WorkspaceUsage = {
   days: UsageDay[];
   totals: { requests: number; inputTokens: number; outputTokens: number };
-  /**
-   * When the most recent event was recorded, or null if there are none.
-   *
-   * This is the honest consumer of `recordUsage`'s `{ recorded }` signal, which
-   * nothing read until now. If recording ever stops — a permissions change, a
-   * connection limit, a missing table — the caps silently stop applying and no
-   * error is raised anywhere, because that failure is swallowed by design on the
-   * chat path. A visible "last recorded" is what turns that from invisible into
-   * merely quiet: a date that stops moving while the app is plainly being used
-   * is a signal to the one person who looks at this page.
-   */
+  /** The honest consumer of `recordUsage`'s `{ recorded }` signal, which nothing
+   * read until now. If recording stops, the caps silently stop applying and
+   * nothing raises — a date that stops moving is the only signal. */
   lastRecordedAt: Date | null;
   /** The window these numbers cover, bounded by the retention policy. */
   windowDays: number;
 };
 
 /**
- * Everything this workspace has spent, grouped by day.
+ * **Days are UTC**, so a European evening's questions land on the next day for
+ * part of the year. Stated in the interface rather than corrected: carrying the
+ * reader's zone into the query makes a "day" differ per viewer, which is a bigger
+ * feature than a spend summary warrants.
  *
- * **Days are UTC**, via `date_trunc('day', created_at AT TIME ZONE 'UTC')`. A
- * reader in Europe will see an evening's questions counted against the next day
- * for part of the year. That is stated in the interface rather than corrected:
- * doing it properly means carrying the reader's zone into the query and dealing
- * with the fact that a "day" then differs per viewer, which is a bigger feature
- * than a spend summary warrants.
- *
- * The window is `RETENTION_DAYS` because that is the hard bound — rows older
- * than that are deleted by `pruneUsageEvents`, so a longer range would report
- * zeroes and look like a quiet month rather than an absent one.
+ * The window is `RETENTION_DAYS` — the hard bound, since older rows are deleted,
+ * so a longer range reports zeroes and looks like a quiet month.
  */
 export async function workspaceUsage(
   workspaceId: string,

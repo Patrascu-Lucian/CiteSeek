@@ -11,16 +11,14 @@ import { type Embedder, embedPassages, getEmbedder } from "./embeddings";
 import { UnreadableDocumentError, extractText } from "./extract";
 
 /**
- * Extraction → chunking → embedding → storage.
- *
- * Runs inside `after()`, within the same serverless invocation as the upload
- * response. Two consequences shape it: **it can be killed at any moment**, so
- * progress is persisted per batch and a watchdog marks abandoned documents
- * failed; and **nothing is watching it**, so every failure must be written to the
+ * Extraction → chunking → embedding → storage, inside `after()` and so in the
+ * upload's own serverless invocation. Two consequences: **it can be killed at any
+ * moment**, so progress is persisted per batch and a watchdog fails abandoned
+ * documents; and **nothing is watching**, so every failure must reach the
  * document row or it is lost.
  *
- * Errors in `documents.error` are sanitized — a truncated message, never
- * document text. An error column is a log by another name.
+ * `documents.error` holds a truncated message, never document text — an error
+ * column is a log by another name.
  */
 
 /** How many chunks are embedded per provider call. */
@@ -35,12 +33,8 @@ export type IngestOptions = {
   signal?: AbortSignal;
 };
 
-/**
- * Turn an unknown thrown value into something safe to store.
- *
- * Deliberately does not include `cause` chains or stack traces: a parser error
- * can quote the bytes it choked on, and those bytes are the user's document.
- */
+/** No `cause` chains or stack traces: a parser error can quote the bytes it choked
+ * on, and those bytes are the user's document. */
 export function sanitizeError(error: unknown): string {
   const raw =
     error instanceof Error
@@ -67,14 +61,8 @@ async function markFailed(
   });
 }
 
-/**
- * Embed whatever chunks still lack a vector, in batches.
- *
- * Each batch is persisted before the next is requested. If the provider rate
- * limits us halfway through a 600-chunk document, the work already done
- * survives — and `listUnembeddedChunks` means a retry picks up exactly where it
- * stopped rather than paying for all of it again.
- */
+/** Each batch is persisted before the next is requested, so a rate limit halfway
+ * through a 600-chunk document keeps the work already done. */
 async function embedPendingChunks(
   workspaceId: string,
   documentId: string,
@@ -127,12 +115,8 @@ async function embedPendingChunks(
   return { embedded, tokens };
 }
 
-/**
- * Full ingestion for a freshly uploaded document.
- *
- * `bytes` are held only for the duration of this call — nothing is written to
- * disk, and the extracted text replaces them as the stored representation.
- */
+/** `bytes` live only for this call: nothing hits disk, and the extracted text
+ * replaces them as the stored representation. */
 export async function processDocument(
   workspaceId: string,
   documentId: string,
@@ -203,14 +187,9 @@ export async function processDocument(
   return { embeddingTokens };
 }
 
-/**
- * The inner throws in the functions on either side of this comment are caught
- * locally on purpose, and a linter that flags them as control flow is misreading
- * them: the message *is* the payload. `markFailed` runs it through
- * `sanitizeError` into `documents.error`, which is the sentence a user reads
- * beside a failed document. Converting them to early returns would mean
- * inventing a second channel to carry the same string.
- */
+/** The throws either side of this are caught locally on purpose: the message *is*
+ * the payload, sanitized into `documents.error` and read by the user. Early
+ * returns would need a second channel for the same string. */
 
 /**
  * Retry without re-extracting. Only meaningful when extraction succeeded and just

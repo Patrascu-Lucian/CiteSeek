@@ -1,26 +1,13 @@
 import type { EmbeddingsProviderName } from "@/lib/ai/provider";
 
-/**
- * Retrieval tuning, kept apart from the query that uses it.
- *
- * `retrieve.ts` imports the database, so anything importing *it* inherits a
- * connection — which a unit test asserting a distance has no business needing.
- * These are plain numbers; they should be reachable without one.
- */
+/** Apart from `retrieve.ts`, which imports the database — a unit test asserting a
+ * distance has no business inheriting a connection. */
 
 /**
- * The relevance floor is a property of the **embedding model**, not of the
- * product.
- *
- * Cosine distance only means something relative to the vectors that produced it,
- * and two models put "relevant" in completely different numeric ranges. A single
- * shared constant would therefore be wrong for one of them, and wrong in the
- * worst direction: too low and every question is refused, too high and nothing
- * is.
- *
- * This is not a test convenience. It is the same reason the code has always said
- * the floor cannot be tuned against the fake embedder — that statement only has
- * teeth if the two numbers are actually allowed to differ.
+ * The relevance floor belongs to the **embedding model**, not the product: cosine
+ * distance only means something relative to the vectors that produced it, and two
+ * models put "relevant" in different numeric ranges. One shared constant would be
+ * wrong for one of them — too low refuses everything, too high refuses nothing.
  */
 export const MAX_DISTANCE_BY_PROVIDER: Record<EmbeddingsProviderName, number> =
   {
@@ -31,17 +18,13 @@ export const MAX_DISTANCE_BY_PROVIDER: Record<EmbeddingsProviderName, number> =
     google: 0.6,
 
     /**
-     * The bag-of-words fake sits in a much narrower band, for a reason worth
-     * understanding: cosine similarity between a short question and a long passage
-     * is inherently small. A six-word query against a passage with a hundred
-     * distinct words cannot exceed roughly 0.25 similarity even if every query
-     * word appears — the passage's vector spreads its mass over far more
-     * dimensions. Real embedding models avoid this by being dense semantic
-     * encoders rather than word counters.
+     * The bag-of-words fake sits in a narrower band: cosine similarity between a
+     * short query and a long passage is inherently small — six words against a
+     * hundred distinct ones cannot exceed ~0.25 even if every word appears, since
+     * the passage spreads its mass over more dimensions. Dense encoders avoid
+     * this; word counters cannot.
      *
-     * So a threshold that works for Gemini rejects everything here. Calibrated
-     * instead against the seeded fixture: a question about its contents lands
-     * around 0.80, an unrelated one at 0.95 and above.
+     * Calibrated against the seeded fixture: on-topic ~0.80, unrelated ≥0.95.
      */
     fake: 0.88,
   };

@@ -7,19 +7,9 @@ import { cn } from "@/lib/utils";
 import { Refusal } from "./refusal";
 
 /**
- * The Markdown renderer is loaded on demand, not with the page.
- *
- * `Answer` pulls in Streamdown, which carries a Markdown parser, a diagram
- * renderer, a syntax highlighter and a maths typesetter — **428 KB raw in one
- * chunk**, measured, and it was arriving in the initial HTML of every workspace
- * visit. Nobody needs it until an assistant message exists, and a guest opening
- * the demo has none: the conversation starts empty.
- *
- * `ssr` stays on, so a signed-in reader's restored transcript still
- * server-renders. What changes is when the *client* chunk is fetched.
- *
- * `ChatPanel` warms it at idle — see `warmAnswer` below for why on submit was
- * measurably too late.
+ * `Answer` pulls in Streamdown — **428 KB raw**, measured, and it was in the
+ * initial HTML of every workspace visit despite an empty conversation needing
+ * none of it. `ssr` stays on; only the client fetch is deferred.
  */
 const Answer = dynamic(() => import("./answer").then((m) => m.Answer), {
   /*
@@ -42,23 +32,14 @@ const Answer = dynamic(() => import("./answer").then((m) => m.Answer), {
 });
 
 /**
- * Fetches the chunk above ahead of time. Called by `ChatPanel` at idle.
- *
- * It lives beside the `dynamic()` call rather than in `ChatPanel` so that one
- * module owns when this chunk is loaded. Measured: warming at idle takes the two
- * large Streamdown chunks off the first answer's critical path — three chunk
- * fetches during the first send became one. The one that remains is this
- * module's own wrapper, a couple of kilobytes, which the loader still resolves
- * when the component first renders; the placeholder above covers it.
+ * Called by `ChatPanel` at idle. Beside the `dynamic()` call so one module owns
+ * when this loads. Measured: three chunk fetches on the first send became one.
  */
 export function warmAnswer() {
   void import("./answer");
 }
 
-/**
- * The transcript. Presentational — every piece of state it renders is owned by
- * `ChatPanel`, the same split as `DocumentList` and `DocumentsPanel`.
- */
+/** Presentational; `ChatPanel` owns every piece of state rendered here. */
 
 /** The text of a message, concatenated across its parts. */
 export function messageText(message: ChatUIMessage): string {
@@ -68,14 +49,8 @@ export function messageText(message: ChatUIMessage): string {
     .join("");
 }
 
-/**
- * The refusal reason attached to a message, if it is a refusal.
- *
- * Present only when retrieval found nothing, which is also exactly when there
- * are no sources — the two parts are mutually exclusive by construction, and a
- * message carrying both would mean the route had grounded and refused the same
- * turn.
- */
+/** Mutually exclusive with sources by construction: a message carrying both would
+ * mean the route grounded and refused the same turn. */
 export function messageRefusal(message: ChatUIMessage): RefusalReason | null {
   const part = message.parts.find(
     (candidate) => candidate.type === "data-refusal",
@@ -84,13 +59,8 @@ export function messageRefusal(message: ChatUIMessage): RefusalReason | null {
   return part && "data" in part ? part.data.reason : null;
 }
 
-/**
- * The sources attached to a message.
- *
- * Written by the route before any text, so this is populated from the first
- * chunk of a response rather than at the end — which is what lets a chip render
- * the moment its marker is typed.
- */
+/** Written by the route before any text, so a chip can render the moment its
+ * marker is typed. */
 export function messageSources(message: ChatUIMessage): ChatSource[] {
   const part = message.parts.find(
     (candidate) => candidate.type === "data-sources",
@@ -147,11 +117,9 @@ export function MessageList({
             className={cn("flex", isUser ? "justify-end" : "justify-start")}
           >
             <div
-              // Marks the surface a citation chip is drawn *on*, so a test can
-              // compare the two backgrounds. The chip was once painted in
-              // exactly this color and disappeared; no automated rule catches
-              // that, so the regression test has to find this element reliably
-              // rather than guess at an ancestor.
+              // Marks the surface a chip is drawn on, so a test can compare the
+              // two backgrounds — a chip was once painted in exactly this color
+              // and vanished, which no automated rule catches.
               data-message-bubble={isUser ? "user" : "assistant"}
               className={cn(
                 "max-w-[85%] rounded-lg px-4 py-3 text-sm",

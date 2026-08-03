@@ -12,17 +12,11 @@ import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
 import { pruneUsageEvents, recordUsage } from "@/lib/usage/queries";
 
-/**
- * Node runtime, not Edge: ingestion uses `node:crypto` (via the fake embedder)
- * and PDF parsing, neither of which exists on Edge.
- */
+/** Node, not Edge: `node:crypto` and PDF parsing exist on neither. */
 export const runtime = "nodejs";
 
-/**
- * The ceiling `after()` work runs under. Ingestion is bounded by this — a
- * document that needs longer is killed mid-flight, which is what the
- * stale-processing watchdog exists to clean up.
- */
+/** The ceiling `after()` runs under. Longer documents are killed mid-flight,
+ * which the stale-processing watchdog cleans up. */
 export const maxDuration = 300;
 
 /** The documents list, plus a sweep for abandoned jobs. */
@@ -35,14 +29,11 @@ export async function GET(
   const auth = await authorizeWorkspace(workspaceId, "read");
   if (isDenied(auth)) return auth;
 
-  // Running the watchdog here means the act of looking at a stuck document is
-  // what unsticks it. No cron, no queue -- the only client that cares is the one
-  // already polling.
+  // Looking at a stuck document is what unsticks it — no cron, and the only
+  // client that cares is already polling.
   await failStaleProcessing();
 
-  // Swept from a request rather than a cron, the same way stale documents are:
-  // this project has no scheduler, and the act of looking at the list is a
-  // perfectly good moment to drop rows nobody will ever query again.
+  // Swept from a request, like stale documents: no scheduler exists.
   await pruneUsageEvents();
 
   return NextResponse.json({
@@ -50,14 +41,8 @@ export async function GET(
   });
 }
 
-/**
- * Upload.
- *
- * Validates, creates the row, responds, and only then starts work via `after()`.
- * The response does not wait for parsing or embedding: a 50-page PDF would
- * otherwise hold the request open for minutes, and the client has a status
- * endpoint to poll precisely so it does not have to.
- */
+/** Validates, creates the row, responds, *then* works via `after()`. A 50-page PDF
+ * would otherwise hold the request open for minutes. */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ workspaceId: string }> },
@@ -69,9 +54,8 @@ export async function POST(
 
   const ipHash = clientIpHash(request.headers);
 
-  // Uploads are metered too. A document embeds into many batches, so one upload
-  // can cost far more quota than one question — limiting chat alone would leave
-  // the more expensive door open.
+  // Metered too: one upload embeds in many batches and costs far more quota than
+  // a question, so limiting chat alone leaves the expensive door open.
   const refused = await enforceUsageLimits(auth, ipHash);
   if (refused) return refused;
 
@@ -119,10 +103,8 @@ export async function POST(
       validation.mimeType,
     );
 
-    // Recorded inside `after()` because the response has already gone out and
-    // the tokens are only known once embedding finishes. Ingestion is the other
-    // place quota is spent, and a bot uploading documents burns it just as
-    // surely as one asking questions.
+    // Inside `after()`: the response has gone and tokens are only known once
+    // embedding finishes.
     await recordUsage({
       actorType: auth.actorType,
       actorId: auth.actorId,

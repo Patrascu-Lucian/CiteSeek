@@ -46,19 +46,14 @@ export type DocumentSummary = {
   updatedAt: Date;
 };
 
-/**
- * The documents list. `embeddedChunkCount` drives the progress shown while a
- * document is processing, which is why it is computed here rather than by a
- * second round trip per row.
- */
+/** `embeddedChunkCount` drives the processing progress bar — computed here rather
+ * than a round trip per row. */
 export async function listDocuments(
   workspaceId: string,
 ): Promise<DocumentSummary[]> {
-  // LEFT JOIN with a grouped count, not a correlated subquery: inside a `sql`
-  // template Drizzle emits column references *unqualified*, so the subquery form
-  // compares a chunk's foreign key to its own primary key and returns 0 forever.
-  // A join forces qualification. `count(chunks.embedding)` counts non-nulls,
-  // which is the progress figure wanted.
+  // LEFT JOIN, not a correlated subquery: inside a `sql` template Drizzle emits
+  // column references unqualified, so the subquery compares a chunk's foreign key
+  // to its own primary key and returns 0 forever. `count(embedding)` skips nulls.
   return db
     .select({
       id: documents.id,
@@ -95,13 +90,9 @@ export async function findDocumentInWorkspace(
   return document ?? null;
 }
 
-/**
- * Explicit column list, not a bare `.returning()`, which asks for every column
- * the *schema* declares. That made this insert fail in production against a
- * database missing migration 0001, while the documents list kept working because
- * it selects explicitly. Asking only for what is used confines drift to the
- * queries that actually need the missing column.
- */
+/** Explicit columns, not a bare `.returning()`, which asks for every column the
+ * *schema* declares — that failed in production against a database missing
+ * migration 0001, while the list kept working because it selects explicitly. */
 export async function createQueuedDocument(
   workspaceId: string,
   input: { filename: string; mimeType: string; sizeBytes: number },
@@ -123,13 +114,10 @@ export async function createQueuedDocument(
   return document!;
 }
 
-/**
- * `updatedAt` uses the database clock via `now()`, never a JavaScript `Date`.
- * The columns default to Postgres' clock, so passing one from the app mixes two
- * clocks in one column — observed at 23 ms of skew against Neon, enough for an
- * update to timestamp *earlier* than the insert it follows. The stale-processing
- * watchdog compares these, so backwards movement is a correctness bug.
- */
+/** `updatedAt` uses `now()`, never a JS `Date`: the column defaults to Postgres'
+ * clock, and mixing two machines' clocks let an update predate its own insert —
+ * 23 ms of skew observed against Neon. The stale-processing watchdog compares
+ * these, so backwards movement is a correctness bug. */
 export async function updateDocument(
   workspaceId: string,
   documentId: string,
@@ -177,11 +165,8 @@ export type NewChunkInput = {
   pageNumber: number | null;
 };
 
-/**
- * Insert chunks for a document, verifying the document belongs to the workspace
- * first. Without that check a caller could attach chunks to someone else's
- * document by guessing an id.
- */
+/** Verifies the document belongs to the workspace first, or a guessed id attaches
+ * chunks to someone else's document. */
 export async function insertChunks(
   workspaceId: string,
   documentId: string,
@@ -198,13 +183,8 @@ export async function insertChunks(
     .returning({ id: chunks.id, chunkIndex: chunks.chunkIndex });
 }
 
-/**
- * Chunks still awaiting an embedding, oldest first.
- *
- * This is what makes retry resume rather than restart: after a rate-limited
- * failure the chunks already embedded are skipped, so a retry costs only the
- * remainder of the quota rather than all of it again.
- */
+/** What makes retry resume rather than restart: already-embedded chunks are
+ * skipped, so a retry costs only the remainder of the quota. */
 export async function listUnembeddedChunks(
   workspaceId: string,
   documentId: string,
@@ -229,7 +209,6 @@ export async function listUnembeddedChunks(
     .limit(limit);
 }
 
-/** Attach embeddings to chunks, scoped through the owning document. */
 export async function setChunkEmbeddings(
   workspaceId: string,
   documentId: string,
@@ -261,15 +240,9 @@ export async function setChunkEmbeddings(
   return written;
 }
 
-/**
- * How many passages are actually searchable — a chunk with no embedding cannot be
- * retrieved, so "has documents" and "has something to search" differ while one is
- * still processing.
- *
- * Called only when retrieval comes back empty, to tell "nothing indexed" apart
- * from "nothing matched". Guessing between them means telling someone to upload a
- * document they already uploaded.
- */
+/** A chunk with no embedding cannot be retrieved, so "has documents" and "has
+ * something to search" differ while one is processing. Called only on the empty
+ * branch, to tell "nothing indexed" from "nothing matched". */
 export async function countSearchableChunks(workspaceId: string) {
   const [row] = await db
     .select({ total: count() })
@@ -297,15 +270,9 @@ export async function countChunks(workspaceId: string, documentId: string) {
   return row?.total ?? 0;
 }
 
-/**
- * Marks abandoned work as failed.
- *
- * `after()` runs inside the serverless invocation, so a timeout kills ingestion
- * with no chance to record it and the document sits in `processing` forever.
- * Called from the list endpoint, so looking at a stuck document is what unsticks
- * it. Global rather than workspace-scoped: a maintenance sweep that reads nothing
- * back is not a data-access path.
- */
+/** `after()` runs inside the invocation, so a timeout leaves a document in
+ * `processing` forever. Called from the list endpoint — looking at a stuck
+ * document unsticks it. Global rather than scoped: it reads nothing back. */
 export async function failStaleProcessing(): Promise<number> {
   // The cutoff is computed by Postgres too. Deriving it from `Date.now()` would
   // compare the app's clock against timestamps written by the database's, and
