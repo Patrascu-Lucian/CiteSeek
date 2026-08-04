@@ -537,7 +537,7 @@ lesson worth keeping. One entry per correction, newest last. Source material for
 ### A seed script that read one database and wrote to another
 
 - **Issue**: the demo document vanished from production, and re-seeding would not restore it.
-  `DATABASE_URL_UNPOOLED=<production> pnpm db:seed` reported `Seeding ep-red-sea…`, then
+  `DATABASE_URL_UNPOOLED=<production> pnpm db:seed` reported `Seeding <the production endpoint>`, then
   `Demo workspace already present`, then `already has 1 document(s) — leaving them alone`, and
   exited 0. Production had **zero** documents.
 
