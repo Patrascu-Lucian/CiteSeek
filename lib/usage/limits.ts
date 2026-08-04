@@ -22,6 +22,10 @@ export type UsageSnapshot = {
  * is contract rather than detail. */
 export type LimitRefusal = "rate_limited" | "capacity_reached";
 
+/** Whose capacity ran out. Orthogonal to the reason, and the difference a reader
+ * can see: "the demo is full" is false when only their own address is. */
+export type CapacityScope = "caller" | "global";
+
 export type LimitDecision =
   | { allowed: true }
   | {
@@ -81,9 +85,16 @@ export function decideUsage(
 
 /** Beside the decision so wording cannot drift from the rule. No message names a
  * number — thresholds are provisional. */
-export function refusalMessage(reason: LimitRefusal): string {
-  return reason === "rate_limited"
-    ? "Too many requests in a short time. Wait a moment and try again."
+export function refusalMessage(
+  reason: LimitRefusal,
+  scope?: CapacityScope,
+): string {
+  if (reason === "rate_limited") {
+    return "Too many requests in a short time. Wait a moment and try again.";
+  }
+
+  return scope === "caller"
+    ? "You have reached today's limit for the demo. It resets within 24 hours."
     : "The daily capacity for this demo has been reached. It resets within 24 hours.";
 }
 
@@ -93,11 +104,22 @@ export function refusalMessage(reason: LimitRefusal): string {
 export type RefusalBody = {
   error: string;
   code: LimitRefusal;
+  /** Absent on `rate_limited`, and on a provider quota error we cannot attribute. */
+  scope?: CapacityScope;
 };
 
-export function refusalBody(reason: LimitRefusal): RefusalBody {
-  return { error: refusalMessage(reason), code: reason };
+export function refusalBody(
+  reason: LimitRefusal,
+  scope?: CapacityScope,
+): RefusalBody {
+  return {
+    error: refusalMessage(reason, scope),
+    code: reason,
+    ...(scope ? { scope } : {}),
+  };
 }
+
+export type ParsedRefusal = { code: LimitRefusal; scope: CapacityScope | null };
 
 /**
  * The transport throws `new Error(response.text())` on non-2xx and wraps a
@@ -107,7 +129,7 @@ export function refusalBody(reason: LimitRefusal): RefusalBody {
  * Null for anything unrecognized, so an HTML error page falls through to the
  * generic state rather than being misreported as a limit.
  */
-export function parseRefusal(error: unknown): LimitRefusal | null {
+export function parseRefusal(error: unknown): ParsedRefusal | null {
   const message =
     error instanceof Error
       ? error.message
@@ -126,7 +148,12 @@ export function parseRefusal(error: unknown): LimitRefusal | null {
 
   if (typeof parsed !== "object" || parsed === null) return null;
 
-  const code = (parsed as { code?: unknown }).code;
+  const { code, scope } = parsed as { code?: unknown; scope?: unknown };
 
-  return code === "rate_limited" || code === "capacity_reached" ? code : null;
+  if (code !== "rate_limited" && code !== "capacity_reached") return null;
+
+  return {
+    code,
+    scope: scope === "caller" || scope === "global" ? scope : null,
+  };
 }

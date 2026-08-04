@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { hydrated, WORDMARK } from "./hydration";
+import { GUEST_EXIT, hydrated, WORDMARK } from "./hydration";
 
 test.describe("guest mode", () => {
   test("reading the landing page starts no session", async ({
@@ -336,6 +336,7 @@ test.describe("ending a session", () => {
   test("the exit control is keyboard operable", async ({ page }) => {
     await page.goto("/demo");
     await page.goto("/account");
+    await hydrated(page, GUEST_EXIT);
 
     const leave = page.getByRole("button", { name: /leave the demo/i });
     await leave.focus();

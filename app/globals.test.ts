@@ -4,17 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * The dark palette is written twice, and this is what stops the two drifting.
- *
- * `.dark` is set by the server from a cookie — an explicit choice, no
- * JavaScript, no flash. The `prefers-color-scheme` block covers everyone who has
- * not chosen. **A media query is not a selector**, so there is no way to write
- * one rule matching both; the duplication is forced by CSS rather than chosen.
- *
- * What makes duplication dangerous is that it fails silently and late: add a
- * token to one block and the app looks correct in whichever mode you happened to
- * be testing, while readers in the other get an unstyled fragment of a
- * component. Nothing renders an error. This test is the reason that cannot ship.
+ * The dark palette is written twice — **a media query is not a selector**, so the
+ * duplication is forced rather than chosen — and this is what stops the two
+ * drifting. Adding a token to one block fails silently: the app looks right in
+ * whichever mode you tested, and the other gets an unstyled fragment.
  */
 
 const CSS = readFileSync(join(import.meta.dirname, "globals.css"), "utf8");
@@ -72,14 +65,10 @@ describe("the light choice can beat a dark operating system", () => {
 
   it("applies the dark variant on both paths into the dark palette", () => {
     /*
-      The bug this caught. The variant was written as `&:is(.dark *)` alone,
-      which covers the explicit cookie-set class and silently misses the
-      system-preference path. `dark:` utilities are used throughout the shadcn
-      components — `dark:bg-input/30`, `dark:border-input`,
-      `dark:hover:bg-muted/50` — so a reader arriving by operating-system
-      preference would have got the dark palette with every one of those rules
-      inert: light component styling over a dark background, on the path most
-      readers take, and invisible to any test that sets the cookie.
+      The bug this caught: the variant was `&:is(.dark *)` alone, covering the
+      cookie class and silently missing the system path — so those readers got the
+      dark palette with every `dark:` utility inert, and no test that sets the
+      cookie could see it.
     */
     const variant = CSS.slice(
       CSS.indexOf("@custom-variant dark"),

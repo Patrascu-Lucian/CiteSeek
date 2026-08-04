@@ -185,16 +185,40 @@ describe("parseRefusal", () => {
   it("recovers the code from a refusal body", () => {
     expect(
       parseRefusal(new Error(JSON.stringify(refusalBody("rate_limited")))),
-    ).toBe("rate_limited");
+    ).toEqual({ code: "rate_limited", scope: null });
     expect(
       parseRefusal(new Error(JSON.stringify(refusalBody("capacity_reached")))),
-    ).toBe("capacity_reached");
+    ).toEqual({ code: "capacity_reached", scope: null });
+  });
+
+  it("carries which capacity ran out, so the copy can stop guessing", () => {
+    // The reason alone said "the demo has reached today's capacity" to someone
+    // who had exhausted only their own address — false, and on the path a
+    // shared office network takes.
+    expect(
+      parseRefusal(
+        new Error(JSON.stringify(refusalBody("capacity_reached", "caller"))),
+      ),
+    ).toEqual({ code: "capacity_reached", scope: "caller" });
+
+    expect(
+      parseRefusal(
+        new Error(JSON.stringify(refusalBody("capacity_reached", "global"))),
+      ),
+    ).toEqual({ code: "capacity_reached", scope: "global" });
+  });
+
+  it("ignores a scope it does not recognise", () => {
+    expect(
+      parseRefusal(JSON.stringify({ code: "capacity_reached", scope: "moon" })),
+    ).toEqual({ code: "capacity_reached", scope: null });
   });
 
   it("accepts a bare string, which is what a stream error part carries", () => {
-    expect(parseRefusal(JSON.stringify({ code: "capacity_reached" }))).toBe(
-      "capacity_reached",
-    );
+    expect(parseRefusal(JSON.stringify({ code: "capacity_reached" }))).toEqual({
+      code: "capacity_reached",
+      scope: null,
+    });
   });
 
   it.each([
