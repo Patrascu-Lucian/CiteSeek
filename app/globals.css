@@ -43,7 +43,6 @@
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
-  --color-scrollbar-thumb: var(--scrollbar-thumb);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -190,20 +189,13 @@
   }
   html {
     @apply font-sans;
-  }
 
-  /*
-    Native scrollbars are hidden everywhere and replaced by `OverlayScrollbar`,
-    which paints over the content instead of taking width from it (ADR 020).
-    `::-webkit-scrollbar` covers Safari before 18.4, which has no
-    `scrollbar-width`.
-  */
-  * {
-    scrollbar-width: none;
-  }
-
-  ::-webkit-scrollbar {
-    display: none;
+    /* Both properties inherit, so one declaration covers every scroll
+       container. `stable` reserves the gutter so Windows stops shifting the
+       layout when a page grows past the fold. */
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   /*

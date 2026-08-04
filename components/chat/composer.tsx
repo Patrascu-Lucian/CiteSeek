@@ -2,7 +2,6 @@ import { type FormEvent, type KeyboardEvent, useRef, useState } from "react";
 import { Send, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { OverlayScrollbar } from "@/components/ui/overlay-scrollbar";
 
 /**
  * Enter sends, Shift+Enter newlines — hence a textarea, since a question about a
@@ -66,31 +65,23 @@ export function Composer({
       <label className="sr-only" htmlFor="chat-question">
         Ask a question about your documents
       </label>
-      <div className="relative flex-1">
-        <textarea
-          id="chat-question"
-          ref={textareaRef}
-          rows={2}
-          value={value}
-          disabled={disabled}
-          onChange={(event) => {
-            setValue(event.target.value);
-            fit(event.target);
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask a question about your documents…"
-          // Grows with the question and stops at `max-h-40`, after which it
-          // scrolls — a composer that can take the whole panel leaves nowhere to
-          // read the answer it is about to get.
-          className="border-input bg-background focus-visible:ring-ring block max-h-40 w-full resize-none overflow-y-auto rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-        />
-        {/* Inset past the border and the radius, so the thumb does not sit on
-          the rounded corner. */}
-        <OverlayScrollbar
-          resolve={() => textareaRef.current}
-          className="absolute inset-y-1.5 right-1"
-        />
-      </div>
+      <textarea
+        id="chat-question"
+        ref={textareaRef}
+        rows={2}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => {
+          setValue(event.target.value);
+          fit(event.target);
+        }}
+        onKeyDown={handleKeyDown}
+        placeholder="Ask a question about your documents…"
+        // Grows with the question and stops at `max-h-40`, after which it
+        // scrolls — a composer that can take the whole panel leaves nowhere to
+        // read the answer it is about to get.
+        className="border-input bg-background focus-visible:ring-ring max-h-40 flex-1 resize-none overflow-y-auto rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+      />
 
       {isStreaming ? (
         <Button type="button" variant="outline" onClick={onStop}>
