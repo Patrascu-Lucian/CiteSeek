@@ -8,7 +8,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { OverlayScrollbar } from "@/components/ui/overlay-scrollbar";
 import type { ChatSource } from "@/lib/ai/types";
 import { highlightForCitation } from "@/lib/rag/highlight";
 
@@ -84,7 +83,6 @@ function SourceBody({
 }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const markRef = useRef<HTMLElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const { documentId } = source;
 
@@ -151,89 +149,82 @@ function SourceBody({
       as `scrollable-region-focusable`. Named `role="region"` rather than a bare
       `tabIndex`, which would be a stop that announces nothing.
     */
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <div
-        ref={scrollRef}
-        role="region"
-        aria-label={`Source text of ${source.filename}`}
-        tabIndex={0}
-        className="focus-visible:ring-ring flex-1 overflow-y-auto px-6 py-4 focus-visible:ring-2 focus-visible:outline-none"
-      >
-        {state.status === "loading" ? (
-          <p className="text-muted-foreground flex items-center gap-2 text-sm">
-            <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-            Loading the source…
+    <div
+      role="region"
+      aria-label={`Source text of ${source.filename}`}
+      tabIndex={0}
+      className="focus-visible:ring-ring flex-1 overflow-y-auto px-6 py-4 focus-visible:ring-2 focus-visible:outline-none"
+    >
+      {state.status === "loading" ? (
+        <p className="text-muted-foreground flex items-center gap-2 text-sm">
+          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+          Loading the source…
+        </p>
+      ) : null}
+
+      {state.status === "error" ? (
+        <div role="alert" className="text-sm">
+          <p className="font-medium">This source couldn&apos;t be loaded.</p>
+          <p className="text-muted-foreground mt-1">
+            The passage the answer quoted is below, so you can still read it.
           </p>
-        ) : null}
+          <StoredQuote quote={source.quote} />
+        </div>
+      ) : null}
 
-        {state.status === "error" ? (
-          <div role="alert" className="text-sm">
-            <p className="font-medium">This source couldn&apos;t be loaded.</p>
-            <p className="text-muted-foreground mt-1">
-              The passage the answer quoted is below, so you can still read it.
-            </p>
-            <StoredQuote quote={source.quote} />
-          </div>
-        ) : null}
+      {state.status === "unavailable" ? (
+        <div className="text-sm">
+          <p className="flex items-center gap-2 font-medium">
+            <FileWarning aria-hidden="true" className="size-4" />
+            {state.reason === "deleted"
+              ? "This document has been deleted."
+              : "This document's text is no longer stored."}
+          </p>
+          <p className="text-muted-foreground mt-1">
+            The passage the answer quoted was saved with the citation:
+          </p>
+          <StoredQuote quote={source.quote} />
+        </div>
+      ) : null}
 
-        {state.status === "unavailable" ? (
-          <div className="text-sm">
-            <p className="flex items-center gap-2 font-medium">
-              <FileWarning aria-hidden="true" className="size-4" />
-              {state.reason === "deleted"
-                ? "This document has been deleted."
-                : "This document's text is no longer stored."}
-            </p>
-            <p className="text-muted-foreground mt-1">
-              The passage the answer quoted was saved with the citation:
-            </p>
-            <StoredQuote quote={source.quote} />
-          </div>
-        ) : null}
-
-        {highlight ? (
-          <>
-            {!highlight.matchesQuote ? (
-              <div
-                role="alert"
-                className="border-border bg-muted/50 mb-4 flex gap-2 rounded-md border p-3 text-sm"
-              >
-                <AlertTriangle
-                  aria-hidden="true"
-                  className="mt-0.5 size-4 shrink-0"
-                />
-                <div>
-                  <p className="font-medium">
-                    This document has changed since the answer was written.
-                  </p>
-                  <p className="text-muted-foreground mt-1">
-                    The highlight below may not be the passage that was cited.
-                    What the answer quoted was:
-                  </p>
-                  <StoredQuote quote={source.quote} />
-                </div>
+      {highlight ? (
+        <>
+          {!highlight.matchesQuote ? (
+            <div
+              role="alert"
+              className="border-border bg-muted/50 mb-4 flex gap-2 rounded-md border p-3 text-sm"
+            >
+              <AlertTriangle
+                aria-hidden="true"
+                className="mt-0.5 size-4 shrink-0"
+              />
+              <div>
+                <p className="font-medium">
+                  This document has changed since the answer was written.
+                </p>
+                <p className="text-muted-foreground mt-1">
+                  The highlight below may not be the passage that was cited.
+                  What the answer quoted was:
+                </p>
+                <StoredQuote quote={source.quote} />
               </div>
-            ) : null}
+            </div>
+          ) : null}
 
-            {/* Not virtualized: a document is a few hundred kilobytes at most, and
+          {/* Not virtualized: a document is a few hundred kilobytes at most, and
             windowing would break both the scroll target and find-in-page. */}
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">
-              {highlight.before}
-              <mark
-                ref={markRef}
-                className="bg-primary/20 text-foreground rounded-sm px-0.5"
-              >
-                {highlight.cited}
-              </mark>
-              {highlight.after}
-            </p>
-          </>
-        ) : null}
-      </div>
-      <OverlayScrollbar
-        resolve={() => scrollRef.current}
-        className="absolute inset-y-0 right-0.5"
-      />
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            {highlight.before}
+            <mark
+              ref={markRef}
+              className="bg-primary/20 text-foreground rounded-sm px-0.5"
+            >
+              {highlight.cited}
+            </mark>
+            {highlight.after}
+          </p>
+        </>
+      ) : null}
     </div>
   );
 }
