@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AlertCircle, Clock, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { LimitRefusal } from "@/lib/usage/limits";
+import type { ParsedRefusal } from "@/lib/usage/limits";
 
 /**
  * Three states, because the useful action differs and offering the wrong one is
@@ -18,20 +18,30 @@ export function ChatError({
   onRetry,
 }: {
   /** Null when this is an ordinary failure rather than a limit. */
-  refusal: LimitRefusal | null;
+  refusal: ParsedRefusal | null;
   signedIn: boolean;
   onRetry: () => void;
 }) {
-  if (refusal === "capacity_reached") {
+  if (refusal?.code === "capacity_reached") {
+    // Not a wording choice: "the demo is full" is false when only this address
+    // is, and everyone else is still being served.
+    const mine = refusal.scope === "caller";
+
     return (
       <Alert
         icon={<Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}
         tone="muted"
-        title="The demo has reached today's capacity."
+        title={
+          mine
+            ? "You have reached today's limit for the demo."
+            : "The demo has reached today's capacity."
+        }
         detail={
           signedIn
             ? "It resets within 24 hours. Anything already uploaded stays where it is."
-            : "It resets within 24 hours. Signing in gives you your own capacity, separate from the shared demo."
+            : mine
+              ? "It resets within 24 hours, and it counts per network — an office or campus shares one. Signing in gives you your own."
+              : "It resets within 24 hours. Signing in gives you your own capacity, separate from the shared demo."
         }
         action={
           signedIn ? null : (
@@ -46,7 +56,7 @@ export function ChatError({
     );
   }
 
-  if (refusal === "rate_limited") {
+  if (refusal?.code === "rate_limited") {
     return (
       <Alert
         icon={<Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}

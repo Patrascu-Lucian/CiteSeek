@@ -216,7 +216,8 @@ export async function POST(
      */
     onError: (error) =>
       APICallError.isInstance(error) && error.statusCode === 429
-        ? JSON.stringify(refusalBody("capacity_reached"))
+        ? // The provider's project-wide quota, not this reader's.
+          JSON.stringify(refusalBody("capacity_reached", "global"))
         : "An error occurred.",
     execute: ({ writer }) => {
       // Before the model has written a word. The sources are a fact about

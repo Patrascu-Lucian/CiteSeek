@@ -12,18 +12,12 @@ import { PRODUCTION_USAGE_LIMITS as LIMITS } from "./config";
 import { enforceUsageLimits, type UsageRefusalBody } from "./enforce";
 
 /**
- * Admission control against a real database, at the real thresholds.
+ * Admission control against a real database at the **production** thresholds — a
+ * suite that invents its own proves only that the arithmetic works. Rows are
+ * seeded in bulk to cross a cap.
  *
- * Deliberately not against a test-only profile: what matters is that the
- * production numbers behave as intended, and a suite that invents its own
- * thresholds proves only that the arithmetic works. Rows are seeded in bulk to
- * cross a cap, which is cheap enough that the real numbers are testable.
- *
- * `enforceUsageLimits` is exercised directly rather than through a route,
- * because a guest needs the demo workspace to have read access and a partial
- * unique index allows exactly one of those to exist. The helper needs only an
- * actor, so the constraint never comes up. One route-level test covers the
- * wiring.
+ * Directly rather than through a route: a guest needs the demo workspace, and a
+ * partial unique index allows exactly one of those to exist.
  */
 
 const { client, db } = createTestClient();

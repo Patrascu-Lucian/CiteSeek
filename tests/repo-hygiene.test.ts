@@ -4,18 +4,10 @@ import { readFileSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
- * Guards against a failure that is invisible locally and only surfaces in CI.
- *
- * A NUL byte anywhere in a file trips git's binary heuristic. Binary files are
- * exempt from `.gitattributes` line-ending normalization, so a file written on
- * Windows keeps its CRLF endings through commit — and Prettier, which expects
- * LF, then rejects it on a Linux runner while passing on the machine that wrote
- * it. The symptom (a formatting error) is several steps removed from the cause
- * (a control character in a string literal), which is what makes it expensive to
- * diagnose the second time.
- *
- * Control characters in source should be written as escape sequences anyway:
- * a literal NUL or non-breaking space is invisible in a diff and unreviewable.
+ * A NUL byte trips git's binary heuristic, and binary files skip `.gitattributes`
+ * line-ending normalization — so a file written on Windows keeps CRLF through
+ * commit and Prettier rejects it on a Linux runner while passing locally. The
+ * symptom is a formatting error several steps from the cause.
  */
 
 const BINARY_EXTENSIONS =

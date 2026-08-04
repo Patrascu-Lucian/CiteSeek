@@ -7,20 +7,12 @@ import type { ChatUIMessage } from "@/lib/ai/types";
 import { ChatPanel } from "./chat-panel";
 
 /**
- * A performance regression, asserted as behavior.
+ * A performance regression asserted as behavior: the draft used to live in
+ * `ChatPanel`, so one keystroke re-parsed every `Answer` through Streamdown.
  *
- * The draft question used to live in `ChatPanel`, so every keystroke re-rendered
- * the panel and everything under it — including `MessageList`, which re-renders
- * each `Answer`, each of which re-parses its markdown through Streamdown. On a
- * conversation with a few answers in it, typing one character rebuilt the whole
- * transcript, and it looked like the page was reloading as you typed.
- *
- * Kept in its own file because the counting stub below replaces `MessageList`
- * for the entire module, which the citation tests next door need to be real.
- *
- * This measures renders rather than milliseconds on purpose: a timing assertion
- * would be flaky on a loaded machine, and the render count is the thing that
- * actually regressed.
+ * Renders rather than milliseconds — a timing assertion would be flaky, and the
+ * count is what regressed. Its own file because the stub below replaces
+ * `MessageList` for the whole module.
  */
 const transcript = vi.hoisted(() => ({ renders: 0 }));
 

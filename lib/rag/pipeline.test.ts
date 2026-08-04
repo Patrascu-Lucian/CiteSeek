@@ -9,14 +9,10 @@ import { extractText } from "./extract";
 import { EMBEDDING_DIMENSIONS, isUnitVector } from "./vector";
 
 /**
- * Extraction → chunking → embedding, run over real files.
- *
- * The unit suites cover each stage against synthetic input. This one exists
- * because the offset invariant can hold at every stage in isolation and still
- * break at a seam — normalization applied twice, or page spans computed against
- * a different string than the one stored. Those failures are invisible until a
- * citation shows the wrong text, so they are worth catching against actual
- * documents.
+ * Extraction → chunking → embedding over real files. The offset invariant can
+ * hold at every stage in isolation and still break at a seam — normalization
+ * applied twice, or page spans measured against a different string than the one
+ * stored — and that is invisible until a citation shows the wrong text.
  */
 
 const FIXTURES = join(import.meta.dirname, "__fixtures__");

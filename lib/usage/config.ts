@@ -27,8 +27,9 @@ export const PRODUCTION_USAGE_LIMITS: UsageLimits = {
   // ~4 and ~10 questions a minute. Fast for a human, slow for a script.
   guestRequestsPerMinute: 8,
   userRequestsPerMinute: 20,
-  // ~20 and ~100 answered questions a day.
-  guestRequestsPerDay: 40,
+  /* ~50 and ~100 answered questions a day. Per **address**, and a shared network
+     is one address — at 40 the fifth visitor was refused. */
+  guestRequestsPerDay: 100,
   userRequestsPerDay: 200,
   globalRequestsPerDay: 800,
   guestGlobalRequestsPerDay: 600,

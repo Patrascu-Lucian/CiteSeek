@@ -75,8 +75,14 @@ export async function enforceUsageLimits(
       ? { "Retry-After": String(decision.retryAfterSeconds) }
       : undefined;
 
-  return NextResponse.json(refusalBody(decision.reason), {
-    status: 429,
-    headers,
-  });
+  return NextResponse.json(
+    refusalBody(
+      decision.reason,
+      decision.reason === "capacity_reached" ? decision.scope : undefined,
+    ),
+    {
+      status: 429,
+      headers,
+    },
+  );
 }

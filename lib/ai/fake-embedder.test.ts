@@ -101,18 +101,12 @@ describe("fakeEmbedding", () => {
   });
 
   it("keeps an unrelated question beyond the relevance floor", () => {
-    // Stopwords are dropped for exactly this reason: "what is the capital of
-    // France?" shares `what`, `is`, `the` and `of` with almost any English
-    // passage, which without filtering is enough to drag an unrelated question
-    // under the floor and break the refusal path the product is built around.
+    // Why stopwords are dropped: "what is the capital of France?" shares four
+    // words with almost any English passage, enough to drag it under the floor.
     //
-    // Asserted as a distance rather than an exact zero: hashing a word onto one
-    // of 768 dimensions means unrelated words occasionally collide, and a test
-    // demanding perfect orthogonality would be asserting that collisions never
-    // happen. What has to hold is that the floor still rejects it.
-    // A realistic passage, not a single sentence: cosine distance depends
-    // heavily on length, so comparing two short strings would measure a shape
-    // retrieval never actually sees.
+    // A distance rather than an exact zero, since hashing onto 768 dimensions
+    // makes collisions inevitable; and a realistic passage, since cosine
+    // distance depends on length.
     const passage = l2Normalize(
       fakeEmbedding(
         `Employees may claim reimbursement for equipment, software licenses and

@@ -22,5 +22,9 @@ export async function hydrated(page: Page, selector: string) {
 /** The theme control, which is the one every palette spec drives. */
 export const THEME_BUTTON = 'button[name="theme"]';
 
+/** The guest exit on `/account` — a form posting a server action, so the same
+ * dropped-click window as the theme control. */
+export const GUEST_EXIT = 'form button[type="submit"]';
+
 /** The wordmark, which is every page's way home. */
 export const WORDMARK = 'header a[href="/"]';

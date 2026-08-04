@@ -8,15 +8,9 @@ import PrivacyPage from "./page";
 import TermsPage from "../terms/page";
 
 /**
- * These pages make claims a reader is entitled to rely on, and the claims are
- * about this codebase specifically. The tests below pin the ones that would be
- * *lies* if the implementation changed underneath them — not the prose.
- *
- * The provider warning is the sharpest of those. It exists because this
- * deployment runs on a free tier whose standard terms allow submitted content to
- * be used for service improvement. If that ever changes, this test failing is
- * the reminder that the sentence beside the upload control has to change with
- * it.
+ * These pages make claims a reader is entitled to rely on. The tests pin the ones
+ * that would be *lies* if the implementation changed underneath them, not the
+ * prose — the free-tier warning most of all.
  */
 describe("the privacy page", () => {
   it("says the original file is not kept", () => {
