@@ -1259,3 +1259,37 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
 
   **Printing a value is not checking it.** The distinguishing field was on screen every single
   run. Output a human is expected to compare is not a control; a control refuses.
+
+## A guarantee that passed its test and failed in production
+
+- **Issue**: the relevance floor — the mechanism behind this project's headline claim — was
+  admitting every ungrounded question on the deployed app. Measured with the new harness
+  (`pnpm eval:retrieval`, ADR 020): at the shipped `MAX_DISTANCE = 0.6`, **10 of 10**
+  unanswerable questions cleared it. Against the demo's own handbook, _"Who won the world cup in
+  1998?"_ scores 0.532 — so production would have answered it, citing a remote-work policy.
+
+- **Why every test said otherwise.** `e2e/chat.spec.ts` asserts exactly this: ask something the
+  documents cannot answer, get a refusal citing nothing. It passes, and always did. It runs the
+  **fake embedder**, whose distances live in an unrelated numeric range and are compared against
+  a different threshold (`0.88`). The test proves the refusal _path_ works — the branch, the
+  copy, the absent chips — and says nothing about whether the branch is ever taken.
+
+  The threshold for the real model was never tested by anything, and the code said so:
+  _"Provisional — needs tuning against real documents, which is the one thing no test here can
+  do for us."_ That sentence was accurate and was read as a to-do rather than as an open hole.
+
+- **Fix**: `0.6` → `0.40`, measured rather than guessed. The deeper finding is that no threshold
+  is correct: the closest-chunk distances for answerable questions (0.284–0.411) **overlap**
+  those for unanswerable ones (0.332–0.494), so every value trades false refusals against false
+  accepts. `0.40` is the least bad point on this corpus, and the demo separates cleanly at it.
+
+- **Lesson**: two.
+
+  **A fake can prove a mechanism and hide the parameter that makes it work.** The refusal branch
+  and the threshold that selects it are different things, and the suite covered one while the
+  README described the other. Whenever a test double replaces the thing a number was calibrated
+  against, that number has no coverage — however green the suite is.
+
+  **"Provisional" in a comment is not a test.** The uncertainty was documented honestly at the
+  point of decision and then behaved exactly like a resolved question for four milestones,
+  because nothing failed. A known unknown needs something that fails, or it is just a note.

@@ -28,7 +28,8 @@
     "db:seed": "tsx lib/db/seed.mts",
     "demo:pdf": "tsx scripts/build-demo-pdf.mts",
     "demo:shots": "tsx scripts/build-readme-shots.mts",
-    "db:check": "tsx lib/db/check-migrations.mts"
+    "db:check": "tsx lib/db/check-migrations.mts",
+    "eval:retrieval": "tsx scripts/eval-retrieval.mts"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.24",

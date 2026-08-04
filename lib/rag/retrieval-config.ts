@@ -12,10 +12,12 @@ import type { EmbeddingsProviderName } from "@/lib/ai/provider";
 export const MAX_DISTANCE_BY_PROVIDER: Record<EmbeddingsProviderName, number> =
   {
     /**
-     * `gemini-embedding-001`. **Provisional** — needs tuning against real
-     * documents, which is the one thing no test here can do for us.
+     * `gemini-embedding-001`, measured rather than guessed — `pnpm eval:retrieval`,
+     * written up in ADR 020. At the previous `0.6` the floor admitted every
+     * ungrounded question in the set; the two distance distributions overlap, so
+     * this is the least bad point on a trade rather than a separating value.
      */
-    google: 0.6,
+    google: 0.4,
 
     /**
      * The bag-of-words fake sits in a narrower band: cosine similarity between a
