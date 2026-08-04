@@ -73,6 +73,7 @@ shaped the product rather than the toolchain.
 | [016](docs/decisions/016-workspace-membership-deferred.md)                   | No roles table                                | A role column whose only value is `owner` adds a branch no user can reach               |
 | [017](docs/decisions/017-answering-questions-the-documents-cannot-answer.md) | The refusal says where the answer lives       | Every word written by us — an ungrounded turn must not read as if it were grounded      |
 | [018](docs/decisions/018-theme-persistence-and-the-flash.md)                 | Theme in a cookie, not `localStorage`         | The server renders the right palette on the first byte, so there is no flash to correct |
+| [020](docs/decisions/020-measuring-the-relevance-floor.md)                   | Measure the relevance floor, then lower it    | The shipped threshold refused nothing; the distributions overlap, so no value is right  |
 
 ## What works today
 
@@ -89,8 +90,9 @@ shaped the product rather than the toolchain.
 > that states what is stored, where, and who else sees it — written from the code rather than a
 > template.
 >
-> What each milestone covers is in [`docs/strategy-plan.md`](docs/strategy-plan.md). This
-> line is the status; that document is the plan.
+> The shape of the work is in [`docs/strategy-plan.md`](docs/strategy-plan.md), a snapshot
+> written at the start and deliberately not maintained — where it and the built result differ,
+> that difference is explained in the ADR that caused it. This line is the status.
 
 ## Numbers
 
@@ -272,8 +274,8 @@ was given — so the failure is a weak answer rather than an invented citation �
 nothing relevant is found" is a weaker promise than it sounds, and closing the gap needs a
 second retrieval signal rather than a better constant.
 
-Usage limits are enforced but their thresholds are provisional in the same way — they need
-real traffic to calibrate against, and are deliberately generous because shared addresses
+Usage limits are enforced but their thresholds are provisional — they need real traffic to
+calibrate against, and are deliberately generous because shared addresses
 (office networks, mobile carriers) put many visitors in one bucket
 ([ADR 014](docs/decisions/014-usage-limiting.md)).
 
@@ -289,9 +291,14 @@ turns the free-tier caveat in [Known gaps](#known-gaps-at-this-milestone) from a
 into a choice the reader makes per question. Quality drops; the guarantee that a refusal
 cannot cite does not, because it is enforced before any model is reached.
 
-The calibration work the gaps section names comes with it. The relevance floor and the usage
-thresholds are both starting values, and both need real documents and real traffic rather
-than another round of reasoning.
+Before that, the gap [ADR 020](docs/decisions/020-measuring-the-relevance-floor.md) measured:
+the floor cannot separate answerable questions from unanswerable ones on distance alone, so the
+next retrieval work is a **second signal** — lexical search fused with the vector scores, or a
+reranker over the top k. Both are parked in [`docs/backlog.md`](docs/backlog.md), and both now
+have a way to prove they earned their place rather than an argument that they should.
+
+The usage thresholds are still starting values. They need real traffic rather than another
+round of reasoning.
 
 ## Stack
 
@@ -324,6 +331,14 @@ pnpm test:e2e          # playwright (builds and serves automatically)
 pnpm lint              # eslint, type-aware
 pnpm typecheck         # tsc --noEmit
 pnpm format            # prettier --write
+```
+
+Run by hand, never in CI, output committed:
+
+```bash
+pnpm eval:retrieval    # retrieval quality against eval/golden-set.ts (needs a real key)
+pnpm demo:shots        # the README screenshots, against a running instance
+pnpm demo:pdf          # regenerates the demo fixture from its HTML source
 ```
 
 Database:
