@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { Audiowide, Geist, Geist_Mono } from "next/font/google";
 
 import { SiteFooter } from "@/components/site-footer";
+import { DocumentScrollbar } from "@/components/ui/overlay-scrollbar";
 import { THEME_COOKIE_NAME, isTheme, themeClass } from "@/lib/theme/theme";
 
 import "./globals.css";
@@ -98,6 +99,7 @@ export default async function RootLayout({
         </a>
         {children}
         <SiteFooter />
+        <DocumentScrollbar />
       </body>
     </html>
   );
