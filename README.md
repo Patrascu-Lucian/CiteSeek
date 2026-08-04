@@ -175,6 +175,44 @@ anonymous run scores a different page entirely.
 | `/w/[id]` guest — deployed, before | 87          | 100           | 100            | 100 |
 | `/w/[id]` guest — local build      | 84 → **90** | 100           | 100            | 100 |
 
+**Retrieval quality**, measured by `pnpm eval:retrieval` against a golden set of 45 questions
+over three documents written for the purpose — 35 answerable, 10 answerable by none of them.
+Expected passages are recorded as quotes and resolved to character offsets at run time, so
+re-chunking moves the mapping rather than invalidating the set. Full run in
+[`eval/report.md`](eval/report.md); reasoning in
+[ADR 020](docs/decisions/020-measuring-the-relevance-floor.md).
+
+| k   | recall | precision | MRR  |
+| --- | ------ | --------- | ---- |
+| 1   | 0.70   | 0.71      | 0.71 |
+| 3   | 0.97   | 0.35      | 0.83 |
+| 8   | 1.00   | 0.14      | 0.84 |
+
+Ranking is the half that works: the passage answering the question is in the top three 97% of
+the time. Precision falls with k because one passage answers the question and the other seven
+cannot.
+
+**The relevance floor was the half that did not.** The closest chunk per question:
+
+|              | min   | median | max   |
+| ------------ | ----- | ------ | ----- |
+| answerable   | 0.284 | 0.325  | 0.411 |
+| unanswerable | 0.332 | 0.422  | 0.494 |
+
+Those ranges **overlap**, so no threshold separates them — every value trades questions wrongly
+refused against ungrounded questions let through. At the previously shipped `0.6` the floor
+admitted **all ten** unanswerable questions; the demo's own corpus scored _"Who won the world
+cup in 1998?"_ at 0.532, which `0.6` would have answered. It is now `0.40`: one answerable
+question in 35 refused, half the unanswerable ones caught, and clean separation on the demo.
+
+This is the number the project had been asserting and not measuring, and the correction is
+worth more than the original claim: **the floor is a filter, not a proof.** What
+[ADR 011](docs/decisions/011-retrieval-and-citation-strategy.md) guarantees is unchanged — no
+model runs on the refusal branch, so a refusal cannot cite — but the branch is taken less often
+than "when nothing relevant is found" suggests. Closing the gap needs a second signal (hybrid
+search, reranking), not a better constant, and the harness is how either would have to prove
+itself.
+
 **Dark mode cost nothing measurable**, which is the point of storing the preference in a cookie
 rather than `localStorage` ([ADR 018](docs/decisions/018-theme-persistence-and-the-flash.md)).
 The usual implementation needs a render-blocking inline script to correct the first paint; a
@@ -225,8 +263,14 @@ The workspace page scores 90 on Lighthouse rather than the 95 this project set a
 cause is measured and recorded above; closing it means deferring chat hydration, which is a
 worse trade than the points are worth.
 
-The relevance threshold that decides when to answer "I don't know" is a starting value, not a
-tuned one; it needs measuring against real documents with the real embedding model.
+**Half the ungrounded questions still reach the model.** The relevance threshold is now measured
+rather than guessed ([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what
+the measurement showed is that no threshold is right: the distance distributions for answerable
+and unanswerable questions overlap. At `0.40` roughly half the questions the corpus cannot
+answer still clear the floor. They reach a model instructed to answer only from the passages it
+was given — so the failure is a weak answer rather than an invented citation — but "says so when
+nothing relevant is found" is a weaker promise than it sounds, and closing the gap needs a
+second retrieval signal rather than a better constant.
 
 Usage limits are enforced but their thresholds are provisional in the same way — they need
 real traffic to calibrate against, and are deliberately generous because shared addresses
@@ -319,9 +363,9 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                  |
 | ----------- | ----- | ----------------------------------------------------------------------------------------------- |
-| Unit        | 488   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
+| Unit        | 506   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
 | Integration | 136   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
-| E2E         | 80    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
+| E2E         | 81    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
 

@@ -64,6 +64,11 @@ here, not in the current branch.
   Worth doing after the relevance floor is tuned, not before — the floor decides what counts as
   a match at all, and changing both at once would make neither measurable.
 
+  ↳ **Now evidence rather than opinion.** `pnpm eval:retrieval` (ADR 020) shows the distance
+  distributions for answerable and unanswerable questions **overlapping**, so no threshold
+  separates them and tuning cannot close the gap. That is the argument for a second signal, and
+  the harness is how a reranker or a lexical index would have to prove it earned its place.
+
 - **The relevance floor short-circuits the `list_documents` tool.** The chat route refuses
   before calling the model when no passage clears `MAX_DISTANCE`. That is the right default —
   it is what makes "I don't know" structural rather than a prompt instruction — but it means a
