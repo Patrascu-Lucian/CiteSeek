@@ -296,12 +296,21 @@ Every `db:*` command reads `DATABASE_URL` from `.env.local`, which points at a *
 branch. Production is a different branch of the same Neon project, and because Neon branches
 are copy-on-write clones they carry **identical row ids** — so a command aimed at production
 and run against dev succeeds, prints ids that look right, and changes nothing anybody can see.
-The hostname is the only thing that distinguishes them, which is why the seed prints it. Pass
-the production URL explicitly:
+The hostname is the only thing that distinguishes them, so `pnpm db:seed` refuses to touch a
+remote database until you have named the one you mean — and printing it was not enough, twice.
 
 ```bash
 DATABASE_URL='<production-url>' pnpm db:migrate
+
+SEED_HOST='<your-production-endpoint>' EMBEDDINGS_PROVIDER=google \
+  DATABASE_URL='<production-url>' pnpm db:seed
 ```
+
+`SEED_HOST` is any fragment that tells your branches apart — Neon names each endpoint
+independently, so yours differ from anyone else's. It is matched against the hostname the
+connection actually resolves to, so aiming at one branch and reaching another is a refusal
+naming both rather than a success. Read from the shell only: putting it in `.env.local` would
+let one file supply both the wrong answer and the confirmation of it.
 
 `format:check`, `lint`, `typecheck`, `test`, `build`, integration tests, and the
 Playwright smoke suite all gate every pull request.

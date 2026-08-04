@@ -20,9 +20,10 @@ import * as schema from "./schema.ts";
 import { planFixtureSeed } from "./seed-plan.ts";
 import { workspaces } from "./schema.ts";
 
-// Captured before `.env.local` applies, so the guard can tell a deliberate export
-// from one the file supplied.
+// Captured before `.env.local` applies, so the guards can tell a deliberate
+// export from one the file supplied.
 const exportedProvider = process.env.EMBEDDINGS_PROVIDER;
+const confirmedHost = process.env.SEED_HOST;
 
 loadLocalEnv();
 
@@ -52,15 +53,15 @@ const { createQueuedDocument, deleteDocumentInWorkspace, listDocuments } =
 const { processDocument } = await import("../rag/ingest.ts");
 const { resolveEmbeddingsProvider } = await import("../ai/provider.ts");
 
-/**
- * Vectors from two models share no geometry, so a fake-seeded production answers
- * "nothing relevant" to everything while still reporting rows written. Has
- * happened once.
- *
- * The test is **provenance, not value**: an exported fake is a decision, one
- * `.env.local` supplied is an accident — which is why the escape hatch cannot
- * live there. Local hosts exempt.
- */
+/** The host, for a guard or a log line. Never the credentials. */
+function hostOf(url: string): string | null {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
+
 const LOCAL_HOSTS = new Set([
   "localhost",
   "127.0.0.1",
@@ -68,19 +69,37 @@ const LOCAL_HOSTS = new Set([
   "host.docker.internal",
 ]);
 
+/** Which *database* — the mistake the embedder guard does not cover. From the
+ * shell for the same reason: `.env.local` is what supplied the wrong one. */
+function assertHostWasChosen(url: string): void {
+  const hostname = hostOf(url);
+  if (hostname === null || LOCAL_HOSTS.has(hostname)) return;
+
+  if (confirmedHost && hostname.includes(confirmedHost)) return;
+
+  throw new Error(
+    [
+      confirmedHost
+        ? `SEED_HOST is "${confirmedHost}" but this resolves to ${hostname}.`
+        : `Refusing to seed ${hostname} without naming it first.`,
+      "",
+      "Neon branches are clones: every id in the output is right against either",
+      "one, so the host is the only thing that can be wrong. Name it:",
+      "",
+      `  export SEED_HOST=${hostname.split(".")[0]}`,
+    ].join("\n"),
+  );
+}
+
+/** **Provenance, not value**: an exported fake is a decision, one `.env.local`
+ * supplied is an accident — so the escape hatch cannot live there. */
 function assertEmbedderWasChosen(url: string): void {
   if (resolveEmbeddingsProvider() !== "fake") return;
   if (exportedProvider?.trim().toLowerCase() === "fake") return;
 
-  let hostname: string;
-  try {
-    hostname = new URL(url).hostname;
-  } catch {
-    // An unparseable URL is the connection's problem to report, not this guard's.
-    return;
-  }
-
-  if (LOCAL_HOSTS.has(hostname)) return;
+  const hostname = hostOf(url);
+  // An unparseable URL is the connection's problem to report, not this guard's.
+  if (hostname === null || LOCAL_HOSTS.has(hostname)) return;
 
   throw new Error(
     [
@@ -158,22 +177,14 @@ async function seedFixtureDocument(workspaceId: string) {
   );
 }
 
-/** The host, for the log line. Never the credentials. */
-function targetHost(url: string): string {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return "an unparseable DATABASE_URL";
-  }
-}
-
 async function main() {
-  // Named first: `.env.local` supplies DATABASE_URL to any shell that did not
-  // export one, so a seed aimed at production lands on the dev branch and reports
-  // success. Neon branches share row ids, so the host is the only tell.
-  console.log(`Seeding ${targetHost(connectionString!)}`);
+  // Named before anything else, since it is the only field that can be wrong.
+  console.log(
+    `Seeding ${hostOf(connectionString!) ?? "an unparseable DATABASE_URL"}`,
+  );
 
   // Before anything is written, and before a connection is opened.
+  assertHostWasChosen(connectionString!);
   assertEmbedderWasChosen(connectionString!);
 
   // A single connection, not the pooled singleton: this must exit.
