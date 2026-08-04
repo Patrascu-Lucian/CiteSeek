@@ -11,7 +11,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const BASE_URL = process.env.SHOTS_BASE_URL ?? "https://cite-seek.vercel.app";
+const BASE_URL = process.env.SHOTS_BASE_URL ?? "https://citeseek.app";
 
 const OUTPUT_DIR = join(
   dirname(fileURLToPath(import.meta.url)),

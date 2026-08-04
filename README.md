@@ -3,7 +3,7 @@
 AI document assistant: upload documents, ask questions, get streaming answers with
 clickable citations to exact source passages.
 
-**Live:** [cite-seek.vercel.app](https://cite-seek.vercel.app) — click **Try the demo**;
+**Live:** [citeseek.app](https://citeseek.app) — click **Try the demo**;
 no account needed.
 
 <a href="docs/images/answer.png"><img src="docs/images/answer.png" width="560" alt="A cited answer in the demo workspace, with numbered citation chips"></a>
