@@ -11,6 +11,11 @@ here, not in the current branch.
   exit criteria. The Auth.js provider is a few lines once a sender is configured; the
   `verification_tokens` table it needs is already migrated.
 
+  ↳ **Half-unblocked, 4 August 2026.** `citeseek.app` is bought, so the verified sending domain
+  Resend requires is now available. The sender account itself is still the missing piece, and
+  this stays parked until a contact form or magic-link actually needs one — a second auth path
+  nobody has asked for is not worth the subprocessor entry on the privacy page.
+
 - **Google sign-in, if this is ever commercialized.** GitHub OAuth is a _developer_ credential:
   the right signal for a portfolio project read by engineers, the wrong one for a customer who has
   never made a GitHub account. Google is the highest-coverage consumer provider and costs no new
@@ -437,10 +442,23 @@ each of these is reversible and therefore safe to defer.
   the wrong anchor: a repo that goes private takes the policy's only contact route with it —
   the same failure as the sentence that once promised a link nobody had built.
 
-  **Waiting on a domain deliberately, because one purchase unblocks three parked items**: an
-  address on a domain you control rather than a personal inbox scraped off a public page, the
-  verified sending domain Resend needs before a contact form can send anything, and the same
-  sender that has magic-link sign-in parked above.
+  ~~**Waiting on a domain deliberately, because one purchase unblocks three parked items**~~ —
+  **`citeseek.app` was bought on 4 August 2026**, so all three are unblocked: an address on a
+  domain you control rather than a personal inbox scraped off a public page, the verified
+  sending domain Resend needs before a contact form can send anything, and the same sender that
+  has magic-link sign-in parked above.
+
+  The old host redirects rather than disappearing: `cite-seek.vercel.app` answers **307** to the
+  same path on `citeseek.app`. 307/308 rather than 302/301 because the older pair lets a client
+  rewrite the method, and a permanent redirect is cached hard enough that a mistake outlives the
+  fix — which is why it stayed temporary until a real sign-in confirmed the move. It did, so the
+  remaining step is promoting it to **308**.
+
+  **A domain move breaks anything that registered the old origin with a third party**, which no
+  redirect can repair: GitHub's OAuth App has one callback URL, it does not follow a redirect,
+  and it rejects the mismatch _after_ the user has logged in — so the authorize step looks
+  healthy and sign-in fails at the last hop. Auth.js needed nothing: it builds `redirect_uri`
+  from the request host, so it followed the domain on its own.
 
   Ship the page with a plain address first and add the form after — a form that cannot send is
   worse than no form, because it looks like it works. When the form lands, the privacy page needs

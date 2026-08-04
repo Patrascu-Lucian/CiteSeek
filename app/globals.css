@@ -183,6 +183,11 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+
+    /* On every element, not inherited from `html`: `scrollbar-color` inherits and
+       `scrollbar-width` does not, so the page scroller was thin while every
+       nested one — the composer, the source panel — stayed at the OS default. */
+    scrollbar-width: thin;
   }
   body {
     @apply bg-background text-foreground;
@@ -190,11 +195,11 @@
   html {
     @apply font-sans;
 
-    /* Both properties inherit, so one declaration covers every scroll
-       container. `stable` reserves the gutter so Windows stops shifting the
-       layout when a page grows past the fold. */
+    /* `scrollbar-color` inherits, so one declaration reaches every scroll
+       container — `scrollbar-width` does not, and is set on `*` above. `stable`
+       reserves the gutter so Windows stops shifting the layout when a page grows
+       past the fold. */
     scrollbar-gutter: stable;
-    scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
