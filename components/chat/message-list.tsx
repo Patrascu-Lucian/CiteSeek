@@ -2,6 +2,7 @@ import dynamic from "next/dynamic";
 import { MessageSquare } from "lucide-react";
 
 import type { ChatSource, ChatUIMessage, RefusalReason } from "@/lib/ai/types";
+import { DEMO_EXAMPLE_QUESTIONS } from "@/lib/demo/example-questions";
 import { cn } from "@/lib/utils";
 
 import { Refusal } from "./refusal";
@@ -69,18 +70,51 @@ export function messageSources(message: ChatUIMessage): ChatSource[] {
   return part && "data" in part ? part.data : [];
 }
 
-function EmptyState() {
+function EmptyState({
+  isDemo,
+  onAsk,
+}: {
+  isDemo: boolean;
+  onAsk: (question: string) => void;
+}) {
   return (
     <div className="text-muted-foreground flex flex-col items-center gap-3 py-12 text-center">
       <MessageSquare aria-hidden="true" className="size-6" />
       <div>
         <p className="text-foreground text-sm font-medium">
-          Ask a question about your documents
+          {/* The demo is shared and read-only, so "your documents" is false there
+              — and it is the first sentence a stranger reads. */}
+          {isDemo
+            ? "Ask a question about the handbook"
+            : "Ask a question about your documents"}
         </p>
         <p className="mt-1 text-sm">
           Answers cite the passages they come from, so you can check them.
         </p>
       </div>
+
+      {/*
+        Only the demo gets these. A reader who has uploaded their own documents
+        knows what is in them;
+      */}
+      {isDemo ? (
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-xs">Or start with one of these:</p>
+          <ul className="flex flex-col items-center gap-2">
+            {DEMO_EXAMPLE_QUESTIONS.map((question) => (
+              <li key={question}>
+                <button
+                  type="button"
+                  onClick={() => onAsk(question)}
+                  className="border-border/60 hover:bg-muted focus-visible:ring-ring text-foreground rounded-full border px-3 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  {question}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -93,6 +127,8 @@ export function MessageList({
   documents,
   canUpload,
   signedIn,
+  isDemo,
+  onAsk,
 }: {
   messages: readonly ChatUIMessage[];
   onSelectSource: (source: ChatSource) => void;
@@ -102,8 +138,12 @@ export function MessageList({
   documents: readonly string[];
   canUpload: boolean;
   signedIn: boolean;
+  /** The seeded workspace, which is shared and read-only. */
+  isDemo: boolean;
+  onAsk: (question: string) => void;
 }) {
-  if (messages.length === 0) return <EmptyState />;
+  if (messages.length === 0)
+    return <EmptyState isDemo={isDemo} onAsk={onAsk} />;
 
   return (
     <ol className="space-y-4">

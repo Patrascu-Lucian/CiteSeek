@@ -259,3 +259,33 @@ test.describe("controls look interactive", () => {
     );
   });
 });
+
+test.describe("layout at phone widths", () => {
+  /*
+    Making the filename a button broke its truncation: a button is inline-block,
+    so it sizes to its text and `truncate` never fires
+  */
+  test("a long filename truncates rather than running under the badge", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto("/demo");
+
+    const row = page.locator("li").filter({ hasText: "northwind" }).first();
+    const name = page.getByRole("button", {
+      name: /northwind-remote-work-handbook\.pdf/,
+    });
+    await expect(name).toBeVisible();
+
+    const rowBox = (await row.boundingBox())!;
+    const nameBox = (await name.boundingBox())!;
+    const badgeBox = (await page
+      .getByText("Ready", { exact: true })
+      .boundingBox())!;
+
+    expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(badgeBox.x);
+    expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(
+      rowBox.x + rowBox.width,
+    );
+  });
+});

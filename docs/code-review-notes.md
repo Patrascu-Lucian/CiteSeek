@@ -1330,6 +1330,40 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   approximately right is indistinguishable from being wrong, and it should be treated as code
   under review rather than as commentary around it.
 
+## Turning a paragraph into a button silently switched off its truncation
+
+- **Issue**: making the document filename openable replaced
+  `<p className="truncate">` with `<button className="truncate">`, keeping the class. On a
+  phone the filename ran out from under the status badge and past the card's edge. Reported
+  from a real device at 375px, where the name simply left the box.
+
+- **Cause**: `truncate` is `overflow: hidden; text-overflow: ellipsis; white-space: nowrap`,
+  and all three need an element whose width is constrained by something other than its text.
+  A `<p>` is block-level, so it fills the `min-w-0 flex-1` parent and truncates. A `<button>`
+  is `inline-block`, so it sizes to `max-content` and the parent's constraint never reaches it.
+  The class was still there, still valid, and did nothing. Fixed with `block w-full`.
+
+- **Why nothing caught it.** Every layer was blind to it for a different reason, which is the
+  part worth keeping. jsdom has no layout engine, so a unit test asserting the class is present
+  passes on markup that overflows. axe has no opinion on text escaping its container. And the
+  E2E suite runs at a desktop viewport, which is wide enough that a 38-character filename fits —
+  the defect existed at every width below about 500px and at none above it.
+
+- **Fix**: the CSS change, plus a Playwright test at 375px that compares bounding boxes — the
+  filename's right edge against the badge's left edge and the row's right edge. An assertion
+  about geometry rather than about classes, because the class was never the thing that was
+  wrong.
+
+- **Lesson**: **changing an element's tag changes its formatting context, and the classes on it
+  do not announce that they stopped working.** Swapping `p` for `button`, `div` for `span`, or
+  `a` for `button` is not a semantic-only edit; display, default margins, and how the parent's
+  width reaches the child all move with it.
+
+  The wider one: **a viewport is a test input.** This suite parameterizes over light and dark
+  themes because a palette bug was invisible in one of them, and the same reasoning applies to
+  width — it just had not been applied. One narrow-viewport case now exists; the honest reading
+  is that it should have existed before there was a bug to justify it.
+
 ## A user-research finding that was half observation and half invention
 
 - **Issue**: the write-up of the first cold-reader session recorded that the reader "ignored the

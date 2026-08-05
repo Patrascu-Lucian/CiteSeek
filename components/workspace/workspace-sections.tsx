@@ -52,6 +52,7 @@ export function WorkspaceSections({
   activeChatId,
   canWrite,
   signedIn,
+  isDemo,
 }: {
   workspaceId: string;
   initialDocuments: DocumentSummary[];
@@ -61,6 +62,7 @@ export function WorkspaceSections({
   activeChatId: string | null;
   canWrite: boolean;
   signedIn: boolean;
+  isDemo: boolean;
 }) {
   const router = useRouter();
   const [documents, setDocuments] = useState(initialDocuments);
@@ -253,6 +255,7 @@ export function WorkspaceSections({
             (document) => document.status === "ready",
           )}
           signedIn={signedIn}
+          isDemo={isDemo}
           onOpenSource={(chatSource) => {
             setSource({ kind: "citation", source: chatSource });
           }}

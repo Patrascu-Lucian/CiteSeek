@@ -22,13 +22,18 @@ export function Composer({
   onStop,
   isStreaming,
   disabled,
+  isDemo = false,
 }: {
   /** Receives the trimmed question. The field clears itself afterward. */
   onSubmit: (question: string) => void;
   onStop: () => void;
   isStreaming: boolean;
   disabled: boolean;
+  /** The demo is shared and read-only, so the documents are not the reader's. */
+  isDemo?: boolean;
 }) {
+  const subject = isDemo ? "the handbook" : "your documents";
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [value, setValue] = useState("");
 
@@ -68,7 +73,7 @@ export function Composer({
   return (
     <form onSubmit={submit} className="flex items-end gap-2">
       <label className="sr-only" htmlFor="chat-question">
-        Ask a question about your documents
+        Ask a question about {subject}
       </label>
       <textarea
         id="chat-question"
@@ -81,7 +86,7 @@ export function Composer({
           fit(event.target);
         }}
         onKeyDown={handleKeyDown}
-        placeholder="Ask a question about your documents…"
+        placeholder={`Ask a question about ${subject}…`}
         // Grows with the question and stops at `max-h-40`, after which it
         // scrolls — a composer that can take the whole panel leaves nowhere to
         // read the answer it is about to get.

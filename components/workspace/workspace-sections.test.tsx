@@ -107,6 +107,7 @@ function renderSections(initialDocuments: DocumentSummary[], signedIn = true) {
       activeChatId={null}
       canWrite
       signedIn={signedIn}
+      isDemo={false}
     />,
   );
 }
@@ -211,6 +212,7 @@ describe("WorkspaceSections — chat follows the document list", () => {
 
         canWrite={false}
         signedIn={false}
+        isDemo={false}
       />,
     );
 
@@ -240,6 +242,7 @@ describe("WorkspaceSections — when the open conversation goes away", () => {
         activeChatId={activeChatId}
         canWrite
         signedIn
+        isDemo={false}
       />,
     );
   }
@@ -267,6 +270,7 @@ describe("WorkspaceSections — when the open conversation goes away", () => {
         activeChatId={null}
         canWrite
         signedIn
+        isDemo={false}
       />,
     );
 
@@ -296,6 +300,7 @@ describe("WorkspaceSections — when the open conversation goes away", () => {
         activeChatId="chat-2"
         canWrite
         signedIn
+        isDemo={false}
       />,
     );
 

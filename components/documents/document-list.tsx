@@ -89,7 +89,10 @@ export function DocumentList({
                   onClick={() => {
                     onOpen(document.id, document.filename);
                   }}
-                  className="focus-visible:ring-ring truncate rounded-sm text-left font-medium after:absolute after:inset-0 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                  // `block w-full`: a button is inline-block, so it sizes to its
+                  // text and `truncate` never fires — the filename ran out under
+                  // the status badge on a phone.
+                  className="focus-visible:ring-ring block w-full truncate rounded-sm text-left font-medium after:absolute after:inset-0 hover:underline focus-visible:ring-2 focus-visible:outline-none"
                 >
                   {document.filename}
                 </button>
