@@ -118,61 +118,66 @@ export function DocumentList({
               ) : null}
             </div>
 
-            <StatusBadge
-              status={document.status}
-              embedded={document.embeddedChunkCount}
-              total={document.chunkCount}
-            />
+            {/* `w-full` drops this to its own line on a phone, which hands the
+                filename the whole first one. No `z-10` here, or the badge would
+                sit above the row-sized target and swallow the click. */}
+            <div className="flex w-full items-center justify-between gap-1 sm:w-auto sm:justify-end">
+              <StatusBadge
+                status={document.status}
+                embedded={document.embeddedChunkCount}
+                total={document.chunkCount}
+              />
 
-            {canWrite ? (
-              <div className="relative z-10 flex items-center gap-1">
-                {document.status === "failed" ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={busyId === document.id}
-                    onClick={() => onRetry?.(document.id)}
-                  >
-                    <RotateCcw aria-hidden="true" className="size-4" />
-                    Retry
-                  </Button>
-                ) : null}
-
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
+              {canWrite ? (
+                <div className="relative z-10 flex items-center gap-1">
+                  {document.status === "failed" ? (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       disabled={busyId === document.id}
-                      aria-label={`Delete ${document.filename}`}
+                      onClick={() => onRetry?.(document.id)}
                     >
-                      <Trash2 aria-hidden="true" className="size-4" />
+                      <RotateCcw aria-hidden="true" className="size-4" />
+                      Retry
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        Delete {document.filename}?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This removes the document, its extracted text and every
-                        passage indexed from it. It cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => onDelete?.(document.id)}
+                  ) : null}
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost-destructive"
+                        size="sm"
+                        disabled={busyId === document.id}
+                        aria-label={`Delete ${document.filename}`}
                       >
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            ) : null}
+                        <Trash2 aria-hidden="true" className="size-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          Delete {document.filename}?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This removes the document, its extracted text and
+                          every passage indexed from it. It cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => onDelete?.(document.id)}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              ) : null}
+            </div>
           </li>
         ))}
       </ul>

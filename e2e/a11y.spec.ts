@@ -196,6 +196,69 @@ for (const theme of THEMES) {
         expect(chipBackground).not.toBe(bubbleBackground);
       });
 
+      test("the ready badge stays legible against its own tint", async ({
+        page,
+      }) => {
+        /*
+          The badge is `text-success` on `bg-success/10`, so its background is a
+          composite the stylesheet never names — axe reads the declared color and
+          the declared background, not what the two produce together. The light
+          green that looked right first measured 4.53:1, which is AA by 0.03.
+        */
+        await gotoDemo(page);
+        const badge = page.getByText("Ready", { exact: true }).first();
+        await expect(badge).toBeVisible();
+
+        const ratio = await badge.evaluate((node) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = canvas.height = 1;
+          const ctx = canvas.getContext("2d")!;
+
+          // Painted rather than parsed: `getComputedStyle` returns `lab()` and
+          // `oklab()` here, and reading those numbers as RGB reports 1:1 for
+          // every pair.
+          const paint = (color: string, under: string) => {
+            ctx.fillStyle = under;
+            ctx.fillRect(0, 0, 1, 1);
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, 1, 1);
+            return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+          };
+
+          let behind = "rgb(255,255,255)";
+          for (let el = node.parentElement; el; el = el.parentElement) {
+            const bg = getComputedStyle(el).backgroundColor;
+            if (bg && bg !== "rgba(0, 0, 0, 0)") {
+              behind = bg;
+              break;
+            }
+          }
+
+          const style = getComputedStyle(node);
+          const background = paint(style.backgroundColor, behind);
+          const text = paint(style.color, style.backgroundColor);
+
+          const luminance = (rgb: number[]) => {
+            const channel = (v: number) => {
+              const c = v / 255;
+              return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+            };
+            return (
+              0.2126 * channel(rgb[0]!) +
+              0.7152 * channel(rgb[1]!) +
+              0.0722 * channel(rgb[2]!)
+            );
+          };
+
+          const [hi, lo] = [luminance(text), luminance(background)].sort(
+            (a, b) => b - a,
+          );
+          return (hi! + 0.05) / (lo! + 0.05);
+        });
+
+        expect(ratio).toBeGreaterThanOrEqual(4.5);
+      });
+
       test("the source text can be scrolled by keyboard alone", async ({
         page,
       }) => {
@@ -283,9 +346,21 @@ test.describe("layout at phone widths", () => {
       .getByText("Ready", { exact: true })
       .boundingBox())!;
 
-    expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(badgeBox.x);
+    // Rectangles, not "the badge is to the right": the badge wraps to its own
+    // line at this width, so a horizontal-only check would pass on any layout
+    // once they stopped sharing a line.
+    const overlaps =
+      nameBox.x < badgeBox.x + badgeBox.width &&
+      badgeBox.x < nameBox.x + nameBox.width &&
+      nameBox.y < badgeBox.y + badgeBox.height &&
+      badgeBox.y < nameBox.y + nameBox.height;
+
+    expect(overlaps).toBe(false);
     expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(
       rowBox.x + rowBox.width,
     );
+
+    // The point of the reflow: the name gets the line, not a sliver of it.
+    expect(nameBox.width).toBeGreaterThan(240);
   });
 });

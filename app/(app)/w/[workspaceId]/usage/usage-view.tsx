@@ -31,7 +31,7 @@ export function UsageView({
   const busiest = Math.max(1, ...days.map((day) => day.requests));
 
   return (
-    <main id="main" className="mx-auto w-full max-w-3xl px-6 py-12">
+    <main id="main" className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Usage</h1>
         <p className="text-muted-foreground mt-1 text-sm">

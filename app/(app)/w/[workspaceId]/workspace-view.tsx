@@ -71,7 +71,10 @@ export async function WorkspaceView({
   }
 
   return (
-    <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-12">
+    <main
+      id="main"
+      className="mx-auto w-full max-w-5xl flex-1 px-4 py-12 sm:px-6"
+    >
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">

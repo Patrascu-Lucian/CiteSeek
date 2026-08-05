@@ -485,11 +485,11 @@ What she was after is the interesting part: she was not trying to read the handb
 trying to find out **what it was about, so she would know what to ask it**. An empty composer
 above a document whose contents you cannot see is a question with no visible answer space.
 
-And there was nothing else to work from. The empty chat state says "Ask a question about your
-documents" and stops; example questions exist only inside a refusal (ADR 017), which you reach
-by first asking something that fails. So the suggestions are behind the very step she could not
-take. In a shared demo the possessive is wrong too — they are not her documents, and she had no
-way to learn what was in them. Clicking the document was the only move the screen offered.
+And there was nothing else to work from. The empty chat state said "Ask a question about your
+documents" and stopped — no examples there or anywhere else, the refusal (ADR 017) listing
+filenames rather than questions. In a shared demo the possessive was wrong too: they are not her
+documents, and she had no way to learn what was in them. Clicking the document was the only move
+the screen offered.
 
 Shipped as: the filename opens the same side panel citations open, with the full extracted text
 and no highlight. Not a new tab — the original file no longer exists to serve (ADR 009), so a
@@ -497,10 +497,13 @@ new tab could only render the same extracted text one navigation further away.
 
 **Still open from the same session**, not yet acted on:
 
-- **Example questions in the empty chat state**, not only in a refusal. Today they sit behind
-  the step a first-time reader cannot take. The refusal already builds them from the documents
-  in the workspace, so the copy exists — the question is whether showing them up front makes
-  the demo read as a scripted tour, which is the reason to decide it rather than just do it.
+- **Example questions in the empty chat state.** There are none anywhere in the app: the empty
+  state offers two sentences and a composer, and the refusal lists the document _filenames_ plus
+  advice to reuse the wording the document uses. So this is new content, not copy moved from
+  somewhere it already exists. For the seeded demo they can be hand-authored and would be good;
+  for a workspace someone uploads to, they have to be generated per document, which is a cost
+  per upload and a decision rather than a task. Those two cases can be answered separately —
+  hand-authored for the demo alone is cheap and covers the reader this came from.
 - The empty state says "your documents" on a shared read-only demo, where they are not yours.
 - The row is now clickable but does not _look_ clickable until hover. A reader who does not
   hover still has no signal.

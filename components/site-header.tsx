@@ -93,7 +93,7 @@ export async function SiteHeader() {
     <header className="border-border/60 border-b">
       <nav
         aria-label="Main"
-        className="mx-auto flex w-full max-w-5xl items-center gap-4 px-6 py-4"
+        className="mx-auto flex w-full max-w-5xl items-center gap-4 px-4 py-4 sm:px-6"
       >
         {/*
           Full header height like the nav links, so the space around the wordmark

@@ -19,7 +19,10 @@ export const metadata: Metadata = {
  */
 export default function AboutPage() {
   return (
-    <main id="main" className="mx-auto w-full max-w-2xl flex-1 px-6 py-12">
+    <main
+      id="main"
+      className="mx-auto w-full max-w-2xl flex-1 px-4 py-12 sm:px-6"
+    >
       <h1 className="text-3xl font-semibold tracking-tight">About</h1>
       <p className="text-muted-foreground mt-2 text-sm">
         A portfolio project exploring retrieval-augmented generation with

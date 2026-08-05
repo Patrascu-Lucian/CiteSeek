@@ -22,7 +22,7 @@ export default function WorkspaceNotFound() {
   return (
     <main
       id="main"
-      className="flex flex-1 items-center justify-center px-6 py-16"
+      className="flex flex-1 items-center justify-center px-4 py-16 sm:px-6"
     >
       <Card className="w-full max-w-md">
         <CardHeader>
