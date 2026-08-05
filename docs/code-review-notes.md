@@ -1329,3 +1329,38 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   only thing checking it is whoever runs it. That makes a runbook the one place where being
   approximately right is indistinguishable from being wrong, and it should be treated as code
   under review rather than as commentary around it.
+
+## A user-research finding that was half observation and half invention
+
+- **Issue**: the write-up of the first cold-reader session recorded that the reader "ignored the
+  suggested questions on screen," and drew a conclusion from it — that a canned question reads
+  as a demo while the document reads as the real thing. **There are no suggested questions on
+  that screen.** The empty chat state renders two sentences and a composer. Example questions
+  are built by the refusal path (ADR 017), which you reach only by first asking something that
+  fails, so they sit behind the exact step she could not take.
+
+- **How it happened.** The observed part was real: she clicked the document, repeatedly, and
+  nothing happened. The explanation was reconstructed afterward from what the app _ought_ to
+  have offered a first-time reader, and written in the same voice as the observation. Nothing in
+  the sentence marked which half came from watching and which from assuming.
+
+- **Why nothing caught it.** Nothing checks prose. It went into `docs/backlog.md`, was reviewed
+  as part of a diff whose subject was a UI change, and merged. It was caught later by someone
+  asking "are you sure? where are they?" — which is the only mechanism that was ever going to
+  catch it.
+
+- **Fix**: the paragraph now records what the screen actually offered, which makes the finding
+  stronger rather than weaker — she had nothing to work from at all, so clicking the document
+  was the only move available. Two items were added to the open list that the invented
+  explanation had implicitly closed: showing examples in the empty state, and the fact that
+  the empty state says "your documents" on a shared demo where they are not yours.
+
+- **Lesson**: **an invented explanation is worse than no explanation, because it closes the
+  question.** Written as fact, it retired "should the empty state suggest questions?" — a live
+  design decision — by implying it had been tried and had failed. A gap left open gets filled;
+  a gap filled with a plausible story does not.
+
+  The practical rule: when writing up what a user did, the observation and the interpretation
+  need to be visibly different sentences. "She clicked the document three times" is evidence.
+  "Because the suggestions read as canned" is a hypothesis, and it has to be labeled as one or
+  verified against the screen she was actually looking at.
