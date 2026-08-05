@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { Menu } from "lucide-react";
 
@@ -28,10 +29,10 @@ export function MainNav({
   items: readonly NavItem[];
   /** Passed through rather than rebuilt: sign-out vs leave-demo depends on the
    * actor, which this does not know. */
-  children?: React.ReactNode;
+  children?: ReactNode;
   /** Stays in the header row at every size — not a destination, so it should be
    * one tap rather than two. */
-  trailing?: React.ReactNode;
+  trailing?: ReactNode;
   /** Sheet only: an email is unbounded and crowded the horizontal row. */
   sessionLabel?: string;
 }) {

@@ -1,4 +1,9 @@
-import { type FormEvent, type KeyboardEvent, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type SyntheticEvent,
+  useRef,
+  useState,
+} from "react";
 import { Send, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -38,7 +43,7 @@ export function Composer({
     element.style.height = `${element.scrollHeight + border}px`;
   }
 
-  function submit(event?: FormEvent) {
+  function submit(event?: SyntheticEvent) {
     event?.preventDefault();
     const question = value.trim();
     if (question.length === 0 || isStreaming) return;

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { AlertCircle, Clock, RotateCcw } from "lucide-react";
 
@@ -103,11 +104,11 @@ function Alert({
   detail,
   action,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   tone: "destructive" | "muted";
   title: string;
   detail: string;
-  action: React.ReactNode;
+  action: ReactNode;
 }) {
   return (
     <div

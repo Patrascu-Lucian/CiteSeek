@@ -292,7 +292,7 @@ describe("listChats", () => {
     expect(await listChats(workspace.id, user.id)).toEqual([]);
   });
 
-  it("summarises each conversation with its title and message count", async () => {
+  it("summarizes each conversation with its title and message count", async () => {
     const { user, workspace, chat } = await scenario("list");
     await appendMessages(workspace.id, user.id, chat.id, [
       { role: "user", content: "When is reimbursement paid?" },

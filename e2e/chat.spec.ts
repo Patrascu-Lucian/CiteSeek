@@ -150,7 +150,7 @@ test.describe("keyboard only", () => {
 
     const composer = page.getByRole("textbox", { name: /ask a question/i });
     await composer.focus();
-    await composer.type(ANSWERABLE);
+    await composer.fill(ANSWERABLE);
     // Enter sends; Shift+Enter would insert a newline.
     await page.keyboard.press("Enter");
 

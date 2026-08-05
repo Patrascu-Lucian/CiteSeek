@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Audiowide, Geist, Geist_Mono } from "next/font/google";
@@ -64,7 +65,7 @@ async function themeClassName(): Promise<string> {
 export default async function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   const theme = await themeClassName();
 

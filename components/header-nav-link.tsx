@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -27,7 +28,7 @@ export function HeaderNavLink({
   items: readonly { href: string }[];
   className?: string;
   onNavigate?: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const pathname = usePathname();
   const isCurrent = currentHref(pathname, items) === href;
