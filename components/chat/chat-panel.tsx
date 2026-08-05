@@ -27,6 +27,7 @@ export function ChatPanel({
   onTurnComplete,
   documents = [],
   canUpload = false,
+  isDemo = false,
   onOpenSource,
   openChunkId,
 }: {
@@ -46,6 +47,9 @@ export function ChatPanel({
   /** Fires once a turn is written down, so server-rendered views refetch. Omitted
    * for guests, where a refetch returns the same thing. */
   onTurnComplete?: (() => void) | undefined;
+  /** Changes the empty state: the demo offers starter questions, and cannot say
+   * "your documents" because they are not yours. */
+  isDemo?: boolean;
   /** Lifted, because the document list opens the same panel and two of them can
    * be on screen at once otherwise. */
   onOpenSource: (source: ChatSource) => void;
@@ -118,7 +122,7 @@ export function ChatPanel({
       */}
       <p aria-live="polite" className="sr-only">
         {status === "submitted"
-          ? "Searching your documents."
+          ? "Searching the documents."
           : status === "streaming"
             ? "Writing an answer."
             : status === "error"
@@ -135,6 +139,8 @@ export function ChatPanel({
           documents={documents}
           canUpload={canUpload}
           signedIn={signedIn}
+          isDemo={isDemo}
+          onAsk={ask}
         />
       </div>
 
@@ -150,6 +156,7 @@ export function ChatPanel({
       ) : null}
 
       <Composer
+        isDemo={isDemo}
         onSubmit={ask}
         // `void`: a floating promise on an event handler silently swallows
         // rejections.

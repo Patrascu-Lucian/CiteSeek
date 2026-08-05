@@ -109,6 +109,7 @@ export async function WorkspaceView({
         activeChatId={openChat?.chatId ?? chatId ?? null}
         canWrite={writable}
         signedIn={signedIn}
+        isDemo={workspace.isDemo}
       />
     </main>
   );

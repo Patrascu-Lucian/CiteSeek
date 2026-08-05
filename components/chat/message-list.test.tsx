@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
+import { DEMO_EXAMPLE_QUESTIONS } from "@/lib/demo/example-questions";
 
 import { MessageList, messageSources, messageText } from "./message-list";
 
@@ -75,6 +76,8 @@ describe("MessageList", () => {
         documents={["handbook.pdf"]}
         canUpload
         signedIn
+        isDemo={false}
+        onAsk={() => undefined}
       />,
     );
 
@@ -82,6 +85,70 @@ describe("MessageList", () => {
       screen.getByText(/ask a question about your documents/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/answers cite the passages/i)).toBeInTheDocument();
+  });
+
+  it("offers starter questions on the demo, and asks the one that is clicked", async () => {
+    const onAsk = vi.fn();
+    render(
+      <MessageList
+        messages={[]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload={false}
+        signedIn={false}
+        isDemo
+        onAsk={onAsk}
+      />,
+    );
+
+    const [first] = DEMO_EXAMPLE_QUESTIONS;
+    await userEvent.click(screen.getByRole("button", { name: first }));
+
+    expect(onAsk).toHaveBeenCalledWith(first);
+  });
+
+  it("does not claim the documents are yours on the shared demo", () => {
+    // They are not — it is read-only and seeded, and this is the first sentence
+    // a stranger reads.
+    render(
+      <MessageList
+        messages={[]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload={false}
+        signedIn={false}
+        isDemo
+        onAsk={() => undefined}
+      />,
+    );
+
+    expect(screen.queryByText(/your documents/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the starter questions off a workspace someone uploaded to", () => {
+    // Someone who uploaded the documents knows what is in them, and a question
+    // about a handbook they have never seen would be noise.
+    render(
+      <MessageList
+        messages={[]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
+        isDemo={false}
+        onAsk={() => undefined}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: DEMO_EXAMPLE_QUESTIONS[0] }),
+    ).not.toBeInTheDocument();
   });
 
   it("announces who said what rather than relying on alignment", () => {
@@ -95,6 +162,8 @@ describe("MessageList", () => {
         documents={["handbook.pdf"]}
         canUpload
         signedIn
+        isDemo={false}
+        onAsk={() => undefined}
       />,
     );
 
@@ -114,6 +183,8 @@ describe("MessageList", () => {
         documents={["handbook.pdf"]}
         canUpload
         signedIn
+        isDemo={false}
+        onAsk={() => undefined}
       />,
     );
 
@@ -145,6 +216,8 @@ describe("MessageList", () => {
         documents={["handbook.pdf"]}
         canUpload
         signedIn
+        isDemo={false}
+        onAsk={() => undefined}
       />,
     );
 
@@ -201,6 +274,8 @@ describe("MessageList — a conversation restored from the database", () => {
         documents={["handbook.pdf"]}
         canUpload
         signedIn
+        isDemo={false}
+        onAsk={() => undefined}
       />,
     );
 
@@ -228,6 +303,8 @@ describe("MessageList — a conversation restored from the database", () => {
         documents={["handbook.pdf"]}
         canUpload
         signedIn
+        isDemo={false}
+        onAsk={() => undefined}
       />,
     );
 
@@ -269,6 +346,8 @@ describe("MessageList — a refusal", () => {
         documents={["handbook.pdf"]}
         canUpload
         signedIn
+        isDemo={false}
+        onAsk={() => undefined}
       />,
     );
 
@@ -294,6 +373,8 @@ describe("MessageList — a refusal", () => {
         documents={["handbook.pdf"]}
         canUpload
         signedIn
+        isDemo={false}
+        onAsk={() => undefined}
       />,
     );
 
@@ -314,6 +395,8 @@ describe("MessageList — a refusal", () => {
         documents={["handbook.pdf"]}
         canUpload
         signedIn
+        isDemo={false}
+        onAsk={() => undefined}
       />,
     );
 

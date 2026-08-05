@@ -1,6 +1,8 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
+import { DEMO_EXAMPLE_QUESTIONS } from "../lib/demo/example-questions";
+
 /**
  * The milestone's exit criteria, driven through a real browser: ask, watch it
  * stream, click a citation, read the source.
@@ -180,7 +182,7 @@ test.describe("guest conversations are not stored", () => {
     // the reason the demo cannot be used as an unbounded write path.
     await expect(page.getByText(ANSWERABLE)).not.toBeVisible();
     await expect(
-      page.getByText(/ask a question about your documents/i).first(),
+      page.getByText(/ask a question about the handbook/i).first(),
     ).toBeVisible();
   });
 });
@@ -318,5 +320,40 @@ test.describe("the composer", () => {
     await page.getByRole("button", { name: /send/i }).click();
     await expect(box).toHaveValue("");
     expect(await height()).toBe(initial);
+  });
+});
+
+test.describe("starting from nothing", () => {
+  /*
+    The first cold reader stopped here: an empty composer over a shared handbook
+    she had no way to read, with nothing suggesting what it could answer. ADR 022.
+  */
+  test("the demo offers a question, and clicking it asks that question", async ({
+    page,
+  }) => {
+    await page.goto("/demo");
+
+    const starter = page.getByRole("button", {
+      name: DEMO_EXAMPLE_QUESTIONS[0],
+    });
+    await expect(starter).toBeVisible();
+    await starter.click();
+
+    await expect(
+      page.getByText(DEMO_EXAMPLE_QUESTIONS[0], { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Citation 1/ })).toBeVisible(
+      {
+        timeout: 15_000,
+      },
+    );
+  });
+
+  test("does not tell a guest the shared documents are theirs", async ({
+    page,
+  }) => {
+    await page.goto("/demo");
+
+    await expect(page.getByText(/your documents/i)).toHaveCount(0);
   });
 });
