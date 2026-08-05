@@ -23,7 +23,7 @@ export default function TermsPage() {
         Terms of Service
       </h1>
       <p className="text-muted-foreground mt-2 text-sm">
-        Last updated 3 August 2026.
+        Last updated 5 August 2026.
       </p>
 
       <Section title="What this is">
@@ -48,6 +48,26 @@ export default function TermsPage() {
             privacy page
           </Link>{" "}
           explains where document text goes and why that warning is there.
+        </p>
+      </Section>
+
+      <Section title="Your documents stay yours">
+        <p>
+          Uploading something here gives this project no ownership of it. The
+          only rights taken are the ones needed to do what you can watch it do:
+          store the text extracted from your file, split and index that text,
+          and send the passages relevant to your question to the model provider
+          that writes the answer. Nothing is used to train or improve anything
+          under this project&rsquo;s control, and nothing is sold or shared
+          beyond the processors named on the{" "}
+          <Link href="/privacy" className="underline">
+            privacy page
+          </Link>
+          .
+        </p>
+        <p className="mt-3">
+          What the model provider may do with what reaches it is a separate
+          question, and the honest answer is on that page rather than this one.
         </p>
       </Section>
 

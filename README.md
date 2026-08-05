@@ -457,5 +457,13 @@ public repositories but requires a paid plan for private ones.
 - **Corrections made on review** are logged in [`docs/code-review-notes.md`](docs/code-review-notes.md).
 - **Out-of-milestone ideas** go to [`docs/backlog.md`](docs/backlog.md), not the current branch.
 
+## License
+
+There is no license file, which means all rights are reserved — the default, and here a
+deliberate one. Read it, learn from it, quote it, link to it. GitHub's own terms let any
+GitHub user view and fork a public repository whatever its license, so that stands too. What
+is not granted is everything outside that: copying this into a product, or redistributing it
+elsewhere.
+
 Built with AI-assisted tooling (Claude Code) under close review — see
 [`docs/decisions/`](docs/decisions/) for the architectural reasoning.

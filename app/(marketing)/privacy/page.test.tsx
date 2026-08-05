@@ -82,6 +82,28 @@ describe("the terms page", () => {
     ).toBeInTheDocument();
   });
 
+  it("says the uploader keeps ownership", () => {
+    render(<TermsPage />);
+
+    expect(
+      screen.getByText(/gives this project no ownership/i),
+    ).toBeInTheDocument();
+  });
+
+  it("limits the no-training claim to what this project controls", () => {
+    /*
+      The privacy page states that Google's free tier may use submitted content
+      to improve its services. A flat "never used for training" here would
+      contradict it, and the contradiction would favor whichever page a reader
+      saw second. The scope is the whole claim.
+    */
+    render(<TermsPage />);
+
+    expect(
+      screen.getByText(/under this project(’|')s control/i),
+    ).toBeInTheDocument();
+  });
+
   it("carries the landmark the skip link points at", () => {
     const { container } = render(<TermsPage />);
 
