@@ -1,11 +1,9 @@
 /**
- * **Quotes, not offsets**, because chunk ids are minted per ingest and offsets
- * move on any edit. A quote that stops matching fails the run rather than
- * scoring zero.
+ * **Quotes, not offsets**: ids are minted per ingest, offsets move on any edit,
+ * and a quote that stops matching fails the run rather than scoring zero.
  *
- * Questions avoid the headings' words, which vector search would match too
- * easily. `expect: []` is a question the corpus cannot answer — the floor's job,
- * and invisible to a set without them.
+ * `expect: []` is a question the corpus cannot answer — the floor's job, and
+ * invisible to a set without them.
  */
 
 export type GoldenCase = {
@@ -226,9 +224,40 @@ export const GOLDEN_SET: readonly GoldenCase[] = [
   },
 
   /*
-    Answerable by none of the three, and each plausible enough that a reader might
-    ask it of this corpus. A floor tuned only against the questions above would
-    let all of these through and look excellent doing it.
+    Term-heavy, because everything above is phrased away from the documents' words
+    — right for testing a vector search, and unable to show what lexical search is
+    for. Adding this is what made the hybrid comparison fair (ADR 021).
+  */
+  {
+    question: "What does E04 mean?",
+    expect: [{ file: MANUAL, quote: "indicates over-temperature and latches" }],
+  },
+  {
+    question: "ISO VG 46",
+    expect: [{ file: MANUAL, quote: "Use ISO VG 46 mineral oil" }],
+  },
+  {
+    question: "M16 torque spec",
+    expect: [{ file: MANUAL, quote: "four M16 bolts torqued to 210 Nm" }],
+  },
+  {
+    question: "What counts as Severity 2?",
+    expect: [
+      { file: SUPPORT, quote: "Severity 2 means a production system is" },
+    ],
+  },
+  {
+    question: "What is the HL-90?",
+    expect: [{ file: MANUAL, quote: "Harbourline HL-90 Bench Press" }],
+  },
+  {
+    question: "clause 7",
+    expect: [{ file: TENANCY, quote: "Pets require written consent" }],
+  },
+
+  /*
+    Answerable by none of the three. A floor tuned only against the questions above
+    would let all of these through and look excellent doing it.
   */
   { question: "How do I reset my password?", expect: [] },
   { question: "Which insurance company underwrites the property?", expect: [] },

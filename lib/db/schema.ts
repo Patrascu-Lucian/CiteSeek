@@ -192,6 +192,13 @@ export const chunks = pgTable(
       "hnsw",
       table.embedding.op("vector_cosine_ops"),
     ),
+    /** An **expression** index rather than a stored `tsvector` column, so nothing
+     * is backfilled and citation offsets are untouched. Every query must use this
+     * exact expression or the planner ignores it. Unused by the product — ADR 021. */
+    index("chunks_content_fts_idx").using(
+      "gin",
+      sql`to_tsvector('english', ${table.content})`,
+    ),
   ],
 );
 

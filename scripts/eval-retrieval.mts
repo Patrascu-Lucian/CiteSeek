@@ -1,10 +1,9 @@
 /**
- * Measures retrieval against `eval/golden-set.ts`. By hand, never in CI: it needs
- * a real provider, and the fake one would report word overlap as if it were
- * retrieval quality.
+ * Retrieval quality against `eval/golden-set.ts`. By hand, never in CI: the fake
+ * embedder would report word overlap as if it were retrieval.
  *
- * The floor is **disabled** here so one pass scores every threshold — sweeping it
- * live would re-embed the same questions and measure provider variance instead.
+ * The floor is **disabled**, so one pass scores every threshold and every fusion
+ * weight rather than re-embedding the same questions per setting.
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -36,9 +35,8 @@ process.env.DATABASE_URL = connectionString;
 const hostname = new URL(connectionString).hostname;
 const LOCAL = /^(localhost|127\.0\.0\.1|::1|host\.docker\.internal)$/;
 
-/* The same argument as the seed's host guard, and it should collapse into one
-   helper once that lands on main: this writes documents and spends embedding
-   quota, so it must not reach a database nobody named. */
+/* The seed's guard, duplicated: this writes documents and spends quota, so it
+   must not reach a database nobody named. Worth collapsing into one helper. */
 const named = confirmedHost !== undefined && hostname.includes(confirmedHost);
 
 if (!LOCAL.test(hostname) && !named) {
@@ -60,6 +58,8 @@ const { createQueuedDocument, findDocumentInWorkspace } =
   await import("../lib/documents/queries.ts");
 const { processDocument } = await import("../lib/rag/ingest.ts");
 const { retrieveChunks } = await import("../lib/rag/retrieve.ts");
+const { retrieveLexical } = await import("../lib/rag/lexical.ts");
+const { fuse } = await import("../lib/rag/fusion.ts");
 const { RETRIEVAL_LIMIT } = await import("../lib/rag/retrieval-config.ts");
 
 const FIXTURES = join(
@@ -107,11 +107,27 @@ try {
     console.log(`  ingested ${file}`);
   }
 
+  /* The lexical list's weight, against a vector weight fixed at 1. Zero is
+     vector alone, so the baseline sits on the same sweep as every blend. */
+  const LEXICAL_WEIGHTS = [0, 0.25, 0.5, 0.75, 1];
+  const STRATEGIES = [
+    "lexical",
+    ...LEXICAL_WEIGHTS.map((w) => "hybrid " + String(w)),
+  ];
+  type Strategy = string;
+
   const cases: FloorCase[] = [];
   const scores = new Map<
-    number,
+    string,
     { recall: number[]; precision: number[]; rr: number[] }
-  >(K_VALUES.map((k) => [k, { recall: [], precision: [], rr: [] }]));
+  >(
+    STRATEGIES.flatMap((s) =>
+      K_VALUES.map(
+        (k) =>
+          [`${s}:${String(k)}`, { recall: [], precision: [], rr: [] }] as const,
+      ),
+    ),
+  );
 
   console.log(`\nRunning ${String(GOLDEN_SET.length)} questions…`);
 
@@ -137,40 +153,85 @@ try {
       limit: 20,
       maxDistance: Number.POSITIVE_INFINITY,
     });
+    const lexical = await retrieveLexical(workspaceId, one.question, {
+      limit: 20,
+    });
 
-    const retrieved: Retrieved[] = chunks.map((chunk) => ({
+    const asSpan = (chunk: {
+      documentId: string;
+      charStart: number;
+      charEnd: number;
+    }): Retrieved => ({
       documentId: chunk.documentId,
       charStart: chunk.charStart,
       charEnd: chunk.charEnd,
+      // Only the vector list carries a distance; the floor is scored from it
+      // alone, below, because that is what the route thresholds today.
+      distance: 0,
+    });
+
+    const retrieved: Retrieved[] = chunks.map((chunk) => ({
+      ...asSpan(chunk),
       distance: chunk.distance,
     }));
 
+    // Fusion needs identity and a span, not two different result shapes.
+    const asRef = (chunk: {
+      id: string;
+      documentId: string;
+      charStart: number;
+      charEnd: number;
+    }) => ({
+      id: chunk.id,
+      documentId: chunk.documentId,
+      charStart: chunk.charStart,
+      charEnd: chunk.charEnd,
+    });
+
+    const ranked: Record<Strategy, Retrieved[]> = {
+      lexical: lexical.map(asSpan),
+      ...Object.fromEntries(
+        LEXICAL_WEIGHTS.map((weight) => [
+          "hybrid " + String(weight),
+          fuse(
+            { vector: chunks.map(asRef), lexical: lexical.map(asRef) },
+            { lexical: weight },
+          ).map((one) => asSpan(one.item)),
+        ]),
+      ),
+    };
+
     cases.push({ answerable: expected.length > 0, retrieved });
 
-    for (const k of K_VALUES) {
-      const score = scoreQuery(expected, retrieved, k);
-      const bucket = scores.get(k)!;
-      // Unanswerable questions have no recall to average; including their
-      // vacuous 1 would report a corpus-wide recall nobody measured.
-      if (expected.length > 0) {
-        bucket.recall.push(score.recall);
-        bucket.precision.push(score.precision);
-        bucket.rr.push(score.reciprocalRank);
+    for (const strategy of STRATEGIES) {
+      for (const k of K_VALUES) {
+        const score = scoreQuery(expected, ranked[strategy] ?? [], k);
+        const bucket = scores.get(`${strategy}:${String(k)}`)!;
+        // Unanswerable questions have no recall to average; including their
+        // vacuous 1 would report a corpus-wide recall nobody measured.
+        if (expected.length > 0) {
+          bucket.recall.push(score.recall);
+          bucket.precision.push(score.precision);
+          bucket.rr.push(score.reciprocalRank);
+        }
       }
     }
   }
 
   const answerable = cases.filter((one) => one.answerable).length;
 
-  const rankTable = K_VALUES.map((k) => {
-    const bucket = scores.get(k)!;
-    return {
-      k,
-      recall: mean(bucket.recall),
-      precision: mean(bucket.precision),
-      mrr: mean(bucket.rr),
-    };
-  });
+  const rankTable = STRATEGIES.flatMap((strategy) =>
+    K_VALUES.map((k) => {
+      const bucket = scores.get(`${strategy}:${String(k)}`)!;
+      return {
+        strategy,
+        k,
+        recall: mean(bucket.recall),
+        precision: mean(bucket.precision),
+        mrr: mean(bucket.rr),
+      };
+    }),
+  );
 
   const floorTable = sweepFloor(cases, THRESHOLDS);
 
@@ -187,11 +248,16 @@ try {
     "",
     "## Ranking, over the answerable questions",
     "",
-    "| k | recall | precision | MRR |",
-    "| - | ------ | --------- | --- |",
+    "Reciprocal rank fusion compares positions rather than scores, because a cosine",
+    "distance and a `ts_rank_cd` are not the same kind of number. The weight below is",
+    "the lexical list's, against a vector weight of 1 — so **hybrid 0 is vector",
+    "alone**, on the same sweep rather than beside it.",
+    "",
+    "| strategy | k | recall | precision | MRR |",
+    "| -------- | - | ------ | --------- | --- |",
     ...rankTable.map(
       (row) =>
-        `| ${String(row.k)} | ${row.recall.toFixed(2)} | ${row.precision.toFixed(2)} | ${row.mrr.toFixed(2)} |`,
+        `| ${row.strategy} | ${String(row.k)} | ${row.recall.toFixed(2)} | ${row.precision.toFixed(2)} | ${row.mrr.toFixed(2)} |`,
     ),
     "",
     "## The relevance floor",
