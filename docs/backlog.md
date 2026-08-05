@@ -497,10 +497,13 @@ new tab could only render the same extracted text one navigation further away.
 
 **Still open from the same session**, not yet acted on:
 
-- **Example questions in the empty chat state**, not only in a refusal. Today they sit behind
-  the step a first-time reader cannot take. The refusal already builds them from the documents
-  in the workspace, so the copy exists — the question is whether showing them up front makes
-  the demo read as a scripted tour, which is the reason to decide it rather than just do it.
+- **Example questions in the empty chat state.** There are none anywhere in the app: the empty
+  state offers two sentences and a composer, and the refusal lists the document _filenames_ plus
+  advice to reuse the wording the document uses. So this is new content, not copy moved from
+  somewhere it already exists. For the seeded demo they can be hand-authored and would be good;
+  for a workspace someone uploads to, they have to be generated per document, which is a cost
+  per upload and a decision rather than a task. Those two cases can be answered separately —
+  hand-authored for the demo alone is cheap and covers the reader this came from.
 - The empty state says "your documents" on a shared read-only demo, where they are not yours.
 - The row is now clickable but does not _look_ clickable until hover. A reader who does not
   hover still has no signal.

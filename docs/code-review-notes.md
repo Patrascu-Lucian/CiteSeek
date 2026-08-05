@@ -1369,9 +1369,9 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
 - **Issue**: the write-up of the first cold-reader session recorded that the reader "ignored the
   suggested questions on screen," and drew a conclusion from it — that a canned question reads
   as a demo while the document reads as the real thing. **There are no suggested questions on
-  that screen.** The empty chat state renders two sentences and a composer. Example questions
-  are built by the refusal path (ADR 017), which you reach only by first asking something that
-  fails, so they sit behind the exact step she could not take.
+  that screen.** The empty chat state renders two sentences and a composer. There are no
+  example questions anywhere in the app — the refusal (ADR 017) lists document _filenames_ and
+  advises reusing the document's own wording, which is a different thing.
 
 - **How it happened.** The observed part was real: she clicked the document, repeatedly, and
   nothing happened. The explanation was reconstructed afterward from what the app _ought_ to
@@ -1398,3 +1398,13 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   need to be visibly different sentences. "She clicked the document three times" is evidence.
   "Because the suggestions read as canned" is a hypothesis, and it has to be labeled as one or
   verified against the screen she was actually looking at.
+
+- **Postscript: the correction contained the same defect.** The first fix asserted that the
+  refusal "already builds" example questions — it does not; it lists filenames. Written while
+  fixing a fabricated claim about the same screen, without opening the component either time.
+  The reflex on being caught is to write the correction immediately, and speed is exactly what
+  produced the original error. **A correction is a claim and earns no discount**; it wants the
+  same check as the thing it replaces, and being sure enough to feel embarrassed is not
+  evidence. Both errors would have been caught by opening one file for ten seconds — which is
+  also what changed the backlog item, since "move the copy that already exists" and "author
+  content that does not" are different pieces of work.
