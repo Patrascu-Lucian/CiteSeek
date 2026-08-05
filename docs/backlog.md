@@ -495,18 +495,21 @@ Shipped as: the filename opens the same side panel citations open, with the full
 and no highlight. Not a new tab — the original file no longer exists to serve (ADR 009), so a
 new tab could only render the same extracted text one navigation further away.
 
-**Still open from the same session**, not yet acted on:
+**From the same session**, three since closed and one still open:
 
-- **Example questions in the empty chat state.** There are none anywhere in the app: the empty
-  state offers two sentences and a composer, and the refusal lists the document _filenames_ plus
-  advice to reuse the wording the document uses. So this is new content, not copy moved from
-  somewhere it already exists. For the seeded demo they can be hand-authored and would be good;
-  for a workspace someone uploads to, they have to be generated per document, which is a cost
-  per upload and a decision rather than a task. Those two cases can be answered separately —
-  hand-authored for the demo alone is cheap and covers the reader this came from.
-- The empty state says "your documents" on a shared read-only demo, where they are not yours.
-- The row is now clickable but does not _look_ clickable until hover. A reader who does not
-  hover still has no signal.
+- ~~**Example questions in the empty chat state.**~~ **Done — ADR 022.** There were none anywhere
+  in the app, so this was new content rather than copy moved from somewhere. Three hand-authored
+  questions on the seeded demo only, each chosen by embedding it against the fixture and checking
+  the rank of the passage that answers it. Generated-per-document for uploaded workspaces stays
+  parked below.
+- ~~The empty state says "your documents" on a shared read-only demo.~~ **Done.** It said so in
+  four places, not one — the empty state, the composer's label, its placeholder, and the
+  screen-reader status. The demo now says "the handbook".
+- ~~The row is clickable but does not _look_ clickable until hover.~~ **Done.** Worse than
+  recorded: a touch screen has no hover at all, so on a phone the filename rendered identically
+  to plain text. A panel icon now sits beside it on every device. A hover-conditional underline
+  was built first and rejected — it left the affordance depending on a media query.
 - Nothing tells you a document is readable _before_ you have a reason to want it. A one-line
   summary per document is the obvious answer and is a generation cost per upload, so it is a
-  decision rather than a task.
+  decision rather than a task. The demo's starter questions cover the reader this came from;
+  they do nothing for a workspace someone uploads to, which is the case this would serve.

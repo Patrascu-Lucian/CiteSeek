@@ -1,4 +1,10 @@
-import { AlertCircle, FileText, RotateCcw, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  FileText,
+  PanelRight,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -43,7 +49,7 @@ export function DocumentList({
 }) {
   if (documents.length === 0) {
     return (
-      <div className="border-border/60 rounded-xl border px-6 py-10 text-center">
+      <div className="border-border/60 rounded-xl border px-4 py-10 text-center sm:px-6">
         <FileText
           aria-hidden="true"
           className="text-muted-foreground mx-auto size-6"
@@ -72,29 +78,33 @@ export function DocumentList({
         {documents.map((document) => (
           <li
             key={document.id}
-            className="border-border/60 has-[button:hover]:bg-muted/40 relative flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3"
+            className="border-border/60 has-[button:hover]:bg-muted/40 group/row relative flex flex-wrap items-center gap-3 rounded-lg border px-3 py-3 sm:px-4"
           >
             <FileText
               aria-hidden="true"
-              className="text-muted-foreground size-4 shrink-0"
+              className="text-muted-foreground hidden size-4 shrink-0 sm:block"
             />
 
             <div className="min-w-0 flex-1">
               {onOpen && document.status === "ready" ? (
-                // `::after` stretches the target over the whole row, which is what
-                // a cold reader clicked and got nothing from. A row-sized button
-                // cannot be the control: the delete button would nest inside it.
+                // `::after` rather than a row-sized button: the delete button
+                // would nest inside one.
                 <button
                   type="button"
                   onClick={() => {
                     onOpen(document.id, document.filename);
                   }}
-                  // `block w-full`: a button is inline-block, so it sizes to its
-                  // text and `truncate` never fires — the filename ran out under
-                  // the status badge on a phone.
-                  className="focus-visible:ring-ring block w-full truncate rounded-sm text-left font-medium after:absolute after:inset-0 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                  className="focus-visible:ring-ring flex w-full items-center gap-1.5 rounded-sm text-left font-medium after:absolute after:inset-0 focus-visible:ring-2 focus-visible:outline-none"
                 >
-                  {document.filename}
+                  {/* `min-w-0`, or a flex child never shrinks below its text and
+                      `truncate` does nothing. */}
+                  <span className="min-w-0 truncate">{document.filename}</span>
+                  {/* Not decoration: on a touch screen this is the row's only
+                      signal that it opens anything. */}
+                  <PanelRight
+                    aria-hidden="true"
+                    className="text-muted-foreground group-hover/row:text-foreground size-3.5 shrink-0"
+                  />
                 </button>
               ) : (
                 <p className="truncate font-medium">{document.filename}</p>
@@ -118,10 +128,9 @@ export function DocumentList({
               ) : null}
             </div>
 
-            {/* `w-full` drops this to its own line on a phone, which hands the
-                filename the whole first one. No `z-10` here, or the badge would
-                sit above the row-sized target and swallow the click. */}
-            <div className="flex w-full items-center justify-between gap-1 sm:w-auto sm:justify-end">
+            {/* No `z-10` here, or the badge would sit above the row-sized
+                target and swallow the click. */}
+            <div className="flex items-center gap-1">
               <StatusBadge
                 status={document.status}
                 embedded={document.embeddedChunkCount}
@@ -149,6 +158,7 @@ export function DocumentList({
                         type="button"
                         variant="ghost-destructive"
                         size="sm"
+                        className="px-1.5 sm:px-2.5"
                         disabled={busyId === document.id}
                         aria-label={`Delete ${document.filename}`}
                       >

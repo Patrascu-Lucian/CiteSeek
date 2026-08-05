@@ -29,7 +29,7 @@ export type AccountViewProps =
 
 export function AccountView(props: AccountViewProps) {
   return (
-    <main id="main" className="mx-auto w-full max-w-2xl px-4 py-12 sm:px-6">
+    <main id="main" className="mx-auto w-full max-w-2xl px-3 py-12 sm:px-6">
       <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
 
       {props.kind === "guest" ? <GuestNotice /> : <UserAccount {...props} />}

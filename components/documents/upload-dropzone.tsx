@@ -134,7 +134,7 @@ export function UploadDropzone({
           setIsDragging(false);
           void handleFiles(event.dataTransfer.files);
         }}
-        className={`border-border hover:border-foreground/30 focus-visible:ring-ring flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors focus-visible:ring-2 focus-visible:outline-none ${
+        className={`border-border hover:border-foreground/30 focus-visible:ring-ring flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-10 text-center transition-colors focus-visible:ring-2 focus-visible:outline-none sm:px-6 ${
           isDragging ? "border-foreground/50 bg-muted/40" : ""
         }`}
       >

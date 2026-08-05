@@ -1,3 +1,5 @@
+import { Check } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import type { DocumentStatus } from "@/lib/db/schema";
 
@@ -32,6 +34,8 @@ export function StatusBadge({
 
   return (
     <Badge
+      // Tighter on a phone, where every horizontal pixel is filename.
+      className="px-1.5 sm:px-2"
       variant={
         status === "failed"
           ? "destructive"
@@ -40,7 +44,17 @@ export function StatusBadge({
             : "secondary"
       }
     >
-      {label}
+      {/* Only `ready` narrows — `processing` carries a count, and without it a
+          stuck document looks like a moving one. `sr-only` rather than `hidden`,
+          or the list's `aria-live` announces a finished upload as nothing. */}
+      {status === "ready" ? (
+        <>
+          <Check aria-hidden="true" className="size-3.5 sm:hidden" />
+          <span className="sr-only sm:not-sr-only">{label}</span>
+        </>
+      ) : (
+        label
+      )}
     </Badge>
   );
 }

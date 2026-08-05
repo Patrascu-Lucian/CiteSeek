@@ -7,7 +7,7 @@ export default function UsageLoading() {
   return (
     <main
       id="main"
-      className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6"
+      className="mx-auto w-full max-w-3xl px-3 py-12 sm:px-6"
       aria-busy="true"
     >
       <p role="status" className="sr-only">
