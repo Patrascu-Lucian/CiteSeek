@@ -63,17 +63,18 @@ cross-tenant integration test keeps it that way.
 Full reasoning for each is in [`docs/decisions/`](docs/decisions/); these are the ones that
 shaped the product rather than the toolchain.
 
-| ADR                                                                          | Decision                                      | Why it matters                                                                          |
-| ---------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------- |
-| [006](docs/decisions/006-deployment-topology.md)                             | Functions in `fra1`, beside the database      | Cut a database-backed route by 66%; every query had been crossing the Atlantic twice    |
-| [008](docs/decisions/008-chunking-strategy.md)                               | Structure-aware chunks with character offsets | Offsets are what make a citation resolvable to a passage rather than to a document      |
-| [011](docs/decisions/011-retrieval-and-citation-strategy.md)                 | Relevance floor short-circuits generation     | A refusal cannot cite, because no model runs on that branch                             |
-| [013](docs/decisions/013-chat-persistence.md)                                | Guest conversations are never written down    | Keeps an unbounded write path off a public URL                                          |
-| [014](docs/decisions/014-usage-limiting.md)                                  | Count provider calls, not questions           | A refusal still costs an embedding, and refusals are what an abuser generates           |
-| [016](docs/decisions/016-workspace-membership-deferred.md)                   | No roles table                                | A role column whose only value is `owner` adds a branch no user can reach               |
-| [017](docs/decisions/017-answering-questions-the-documents-cannot-answer.md) | The refusal says where the answer lives       | Every word written by us — an ungrounded turn must not read as if it were grounded      |
-| [018](docs/decisions/018-theme-persistence-and-the-flash.md)                 | Theme in a cookie, not `localStorage`         | The server renders the right palette on the first byte, so there is no flash to correct |
-| [020](docs/decisions/020-measuring-the-relevance-floor.md)                   | Measure the relevance floor, then lower it    | The shipped threshold refused nothing; the distributions overlap, so no value is right  |
+| ADR                                                                          | Decision                                      | Why it matters                                                                            |
+| ---------------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| [006](docs/decisions/006-deployment-topology.md)                             | Functions in `fra1`, beside the database      | Cut a database-backed route by 66%; every query had been crossing the Atlantic twice      |
+| [008](docs/decisions/008-chunking-strategy.md)                               | Structure-aware chunks with character offsets | Offsets are what make a citation resolvable to a passage rather than to a document        |
+| [011](docs/decisions/011-retrieval-and-citation-strategy.md)                 | Relevance floor short-circuits generation     | A refusal cannot cite, because no model runs on that branch                               |
+| [013](docs/decisions/013-chat-persistence.md)                                | Guest conversations are never written down    | Keeps an unbounded write path off a public URL                                            |
+| [014](docs/decisions/014-usage-limiting.md)                                  | Count provider calls, not questions           | A refusal still costs an embedding, and refusals are what an abuser generates             |
+| [016](docs/decisions/016-workspace-membership-deferred.md)                   | No roles table                                | A role column whose only value is `owner` adds a branch no user can reach                 |
+| [017](docs/decisions/017-answering-questions-the-documents-cannot-answer.md) | The refusal says where the answer lives       | Every word written by us — an ungrounded turn must not read as if it were grounded        |
+| [018](docs/decisions/018-theme-persistence-and-the-flash.md)                 | Theme in a cookie, not `localStorage`         | The server renders the right palette on the first byte, so there is no flash to correct   |
+| [020](docs/decisions/020-measuring-the-relevance-floor.md)                   | Measure the relevance floor, then lower it    | The shipped threshold refused nothing; the distributions overlap, so no value is right    |
+| [021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md)       | Build hybrid retrieval, then reject it        | Every fusion weight scored worse than vector alone, so the standard answer was wrong here |
 
 ## What works today
 
@@ -177,8 +178,8 @@ anonymous run scores a different page entirely.
 | `/w/[id]` guest — deployed, before | 87          | 100           | 100            | 100 |
 | `/w/[id]` guest — local build      | 84 → **90** | 100           | 100            | 100 |
 
-**Retrieval quality**, measured by `pnpm eval:retrieval` against a golden set of 45 questions
-over three documents written for the purpose — 35 answerable, 10 answerable by none of them.
+**Retrieval quality**, measured by `pnpm eval:retrieval` against a golden set of 51 questions
+over three documents written for the purpose — 41 answerable, 10 answerable by none of them.
 Expected passages are recorded as quotes and resolved to character offsets at run time, so
 re-chunking moves the mapping rather than invalidating the set. Full run in
 [`eval/report.md`](eval/report.md); reasoning in
@@ -186,26 +187,45 @@ re-chunking moves the mapping rather than invalidating the set. Full run in
 
 | k   | recall | precision | MRR  |
 | --- | ------ | --------- | ---- |
-| 1   | 0.70   | 0.71      | 0.71 |
-| 3   | 0.97   | 0.35      | 0.83 |
-| 8   | 1.00   | 0.14      | 0.84 |
+| 1   | 0.67   | 0.68      | 0.68 |
+| 3   | 0.95   | 0.34      | 0.81 |
+| 8   | 1.00   | 0.14      | 0.82 |
 
-Ranking is the half that works: the passage answering the question is in the top three 97% of
+Ranking is the half that works: the passage answering the question is in the top three 95% of
 the time. Precision falls with k because one passage answers the question and the other seven
 cannot.
+
+**Hybrid retrieval was built against this harness and rejected by it.** Postgres full-text search
+fused with the vector results by reciprocal rank — the standard second signal, and an entry that
+had sat in the backlog since Milestone 2 on the strength of the argument alone:
+
+| lexical weight       | recall@1 | recall@3 | MRR      |
+| -------------------- | -------- | -------- | -------- |
+| lexical alone        | 0.39     | 0.66     | 0.53     |
+| **0 (vector alone)** | **0.67** | **0.95** | **0.82** |
+| 0.25                 | 0.65     | 0.85     | 0.79     |
+| 0.5                  | 0.60     | 0.85     | 0.77     |
+| 1.0                  | 0.61     | 0.85     | 0.77     |
+
+Every blend is worse than vector alone, and worse the more say the lexical list is given — so it
+is not wired into the answer path
+([ADR 021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md)). The measurement
+also corrected the golden set: its questions were phrased away from the documents' words, which
+is right for testing a vector search and made it impossible to see what lexical search is for.
+Six term-heavy questions were added, and the answer did not change.
 
 **The relevance floor was the half that did not.** The closest chunk per question:
 
 |              | min   | median | max   |
 | ------------ | ----- | ------ | ----- |
-| answerable   | 0.284 | 0.325  | 0.411 |
+| answerable   | 0.276 | 0.325  | 0.411 |
 | unanswerable | 0.332 | 0.422  | 0.494 |
 
 Those ranges **overlap**, so no threshold separates them — every value trades questions wrongly
 refused against ungrounded questions let through. At the previously shipped `0.6` the floor
 admitted **all ten** unanswerable questions; the demo's own corpus scored _"Who won the world
 cup in 1998?"_ at 0.532, which `0.6` would have answered. It is now `0.40`: one answerable
-question in 35 refused, half the unanswerable ones caught, and clean separation on the demo.
+question in 41 refused, half the unanswerable ones caught, and clean separation on the demo.
 
 This is the number the project had been asserting and not measuring, and the correction is
 worth more than the original claim: **the floor is a filter, not a proof.** What

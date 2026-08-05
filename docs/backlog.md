@@ -64,10 +64,15 @@ here, not in the current branch.
   Worth doing after the relevance floor is tuned, not before — the floor decides what counts as
   a match at all, and changing both at once would make neither measurable.
 
-  ↳ **Now evidence rather than opinion.** `pnpm eval:retrieval` (ADR 020) shows the distance
-  distributions for answerable and unanswerable questions **overlapping**, so no threshold
-  separates them and tuning cannot close the gap. That is the argument for a second signal, and
-  the harness is how a reranker or a lexical index would have to prove it earned its place.
+  ↳ **Built, measured, not shipped — ADR 021.** The harness is how it had to prove itself and it
+  did not: lexical alone scores 0.53 MRR against the vector path's 0.82, and every fusion weight
+  makes the blend _worse_ than vector alone. `gemini-embedding-001` already handles the
+  term-heavy questions this was meant to rescue. The index and the two modules stay, unused by
+  the product, so the question is one command to re-ask when the corpus is real.
+
+  The floor gap ADR 020 opened is therefore still open. Hybrid was the candidate; what is left is
+  a reranker over the top k, or accepting the floor as a filter and saying so — which the README
+  now does.
 
 - **The relevance floor short-circuits the `list_documents` tool.** The chat route refuses
   before calling the model when no passage clears `MAX_DISTANCE`. That is the right default —

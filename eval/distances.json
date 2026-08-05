@@ -175,6 +175,36 @@
     "best": 0.31275647694675146
   },
   {
+    "question": "What does E04 mean?",
+    "answerable": true,
+    "best": 0.32155213718271636
+  },
+  {
+    "question": "ISO VG 46",
+    "answerable": true,
+    "best": 0.3358621997668969
+  },
+  {
+    "question": "M16 torque spec",
+    "answerable": true,
+    "best": 0.3873328201373102
+  },
+  {
+    "question": "What counts as Severity 2?",
+    "answerable": true,
+    "best": 0.2756639287271444
+  },
+  {
+    "question": "What is the HL-90?",
+    "answerable": true,
+    "best": 0.2999563217163086
+  },
+  {
+    "question": "clause 7",
+    "answerable": true,
+    "best": 0.3422242206997864
+  },
+  {
     "question": "How do I reset my password?",
     "answerable": false,
     "best": 0.45265936851501465
