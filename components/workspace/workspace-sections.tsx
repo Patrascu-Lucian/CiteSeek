@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 
 import { ChatPanel } from "@/components/chat/chat-panel";
+import { SourcePanel, type SourceTarget } from "@/components/chat/source-panel";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { DocumentList } from "@/components/documents/document-list";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
@@ -65,6 +66,9 @@ export function WorkspaceSections({
   const [documents, setDocuments] = useState(initialDocuments);
   const [pollError, setPollError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // One panel, two openers: a citation from the transcript, a document from the list.
+  const [source, setSource] = useState<SourceTarget | null>(null);
 
   /*
     The conversation list is server-rendered, so after a rename or delete the
@@ -152,6 +156,9 @@ export function WorkspaceSections({
             // silently swallows rejections.
             onRetry={(id) => void retry(id)}
             onDelete={(id) => void remove(id)}
+            onOpen={(documentId, filename) => {
+              setSource({ kind: "document", documentId, filename });
+            }}
           />
         </div>
 
@@ -246,6 +253,12 @@ export function WorkspaceSections({
             (document) => document.status === "ready",
           )}
           signedIn={signedIn}
+          onOpenSource={(chatSource) => {
+            setSource({ kind: "citation", source: chatSource });
+          }}
+          openChunkId={
+            source?.kind === "citation" ? source.source.chunkId : null
+          }
           initialMessages={initialMessages}
           canUpload={canWrite}
           // Only what is actually searchable. A document still processing is
@@ -258,6 +271,12 @@ export function WorkspaceSections({
           onTurnComplete={signedIn ? refreshFromServer : undefined}
         />
       </section>
+
+      <SourcePanel
+        target={source}
+        workspaceId={workspaceId}
+        onClose={() => setSource(null)}
+      />
     </>
   );
 }

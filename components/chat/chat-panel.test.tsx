@@ -65,11 +65,17 @@ function renderPanel(
   hasReadyDocuments = true,
   signedIn = false,
   onTurnComplete?: () => void,
+  lifted: {
+    onOpenSource?: (source: ChatSource) => void;
+    openChunkId?: string | null;
+  } = {},
 ) {
   render(
     <ChatPanel
       workspaceId="w1"
       hasReadyDocuments={hasReadyDocuments}
+      onOpenSource={lifted.onOpenSource ?? (() => undefined)}
+      openChunkId={lifted.openChunkId ?? null}
       signedIn={signedIn}
       onTurnComplete={onTurnComplete}
     />,
@@ -240,50 +246,37 @@ describe("ChatPanel — citations", () => {
   */
   const CHIP_TIMEOUT = { timeout: 5_000 };
 
-  it("opens the source panel when a chip is activated", async () => {
+  // The panel moved up to `WorkspaceSections`, so what this component owes is
+  // the citation, not the panel.
+  it("reports the citation when a chip is activated", async () => {
     chat.messages = [ANSWER];
-    renderPanel();
+    const onOpenSource = vi.fn();
+    renderPanel(true, false, undefined, { onOpenSource });
 
     await userEvent.click(
       await screen.findByRole("button", { name: /^Citation 1/ }, CHIP_TIMEOUT),
     );
 
-    // What the panel then renders is its own concern and its own tests. What
-    // matters here is that the chip reaches it, naming the right document.
-    const panel = await screen.findByRole("dialog");
-    expect(
-      within(panel).getByRole("heading", { name: "handbook.pdf" }),
-    ).toBeInTheDocument();
+    expect(onOpenSource).toHaveBeenCalledWith(
+      expect.objectContaining({ filename: "handbook.pdf", marker: 1 }),
+    );
   });
 
-  it("marks the chip as pressed while its passage is open", async () => {
+  it("marks the chip as pressed when its passage is the open one", async () => {
     chat.messages = [ANSWER];
-    renderPanel();
+    renderPanel(true, false, undefined, { openChunkId: SOURCE.chunkId });
 
-    await userEvent.click(
-      await screen.findByRole("button", { name: /^Citation 1/ }, CHIP_TIMEOUT),
-    );
-
-    // Re-queried rather than reusing the reference: the markdown renderer
-    // rebuilds its output on re-render, so the original node is detached.
     expect(
       await screen.findByRole("button", { name: /^Citation 1/ }, CHIP_TIMEOUT),
     ).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("closes the panel again", async () => {
+  it("leaves every chip unpressed when nothing is open", async () => {
     chat.messages = [ANSWER];
-    renderPanel();
+    renderPanel(true, false, undefined, { openChunkId: null });
 
-    await userEvent.click(
+    expect(
       await screen.findByRole("button", { name: /^Citation 1/ }, CHIP_TIMEOUT),
-    );
-    await userEvent.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: /close/i,
-      }),
-    );
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    ).toHaveAttribute("aria-pressed", "false");
   });
 });

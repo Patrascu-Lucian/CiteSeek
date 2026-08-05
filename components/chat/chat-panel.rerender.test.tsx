@@ -45,7 +45,14 @@ beforeEach(() => {
 
 describe("ChatPanel — typing", () => {
   it("does not re-render the transcript on every keystroke", async () => {
-    render(<ChatPanel workspaceId="w1" hasReadyDocuments />);
+    render(
+      <ChatPanel
+        workspaceId="w1"
+        hasReadyDocuments
+        onOpenSource={() => undefined}
+        openChunkId={null}
+      />,
+    );
 
     const after = transcript.renders;
     expect(after).toBeGreaterThan(0);
@@ -62,7 +69,14 @@ describe("ChatPanel — typing", () => {
   it("still re-renders it when a question is actually sent", async () => {
     // The guard against fixing the above by severing the wiring: the draft is
     // local, but submitting still has to reach the panel.
-    render(<ChatPanel workspaceId="w1" hasReadyDocuments />);
+    render(
+      <ChatPanel
+        workspaceId="w1"
+        hasReadyDocuments
+        onOpenSource={() => undefined}
+        openChunkId={null}
+      />,
+    );
 
     await userEvent.type(
       screen.getByRole("textbox", { name: /ask a question/i }),

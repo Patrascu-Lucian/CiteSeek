@@ -69,7 +69,7 @@ function renderPanel(props: Partial<Parameters<typeof SourcePanel>[0]> = {}) {
 
   render(
     <SourcePanel
-      source={source()}
+      target={{ kind: "citation", source: source() }}
       workspaceId="w1"
       onClose={onClose}
       {...props}
@@ -167,7 +167,7 @@ describe("SourcePanel — states", () => {
   });
 
   it("renders nothing at all when no citation is open", () => {
-    renderPanel({ source: null });
+    renderPanel({ target: null });
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -186,7 +186,9 @@ describe("SourcePanel — heading and dismissal", () => {
 
   it("omits the page for formats that have none", async () => {
     loaded();
-    renderPanel({ source: source({ pageNumber: null }) });
+    renderPanel({
+      target: { kind: "citation", source: source({ pageNumber: null }) },
+    });
 
     expect(await screen.findByText(/cited as \[1\]$/i)).toBeInTheDocument();
   });

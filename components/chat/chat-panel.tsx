@@ -3,7 +3,7 @@
 // function props must be Server Actions.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 
@@ -13,7 +13,6 @@ import { parseRefusal } from "@/lib/usage/limits";
 import { ChatError } from "./chat-error";
 import { Composer } from "./composer";
 import { MessageList, warmAnswer } from "./message-list";
-import { SourcePanel } from "./source-panel";
 
 /**
  * Owns the conversation. One owner of state, presentational children, no prop
@@ -28,6 +27,8 @@ export function ChatPanel({
   onTurnComplete,
   documents = [],
   canUpload = false,
+  onOpenSource,
+  openChunkId,
 }: {
   workspaceId: string;
   /** Whether anything has finished processing. Nothing to search without it. */
@@ -45,9 +46,12 @@ export function ChatPanel({
   /** Fires once a turn is written down, so server-rendered views refetch. Omitted
    * for guests, where a refetch returns the same thing. */
   onTurnComplete?: (() => void) | undefined;
+  /** Lifted, because the document list opens the same panel and two of them can
+   * be on screen at once otherwise. */
+  onOpenSource: (source: ChatSource) => void;
+  /** Which chip reads as pressed. Owned above for the same reason. */
+  openChunkId: string | null;
 }) {
-  const [selected, setSelected] = useState<ChatSource | null>(null);
-
   const { messages, sendMessage, regenerate, stop, status, error, clearError } =
     useChat<ChatUIMessage>({
       messages: initialMessages,
@@ -125,20 +129,14 @@ export function ChatPanel({
       <div className="border-border min-h-64 rounded-lg border p-4">
         <MessageList
           messages={messages}
-          onSelectSource={setSelected}
-          selectedChunkId={selected?.chunkId ?? null}
+          onSelectSource={onOpenSource}
+          selectedChunkId={openChunkId}
           workspaceId={workspaceId}
           documents={documents}
           canUpload={canUpload}
           signedIn={signedIn}
         />
       </div>
-
-      <SourcePanel
-        source={selected}
-        workspaceId={workspaceId}
-        onClose={() => setSelected(null)}
-      />
 
       {error ? (
         <ChatError
