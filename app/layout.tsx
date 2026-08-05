@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Audiowide, Geist, Geist_Mono } from "next/font/google";
 
+import { NavigationProgress } from "@/components/navigation-progress";
 import { SiteFooter } from "@/components/site-footer";
 import { THEME_COOKIE_NAME, isTheme, themeClass } from "@/lib/theme/theme";
 
@@ -86,6 +87,7 @@ export default async function RootLayout({
         .join(" ")}
     >
       <body className="bg-background text-foreground flex min-h-full flex-col">
+        <NavigationProgress />
         {/*
           Skip link: the chat surface will be a long, streaming region, so a
           keyboard user must be able to jump past the nav. Accessibility starts
