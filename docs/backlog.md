@@ -483,9 +483,13 @@ clicked the document row, and the filename, and the box around both, trying to o
 
 What she was after is the interesting part: she was not trying to read the handbook, she was
 trying to find out **what it was about, so she would know what to ask it**. An empty composer
-above a document whose contents you cannot see is a question with no visible answer space. The
-demo questions were on screen, and she ignored them, which is its own finding — a suggested
-question reads as a canned demo, whereas the document reads as the real thing.
+above a document whose contents you cannot see is a question with no visible answer space.
+
+And there was nothing else to work from. The empty chat state says "Ask a question about your
+documents" and stops; example questions exist only inside a refusal (ADR 017), which you reach
+by first asking something that fails. So the suggestions are behind the very step she could not
+take. In a shared demo the possessive is wrong too — they are not her documents, and she had no
+way to learn what was in them. Clicking the document was the only move the screen offered.
 
 Shipped as: the filename opens the same side panel citations open, with the full extracted text
 and no highlight. Not a new tab — the original file no longer exists to serve (ADR 009), so a
@@ -493,6 +497,11 @@ new tab could only render the same extracted text one navigation further away.
 
 **Still open from the same session**, not yet acted on:
 
+- **Example questions in the empty chat state**, not only in a refusal. Today they sit behind
+  the step a first-time reader cannot take. The refusal already builds them from the documents
+  in the workspace, so the copy exists — the question is whether showing them up front makes
+  the demo read as a scripted tour, which is the reason to decide it rather than just do it.
+- The empty state says "your documents" on a shared read-only demo, where they are not yours.
 - The row is now clickable but does not _look_ clickable until hover. A reader who does not
   hover still has no signal.
 - Nothing tells you a document is readable _before_ you have a reason to want it. A one-line
