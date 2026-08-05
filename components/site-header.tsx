@@ -102,7 +102,9 @@ export async function SiteHeader() {
         <HomeLink className="focus-visible:ring-ring -my-4 inline-flex shrink-0 items-center gap-1 self-stretch focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset">
           {/* Text, so it follows the theme with no second asset — and because the
             placeholder image read "LOGO", leaving the product unnamed here. */}
-          <span className="font-wordmark text-lg tracking-wide">CiteSeek</span>
+          <span className="text-primary font-wordmark text-lg tracking-wide">
+            CiteSeek
+          </span>
         </HomeLink>
 
         {/*
