@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
 /**
@@ -47,6 +47,58 @@ async function gotoDemo(page: Page) {
  * one can fail in the other, and duplicated specs drift the first time someone
  * updates only the copy in front of them.
  */
+/**
+ * Contrast of an element's text against its own background, both painted onto a
+ * canvas first. `getComputedStyle` returns `lab()` and `oklab()` here, and
+ * reading those numbers as RGB reports 1:1 for every pair; painting also
+ * composites the `/20` tints that several surfaces are built from.
+ */
+async function contrastOf(locator: Locator): Promise<number> {
+  const { fg, bg } = await locator.evaluate((node) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext("2d")!;
+    const paint = (color: string, under: string) => {
+      ctx.fillStyle = under;
+      ctx.fillRect(0, 0, 1, 1);
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, 1, 1);
+      return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+    };
+
+    let behind = "rgb(255,255,255)";
+    for (let el = node.parentElement; el; el = el.parentElement) {
+      const color = getComputedStyle(el).backgroundColor;
+      if (color && color !== "rgba(0, 0, 0, 0)") {
+        behind = color;
+        break;
+      }
+    }
+
+    const style = getComputedStyle(node);
+    const own = style.backgroundColor;
+    return {
+      bg: paint(own, behind),
+      fg: paint(style.color, own === "rgba(0, 0, 0, 0)" ? behind : own),
+    };
+  });
+
+  const luminance = (rgb: number[]) => {
+    const channel = (v: number) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return (
+      0.2126 * channel(rgb[0]!) +
+      0.7152 * channel(rgb[1]!) +
+      0.0722 * channel(rgb[2]!)
+    );
+  };
+
+  const [hi, lo] = [luminance(fg), luminance(bg)].sort((a, b) => b - a);
+  return (hi! + 0.05) / (lo! + 0.05);
+}
+
 const THEMES = ["light", "dark"] as const;
 
 async function useTheme(page: Page, theme: (typeof THEMES)[number]) {
@@ -257,6 +309,39 @@ for (const theme of THEMES) {
         });
 
         expect(ratio).toBeGreaterThanOrEqual(4.5);
+      });
+
+      test("the accent carries the citation without losing its text", async ({
+        page,
+      }) => {
+        /*
+          `--primary` is the brand accent and it paints the two things the product
+          is about: the pressed chip and the passage it highlights. The highlight
+          is `bg-primary/20`, a tint over the page that the stylesheet never names,
+          so axe cannot see the pair it actually produces.
+        */
+        await gotoDemo(page);
+        await page
+          .getByRole("textbox", { name: /ask a question/i })
+          .fill("When is reimbursement paid?");
+        await page.getByRole("button", { name: /send/i }).click();
+
+        const chip = page.getByRole("button", { name: /^Citation 1:/ });
+        await expect(chip).toBeVisible();
+        await chip.click();
+        await expect(chip).toHaveAttribute("aria-pressed", "true");
+
+        const mark = page.getByRole("dialog").locator("mark");
+        await expect(mark).toBeVisible();
+
+        // `transition-colors` on the chip: sampling the instant `aria-pressed`
+        // flips reads the color the animation started from, which is the
+        // unpressed one, and reports a passing ratio for the wrong state.
+        await expect
+          .poll(async () => contrastOf(chip), { timeout: 5_000 })
+          .toBeGreaterThanOrEqual(4.5);
+
+        expect(await contrastOf(mark)).toBeGreaterThanOrEqual(4.5);
       });
 
       test("the source text can be scrolled by keyboard alone", async ({
