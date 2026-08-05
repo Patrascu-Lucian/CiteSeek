@@ -102,7 +102,7 @@ export function ChatPanel({
   // reads as broken rather than empty.
   if (!hasReadyDocuments && messages.length === 0) {
     return (
-      <div className="border-border text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
+      <div className="border-border text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm sm:p-6">
         <p>Nothing to search yet.</p>
         <p className="mt-1">
           Once a document has finished processing, you can ask questions about
@@ -130,7 +130,7 @@ export function ChatPanel({
               : ""}
       </p>
 
-      <div className="border-border min-h-64 rounded-lg border p-4">
+      <div className="border-border min-h-64 rounded-lg border p-3 sm:p-4">
         <MessageList
           messages={messages}
           onSelectSource={onOpenSource}

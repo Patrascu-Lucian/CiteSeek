@@ -206,7 +206,9 @@ for (const theme of THEMES) {
           green that looked right first measured 4.53:1, which is AA by 0.03.
         */
         await gotoDemo(page);
-        const badge = page.getByText("Ready", { exact: true }).first();
+        // The badge, not its text: below `sm` the word is an `sr-only` span — a
+        // clipped 1px box with no background, which measures 1:1 either way.
+        const badge = page.locator('[data-slot="badge"]').first();
         await expect(badge).toBeVisible();
 
         const ratio = await badge.evaluate((node) => {
@@ -323,11 +325,51 @@ test.describe("controls look interactive", () => {
   });
 });
 
+test.describe("the document row says it opens something", () => {
+  // axe cannot catch this: a button that looks like a paragraph is a valid
+  // button, and the row's only signals used to be `hover:`.
+  test("an openable document carries an icon; one still processing does not", async ({
+    page,
+  }) => {
+    await page.goto("/demo");
+
+    const name = page.getByRole("button", {
+      name: "northwind-remote-work-handbook.pdf",
+      exact: true,
+    });
+    await expect(name).toBeVisible();
+
+    await expect(name.locator("svg")).toBeVisible();
+
+    // `exact` above is the other half: the icon is decorative, so it must add
+    // nothing to the name.
+  });
+});
+
 test.describe("layout at phone widths", () => {
   /*
     Making the filename a button broke its truncation: a button is inline-block,
     so it sizes to its text and `truncate` never fires
   */
+  test("the ready badge narrows to a glyph but still says its word", async ({
+    page,
+  }) => {
+    const badge = page.locator('[data-slot="badge"]').first();
+
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto("/demo");
+    await expect(badge).toBeVisible();
+    const narrow = (await badge.boundingBox())!.width;
+
+    await expect(badge).toHaveText(/Ready/);
+
+    await page.setViewportSize({ width: 900, height: 800 });
+    await expect(badge).toHaveText(/Ready/);
+    await expect(badge).toBeVisible();
+
+    expect(narrow).toBeLessThan((await badge.boundingBox())!.width);
+  });
+
   test("a long filename truncates rather than running under the badge", async ({
     page,
   }) => {

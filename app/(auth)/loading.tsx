@@ -12,7 +12,7 @@ export default function AuthLoading() {
   return (
     <main
       id="main"
-      className="flex flex-1 items-center justify-center px-4 py-16 sm:px-6"
+      className="flex flex-1 items-center justify-center px-3 py-16 sm:px-6"
       aria-busy="true"
     >
       <p role="status" className="sr-only">

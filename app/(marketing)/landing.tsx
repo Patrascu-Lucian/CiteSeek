@@ -45,7 +45,7 @@ const features = [
 export function Landing({ primary, secondary }: LandingCallsToAction) {
   return (
     <main id="main" className="flex flex-1 flex-col">
-      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-20 sm:px-6">
+      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-3 py-20 sm:px-6">
         <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
           Document intelligence
         </p>
@@ -77,7 +77,7 @@ export function Landing({ primary, secondary }: LandingCallsToAction) {
         aria-labelledby="features-heading"
         className="border-border/60 border-t"
       >
-        <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6">
+        <div className="mx-auto w-full max-w-5xl px-3 py-16 sm:px-6">
           <h2 id="features-heading" className="sr-only">
             What CiteSeek does
           </h2>
