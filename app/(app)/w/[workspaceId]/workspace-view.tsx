@@ -47,11 +47,11 @@ export async function WorkspaceView({
     listed (ADR 013). A guest reloading the demo starts fresh, which is the
     visible consequence of not writing rows for anonymous visitors.
 
-    An unrecognised `chatId` is a 404 rather than a silent fallback to the latest
+    An unrecognized `chatId` is a 404 rather than a silent fallback to the latest
     conversation: the URL names a specific thing, and quietly showing a different
     one would make a deleted conversation look like it still existed. The helper
-    filters on workspace *and* user, so someone else's chat id is indistinguish-
-    able from a missing one — which is the intended answer to both.
+    filters on workspace *and* user, so someone else's chat id is
+    indistinguishable from a missing one — which is the intended answer to both.
   */
   const [chats, openChat] = signedIn
     ? await Promise.all([

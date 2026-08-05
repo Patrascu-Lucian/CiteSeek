@@ -54,7 +54,7 @@ stream's first byte at ~460 ms is the citation payload, and the first token of p
 ~1.03 s is the model. They are different events, and quoting only the smaller one would be
 flattering and wrong.
 
-Workspace scoping is enforced in the SQL of that vector search, not by filtering afterwards
+Workspace scoping is enforced in the SQL of that vector search, not by filtering afterward
 in JavaScript. Every query helper takes a workspace id; unscoped ones do not exist, and a
 cross-tenant integration test keeps it that way.
 

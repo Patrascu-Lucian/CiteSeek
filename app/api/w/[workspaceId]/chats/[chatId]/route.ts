@@ -7,13 +7,13 @@ import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 export const runtime = "nodejs";
 
 /**
- * Two checks, and not the same check. `authorizeWorkspace` authorises **read** —
+ * Two checks, and not the same check. `authorizeWorkspace` authorizes **read** —
  * a conversation is not a mutation of the workspace, and the demo is read-only
  * for everyone. Ownership of the *chat* is enforced in SQL, filtering on user as
  * well as workspace.
  *
  * Read access to a shared workspace must not imply write access to a conversation
- * inside it. Authorising `write` would fail the other way, refusing a signed-in
+ * inside it. Authorizing `write` would fail the other way, refusing a signed-in
  * user renaming their own conversation in the demo.
  *
  * Guests are refused outright: their conversations are never persisted (ADR 013),
@@ -25,11 +25,11 @@ const GUEST_REFUSAL = {
 
 /** Tagged rather than an `in` check: without the discriminant TypeScript widens
  * the union and `response` reads as possibly undefined. */
-type Authorised =
+type Authorized =
   | { ok: false; response: NextResponse }
   | { ok: true; workspaceId: string; userId: string };
 
-async function authorise(workspaceId: string): Promise<Authorised> {
+async function authorize(workspaceId: string): Promise<Authorized> {
   const auth = await authorizeWorkspace(workspaceId, "read");
   if (isDenied(auth)) return { ok: false, response: auth };
 
@@ -50,8 +50,8 @@ export async function PATCH(
 ) {
   const { workspaceId, chatId } = await params;
 
-  const authorised = await authorise(workspaceId);
-  if (!authorised.ok) return authorised.response;
+  const authorized = await authorize(workspaceId);
+  if (!authorized.ok) return authorized.response;
 
   let body: unknown;
   try {
@@ -69,8 +69,8 @@ export async function PATCH(
   }
 
   const renamed = await renameChat(
-    authorised.workspaceId,
-    authorised.userId,
+    authorized.workspaceId,
+    authorized.userId,
     chatId,
     title,
   );
@@ -93,12 +93,12 @@ export async function DELETE(
 ) {
   const { workspaceId, chatId } = await params;
 
-  const authorised = await authorise(workspaceId);
-  if (!authorised.ok) return authorised.response;
+  const authorized = await authorize(workspaceId);
+  if (!authorized.ok) return authorized.response;
 
   const deleted = await deleteChat(
-    authorised.workspaceId,
-    authorised.userId,
+    authorized.workspaceId,
+    authorized.userId,
     chatId,
   );
 

@@ -208,7 +208,7 @@ describe("parseRefusal", () => {
     ).toEqual({ code: "capacity_reached", scope: "global" });
   });
 
-  it("ignores a scope it does not recognise", () => {
+  it("ignores a scope it does not recognize", () => {
     expect(
       parseRefusal(JSON.stringify({ code: "capacity_reached", scope: "moon" })),
     ).toEqual({ code: "capacity_reached", scope: null });

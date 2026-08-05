@@ -12,7 +12,7 @@ import {
 /**
  * Renaming and deleting one conversation, against a real database.
  *
- * The interesting cases are all about *whose* conversation it is. Authorisation
+ * The interesting cases are all about *whose* conversation it is. Authorization
  * here is two separate checks — workspace access, then chat ownership in SQL —
  * and the tests below exist because those two are easy to conflate.
  */

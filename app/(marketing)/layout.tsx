@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { SiteHeader } from "@/components/site-header";
 
 /**
@@ -9,11 +10,7 @@ import { SiteHeader } from "@/components/site-header";
  *
  * `showBack={false}` because "back to home" on the home page points at itself.
  */
-export default function MarketingLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <SiteHeader />
