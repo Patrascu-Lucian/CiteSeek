@@ -15,8 +15,12 @@ function isPrefetch(init: RequestInit | undefined, input: RequestInfo | URL) {
     : false;
 }
 
+/** Under this, a navigation is quick enough that a bar reads as a flicker. */
+const APPEAR_AFTER_MS = 200;
+
 export function NavigationProgress() {
   const [inFlight, setInFlight] = useState(0);
+  const [slow, setSlow] = useState(false);
 
   useEffect(() => {
     // Bound: detached from `window`, the native implementation throws on call.
@@ -46,7 +50,17 @@ export function NavigationProgress() {
     };
   }, []);
 
-  if (inFlight === 0) return null;
+  // Both branches go through a timer. A state update run synchronously in an
+  // effect cascades renders, and the linter is right to refuse it.
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setSlow(inFlight > 0),
+      inFlight > 0 ? APPEAR_AFTER_MS : 0,
+    );
+    return () => clearTimeout(timer);
+  }, [inFlight]);
+
+  if (inFlight === 0 || !slow) return null;
 
   return (
     <div

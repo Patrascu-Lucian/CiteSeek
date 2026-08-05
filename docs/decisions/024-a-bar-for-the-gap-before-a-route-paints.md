@@ -64,6 +64,12 @@ behind the impression that something is happening. The numbers above are recorde
 It is `aria-hidden`. Each route's `loading.tsx` and its own live regions already say what is
 happening to a screen reader, and a second announcement on every navigation is noise.
 
+**It waits 200ms before appearing.** A bar on a navigation that resolves in 120ms is a flicker,
+which is worse than no feedback — it reads as something going wrong rather than something being
+loaded. Prefetched routes resolve from cache with no request at all, so most in-app navigation
+shows nothing, which is correct: there is nothing to wait for. The bar is for the case that
+actually stalls, which is `/demo` and `/w` cold.
+
 ## Consequences
 
 Wrapping global `fetch` is invasive, and it is the only way to observe the App Router's requests
@@ -74,5 +80,7 @@ Excluding prefetches by header couples this to a Next implementation detail. If 
 renamed, the bar starts flashing on every arrival rather than failing silently, which is the
 right way round: the regression is visible.
 
-Two Playwright tests hold the pair that matters — the bar rises during a navigation, and it stays
-down through the prefetch burst on arrival. The second is the one that would otherwise rot.
+Three Playwright tests hold it: the bar rises during a slow navigation, stays down through the
+prefetch burst on arrival, and stays down for a navigation that resolves quickly. The slow case
+is forced by delaying the RSC request rather than hoping for a slow route — a threshold that only
+shows on slow navigations cannot be observed reliably by waiting for a fast one.

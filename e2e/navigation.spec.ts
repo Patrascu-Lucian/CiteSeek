@@ -1,13 +1,28 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
-/** ADR 024: the bar counts in-flight `?_rsc=` requests. Both halves matter — it
- * has to rise for a navigation, and stay down for the prefetch burst on arrival. */
+/** ADR 024: the bar counts in-flight `?_rsc=` requests, and only appears once one
+ * has been running longer than `APPEAR_AFTER_MS`. Three things are worth pinning —
+ * it stays down for the prefetch burst, it stays down for a quick navigation, and
+ * it rises for a slow one. */
 const BAR = "[data-navigation-progress]";
 
 declare global {
   interface Window {
     __sawBar: boolean;
   }
+}
+
+/** Records whether the bar was ever in the DOM, however briefly. Polling would
+ * race the thing it is measuring. */
+async function watchForBar(page: Page) {
+  await page.evaluate(() => {
+    window.__sawBar = false;
+    new MutationObserver(() => {
+      if (document.querySelector("[data-navigation-progress]"))
+        window.__sawBar = true;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
 }
 
 test("stays down while the page prefetches links on arrival", async ({
@@ -18,27 +33,51 @@ test("stays down while the page prefetches links on arrival", async ({
     page.getByRole("heading", { level: 2, name: /ask/i }),
   ).toBeVisible();
 
-  await page.waitForTimeout(2_000);
+  await page.waitForTimeout(1_200);
 
   await expect(page.locator(BAR)).toHaveCount(0);
 });
 
-test("rises during a navigation and clears afterward", async ({ page }) => {
-  await page.goto("/demo");
+test("rises during a slow navigation and clears afterward", async ({
+  page,
+}) => {
+  await page.goto("/");
   await expect(
-    page.getByRole("heading", { level: 2, name: /ask/i }),
+    page.getByRole("link", { name: /try the demo/i }).first(),
   ).toBeVisible();
-  await page.waitForTimeout(1_000);
+  await page.waitForTimeout(400);
 
-  // Observed rather than polled: the bar can be up for less time than any
-  // sampling interval, so a poll that misses it is a flake, not a finding.
-  await page.evaluate(() => {
-    window.__sawBar = false;
-    new MutationObserver(() => {
-      if (document.querySelector("[data-navigation-progress]"))
-        window.__sawBar = true;
-    }).observe(document.body, { childList: true, subtree: true });
+  /*
+    Held past the threshold deliberately. Locally a route can resolve in well
+    under it, and then the bar correctly never appears — a real navigation is
+    not a reliable way to observe something that only shows when one is slow.
+  */
+  await page.route(/_rsc=/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await route.continue();
   });
+
+  await watchForBar(page);
+
+  await page
+    .getByRole("link", { name: /try the demo/i })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}$/, { timeout: 30_000 });
+
+  expect(await page.evaluate(() => window.__sawBar)).toBe(true);
+
+  // An indicator that never clears is worse than none.
+  await expect(page.locator(BAR)).toHaveCount(0);
+});
+
+test("stays down for a navigation that resolves quickly", async ({ page }) => {
+  // The reason the delay exists: a bar on a 120ms navigation reads as a flicker.
+  await page.goto("/about");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await page.waitForTimeout(400);
+
+  await watchForBar(page);
 
   await page
     .getByRole("link", { name: /^privacy/i })
@@ -46,8 +85,5 @@ test("rises during a navigation and clears afterward", async ({ page }) => {
     .click();
   await expect(page).toHaveURL(/\/privacy$/, { timeout: 30_000 });
 
-  expect(await page.evaluate(() => window.__sawBar)).toBe(true);
-
-  // An indicator that never clears is worse than none.
-  await expect(page.locator(BAR)).toHaveCount(0);
+  expect(await page.evaluate(() => window.__sawBar)).toBe(false);
 });

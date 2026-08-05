@@ -44,6 +44,46 @@ export default function AboutPage() {
         </p>
       </Section>
 
+      <Section title="Why not just ask ChatGPT?">
+        <p>
+          For most things, do. A general assistant is better at breadth, better
+          at reasoning across subjects, and needs no setup at all.
+        </p>
+        <p className="mt-3">
+          But it only knows what it was trained on, and it has never seen your
+          handbook. Ask it about your expenses policy and it has three options,
+          all bad: refuse, describe what expenses policies are like in general,
+          or invent one that sounds right. The third is the dangerous one,
+          because a fluent invention reads exactly like an answer.
+        </p>
+        <p className="mt-3">
+          The obvious fix is to paste the document into the question. That works
+          for one page and falls apart for a shelf of them. There is a hard
+          limit on how much a model can be handed at once, you pay by the length
+          of what you send, and a model given fifty documents attends to all of
+          them poorly.
+        </p>
+        <p className="mt-3">
+          So here a search runs first. Your files are split into passages, and
+          each passage is stored in a way that captures what it is{" "}
+          <em>about</em> rather than which words it happens to use — so
+          &ldquo;annual leave&rdquo; and &ldquo;time off&rdquo; end up in the
+          same neighborhood. Your question is looked up the same way, and only
+          the four or five closest passages are handed over, with an instruction
+          to answer from those and nothing else. The model never sees your
+          collection. It sees the shortlist — which is what makes a citation
+          possible, because the passages were chosen before a word was written.
+        </p>
+        <p className="mt-3">
+          What this does not claim is that it always knows when it does not
+          know. That threshold was measured rather than guessed, and the scores
+          for answerable and unanswerable questions overlap, so some questions
+          fall on the wrong side of it. The narrower promise is the one worth
+          making: every citation points at text that was really retrieved, and
+          you can open it.
+        </p>
+      </Section>
+
       <Section title="The guarantee">
         <p>
           When nothing in your documents is relevant, the answer says so and

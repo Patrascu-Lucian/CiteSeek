@@ -36,7 +36,7 @@ const features = [
   },
   {
     icon: ShieldCheck,
-    title: "Honest about what it doesn't know",
+    title: "A refusal cannot cite",
     description:
       "When retrieval finds nothing relevant, CiteSeek says so instead of inventing a citation.",
   },
