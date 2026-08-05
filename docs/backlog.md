@@ -513,3 +513,12 @@ new tab could only render the same extracted text one navigation further away.
   summary per document is the obvious answer and is a generation cost per upload, so it is a
   decision rather than a task. The demo's starter questions cover the reader this came from;
   they do nothing for a workspace someone uploads to, which is the case this would serve.
+
+## Navigation
+
+- **Duplicate RSC prefetches on arrival.** Landing on the workspace fires eight RSC requests at
+  once — `/terms`, `/privacy`, `/about`, `/account`, `/w/…/usage`, `/w/…` — because every header
+  and footer link is in the viewport. `/account` and `/w/…/usage` are each fetched **twice** with
+  different cache keys, so one of the two is wasted. Measured while investigating navigation
+  feedback; harmless for correctness, and it competes for bandwidth with the page actually being
+  opened. Worth looking at whether the footer's policy links need prefetching at all.
