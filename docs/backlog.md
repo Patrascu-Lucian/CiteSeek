@@ -473,3 +473,28 @@ each of these is reversible and therefore safe to defer.
   worse than no form, because it looks like it works. When the form lands, the privacy page needs
   a paragraph for it: a contact form is a new personal-data flow, and this policy is specific
   about what it stores, for how long, and who reads it.
+
+## Watching someone use it
+
+**One cold reader, one finding, shipped.** A senior frontend engineer was given the URL and
+watched, unprompted. She found the demo workspace immediately — the path in is fine. Then she
+clicked the document row, and the filename, and the box around both, trying to open
+`northwind-remote-work-handbook.pdf`. Nothing happened, because nothing was a control.
+
+What she was after is the interesting part: she was not trying to read the handbook, she was
+trying to find out **what it was about, so she would know what to ask it**. An empty composer
+above a document whose contents you cannot see is a question with no visible answer space. The
+demo questions were on screen, and she ignored them, which is its own finding — a suggested
+question reads as a canned demo, whereas the document reads as the real thing.
+
+Shipped as: the filename opens the same side panel citations open, with the full extracted text
+and no highlight. Not a new tab — the original file no longer exists to serve (ADR 009), so a
+new tab could only render the same extracted text one navigation further away.
+
+**Still open from the same session**, not yet acted on:
+
+- The row is now clickable but does not _look_ clickable until hover. A reader who does not
+  hover still has no signal.
+- Nothing tells you a document is readable _before_ you have a reason to want it. A one-line
+  summary per document is the obvious answer and is a generation cost per upload, so it is a
+  decision rather than a task.

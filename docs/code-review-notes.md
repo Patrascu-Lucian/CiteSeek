@@ -1293,3 +1293,39 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   **"Provisional" in a comment is not a test.** The uncertainty was documented honestly at the
   point of decision and then behaved exactly like a resolved question for four milestones,
   because nothing failed. A known unknown needs something that fails, or it is just a note.
+
+## The documented way to migrate production migrated development instead
+
+- **Issue**: the README's production runbook read
+  `DATABASE_URL='<production-url>' pnpm db:migrate`. Every `db:*` entry point —
+  `drizzle.config.ts`, `check-migrations.mts`, `seed.mts` — resolves its connection as
+  `DATABASE_URL_UNPOOLED ?? DATABASE_URL`, and `.env.local` sets **both**, pointing at
+  development. Overriding only the second one leaves the first in place, so the documented
+  command connects to development, applies nothing, and exits 0.
+
+- **Why nothing caught it.** There is nothing to catch. The fallback resolves to a valid
+  connection string; a valid string is not an error. `db:migrate` has no equivalent of the
+  seed's host confirmation, because that guard was written for the seed's incident and is
+  shaped like it. And the failure is silent in the specific way this project keeps
+  rediscovering: Neon branches are copy-on-write clones, so the wrong database returns
+  right-looking output.
+
+- **Found by asking, not by testing.** The question was "the README says `DATABASE_URL`, is
+  that wrong?" — nobody had run the command against production yet, so the defect had no
+  symptom to notice. The runbook had been wrong since the section was written.
+
+- **Fix**: both recipes now set `DATABASE_URL_UNPOOLED`, with `pnpm db:check` first as the
+  read-only pre-flight that prints the host it is about to change. The README also now says
+  _why_ schema changes take the unpooled endpoint — the pooled one is PgBouncer in transaction
+  mode, and DDL wants a session that outlives a statement.
+
+- **Lesson**: **a `??` fallback is a chain, and overriding it means overriding the link that is
+  read, not the one you remember the name of.** The fallback exists so a machine without the
+  preferred variable still works — and that same property lets a machine _with_ it ignore what
+  you typed on the command line.
+
+  The wider one: **documentation is not covered by anything.** Tests, types and lint all read
+  the code; a runbook is prose that produces side effects on production infrastructure, and the
+  only thing checking it is whoever runs it. That makes a runbook the one place where being
+  approximately right is indistinguishable from being wrong, and it should be treated as code
+  under review rather than as commentary around it.

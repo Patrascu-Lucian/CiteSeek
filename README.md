@@ -80,7 +80,9 @@ shaped the product rather than the toolchain.
 
 > **Status: Milestone 5.** Upload a PDF, Word document,
 > Markdown or text file, then ask questions about it. Answers stream, and every claim carries a
-> numbered citation that opens the source document scrolled to the exact passage. When nothing
+> numbered citation that opens the source document scrolled to the exact passage — and the
+> documents themselves open from the list, because knowing what is in one is how you work out
+> what to ask it. When nothing
 > relevant is found, the answer says so, cites nothing, and shows what the documents _do_
 > cover along with how to add one ([ADR 017](docs/decisions/017-answering-questions-the-documents-cannot-answer.md)).
 >
@@ -371,7 +373,7 @@ pnpm db:generate       # emit a new migration after editing lib/db/schema.ts
 pnpm db:studio         # browse the database
 ```
 
-Every `db:*` command reads `DATABASE_URL` from `.env.local`, which points at a **development**
+Every `db:*` command reads its connection from `.env.local`, which points at a **development**
 branch. Production is a different branch of the same Neon project, and because Neon branches
 are copy-on-write clones they carry **identical row ids** — so a command aimed at production
 and run against dev succeeds, prints ids that look right, and changes nothing anybody can see.
@@ -379,17 +381,35 @@ The hostname is the only thing that distinguishes them, so `pnpm db:seed` refuse
 remote database until you have named the one you mean — and printing it was not enough, twice.
 
 ```bash
-DATABASE_URL='<production-url>' pnpm db:migrate
+DATABASE_URL_UNPOOLED='<production-unpooled-url>' pnpm db:check
+DATABASE_URL_UNPOOLED='<production-unpooled-url>' pnpm db:migrate
 
 SEED_HOST='<your-production-endpoint>' EMBEDDINGS_PROVIDER=google \
-  DATABASE_URL='<production-url>' pnpm db:seed
+  DATABASE_URL_UNPOOLED='<production-unpooled-url>' pnpm db:seed
 ```
+
+Set `DATABASE_URL_UNPOOLED`, not `DATABASE_URL`. Schema changes go through the **unpooled**
+endpoint, because the pooled one is PgBouncer in transaction mode and DDL wants a session that
+outlives a statement. And a variable you leave unset is not empty: `.env.local` fills it in, so
+overriding only `DATABASE_URL` leaves the development `DATABASE_URL_UNPOOLED` in place and
+migrates development while reporting success.
+
+**If your Postgres has no pooler, ignore all of this.** Every `db:*` command resolves
+`DATABASE_URL_UNPOOLED ?? DATABASE_URL`, so on Docker, a plain server, or CI you leave the first
+one unset and everything runs off `DATABASE_URL`. Two variables are only needed where the
+provider hands you two URLs for the same database — Neon (`-pooler` in the hostname or not),
+Supabase (port 6543 or 5432), RDS with a proxy in front. `DATABASE_URL_UNPOOLED` is Neon's own
+name for it, which is why their Vercel integration sets it for you.
 
 `SEED_HOST` is any fragment that tells your branches apart — Neon names each endpoint
 independently, so yours differ from anyone else's. It is matched against the hostname the
 connection actually resolves to, so aiming at one branch and reaching another is a refusal
 naming both rather than a success. Read from the shell only: putting it in `.env.local` would
 let one file supply both the wrong answer and the confirmation of it.
+
+**You do not have to go looking for the value**: run the command without it and the refusal
+prints the `export SEED_HOST=…` line for the host it actually reached. In Neon's console it is
+the first segment of the connection hostname (`ep-…`), shown per branch under Connect.
 
 `format:check`, `lint`, `typecheck`, `test`, `build`, integration tests, and the
 Playwright smoke suite all gate every pull request.
@@ -398,7 +418,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                  |
 | ----------- | ----- | ----------------------------------------------------------------------------------------------- |
-| Unit        | 506   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
+| Unit        | 514   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
 | Integration | 136   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
 | E2E         | 81    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
 

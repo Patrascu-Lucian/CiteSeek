@@ -12,13 +12,14 @@ import type { ChatSource } from "@/lib/ai/types";
 import { highlightForCitation } from "@/lib/rag/highlight";
 
 /**
- * The source document, opened at the cited passage. Everything upstream — chunk
- * offsets, retrieval anchors, the marker the model wrote — exists so clicking
- * `[1]` lands on the exact text.
- *
- * The whole document is shown, not the passage alone: the surrounding paragraph
- * is often what tells you whether the answer used it fairly.
+ * A document, opened either at a cited passage or from the top. The whole text
+ * either way: the paragraph around a citation is what tells you whether the
+ * answer used it fairly, and a reader browsing the list wants the rest anyway.
  */
+
+export type SourceTarget =
+  | { kind: "citation"; source: ChatSource }
+  | { kind: "document"; documentId: string; filename: string };
 
 type LoadState =
   | { status: "loading" }
@@ -28,15 +29,20 @@ type LoadState =
   | { status: "error" };
 
 export function SourcePanel({
-  source,
+  target,
   workspaceId,
   onClose,
 }: {
-  source: ChatSource | null;
+  target: SourceTarget | null;
   workspaceId: string;
   onClose: () => void;
 }) {
-  if (!source) return null;
+  if (!target) return null;
+
+  const filename =
+    target.kind === "citation" ? target.source.filename : target.filename;
+  const documentId =
+    target.kind === "citation" ? target.source.documentId : target.documentId;
 
   return (
     /*
@@ -53,11 +59,13 @@ export function SourcePanel({
         onInteractOutside={(event) => event.preventDefault()}
       >
         <SheetHeader>
-          <SheetTitle>{source.filename}</SheetTitle>
+          <SheetTitle>{filename}</SheetTitle>
           <SheetDescription>
-            {source.pageNumber === null
-              ? `Cited as [${source.marker}]`
-              : `Cited as [${source.marker}] · page ${source.pageNumber}`}
+            {target.kind === "document"
+              ? "The full text, as it was extracted"
+              : target.source.pageNumber === null
+                ? `Cited as [${target.source.marker}]`
+                : `Cited as [${target.source.marker}] · page ${target.source.pageNumber}`}
           </SheetDescription>
         </SheetHeader>
 
@@ -65,8 +73,8 @@ export function SourcePanel({
           rather than resetting state inside the fetch effect and rendering one
           frame of the previous document's text. */}
         <SourceBody
-          key={source.documentId}
-          source={source}
+          key={documentId}
+          target={target}
           workspaceId={workspaceId}
         />
       </SheetContent>
@@ -75,16 +83,18 @@ export function SourcePanel({
 }
 
 function SourceBody({
-  source,
+  target,
   workspaceId,
 }: {
-  source: ChatSource;
+  target: SourceTarget;
   workspaceId: string;
 }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const markRef = useRef<HTMLElement>(null);
 
-  const { documentId } = source;
+  const source = target.kind === "citation" ? target.source : null;
+  const documentId =
+    target.kind === "citation" ? target.source.documentId : target.documentId;
 
   useEffect(() => {
     // Guards a slow response for a citation the reader has already replaced
@@ -135,12 +145,14 @@ function SourceBody({
     if (state.status !== "loaded") return;
 
     markRef.current?.scrollIntoView({ block: "center" });
-  }, [state.status, source.chunkId]);
+  }, [state.status, source?.chunkId]);
 
   const highlight =
-    state.status === "loaded"
+    state.status === "loaded" && source
       ? highlightForCitation(state.contentText, source)
       : null;
+
+  const plain = state.status === "loaded" && !source ? state.contentText : null;
 
   return (
     /*
@@ -151,7 +163,7 @@ function SourceBody({
     */
     <div
       role="region"
-      aria-label={`Source text of ${source.filename}`}
+      aria-label={`Source text of ${target.kind === "citation" ? target.source.filename : target.filename}`}
       tabIndex={0}
       className="focus-visible:ring-ring flex-1 overflow-y-auto px-6 py-4 focus-visible:ring-2 focus-visible:outline-none"
     >
@@ -168,7 +180,7 @@ function SourceBody({
           <p className="text-muted-foreground mt-1">
             The passage the answer quoted is below, so you can still read it.
           </p>
-          <StoredQuote quote={source.quote} />
+          {source ? <StoredQuote quote={source.quote} /> : null}
         </div>
       ) : null}
 
@@ -180,10 +192,14 @@ function SourceBody({
               ? "This document has been deleted."
               : "This document's text is no longer stored."}
           </p>
-          <p className="text-muted-foreground mt-1">
-            The passage the answer quoted was saved with the citation:
-          </p>
-          <StoredQuote quote={source.quote} />
+          {source ? (
+            <>
+              <p className="text-muted-foreground mt-1">
+                The passage the answer quoted was saved with the citation:
+              </p>
+              <StoredQuote quote={source.quote} />
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -206,7 +222,7 @@ function SourceBody({
                   The highlight below may not be the passage that was cited.
                   What the answer quoted was:
                 </p>
-                <StoredQuote quote={source.quote} />
+                {source ? <StoredQuote quote={source.quote} /> : null}
               </div>
             </div>
           ) : null}
@@ -224,6 +240,10 @@ function SourceBody({
             {highlight.after}
           </p>
         </>
+      ) : null}
+
+      {plain ? (
+        <p className="text-sm leading-relaxed whitespace-pre-wrap">{plain}</p>
       ) : null}
     </div>
   );

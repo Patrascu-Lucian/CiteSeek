@@ -3,21 +3,11 @@
 <title>Northwind Remote Work Handbook</title>
 
 <!--
-  The source the demo PDF is generated from — see `scripts/build-demo-pdf.mts`.
+  Source for `scripts/build-demo-pdf.mts`, which renders it in Chromium — hence
+  HTML rather than the Markdown it replaced, which would have needed a parser.
 
-  HTML rather than the Markdown this replaced, because the generator renders a
-  page in Chromium and Markdown would need a parser to get there. One authored
-  source, no dependency added for a file that changes once a year.
-
-  A fictional handbook for a company that does not exist. That fact is recorded
-  here rather than inside the document, and deliberately so: an earlier draft
-  opened by explaining that it was a demo fixture, which put text about the
-  assistant into the assistant's own corpus. Ask "can I ask you something?" and
-  that paragraph was the nearest passage — a question about the product answered
-  by citing a sentence about the product, technically grounded and useless.
-
-  It has to run past one page. Every citation in a single-page PDF reads
-  "page 1", which demonstrates nothing about page-accurate citations.
+  Must run past one page, or every citation reads "page 1". Must not mention
+  being a fixture — see `FIXTURE_FILENAME` in `lib/db/seed.mts`.
 -->
 
 <style>

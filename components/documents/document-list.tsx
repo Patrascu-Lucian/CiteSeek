@@ -31,6 +31,7 @@ export function DocumentList({
   pollError,
   onRetry,
   onDelete,
+  onOpen,
 }: {
   documents: DocumentSummary[];
   canWrite: boolean;
@@ -38,6 +39,7 @@ export function DocumentList({
   pollError?: string | null;
   onRetry?: (documentId: string) => void;
   onDelete?: (documentId: string) => void;
+  onOpen?: (documentId: string, filename: string) => void;
 }) {
   if (documents.length === 0) {
     return (
@@ -70,7 +72,7 @@ export function DocumentList({
         {documents.map((document) => (
           <li
             key={document.id}
-            className="border-border/60 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3"
+            className="border-border/60 has-[button:hover]:bg-muted/40 relative flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3"
           >
             <FileText
               aria-hidden="true"
@@ -78,7 +80,22 @@ export function DocumentList({
             />
 
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{document.filename}</p>
+              {onOpen && document.status === "ready" ? (
+                // `::after` stretches the target over the whole row, which is what
+                // a cold reader clicked and got nothing from. A row-sized button
+                // cannot be the control: the delete button would nest inside it.
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpen(document.id, document.filename);
+                  }}
+                  className="focus-visible:ring-ring truncate rounded-sm text-left font-medium after:absolute after:inset-0 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  {document.filename}
+                </button>
+              ) : (
+                <p className="truncate font-medium">{document.filename}</p>
+              )}
               <p className="text-muted-foreground mt-0.5 text-sm">
                 {document.status === "ready" && document.chunkCount
                   ? `${document.chunkCount} passages${document.pageCount ? ` · ${document.pageCount} pages` : ""}`
@@ -105,7 +122,7 @@ export function DocumentList({
             />
 
             {canWrite ? (
-              <div className="flex items-center gap-1">
+              <div className="relative z-10 flex items-center gap-1">
                 {document.status === "failed" ? (
                   <Button
                     type="button"
