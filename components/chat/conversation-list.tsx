@@ -201,7 +201,7 @@ function DeleteConversation({
       <AlertDialogTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
+          variant="ghost-destructive"
           size="sm"
           aria-label={`Delete ${label}`}
           disabled={busy}

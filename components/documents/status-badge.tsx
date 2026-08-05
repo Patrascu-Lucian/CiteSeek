@@ -36,7 +36,7 @@ export function StatusBadge({
         status === "failed"
           ? "destructive"
           : status === "ready"
-            ? "default"
+            ? "success"
             : "secondary"
       }
     >
