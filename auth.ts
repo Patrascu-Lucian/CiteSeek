@@ -48,7 +48,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      * `/w` re-checks and creates on demand for accounts that predate this.
      */
     async createUser({ user }) {
-      if (!user.id) return;
+      // The adapter always sets it; a bare `return` here would leave an account
+      // with no workspace and say nothing, which is how the `/w` backfill came
+      // to exist. It is the backstop, not the reason this can be quiet.
+      if (!user.id) {
+        console.error(
+          "createUser fired without a user id — no workspace created. The account will get one from /w on first visit.",
+        );
+        return;
+      }
+
       await getOrCreatePersonalWorkspace({
         id: user.id,
         name: user.name ?? null,
