@@ -444,6 +444,13 @@ Integration tests run against a throwaway pgvector container in CI rather than a
 database, so they also prove the migration applies cleanly to an empty database on every
 pull request.
 
+Beyond the suite, every pull request is scanned. **CodeQL** runs on the workflows and the
+TypeScript, currently with no open alerts — its first run found three real ones, all the same
+missing `permissions` block on the CI jobs. **Dependabot** watches dependencies weekly, grouped so
+patch bumps arrive as one reviewable PR rather than a queue.
+[`SECURITY.md`](SECURITY.md) says what is in scope, and what is already known and accepted — the
+section most policies leave out and the one that saves a reporter an evening.
+
 ## Branching
 
 `main` is protected by a `pre-push` hook in [`.githooks/`](.githooks/): direct pushes are
