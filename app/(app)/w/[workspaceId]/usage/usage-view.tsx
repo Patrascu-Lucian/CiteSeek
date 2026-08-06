@@ -13,9 +13,9 @@ import type { WorkspaceUsage } from "@/lib/usage/dashboard";
 /**
  * Split from `page.tsx` so every state is a prop and none needs a database.
  *
- * **Tokens, never money.** The free tier costs nothing, so a figure from the paid
- * price list would describe a tier this app is not on — a plausible number nobody
- * measured. A cost column would have to name the rate it assumes.
+ * **Tokens, never money.** Requests are billed now, but a cost column would still
+ * be a rate this page invented rather than one it measured — per-model, per-region,
+ * and stale the day the price list moves. Tokens are what was actually counted.
  */
 export function UsageView({
   workspaceId,

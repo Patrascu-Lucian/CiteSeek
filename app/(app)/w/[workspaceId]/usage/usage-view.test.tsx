@@ -61,7 +61,8 @@ describe("UsageView — with usage recorded", () => {
   });
 
   it("shows tokens and never a money figure", () => {
-    // The free tier costs nothing, so any currency here would be a number for a
+    // Any currency here would be a rate this page invented rather than one it
+    // measured, so it stays out — a number for a
     // tier the app is not on — the same failure as the bundle claim the README
     // had to correct.
     const { container } = render(

@@ -147,23 +147,13 @@ export function UploadDropzone({
         </span>
       </button>
 
-      {/*
-        The warning belongs here, not only on the privacy page.
-
-        Document text is sent to a third-party model provider, and this
-        deployment is on that provider's free tier — under whose standard terms
-        submitted content may be used to improve their services. Someone deciding
-        what to upload is deciding it *at this control*, and a caveat they would
-        have to go looking for is a caveat written for the writer rather than the
-        reader.
-
-        It stays until the deployment is on a paid tier or covered by written
-        data-processing terms, at which point this sentence and the matching
-        paragraph on the privacy page change together.
-      */}
+      {/* Someone deciding what to upload decides it *at this control*, so the
+          fact that the text leaves the app belongs here and not only on the
+          privacy page. Changed with the tier, never after it — ADR 025. */}
       <p className="text-muted-foreground mt-2 text-xs">
-        Document text is sent to Google&rsquo;s Gemini API for processing, on a
-        free tier — please don&rsquo;t upload anything confidential.{" "}
+        You are uploading to a deployment on Google&rsquo;s{" "}
+        <strong>paid Gemini tier</strong> — your document text is sent there to
+        answer questions, and is not used to train their models.{" "}
         <Link href="/privacy" className="underline">
           What is stored
         </Link>
