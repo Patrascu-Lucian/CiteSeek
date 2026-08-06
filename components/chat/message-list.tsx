@@ -129,6 +129,7 @@ export function MessageList({
   signedIn,
   isDemo,
   onAsk,
+  pending = false,
 }: {
   messages: readonly ChatUIMessage[];
   onSelectSource: (source: ChatSource) => void;
@@ -141,8 +142,10 @@ export function MessageList({
   /** The seeded workspace, which is shared and read-only. */
   isDemo: boolean;
   onAsk: (question: string) => void;
+  /** Asked, nothing back yet — measured at ~1.03s to the first token. */
+  pending?: boolean;
 }) {
-  if (messages.length === 0)
+  if (messages.length === 0 && !pending)
     return <EmptyState isDemo={isDemo} onAsk={onAsk} />;
 
   return (
@@ -201,6 +204,24 @@ export function MessageList({
           </li>
         );
       })}
+
+      {/* The skeleton the streamed answer arrives into, so the bubble fills
+          rather than replacing itself. */}
+      {pending ? (
+        <li className="flex justify-start">
+          <div
+            data-message-bubble="assistant"
+            data-pending=""
+            className="bg-muted text-foreground max-w-[85%] rounded-lg px-4 py-3 text-sm"
+          >
+            <span className="sr-only">Answer:</span>
+            <div aria-hidden="true" className="space-y-2 py-1">
+              <div className="bg-foreground/10 h-3 w-48 animate-pulse rounded" />
+              <div className="bg-foreground/10 h-3 w-32 animate-pulse rounded" />
+            </div>
+          </div>
+        </li>
+      ) : null}
     </ol>
   );
 }
