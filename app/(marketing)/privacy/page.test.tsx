@@ -109,6 +109,20 @@ describe("the terms page", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not claim the demo stores nothing, which is false when signed in", () => {
+    // `route.ts` persists on `actorType === "user"` with no workspace check, so a
+    // signed-in reader's demo conversations are saved. The page said otherwise
+    // for four milestones because nothing pinned it.
+    render(<TermsPage />);
+
+    expect(
+      screen.getByText(/ask as a guest and nothing is stored/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/saved to your own history, where only you can see it/i),
+    ).toBeInTheDocument();
+  });
+
   it("carries the landmark the skip link points at", () => {
     const { container } = render(<TermsPage />);
 
