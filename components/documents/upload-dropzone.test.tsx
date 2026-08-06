@@ -197,21 +197,21 @@ describe("UploadDropzone — accepted files", () => {
 describe("UploadDropzone — what happens to the file", () => {
   it("warns about the provider at the control, not only in the policy", () => {
     /*
-      Document text is sent to a third-party model provider, on a free tier whose
-      standard terms allow submitted content to be used for service improvement.
-      The decision about what to upload is made *here*, so a caveat someone has
-      to go looking for is a caveat written for the author.
+      The decision about what to upload is made *here*, so what happens to the
+      text has to be readable here — a caveat someone has to go looking for is a
+      caveat written for the author.
 
       Tested here rather than end-to-end because the dropzone renders only for a
       reader who can write, and the E2E suite runs as a guest against the
-      read-only demo — where this control does not exist at all.
+      read-only demo, where this control does not exist at all.
     */
     render(<UploadDropzone workspaceId="w1" onUploaded={vi.fn()} />);
 
     expect(
-      // Matched without the apostrophe: the copy uses a typographic ’, and the
-      // sentence is split across nodes by the trailing link.
-      screen.getByText(/upload anything confidential/i),
+      // The whole phrase inside one <strong>: an emphasis that ends mid-clause
+      // loses the space after it in JSX, which is how "extractedfrom" shipped
+      // once on the privacy page.
+      screen.getByText("paid Gemini tier"),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /what is stored/i }),

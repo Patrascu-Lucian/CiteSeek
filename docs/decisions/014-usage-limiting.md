@@ -1,5 +1,12 @@
 # 014 — Usage limiting: threat model and mechanism
 
+> **Amended by [ADR 025](025-paying-for-the-model-tier.md), 6 August 2026.** The threat model
+> below says the consequence of exhaustion "is not a bill", which was true on the free tier. The
+> deployment is on the paid tier now, and the sentence survives for a reason worth knowing:
+> credits are prepaid with auto-reload off, so an exhausted balance returns the same `429` as an
+> exhausted quota and lands in the same refusal. Nothing here changes — the ceiling is money, and
+> it is bounded by the balance rather than by Google's quota.
+
 **Status**: accepted · **Date**: 2026-07-30 · **Milestone**: 3
 
 ## Context

@@ -103,14 +103,11 @@ here, not in the current branch.
   explanation. Folds
   into Milestone 3 rate limiting; may want a cheap guard as soon as guest mode is live.
 
-- **Verify the EEA data-protection exception against the real account.** Google grants
-  paid-service data terms — no training on prompts or uploaded files — to customers in the
-  EEA, Switzerland and the UK even on unpaid quota. That removes the training-disclosure
-  obligation previously recorded here, but it follows the account's billing region rather
-  than the plan. Confirm it in the Google account before stating anything to a user, and
-  re-check if billing ever moves. See
-  `docs/decisions/002-embedding-model-and-dimension.md` and
-  `docs/decisions/007-commercial-optionality.md`.
+- ~~**Verify the EEA data-protection exception against the real account.**~~ **Overtaken by
+  ADR 025.** The account is EEA-billed, so the exception plausibly applied — but the paid tier was
+  attached anyway rather than relying on it. A guarantee that follows a billing region is one
+  address change away from lapsing, and a privacy page should not rest on something that can move
+  without anyone noticing. Re-read this if billing ever leaves the EEA.
 
 ## Known defects
 
@@ -198,7 +195,8 @@ each of these is reversible and therefore safe to defer.
   third-party uploads today. A DPA and a formal sub-processor list still belong here, because
   those are commitments a company makes; saying accurately what happens to a file is not.
 
-- **A paid or DPA-covered model provider.** The current Gemini free tier is for development
+- ~~**A paid or DPA-covered model provider.**~~ **Done, 6 August 2026 — ADR 025.** The original
+  entry follows. The current Gemini free tier is for development
   and the seeded demo only. Before real users upload their own documents, the provider needs
   either a paid tier or a data processing agreement — processing someone else's personal
   data on a free consumer tier is not a position to defend, independently of whether that
@@ -516,17 +514,47 @@ new tab could only render the same extracted text one navigation further away.
 
 ## Navigation
 
-- **Duplicate RSC prefetches on arrival.** Landing on the workspace fires eight RSC requests at
-  once — `/terms`, `/privacy`, `/about`, `/account`, `/w/…/usage`, `/w/…` — because every header
-  and footer link is in the viewport. `/account` and `/w/…/usage` are each fetched **twice** with
-  different cache keys, so one of the two is wasted. Measured while investigating navigation
-  feedback; harmless for correctness, and it competes for bandwidth with the page actually being
-  opened. Worth looking at whether the footer's policy links need prefetching at all.
+- ~~**Duplicate RSC prefetches on arrival.**~~ **Not a defect — measured wrong.** Arriving at the
+  workspace fires 15 `?_rsc=` requests, and every route appears twice. The original entry read that
+  as waste. It is not: Next 16 prefetches each route in two parts, one carrying
+  `Next-Router-Segment-Prefetch: /_tree` for the route tree and one carrying the segment payload
+  with a `Next-Router-State-Tree` header. Two requests per route is the design.
 
-- **A page-shell component for the gutter.** Every route repeats
-  `mx-auto w-full max-w-Nxl px-3 py-12 sm:px-6` — 18 files, including each `error.tsx`,
-  `loading.tsx` and `not-found.tsx`. The gutter never travels alone, so the honest abstraction is
-  a layout component with a width prop rather than a padding utility; a class would standardize a
-  quarter of it and leave the rest. Surfaces are already shared through `--card-spacing`, which is
-  the case that actually had to agree. This one merely repeats, so it is tidiness, not correctness,
-  and it touches enough files to want a commit with nothing else in it.
+  Two things worth keeping from the investigation. The hypothesis that links were duplicated in the
+  DOM (desktop nav plus mobile menu) was **wrong** — only `/sign-in` has two anchors, from the
+  header button and the read-only card. And "eight requests" in the first note was undercounted
+  because it was read off a partial trace rather than a full capture.
+
+## Hosting, if the terms or the price stop fitting
+
+- **Vercel Hobby is non-commercial only.** The same shape as the Gemini free-tier rule: a plan whose
+  terms forbid the thing the roadmap plans for. A portfolio demo with no revenue is exactly what
+  Hobby is for, so nothing is wrong today — but the first paying customer makes it a violation,
+  and Pro is around $20/month. Worth knowing before an invoice makes the decision.
+
+- **A single EU VPS would replace both Vercel and Neon**, and would strengthen the positioning
+  rather than compromise it. Hetzner is a German company in German datacenters at roughly €5/month
+  for app and database together — against ~$20 for Vercel Pro plus whatever Neon costs above free.
+  The repo already runs Postgres with pgvector under `docker compose` locally, so the database half
+  is a configuration change rather than a rewrite, and "EU-owned and EU-hosted" is a stronger claim
+  than "EU region on a US provider".
+
+  **The cost is not the hosting, it is what Vercel does for free.** Preview deploys per pull
+  request, which this workflow reviews on; automatic rollback; the CDN; zero-config support for
+  streaming and React Server Components; and `vercel.json`'s `db:check && build` gate, which is what
+  currently stops a deploy landing against an unmigrated database. Each of those has to be rebuilt
+  or given up, and giving up preview deploys is the one that would be felt daily.
+
+  Middle options worth pricing before jumping: Railway, Render or Fly.io keep push-to-deploy and EU
+  regions at roughly $5/month, and Supabase has a free tier with pgvector. Cheaper than Vercel Pro,
+  more managed than a bare VPS.
+
+  **Not urgent, and the trigger is a date rather than a number**: the first revenue, or the first
+  month Hobby's limits actually bite. Until then Hobby is legitimate and free.
+
+- **Neon's free tier suspends compute after inactivity**, which is a candidate explanation for
+  "route changes take too long sometimes" — a demo with sporadic traffic means most visitors are
+  the one who wakes the database. Measured warm, a `/demo` navigation is ~400ms end to end and the
+  database round trip is 34ms; neither was measured cold. Worth doing before assuming the frontend
+  is at fault: leave the site alone for an hour, then time the first load. ADR 024's progress bar is
+  right either way, but it may be covering Postgres waking rather than Next being slow.

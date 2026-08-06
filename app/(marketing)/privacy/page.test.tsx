@@ -10,7 +10,7 @@ import TermsPage from "../terms/page";
 /**
  * These pages make claims a reader is entitled to rely on. The tests pin the ones
  * that would be *lies* if the implementation changed underneath them, not the
- * prose — the free-tier warning most of all.
+ * prose — what the model provider may do with the text most of all.
  */
 describe("the privacy page", () => {
   it("says the original file is not kept", () => {
@@ -22,13 +22,18 @@ describe("the privacy page", () => {
     expect(screen.getByText(/never the original files/i)).toBeInTheDocument();
   });
 
-  it("warns about the free tier rather than implying protections", () => {
+  it("describes the tier the deployment is actually on", () => {
+    // Pinned because it is the one claim on this page that is bought rather than
+    // built: it holds only while the Google project has billing attached, and a
+    // page promising more than the deployment delivers is the failure to avoid.
     render(<PrivacyPage />);
 
+    // Both places, not one: the summary at the top and the section that explains
+    // it have to agree, or a reader gets the answer that scrolls past first.
+    expect(screen.getAllByText(/paid tier/i)).toHaveLength(2);
     expect(
-      screen.getByText(/do not upload anything confidential/i),
+      screen.getByText(/not used to train or improve their models/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/free-tier terms/i)).toBeInTheDocument();
   });
 
   it("names every processor that receives data", () => {

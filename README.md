@@ -264,13 +264,19 @@ does.
 
 ## Known gaps at this milestone
 
-**The model provider is on a free tier, and anyone who signs in can upload to it.** Under the
-standard free-tier terms, submitted content may be used to improve the provider's services — so
-the [privacy page](<app/(marketing)/privacy/page.tsx>) says so plainly and the warning is repeated
-beside the upload control rather than buried. This is the gap that would have to close before
-anyone uploaded a document that mattered: a paid tier, or written data-processing terms. It is
-listed here rather than quietly deferred because the alternative is a policy that overstates its
-protections, which is worse than having none.
+**Document text still leaves the EU, and the privacy page cannot say where it lands.** Storage is
+pinned to Frankfurt — Vercel `fra1`, Neon in the same region, both in configuration rather than
+left to a default. Processing is not: answers come from Google's Gemini API, whose standard
+endpoint carries no residency commitment, so "EU-hosted" is exact about storage and silent about
+where the model runs. Closing it means a regional endpoint or a European provider, and the
+second is the more interesting version of the question ([ADR 025](docs/decisions/025-paying-for-the-model-tier.md)).
+
+~~The provider is on a free tier whose terms permit using submitted content for product
+improvement.~~ **Closed, August 2026.** The project runs on the paid tier now, so that content is
+not used for training or improvement. The entry stayed here for four milestones because the
+disclosure felt like a fix; it was not, since asking people not to upload anything sensitive is a
+request rather than a protection, and the people named _inside_ an uploaded document never read
+the request at all.
 
 Guest conversations are not saved — a reload starts over. That is deliberate: persisting them
 would put an unbounded write path behind a public URL
@@ -308,9 +314,9 @@ in. Tracked in [`docs/backlog.md`](docs/backlog.md).
 ## What's next
 
 **Milestone 6 is an in-browser inference mode**: the same documents and the same citation
-path, with a small model running locally through WebGPU. Nothing leaves the machine, which
-turns the free-tier caveat in [Known gaps](#known-gaps-at-this-milestone) from a limitation
-into a choice the reader makes per question. Quality drops; the guarantee that a refusal
+path, with a small model running locally through WebGPU. Nothing leaves the machine — which
+answers the residency gap in [Known gaps](#known-gaps-at-this-milestone) outright rather than
+narrowing it, and turns it into a choice the reader makes per question. Quality drops; the guarantee that a refusal
 cannot cite does not, because it is enforced before any model is reached.
 
 Before that, the gap [ADR 020](docs/decisions/020-measuring-the-relevance-floor.md) measured:
