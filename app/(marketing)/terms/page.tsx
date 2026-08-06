@@ -99,8 +99,10 @@ export default function TermsPage() {
       <Section title="The demo workspace">
         <p>
           The demo is shared, read-only, and seeded with a fictional company
-          handbook. Nothing you ask there is stored. Do not treat it as private
-          space.
+          handbook. Ask as a guest and nothing is stored — a reload starts the
+          conversation over. Ask while signed in and it is saved to your own
+          history, where only you can see it. The handbook is shared; the
+          conversations are not.
         </p>
       </Section>
 
