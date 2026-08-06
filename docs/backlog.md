@@ -558,3 +558,42 @@ new tab could only render the same extracted text one navigation further away.
   database round trip is 34ms; neither was measured cold. Worth doing before assuming the frontend
   is at fault: leave the site alone for an hour, then time the first load. ADR 024's progress bar is
   right either way, but it may be covering Postgres waking rather than Next being slow.
+
+## Abuse: what is covered, and what is accepted
+
+Reviewed 6 August 2026 rather than assumed. All three expensive routes enforce limits — chat,
+upload, and the document **retry** endpoint, which is the one most easily forgotten because it
+re-embeds a document that was already paid for once.
+
+**Cost is bounded three independent ways**, and any one of them would do: the global daily cap
+(800 requests, of which guests may take 600), the prepaid credit balance with auto-reload off, and
+the spend cap on the Google account. An attacker cannot run up a bill.
+
+**The 800/600 split is already the answer to half of this.** A guest flood can consume at most 600,
+so 200 stay reserved for signed-in users and a bot cannot take down the author's own workspace
+mid-interview. ADR 014 built that on purpose, and it holds.
+
+### What is not covered
+
+- **A day of demo availability.** Burning the 600 guest requests is cheap and denies the demo to
+  real visitors until the window resets. Signed-in access survives; the thing a stranger clicks
+  does not. This is the real remaining exposure, and it is **accepted** rather than solved.
+- **Rotating IPs defeat the per-address limits outright.** Guests are keyed on
+  `HMAC-SHA256(ip, AUTH_SECRET)` because `/demo` mints a fresh cookie per visit, so the address is
+  the only stable handle there is. The global cap is the only backstop, which is the availability
+  problem above restated.
+- **A refused request is cheaper than an answered one, not free.** It still costs a Vercel function
+  invocation, an auth check and a Postgres count query — all of which happen _before_ the limiter
+  decides anything. A sustained flood therefore burns Hobby's invocation quota and wakes Neon
+  repeatedly, neither of which the limiter can see.
+
+### The one thing worth doing
+
+**Vercel's Attack Challenge Mode**, available on Hobby, is a single toggle that puts a challenge in
+front of traffic _before_ functions run — the one layer with nothing at it today. Free, and the
+highest leverage available.
+
+Nothing below that. A portfolio demo with no attackers does not need a WAF ruleset, and building
+one would be diligence that reads as over-engineering. The defensible position is the one already
+true: cost bounded three ways, guests unable to starve signed-in users, and a day of demo
+availability knowingly at risk from an attacker with rotating addresses.
