@@ -522,3 +522,11 @@ new tab could only render the same extracted text one navigation further away.
   different cache keys, so one of the two is wasted. Measured while investigating navigation
   feedback; harmless for correctness, and it competes for bandwidth with the page actually being
   opened. Worth looking at whether the footer's policy links need prefetching at all.
+
+- **A page-shell component for the gutter.** Every route repeats
+  `mx-auto w-full max-w-Nxl px-3 py-12 sm:px-6` — 18 files, including each `error.tsx`,
+  `loading.tsx` and `not-found.tsx`. The gutter never travels alone, so the honest abstraction is
+  a layout component with a width prop rather than a padding utility; a class would standardize a
+  quarter of it and leave the rest. Surfaces are already shared through `--card-spacing`, which is
+  the case that actually had to agree. This one merely repeats, so it is tidiness, not correctness,
+  and it touches enough files to want a commit with nothing else in it.

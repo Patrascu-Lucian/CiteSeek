@@ -78,7 +78,7 @@ export function DocumentList({
         {documents.map((document) => (
           <li
             key={document.id}
-            className="border-border/60 has-[button:hover]:bg-muted/40 group/row relative flex flex-wrap items-center gap-3 rounded-lg border px-3 py-3 sm:px-4"
+            className="border-border/60 has-[button:hover]:bg-muted/40 group/row relative flex flex-wrap items-center gap-3 rounded-lg border px-(--card-spacing) py-3"
           >
             <FileText
               aria-hidden="true"
