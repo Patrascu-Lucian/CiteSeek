@@ -208,6 +208,14 @@ each of these is reversible and therefore safe to defer.
 
 ## Ideas (unscheduled)
 
+- **A page-shell component for the gutter.** Every route repeats
+  `mx-auto w-full max-w-Nxl px-3 py-12 sm:px-6` — 18 files, including each `error.tsx`,
+  `loading.tsx` and `not-found.tsx`. Unlike the bordered surfaces, these do not have to _agree_
+  with one another, so this is tidiness rather than correctness. The gutter never travels alone
+  either, which is why the honest abstraction is a layout component with a width prop rather than
+  a padding utility — a class would standardize a quarter of the repetition and leave the rest.
+  Touches enough files to want a commit with nothing else in it.
+
 - **UUIDv7 primary keys instead of UUIDv4.** Postgres 18 ships a native `uuidv7()`.
   The schema currently uses Drizzle's `defaultRandom()`, which is `gen_random_uuid()`
   (v4, fully random), so every insert lands at a random point in the primary key's
@@ -597,3 +605,11 @@ Nothing below that. A portfolio demo with no attackers does not need a WAF rules
 one would be diligence that reads as over-engineering. The defensible position is the one already
 true: cost bounded three ways, guests unable to starve signed-in users, and a day of demo
 availability knowingly at risk from an attacker with rotating addresses.
+
+- **A page-shell component for the gutter.** Every route repeats
+  `mx-auto w-full max-w-Nxl px-3 py-12 sm:px-6` — 18 files, including each `error.tsx`,
+  `loading.tsx` and `not-found.tsx`. Unlike the bordered surfaces, these do not have to _agree_
+  with one another, so this is tidiness rather than correctness. The gutter never travels alone
+  either, which is why the honest abstraction is a layout component with a width prop rather than
+  a padding utility — a class would standardize a quarter of the repetition and leave the rest.
+  Touches enough files to want a commit with nothing else in it.

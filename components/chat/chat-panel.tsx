@@ -1,8 +1,3 @@
-// The server → client boundary. Repeating the directive below would hide where
-// the split happens, and make Next treat each component as a client entry whose
-// function props must be Server Actions.
-"use client";
-
 import { useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -141,6 +136,7 @@ export function ChatPanel({
           signedIn={signedIn}
           isDemo={isDemo}
           onAsk={ask}
+          pending={status === "submitted"}
         />
       </div>
 

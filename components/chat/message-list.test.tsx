@@ -151,6 +151,44 @@ describe("MessageList", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows a pending answer between the question and the first token", () => {
+    // ~1.03s measured, during which the reader sees only their own message.
+    render(
+      <MessageList
+        messages={[userMessage("What is the policy?")]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
+        isDemo={false}
+        onAsk={() => undefined}
+        pending
+      />,
+    );
+
+    expect(document.querySelector("[data-pending]")).toBeInTheDocument();
+  });
+
+  it("drops the pending bubble once an answer exists", () => {
+    render(
+      <MessageList
+        messages={[userMessage("What is the policy?")]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        workspaceId="w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
+        isDemo={false}
+        onAsk={() => undefined}
+      />,
+    );
+
+    expect(document.querySelector("[data-pending]")).not.toBeInTheDocument();
+  });
+
   it("announces who said what rather than relying on alignment", () => {
     // Left and right mean nothing to a screen reader.
     render(
