@@ -10,3 +10,11 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - jsdom@30.0.0
+
+# Old copies of both are pulled in transitively alongside the current ones, and
+# Dependabot cannot bump what is not in package.json — it retried and failed on
+# six advisories. Both targets were already installed elsewhere in the tree, so
+# this deduplicates rather than introducing anything.
+overrides:
+  postcss: ^8.5.25
+  esbuild: ^0.28.1

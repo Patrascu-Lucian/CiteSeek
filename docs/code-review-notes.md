@@ -1488,3 +1488,30 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   Two things would have caught it earlier and neither existed: a test asserting the _absence_ of
   rows in every table that references an actor, and a report showing what production actually holds.
   The second is what found it, which is an argument for having such a report at all.
+
+## Six advisories Dependabot could not fix, and the setting that moved
+
+- **Issue**: Dependabot retried security updates for six advisories — four `postcss`, one `esbuild`,
+  one `sharp` — and failed every time. The reason was not the advisories. Three copies of `postcss`
+  (8.4.31, 8.5.23, 8.5.25) and three of `esbuild` (0.18.20, 0.25.12, 0.28.1) were installed at once.
+  The patched versions were **already in the tree**; old ones sat beside them, pinned by a parent's
+  range rather than by `package.json`. Dependabot edits manifests, so there was nothing to edit.
+
+- **Fix**: `overrides`, which forces one version across the whole graph. Both targets were versions
+  already installed, so it deduplicates rather than introducing anything — `postcss` to 8.5.25 and
+  `esbuild` to 0.28.1, and both collapsed to a single copy.
+
+- **The setting has moved, and pnpm said so rather than ignoring it.** `pnpm.overrides` in
+  `package.json` is where every guide still puts it; under pnpm 11 the field is **not read**. The
+  install printed `The "pnpm" field in package.json is no longer read by pnpm` and carried on with
+  `Already up to date` — which, without the warning, would have looked exactly like a fix that
+  worked. It belongs in `pnpm-workspace.yaml` now.
+
+- **`sharp` was left alone deliberately.** Which version fixes those libvips CVEs is not something
+  to guess at for a native image library, and the path is unreachable here — nothing uses
+  `next/image`, so libvips is never entered. Waiting for Next to bump it is the honest answer.
+
+- **Lesson**: **an advisory names a package, not a copy of it.** A lockfile can hold several
+  versions of one dependency, and "we upgraded it" can be true of the copy you edited and false of
+  the one that got installed. Whatever tool reports the alert is reading the lockfile, so the
+  question worth asking first is not "is it patched?" but "how many of it are there?"
