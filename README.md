@@ -76,6 +76,30 @@ shaped the product rather than the toolchain.
 | [020](docs/decisions/020-measuring-the-relevance-floor.md)                   | Measure the relevance floor, then lower it    | The shipped threshold refused nothing; the distributions overlap, so no value is right    |
 | [021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md)       | Build hybrid retrieval, then reject it        | Every fusion weight scored worse than vector alone, so the standard answer was wrong here |
 
+## Mistakes worth reading
+
+The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
+is the other half — 22 entries of _issue found → fix → lesson_, written when review caught a bug, a
+wrong assumption, or a better approach. Not all of them are the tooling's.
+
+Three that show the shape of it:
+
+- [**A performance regression that did not exist**](docs/code-review-notes.md) — three wrong
+  guesses deep before anything was measured, and the measurement said the change had made no
+  difference at all.
+- [**The metric that could not see half of what it measured**](docs/code-review-notes.md) — the
+  relevance floor, the mechanism this project's headline claim rests on, was admitting **ten of
+  ten** unanswerable questions in production. Every test passed throughout, because they run a fake
+  embedder whose distances live in an unrelated range. A fake can prove a mechanism and hide the
+  number that makes it work.
+- [**A deletion promise the schema could not keep**](docs/code-review-notes.md) — the privacy page
+  said account deletion removes "every usage record". No cascade reached that table, and production
+  data showed a deleted account still carrying tokens. Found by looking at real data, not by a test.
+
+The pattern is the same across all of them: a green suite is evidence about the thing it checks
+and silent about everything else, and the useful findings came from measuring rather than
+reasoning.
+
 ## What works today
 
 > **Status: Milestone 5.** Upload a PDF, Word document,
