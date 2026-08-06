@@ -13,6 +13,13 @@ concurrency:
 env:
   NEXT_TELEMETRY_DISABLED: "1"
 
+# Least privilege for `GITHUB_TOKEN`. Without this the default is whatever the
+# repository setting says, which is broad and invisible from here — CodeQL flags
+# every job for it. Nothing in this workflow writes to the repository; it reads
+# code and reports checks.
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: Lint, typecheck, test, build
