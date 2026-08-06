@@ -634,3 +634,10 @@ availability knowingly at risk from an attacker with rotating addresses.
 
   `ipHash` counts **addresses, not people**: a shared network is one hash and a phone changing
   network is two, so it is a floor on distinct visitors rather than a headcount.
+
+- **`@types/node` is two majors ahead of the runtime.** `engines` says `node: 24.x` and CI runs
+  Node 24; Dependabot bumped the types to 26 in #91 and nothing compared the two. Types describing
+  Node 26 APIs against a Node 24 runtime means typecheck can pass on something that does not exist
+  when it runs — narrow, but it is the same silent-mismatch shape as a lockfile holding three
+  copies of one package. Pin the types to `^24` rather than moving the runtime: which Node version
+  this deploys on is a deployment decision, not one a dependency bot should make.
