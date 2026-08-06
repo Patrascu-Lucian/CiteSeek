@@ -18,6 +18,9 @@ function isPrefetch(init: RequestInit | undefined, input: RequestInfo | URL) {
 /** Under this, a navigation is quick enough that a bar reads as a flicker. */
 const APPEAR_AFTER_MS = 200;
 
+/** Long enough for the fill to reach the end and be seen doing it. */
+const FINISH_MS = 220;
+
 export function NavigationProgress() {
   const [inFlight, setInFlight] = useState(0);
   const [slow, setSlow] = useState(false);
@@ -55,12 +58,14 @@ export function NavigationProgress() {
   useEffect(() => {
     const timer = setTimeout(
       () => setSlow(inFlight > 0),
-      inFlight > 0 ? APPEAR_AFTER_MS : 0,
+      inFlight > 0 ? APPEAR_AFTER_MS : FINISH_MS,
     );
     return () => clearTimeout(timer);
   }, [inFlight]);
 
-  if (inFlight === 0 || !slow) return null;
+  // Stays mounted once `inFlight` clears, so the fill can run to the end rather
+  // than disappearing partway.
+  if (!slow) return null;
 
   return (
     <div
@@ -71,8 +76,12 @@ export function NavigationProgress() {
       className="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5"
     >
       <div
-        className="bg-primary h-full transition-all ease-out"
-        style={{ width: "70%", transitionDuration: "800ms" }}
+        className="bg-primary h-full"
+        style={
+          inFlight === 0
+            ? { width: "100%", transition: `width ${FINISH_MS}ms ease-out` }
+            : { animation: "nav-progress 800ms ease-out forwards" }
+        }
       />
     </div>
   );

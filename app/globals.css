@@ -199,3 +199,14 @@
     --card-spacing: --spacing(4);
   }
 }
+
+/* The bar grows rather than appearing at width. A transition only fires on a
+   change, and this element mounts at its final width, so it needs a keyframe. */
+@keyframes nav-progress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 70%;
+  }
+}

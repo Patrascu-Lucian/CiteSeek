@@ -70,6 +70,33 @@ loaded. Prefetched routes resolve from cache with no request at all, so most in-
 shows nothing, which is correct: there is nothing to wait for. The bar is for the case that
 actually stalls, which is `/demo` and `/w` cold.
 
+## Measured afterward: how slow is the slow case
+
+This ADR warned that a bar can hide a genuinely slow route, so the route was measured rather than
+left to the bar. Cold against warm on production, clicking through to the demo workspace:
+
+|                                    |                                                      |
+| ---------------------------------- | ---------------------------------------------------- |
+| Cold, after the site had been idle | **744ms**, and **1296ms** after a longer quiet spell |
+| Warm, three consecutive            | 565ms, 238ms, 235ms                                  |
+| Ratio                              | **3.1×**                                             |
+
+The variance fits the hypothesis in `docs/backlog.md`: Neon's free tier suspends compute after
+inactivity, so on a demo with sporadic traffic most visitors are the one who wakes the database.
+
+**A second, heavier loading state at 1000ms was proposed and rejected on these numbers.** A cold
+navigation lands between roughly 750ms and 1.3s, which the 200ms bar already covers end to end. An
+escalation would fire on the tail of an ordinary cold start rather than on a stall — and if it
+blocked interaction, it would trap a reader during a wait that resolves on its own, making the
+loading state's failure mode worse than the failure it covers.
+
+**It grows rather than appearing at width.** The first version set the final width inline with a
+`transition`, which does nothing: a transition fires on a change and this element mounts at its
+target. A keyframe runs on mount, so the fill animates from zero — measured growing 61px to 889px
+across a held navigation, where before it was flat from the first frame. It also stays mounted
+for 220ms after the request clears, so the fill runs to the end instead of vanishing at 70% —
+measured reaching 1270 of 1280px before it goes.
+
 ## Consequences
 
 Wrapping global `fetch` is invasive, and it is the only way to observe the App Router's requests
