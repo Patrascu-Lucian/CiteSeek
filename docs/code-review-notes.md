@@ -1457,3 +1457,34 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   right?_, then go and check. "Add a license" is right for a library seeking adoption and wrong
   for a product keeping its options open — nothing in the code distinguishes them, one sentence
   in `docs/strategy-plan.md` does, and it was there the whole time.
+
+## A deletion promise the schema could not keep
+
+- **Issue**: the privacy page states that deleting an account removes "the account, its workspaces,
+  every document in them, every conversation, and **every usage record**." It did not remove usage
+  records. `lib/users/deletion.ts` deleted one row and relied on `ON DELETE CASCADE` for the
+  rest — and no cascade reaches `usage_events`, because `actor_id` is `text`, not a foreign key. It
+  has to be: the same column holds guest ids, which point at no user at all.
+
+- **Found in production data, not by reading.** A usage report run for an unrelated question showed
+  two signed-in accounts, one of them an opaque UUID with no matching row: 8 requests and 11,085
+  tokens still attributed to an account that had been deleted weeks earlier. The dates lined up with
+  the author's own test of the deletion flow.
+
+- **Why the code looked right.** The function carries a diagram of the cascade tree, and the tree is
+  accurate — every table in it does cascade. `usage_events` simply is not in it, and nothing
+  in the file suggested a table was missing. A comment that documents what a mechanism covers reads, at a
+  glance, as documenting that the mechanism covers everything.
+
+- **Fix**: an explicit scoped delete inside a transaction, plus two integration tests — one
+  that the records go, one that another account's records stay, because a truncate would also
+  have passed the first.
+
+- **Lesson**: **a structural guarantee only covers what is structurally attached.** The schema was
+  deliberately shaped so erasure could be one statement, and that shape is good — but it made the
+  one table outside the graph invisible, because the reasoning "the cascade handles it" is not
+  checkable by looking at the deleting code.
+
+  Two things would have caught it earlier and neither existed: a test asserting the _absence_ of
+  rows in every table that references an actor, and a report showing what production actually holds.
+  The second is what found it, which is an argument for having such a report at all.

@@ -613,3 +613,24 @@ availability knowingly at risk from an attacker with rotating addresses.
   either, which is why the honest abstraction is a layout component with a width prop rather than
   a padding utility — a class would standardize a quarter of the repetition and leave the rest.
   Touches enough files to want a commit with nothing else in it.
+
+## Measured, 6 August 2026
+
+- ~~**Neon's free tier suspends compute after inactivity.**~~ **Confirmed, and it does not need
+  fixing.** Cold navigation to the demo workspace: **744ms**, and **1296ms** after a longer idle
+  spell, against a warm median of **238ms** — a **3.1×** penalty. Real, and entirely covered
+  by the 200ms progress bar. A heavier loading state at 1000ms was proposed and rejected on these numbers
+  (ADR 024). Neon's paid tier removes the suspend; not worth it for a demo whose cold case is
+  already under a second and a half.
+
+- **Traffic baseline, before the link goes anywhere.** `pnpm db:usage` against production:
+  3 distinct guest addresses, 56 guest requests, 2 signed-in users, 20 requests, across 8 days.
+  Peak day 24 requests. Effectively all of it is the author, the tooling, and one cold reader.
+
+  Two things follow. There is **no organic traffic yet**, so any claim about how the product
+  behaves under load is theory. And the usage caps are nowhere near binding — 100/day per guest
+  and 600 global, against a peak of 24 — which is worth knowing before anyone tunes them. Re-run
+  it after the walkthrough goes out; that is when the number means something.
+
+  `ipHash` counts **addresses, not people**: a shared network is one hash and a phone changing
+  network is two, so it is a floor on distinct visitors rather than a headcount.
