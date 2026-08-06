@@ -130,7 +130,7 @@ export function ChatPanel({
               : ""}
       </p>
 
-      <div className="border-border min-h-64 rounded-lg border p-3 sm:p-4">
+      <div className="border-border min-h-64 rounded-lg border p-(--card-spacing)">
         <MessageList
           messages={messages}
           onSelectSource={onOpenSource}

@@ -432,6 +432,40 @@ test.describe("the document row says it opens something", () => {
 });
 
 test.describe("layout at phone widths", () => {
+  test("every bordered surface uses the same inner padding", async ({
+    page,
+  }) => {
+    /*
+      They stack, so when they disagree their contents stop lining up — which is
+      how `--card-spacing` came to be shared rather than repeated. Computed
+      values, not class names: the point is what the browser resolves, and each
+      surface reaches the token by a different route.
+    */
+    for (const width of [375, 900]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto("/demo");
+      await expect(
+        page.getByRole("heading", { level: 2, name: /ask/i }),
+      ).toBeVisible();
+
+      const padding = await page.evaluate(() => {
+        const left = (el: Element | null) =>
+          el ? parseFloat(getComputedStyle(el).paddingLeft) : null;
+        const row = [...document.querySelectorAll("li")].find((item) =>
+          item.textContent?.includes("northwind"),
+        );
+        return {
+          row: left(row ?? null),
+          chat: left(document.querySelector("div.min-h-64")),
+          card: left(document.querySelector('[data-slot="card-content"]')),
+        };
+      });
+
+      expect(padding.row).toBe(padding.chat);
+      expect(padding.card).toBe(padding.chat);
+    }
+  });
+
   /*
     Making the filename a button broke its truncation: a button is inline-block,
     so it sizes to its text and `truncate` never fires
