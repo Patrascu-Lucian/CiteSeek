@@ -1408,3 +1408,52 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   evidence. Both errors would have been caught by opening one file for ten seconds — which is
   also what changed the backlog item, since "move the copy that already exists" and "author
   content that does not" are different pieces of work.
+
+## An audit that read the code and not the reasoning
+
+- **Issue**: an automated repository audit produced a well-structured report whose
+  **highest-priority recommendation was to add an MIT or Apache license**. This repository has no
+  license file on purpose — that is all rights reserved, and it is a standing commercial decision
+  written down before any code existed. MIT would let anyone take a project its author is weighing
+  commercializing and sell it. The README has carried a `## License` section saying so since the
+  week before the audit ran.
+
+- **Why it was persuasive.** Everything around the recommendation was correct. It read the ESLint
+  config and noticed `any` is banned. It read the CI workflow and described the integration job's
+  Postgres service and double seed accurately. It quoted real latency numbers from the README. A
+  reader with no context would have had no reason to doubt the one item that mattered.
+
+- **It had been told, in a file it quoted.** `docs/strategy-plan.md` — tracked, public, in the
+  repository — says: _"This repository is public but carries no license file, which means all
+  rights are reserved. Read it, learn from it, link to it; it is not licensed for reuse."_ The
+  audit **cited that same file five times** for the roadmap and milestones, then recommended MIT.
+
+  So this is not a report that lacked context. It read the document containing the answer and
+  produced the opposite of it, because "add a LICENSE" is what a repository audit says. The
+  finding came from the template, not from the repository, and the accurate citations around it
+  were what made it look earned.
+
+- **Four checkable claims were also wrong**, and checking them took one command each: that no
+  coverage metric is enforced (`vitest.config.ts` enforces 90% on `lib/rag` and `lib/ai`), that
+  the deployment uses Edge Functions (they are Node; `vercel.json` pins a region, not a runtime),
+  that UI text "likely goes through i18n" (there is none), and that the E2E suite needs an email
+  auth setup (there is no email auth). The tell was in the prose: _"not shown in code, but per
+  docs"_, _"the `vercel.json` likely pins…"_, _"Vitest likely collects it"_. Hedged verbs marking
+  the places it did not look.
+
+- **Fix**: one recommendation was kept — Dependabot, genuinely absent and genuinely useful. Two
+  were rejected as actively harmful: the license, and `CONTRIBUTING.md` with issue templates,
+  which invites contributions to unlicensed code and creates exactly the ownership ambiguity the
+  licensing decision exists to avoid. The rest were already done or stale.
+
+- **Lesson**: **citing a document is not reading it.** The failure was not missing context — the
+  context was quoted five times. It was a stock recommendation, emitted because most repositories
+  need one, wrapped in enough real detail to look derived from this one. The correct findings
+  around it lent it their credibility.
+
+  Two things follow. The recommendation to check hardest is the one marked **highest priority**,
+  because it is the one someone acts on without reading further. And the filter that catches this
+  class: for each recommendation ask _what would have to be true of this project for this to be
+  right?_, then go and check. "Add a license" is right for a library seeking adoption and wrong
+  for a product keeping its options open — nothing in the code distinguishes them, one sentence
+  in `docs/strategy-plan.md` does, and it was there the whole time.

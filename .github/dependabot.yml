@@ -1,0 +1,32 @@
+# Weekly, not daily: a PR nobody reads is worse than no PR, and this repo has one
+# reviewer. Grouped for the same reason — twelve separate bumps is a queue, one
+# grouped bump is a review.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      # Minor and patch together: the CI gate is what decides these, not a human
+      # reading a changelog. Majors stay separate because they are a decision.
+      safe-updates:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # ADR 001: TypeScript 5 and ESLint 9 are pinned against upstream breakage,
+      # so a major bump here is a decision to revisit that ADR, not a merge.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
