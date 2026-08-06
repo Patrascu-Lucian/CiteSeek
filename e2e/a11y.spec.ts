@@ -525,3 +525,41 @@ test.describe("layout at phone widths", () => {
     expect(nameBox.width).toBeGreaterThan(240);
   });
 });
+
+test.describe("response headers", () => {
+  // A CSP that stops being sent looks exactly like one that is working.
+  test("every response carries the security headers", async ({ page }) => {
+    const response = await page.goto("/demo");
+    const headers = response!.headers();
+
+    expect(headers["content-security-policy"]).toContain(
+      "frame-ancestors 'none'",
+    );
+    expect(headers["content-security-policy"]).toContain("object-src 'none'");
+    expect(headers["x-content-type-options"]).toBe("nosniff");
+    expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+    expect(headers["x-frame-options"]).toBe("DENY");
+    expect(headers["permissions-policy"]).toContain("camera=()");
+
+    expect(headers["x-powered-by"]).toBeUndefined();
+  });
+
+  test("the app runs clean under the policy", async ({ page }) => {
+    const violations: string[] = [];
+    page.on("console", (message) => {
+      if (/Content Security Policy/i.test(message.text()))
+        violations.push(message.text());
+    });
+
+    await page.goto("/demo");
+    await page
+      .getByRole("textbox", { name: /ask a question/i })
+      .fill("When is reimbursement paid?");
+    await page.getByRole("button", { name: /send/i }).click();
+    await expect(page.getByRole("button", { name: /^Citation 1/ })).toBeVisible(
+      { timeout: 20_000 },
+    );
+
+    expect(violations).toEqual([]);
+  });
+});

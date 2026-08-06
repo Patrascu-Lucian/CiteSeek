@@ -37,9 +37,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/sign-in",
     error: "/sign-in",
   },
-  // Vercel preview deployments serve from a different host per deployment;
-  // without this Auth.js rejects them as untrusted.
-  trustHost: true,
+  // Previews serve from a new host each deploy, so it has to come from the
+  // request there. In production a forged Host header would steer the OAuth
+  // callback, so `AUTH_URL` pins it instead.
+  trustHost: process.env.VERCEL_ENV !== "production",
   events: {
     /**
      * The adapter creates a `users` row and stops there. Without a workspace to

@@ -99,7 +99,24 @@ async function main() {
   }
 }
 
+// Drift means apply the migrations; unreachable means retry. A suspended Neon
+// branch makes the second the likely one, and it says nothing about the schema.
 main().catch((error: unknown) => {
-  console.error("Migration check failed:", error);
+  const reachable = !(
+    error instanceof Error &&
+    /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|terminating connection|Connection terminated/i.test(
+      error.message,
+    )
+  );
+
+  console.error(
+    reachable
+      ? "Migration check failed:"
+      : "Could not reach the database — this says nothing about the schema. " +
+          "Retry the deploy; if it persists, check the connection string and that " +
+          "the branch is awake.",
+    error,
+  );
+
   process.exitCode = 1;
 });
