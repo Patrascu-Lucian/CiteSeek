@@ -60,6 +60,17 @@ nothing here. That outer sort was written for an unrelated reason and paid for i
 workspaces — if anything ever does, it has to write both. The alternative, deriving
 scope through the join, is what this ADR exists to reject.
 
+**Setting the GUC is not proof it took effect**, which makes this the consequence to
+read first. An unregistered parameter with a dotted name is accepted by Postgres as a
+custom placeholder and discarded when the extension library loads — measured: on the cold
+path, `SET LOCAL hnsw.iterative_scan = definitely_not_a_mode` succeeds and `SHOW` returns
+it, exactly as an invented namespace does. Retrieval sets it as the first statement of
+the transaction, so the cold path is the only one production runs. **A database below
+pgvector 0.8 would therefore keep the bug with no error anywhere.** `CREATE EXTENSION` in
+migration 0000 pins the version and a newer server does not upgrade it, so `pnpm db:check`
+— which gates the Vercel build and never mutates ([ADR 015](015-schema-drift.md)) — now
+fails when `extversion` is below 0.8.0, naming `ALTER EXTENSION vector UPDATE` as the fix.
+
 **The join stays**, for `documents.filename`. Only the predicate moved.
 
 **`lib/rag/lexical.ts` moved with it** although nothing forced it to: a GIN index
@@ -74,6 +85,11 @@ It fails without the fix, returning an empty list — the silent-refusal shape.
 **The join-first plan is still O(corpus).** This removes the plan that returns wrong
 answers, not the one that is merely slow. That is a separate problem and not yet one:
 `pnpm eval:retrieval` is unchanged by this.
+
+**Iterative scan is bounded, so a residual remains.** `hnsw.max_scan_tuples` defaults
+to 20,000: under enough crowding the scan gives up and still returns fewer than `limit`
+rows. Rarer than the bug being fixed and the same silent shape, which is why it is
+written down here rather than left to be rediscovered.
 
 **Migration 0007 was hand-edited.** `drizzle-kit generate` emitted a single
 `ADD COLUMN … NOT NULL`, which fails on a populated table. Split into add-nullable,

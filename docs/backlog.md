@@ -760,3 +760,28 @@ trigger rather than a schedule, and 7 is closed.
 None of 3–6 is user-visible today. Each becomes real at a different scale, and the review's
 framing is right: this is where the current design stops holding as data grows, not a list of
 defects.
+
+## From a review of PRs #107 and #108, 7 August 2026
+
+- **`Strict-Transport-Security` is absent from `next.config.ts`.** Two passes over the header
+  set — the original hardening and the nonce CSP — added `X-Content-Type-Options`,
+  `Referrer-Policy`, `X-Frame-Options` and `Permissions-Policy`, and neither added HSTS. It is
+  the last gap in an otherwise complete set.
+
+  **Check first, then act:** Vercel may already send it on the apex domain, in which case
+  adding it in `next.config.ts` only duplicates a header. `curl -sI https://citeseek.app`
+  answers it. **Do it when:** the answer is no — and note that `preload` is a one-way door,
+  since removing a preloaded domain from the browser list takes months.
+
+- **One unexplained E2E failure, recorded so a second one is not treated as the first.**
+  `chat.spec.ts › when nothing relevant is found › says so, and cites nothing at all` failed
+  once, on the first full run after installing Next 16.3.0. It then passed in isolation, on a
+  full re-run, and on three consecutive runs of its own spec file — five clean observations
+  against one failure, and the failure output was not captured.
+
+  The leading guess is cold start rather than the retrieval change: it was the first request
+  against a freshly built server and a suspended Neon branch, and the run logged "The
+  destination stream closed early" from the web server. **No action** — a flake chased without
+  a reproduction is a guess with a commit attached. If it recurs, capture the trace first, and
+  note that this test is the citation-integrity guarantee, so it is the wrong one to learn to
+  ignore.

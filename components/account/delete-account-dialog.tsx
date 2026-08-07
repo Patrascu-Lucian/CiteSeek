@@ -54,7 +54,9 @@ export function DeleteAccountDialog() {
       }
 
       // The session is already gone server-side; a full navigation clears any
-      // cached client state along with it.
+      // cached client state along with it. `router.push()`, which the rule asks
+      // for, would keep the router cache alive for a deleted account.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.assign("/");
     } catch {
       setError("Could not reach the server. Your account was not deleted.");

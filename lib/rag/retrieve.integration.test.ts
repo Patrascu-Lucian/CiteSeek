@@ -294,7 +294,11 @@ describe("retrieveChunks under an HNSW-first plan", () => {
 
     // `lib/db/index.ts` caches its pool on globalThis outside production, so a
     // fresh import returns the old connection unless this is cleared first.
-    type DbGlobal = { __citeseekClient?: { end: () => Promise<void> } };
+    type ForcedClient = {
+      end: () => Promise<void>;
+      unsafe: (sql: string) => Promise<{ enable_sort: string }[]>;
+    };
+    type DbGlobal = { __citeseekClient?: ForcedClient };
     const dbGlobal = () => globalThis as unknown as DbGlobal;
 
     const cached = dbGlobal().__citeseekClient;
@@ -306,9 +310,19 @@ describe("retrieveChunks under an HNSW-first plan", () => {
 
     try {
       const { retrieveChunks: forced } = await import("./retrieve");
-      return await forced(workspaceId, "anything", {
+      const results = await forced(workspaceId, "anything", {
         embedder: fixedEmbedder(unitVector(0)),
       });
+
+      // If `?options=` ever stops being forwarded, the forced plan silently
+      // becomes the default plan — which is exact, so this test would pass while
+      // asserting nothing.
+      const [setting] = await dbGlobal().__citeseekClient!.unsafe(
+        "SELECT current_setting('enable_sort') AS enable_sort",
+      );
+      expect(setting?.enable_sort).toBe("off");
+
+      return results;
     } finally {
       await dbGlobal().__citeseekClient?.end();
       dbGlobal().__citeseekClient = cached;
