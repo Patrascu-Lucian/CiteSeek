@@ -79,7 +79,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 22 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 24 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Three that show the shape of it:
@@ -454,8 +454,8 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                  |
 | ----------- | ----- | ----------------------------------------------------------------------------------------------- |
-| Unit        | 526   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
-| Integration | 143   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
+| Unit        | 531   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
+| Integration | 147   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
 | E2E         | 96    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.

@@ -9,6 +9,36 @@
 /** 4 MB. Large enough for a long report, small enough to hold in memory safely. */
 export const MAX_FILE_BYTES = 4 * 1024 * 1024;
 
+/** Multipart wraps the file in a boundary, part headers and CRLFs, so the body is
+ * always larger than the file it carries. Deliberately generous: this only has to
+ * catch the obviously oversized. */
+export const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
+
+export function tooLargeMessage(totalBytes: number): string {
+  const limitMb = Math.round(MAX_FILE_BYTES / (1024 * 1024));
+  const actualMb = (totalBytes / (1024 * 1024)).toFixed(1);
+  return `This file is ${actualMb} MB. The limit is ${limitMb} MB.`;
+}
+
+/**
+ * The declared body size, when no valid upload could be that big — so the caller
+ * can refuse before reading a body it was always going to reject.
+ *
+ * **Not a replacement for `validateUpload`.** The header is client-supplied and
+ * can lie, and a chunked upload sends none at all, so the post-read check is the
+ * authority and this is only an early out.
+ */
+export function declaredBodyTooLarge(
+  contentLength: string | null,
+): number | null {
+  if (contentLength === null) return null;
+
+  const declared = Number(contentLength);
+  if (!Number.isFinite(declared)) return null;
+
+  return declared > MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES ? declared : null;
+}
+
 export const ACCEPTED_EXTENSIONS = {
   pdf: "application/pdf",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -79,12 +109,10 @@ export function validateUpload(
   }
 
   if (totalBytes > MAX_FILE_BYTES) {
-    const limitMb = Math.round(MAX_FILE_BYTES / (1024 * 1024));
-    const actualMb = (totalBytes / (1024 * 1024)).toFixed(1);
     return {
       ok: false,
       reason: "too-large",
-      message: `This file is ${actualMb} MB. The limit is ${limitMb} MB.`,
+      message: tooLargeMessage(totalBytes),
     };
   }
 

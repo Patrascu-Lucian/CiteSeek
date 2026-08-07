@@ -6,7 +6,11 @@ import {
   failStaleProcessing,
   listDocuments,
 } from "@/lib/documents/queries";
-import { validateUpload } from "@/lib/documents/validation";
+import {
+  declaredBodyTooLarge,
+  tooLargeMessage,
+  validateUpload,
+} from "@/lib/documents/validation";
 import { processDocument } from "@/lib/rag/ingest";
 import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
@@ -54,6 +58,17 @@ export async function POST(
 
   const ipHash = clientIpHash(request.headers);
 
+  // Ahead of both the usage query and `formData()`: reading a header costs
+  // nothing, while the first is a count over all recent traffic and the second
+  // buffers the whole body. Neither is worth spending on a refusal this certain.
+  const declared = declaredBodyTooLarge(request.headers.get("content-length"));
+  if (declared !== null) {
+    return NextResponse.json(
+      { error: tooLargeMessage(declared), reason: "too-large" },
+      { status: 413 },
+    );
+  }
+
   // Metered too: one upload embeds in many batches and costs far more quota than
   // a question, so limiting chat alone leaves the expensive door open.
   const refused = await enforceUsageLimits(auth, ipHash);
@@ -85,7 +100,9 @@ export async function POST(
   if (!validation.ok) {
     return NextResponse.json(
       { error: validation.message, reason: validation.reason },
-      { status: 400 },
+      // One status per reason: a body that lied about its length is the same
+      // refusal as one that declared it, and logs should not say otherwise.
+      { status: validation.reason === "too-large" ? 413 : 400 },
     );
   }
 

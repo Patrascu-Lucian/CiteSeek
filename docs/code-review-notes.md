@@ -1600,3 +1600,40 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   finding is unrelated to the cost of acting on it. The prior entry here says a report can be
   accurate about the code and wrong about the project; this one is narrower and less flattering —
   the report was fine, and the summary of it was not.
+
+## A test whose central assertion was a race with the runtime
+
+- **Issue**: proving that an oversized upload is refused _without being buffered_ needs an
+  assertion about what the route did **not** do. The obvious construction is a request whose body
+  throws when read — give it a `ReadableStream` whose `pull()` sets a flag, then assert the flag is
+  false. It passed. Run as part of the full integration suite, it failed with
+  `expected true to be false`.
+
+- **Cause**: **undici pulls a stream request body a tick after the `Request` is constructed**,
+  whether or not anything consumes it. Measured directly:
+
+  ```
+  immediately after construction: false
+  after a tick:                   true
+  ```
+
+  So the flag flips on its own. Alone, the assertion ran before that tick and passed; in a longer
+  run, ordinary async work let the tick land first. The test was not measuring the route — it was
+  measuring which of two unrelated things happened first.
+
+- **Why the status code was not a fallback either**: without the precheck the route answers
+  **400**, not 200 — `formData()` rejects on a body it cannot parse as multipart, and the handler
+  catches it. So `expect(413)` does fail without the fix, but for a reason that has nothing to do
+  with buffering. A red test can be right about the outcome and silent about the claim.
+
+- **Fix**: assert the negative directly. Build the request with only a `content-length` header and
+  no body at all, replace `formData` with `vi.fn()`, and assert it was never called. Nothing is
+  timing-dependent, and the assertion now states the actual requirement — _the route must not call
+  `formData()`_ — rather than a proxy for it. It fails without the precheck with
+  `expected "vi.fn()" to not be called at all, but actually been called 1 times`.
+
+- **Lesson**: **an assertion about something not happening needs a clock-free way to observe it.**
+  The flag-and-throw pattern reads like a trap and is really a stopwatch: it asks whether the
+  runtime got there before the assertion did. Spying the call is the same intent without the race.
+  The tell was available and I ignored it — a test that passes in isolation and fails in a suite is
+  reporting a shared clock or shared state, and the first question is which, not "flaky".
