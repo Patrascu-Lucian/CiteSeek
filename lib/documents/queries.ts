@@ -179,7 +179,7 @@ export async function insertChunks(
 
   return db
     .insert(chunks)
-    .values(rows.map((row) => ({ ...row, documentId })))
+    .values(rows.map((row) => ({ ...row, documentId, workspaceId })))
     .returning({ id: chunks.id, chunkIndex: chunks.chunkIndex });
 }
 

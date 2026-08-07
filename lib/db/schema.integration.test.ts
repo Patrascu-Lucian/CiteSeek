@@ -92,11 +92,12 @@ async function createWorkspaceWithDocument() {
 
 describe("chunks.embedding", () => {
   it("round-trips a 768-dimension vector", async () => {
-    const { document } = await createWorkspaceWithDocument();
+    const { workspace, document } = await createWorkspaceWithDocument();
 
     const [inserted] = await db
       .insert(chunks)
       .values({
+        workspaceId: workspace.id,
         documentId: document.id,
         chunkIndex: 0,
         content: "The retrieval index is rebuilt nightly.",
@@ -112,12 +113,13 @@ describe("chunks.embedding", () => {
   });
 
   it("rejects a vector of the wrong dimension", async () => {
-    const { document } = await createWorkspaceWithDocument();
+    const { workspace, document } = await createWorkspaceWithDocument();
 
     // This is what makes the 768 decision enforceable rather than a convention:
     // the database itself refuses a mismatched vector.
     const failure = await failureOf(() =>
       db.insert(chunks).values({
+        workspaceId: workspace.id,
         documentId: document.id,
         chunkIndex: 0,
         content: "wrong size",
@@ -132,10 +134,11 @@ describe("chunks.embedding", () => {
   });
 
   it("orders neighbors by cosine distance", async () => {
-    const { document } = await createWorkspaceWithDocument();
+    const { workspace, document } = await createWorkspaceWithDocument();
 
     await db.insert(chunks).values([
       {
+        workspaceId: workspace.id,
         documentId: document.id,
         chunkIndex: 0,
         content: "near",
@@ -144,6 +147,7 @@ describe("chunks.embedding", () => {
         charEnd: 4,
       },
       {
+        workspaceId: workspace.id,
         documentId: document.id,
         chunkIndex: 1,
         content: "far",
@@ -168,14 +172,14 @@ describe("chunks.embedding", () => {
 
 describe("citation anchors", () => {
   it("requires a character span on every chunk", async () => {
-    const { document } = await createWorkspaceWithDocument();
+    const { workspace, document } = await createWorkspaceWithDocument();
 
     // Citations are the product. A chunk with no span cannot be linked back to
     // its source passage, so the schema refuses to store one.
     const failure = await failureOf(() =>
       db.execute(sql`
-        INSERT INTO chunks (document_id, chunk_index, content)
-        VALUES (${document.id}, 0, 'no anchor')
+        INSERT INTO chunks (workspace_id, document_id, chunk_index, content)
+        VALUES (${workspace.id}, ${document.id}, 0, 'no anchor')
       `),
     );
 
@@ -189,6 +193,7 @@ describe("referential integrity", () => {
     const { workspace, document } = await createWorkspaceWithDocument();
 
     await db.insert(chunks).values({
+      workspaceId: workspace.id,
       documentId: document.id,
       chunkIndex: 0,
       content: "orphan candidate",
@@ -213,8 +218,11 @@ describe("referential integrity", () => {
   });
 
   it("rejects a chunk whose document does not exist", async () => {
+    const { workspace } = await createWorkspaceWithDocument();
+
     const failure = await failureOf(() =>
       db.insert(chunks).values({
+        workspaceId: workspace.id,
         documentId: "00000000-0000-0000-0000-000000000000",
         chunkIndex: 0,
         content: "dangling",

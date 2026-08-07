@@ -441,6 +441,12 @@ let one file supply both the wrong answer and the confirmation of it.
 prints the `export SEED_HOST=…` line for the host it actually reached. In Neon's console it is
 the first segment of the connection hostname (`ep-…`), shown per branch under Connect.
 
+Two other commands guard themselves the same way, under their own names: `pnpm eval:retrieval`
+uses `EVAL_HOST` (it ingests documents and spends embedding quota) and `pnpm db:usage` uses
+`USAGE_HOST` (it reads, but reading the wrong branch gives a confident wrong answer). The
+schema commands above need neither — `db:check` changes nothing and prints the host it reached,
+and `db:migrate` carries no data and spends no quota.
+
 `format:check`, `lint`, `typecheck`, `test`, `build`, integration tests, and the
 Playwright smoke suite all gate every pull request.
 
@@ -449,7 +455,7 @@ Playwright smoke suite all gate every pull request.
 | Layer       | Count | What it covers                                                                                  |
 | ----------- | ----- | ----------------------------------------------------------------------------------------------- |
 | Unit        | 526   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
-| Integration | 142   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
+| Integration | 143   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
 | E2E         | 96    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.

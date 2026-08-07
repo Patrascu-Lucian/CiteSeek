@@ -1,0 +1,106 @@
+# 026 — Scoping chunks by workspace, and why the column was not the fix
+
+## Context
+
+`chunks` carried no `workspace_id`. Scope was derivable through `documents`, so
+`retrieveChunks` filtered on `eq(documents.workspaceId, …)` — a **joined** table —
+inside the subquery the HNSW index is meant to accelerate.
+
+That gives Postgres two plans and both degrade:
+
+- **Join-first** is exact and computes a cosine distance for every chunk in the
+  tenant's corpus.
+- **HNSW-first** returns the globally nearest `ef_search` rows (default 40) and the
+  join discards the foreign ones _afterward_. A small tenant in a large table gets
+  back fewer than `limit` rows, and sometimes none.
+
+The second is the dangerous one, because under-retrieval is not visible as an error.
+Fewer passages clear the relevance floor, the model refuses a question the documents
+answer, and **the failure looks exactly like the product working correctly** —
+[ADR 017](017-answering-questions-the-documents-cannot-answer.md) is the behavior it
+hides behind.
+
+## What was measured
+
+The bug does not reproduce by row count at any size worth testing. At 400 rows the
+planner filtered on `workspace_id` and sorted, which is exact — and `enable_seqscan =
+off` did not change that, because it used the btree index and sorted. **`enable_sort =
+off` is what forces the ordering to come from the vector index**, which is the plan a
+large table produces on its own.
+
+Under that plan, 60 foreign chunks nearer to the query than the target, `ef_search = 10`:
+
+| query shape                                | HNSW used | target found |
+| ------------------------------------------ | --------- | ------------ |
+| filter on `documents` (before)             | yes       | **0 of 1**   |
+| filter on `chunks`, no iterative scan      | yes       | **0 of 1**   |
+| filter on `chunks` + `hnsw.iterative_scan` | yes       | **1 of 1**   |
+
+400 foreign chunks behaves identically.
+
+## Decision
+
+**Denormalize `workspace_id` onto `chunks`, and enable `hnsw.iterative_scan =
+relaxed_order` on the retrieval transaction.** Both, because the middle row above is
+the whole point: moving the predicate onto the same table fixes nothing on its own.
+
+An approximate index does not evaluate predicates — it walks its graph outward from
+the query point and returns what it finds. Iterative scan makes it keep walking until
+`limit` rows pass the filter, and that requires the filter to be on the indexed table.
+The column is what makes the mechanism available; the GUC is what uses it.
+
+`relaxed_order` rather than `strict_order`: it can return rows slightly out of
+distance order, and the outer query already re-sorts, so the approximation costs
+nothing here. That outer sort was written for an unrelated reason and paid for itself.
+
+## Consequences
+
+**This is denormalization.** `chunks.workspace_id` can disagree with its document's.
+`ON DELETE CASCADE` covers deletion, and nothing in the app moves a document between
+workspaces — if anything ever does, it has to write both. The alternative, deriving
+scope through the join, is what this ADR exists to reject.
+
+**Setting the GUC is not proof it took effect**, which makes this the consequence to
+read first. An unregistered parameter with a dotted name is accepted by Postgres as a
+custom placeholder and discarded when the extension library loads — measured: on the cold
+path, `SET LOCAL hnsw.iterative_scan = definitely_not_a_mode` succeeds and `SHOW` returns
+it, exactly as an invented namespace does. Retrieval sets it as the first statement of
+the transaction, so the cold path is the only one production runs. **A database below
+pgvector 0.8 would therefore keep the bug with no error anywhere.** `CREATE EXTENSION` in
+migration 0000 pins the version and a newer server does not upgrade it, so `pnpm db:check`
+— which gates the Vercel build and never mutates ([ADR 015](015-schema-drift.md)) — now
+fails when `extversion` is below 0.8.0, naming `ALTER EXTENSION vector UPDATE` as the fix.
+
+**The join stays**, for `documents.filename`. Only the predicate moved.
+
+**`lib/rag/lexical.ts` moved with it** although nothing forced it to: a GIN index
+filters exactly, so lexical search never had this bug. Two retrieval paths disagreeing
+about where tenancy lives is how the next one gets it wrong.
+
+**The regression test forces its own plan**, which is unusual and deliberate. A test
+that waits for the planner to choose HNSW would need a corpus too large to seed, so it
+asserts the conditional instead: given this plan, the result must still be correct.
+It fails without the fix, returning an empty list — the silent-refusal shape.
+
+**The join-first plan is still O(corpus).** This removes the plan that returns wrong
+answers, not the one that is merely slow. That is a separate problem and not yet one.
+
+**Retrieval quality is unchanged, re-measured rather than assumed.** `pnpm eval:retrieval`
+on 7 August reproduced [ADR 021](021-hybrid-retrieval-measured-and-not-shipped.md)'s table
+exactly for every vector and hybrid strategy — vector alone still 0.67 / 0.95 / 0.82 — and
+every relevance-floor number, including the closest-chunk distributions to three decimals.
+Identical distances mean identical chunks and embeddings, so nothing about ingestion moved.
+
+One cell differed: **lexical MRR@8, 0.53 → 0.52**. Lexical `recall@8` held at 0.76, so the
+same questions still find their passage; one moved a rank. `retrieveLexical` orders by
+`ts_rank_cd` with no tiebreaker, and moving its filter from `documents` to `chunks` changes
+the scan order that equal-ranked rows arrive in. It is not in the answer path.
+
+**Iterative scan is bounded, so a residual remains.** `hnsw.max_scan_tuples` defaults
+to 20,000: under enough crowding the scan gives up and still returns fewer than `limit`
+rows. Rarer than the bug being fixed and the same silent shape, which is why it is
+written down here rather than left to be rediscovered.
+
+**Migration 0007 was hand-edited.** `drizzle-kit generate` emitted a single
+`ADD COLUMN … NOT NULL`, which fails on a populated table. Split into add-nullable,
+backfill from `documents`, then `SET NOT NULL`.

@@ -669,10 +669,17 @@ availability knowingly at risk from an attacker with rotating addresses.
 
 ## From a deep review, 6 August 2026
 
-Ordered by value as the review ranked them. Item 2 is done and item 1 is the one left worth
-doing; 3–6 carry an action and a trigger rather than a schedule, and 7 is closed.
+Ordered by value as the review ranked them. Items 1 and 2 are done; 3–6 carry an action and a
+trigger rather than a schedule, and 7 is closed.
 
-- **1. The vector search's workspace filter cannot use the HNSW index.** `chunks` carries
+- ~~**1. The vector search's workspace filter cannot use the HNSW index.**~~ **Done.** `chunks`
+  now carries `workspace_id`, and the retrieval transaction sets
+  `hnsw.iterative_scan = relaxed_order` — the column alone fixed nothing, which the measurement
+  in [ADR 026](decisions/026-scoping-chunks-by-workspace.md) shows directly. The regression test
+  forces the HNSW-first plan rather than waiting for a corpus large enough to produce it, and
+  fails without the fix by returning an empty list. Original entry follows.
+
+  **1. The vector search's workspace filter cannot use the HNSW index.** `chunks` carries
   no `workspace_id` — scope is inherited through `documents`, so the filter lands on a
   joined table and Postgres has two plans, both of which degrade. Join-first is exact but
   computes a distance for every chunk in the tenant's corpus. **HNSW-first is the
@@ -753,3 +760,39 @@ doing; 3–6 carry an action and a trigger rather than a schedule, and 7 is clos
 None of 3–6 is user-visible today. Each becomes real at a different scale, and the review's
 framing is right: this is where the current design stops holding as data grows, not a list of
 defects.
+
+## From a review of PRs #107 and #108, 7 August 2026
+
+- **`Strict-Transport-Security` is absent from `next.config.ts`.** Two passes over the header
+  set — the original hardening and the nonce CSP — added `X-Content-Type-Options`,
+  `Referrer-Policy`, `X-Frame-Options` and `Permissions-Policy`, and neither added HSTS. It is
+  the last gap in an otherwise complete set.
+
+  **Check first, then act:** Vercel may already send it on the apex domain, in which case
+  adding it in `next.config.ts` only duplicates a header. `curl -sI https://citeseek.app`
+  answers it. **Do it when:** the answer is no — and note that `preload` is a one-way door,
+  since removing a preloaded domain from the browser list takes months.
+
+- **`retrieveLexical` has no tiebreaker, so the eval is not reproducible to the last digit.**
+  It orders by `ts_rank_cd` alone; equal-ranked rows arrive in whatever order the scan
+  produced. Moving the workspace filter onto `chunks` changed that order and moved lexical
+  MRR@8 from 0.53 to 0.52 — one question sliding one rank, with `recall@8` unchanged.
+
+  Harmless today: lexical is not in the answer path. It matters because an evaluation that
+  wobbles between runs weakens every comparison made against it, and ADR 021's whole argument
+  is a comparison. **Action:** add `chunks.id` as a final `ORDER BY` key. **Do it when:**
+  `lexical.ts` is touched again, or before any future run of `pnpm eval:retrieval` is used to
+  argue for a change — a stable sort is what makes "unchanged" mean something.
+
+- **One unexplained E2E failure, recorded so a second one is not treated as the first.**
+  `chat.spec.ts › when nothing relevant is found › says so, and cites nothing at all` failed
+  once, on the first full run after installing Next 16.3.0. It then passed in isolation, on a
+  full re-run, and on three consecutive runs of its own spec file — five clean observations
+  against one failure, and the failure output was not captured.
+
+  The leading guess is cold start rather than the retrieval change: it was the first request
+  against a freshly built server and a suspended Neon branch, and the run logged "The
+  destination stream closed early" from the web server. **No action** — a flake chased without
+  a reproduction is a guess with a commit attached. If it recurs, capture the trace first, and
+  note that this test is the citation-integrity guarantee, so it is the wrong one to learn to
+  ignore.

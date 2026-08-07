@@ -41,12 +41,68 @@ const JOURNAL_PATH = join(
 
 type Journal = { entries: { tag: string }[] };
 
+/** `hnsw.iterative_scan` (ADR 026) arrived in pgvector 0.8.0. Below that, setting
+ * it does not fail — the GUC is unregistered, so Postgres keeps it as a custom
+ * placeholder and drops it when the library loads. Retrieval then silently
+ * under-retrieves for small tenants with an ADR in the repo saying it does not. */
+const REQUIRED_VECTOR_VERSION = [0, 8, 0];
+
+function isBelowRequired(version: string): boolean {
+  const parts = version.split(".").map(Number);
+
+  for (const [index, required] of REQUIRED_VECTOR_VERSION.entries()) {
+    const part = parts[index] ?? 0;
+    if (Number.isNaN(part)) return false;
+    if (part !== required) return part < required;
+  }
+
+  return false;
+}
+
 function targetHost(url: string): string {
   try {
     return new URL(url).hostname;
   } catch {
     return "an unparseable DATABASE_URL";
   }
+}
+
+/** An extension stays at the version it was created at — `CREATE EXTENSION` in
+ * migration 0000 pins it, and a newer server does not upgrade it. */
+async function checkVectorVersion(client: postgres.Sql) {
+  const [row] = await client<{ extversion: string }[]>`
+    select extversion from pg_extension where extname = 'vector'
+  `;
+
+  const version = row?.extversion;
+
+  if (!version) {
+    console.error("\nThe `vector` extension is not installed.\n");
+    process.exitCode = 1;
+    return;
+  }
+
+  if (isBelowRequired(version)) {
+    console.error(
+      [
+        "",
+        `pgvector is ${version}; retrieval needs 0.8.0 or newer.`,
+        "",
+        "`hnsw.iterative_scan` does not exist below 0.8, and setting an unknown",
+        "parameter is not an error — it is accepted and discarded. Retrieval would",
+        "keep working and quietly return too few passages for a small workspace,",
+        "which reads as the relevance floor refusing the question.",
+        "",
+        "  ALTER EXTENSION vector UPDATE;",
+        "",
+      ].join("\n"),
+    );
+
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log(`pgvector ${version}.`);
 }
 
 async function main() {
@@ -60,6 +116,11 @@ async function main() {
   const client = postgres(connectionString!, { max: 1 });
 
   try {
+    // Before the migration count, not after it: on a database that is behind,
+    // the operator is about to migrate, and finding out afterward that the
+    // extension is too old to serve the result costs a second round trip.
+    await checkVectorVersion(client);
+
     // One row per applied migration. No table at all means never migrated, which
     // is the answer rather than an error worth surfacing raw.
     const [row] = await client<{ applied: number }[]>`

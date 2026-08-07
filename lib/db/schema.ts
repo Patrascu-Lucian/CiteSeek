@@ -165,6 +165,12 @@ export const chunks = pgTable(
     documentId: uuid("document_id")
       .notNull()
       .references(() => documents.id, { onDelete: "cascade" }),
+    /** Denormalized from `documents`, because an HNSW-first plan discards foreign
+     * rows *after* the index returns them and a filter on the joined table cannot
+     * stop that (ADR 026). Drifts if a document ever changes workspace. */
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     /** Position within the document, so retrieved chunks can be re-ordered and neighbors fetched. */
     chunkIndex: integer("chunk_index").notNull(),
     content: text("content").notNull(),
@@ -182,6 +188,9 @@ export const chunks = pgTable(
   },
   (table) => [
     index("chunks_document_id_idx").on(table.documentId),
+    /** Not composite with the vector: HNSW cannot carry a leading btree column.
+     * What makes the HNSW plan correct is `hnsw.iterative_scan` in `retrieve.ts`. */
+    index("chunks_workspace_id_idx").on(table.workspaceId),
     uniqueIndex("chunks_document_id_chunk_index_idx").on(
       table.documentId,
       table.chunkIndex,
