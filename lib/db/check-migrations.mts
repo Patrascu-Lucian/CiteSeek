@@ -116,6 +116,11 @@ async function main() {
   const client = postgres(connectionString!, { max: 1 });
 
   try {
+    // Before the migration count, not after it: on a database that is behind,
+    // the operator is about to migrate, and finding out afterward that the
+    // extension is too old to serve the result costs a second round trip.
+    await checkVectorVersion(client);
+
     // One row per applied migration. No table at all means never migrated, which
     // is the answer rather than an error worth surfacing raw.
     const [row] = await client<{ applied: number }[]>`
@@ -127,7 +132,6 @@ async function main() {
 
     if (applied >= expected.length) {
       console.log(`Up to date — ${applied} applied.`);
-      await checkVectorVersion(client);
       return;
     }
 
