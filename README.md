@@ -102,7 +102,7 @@ reasoning.
 
 ## What works today
 
-> **Status: Milestone 5.** Upload a PDF, Word document,
+> **Status: live.** Upload a PDF, Word document,
 > Markdown or text file, then ask questions about it. Answers stream, and every claim carries a
 > numbered citation that opens the source document scrolled to the exact passage — and the
 > documents themselves open from the list, because knowing what is in one is how you work out
@@ -337,7 +337,7 @@ in. Tracked in [`docs/backlog.md`](docs/backlog.md).
 
 ## What's next
 
-**Milestone 7 is an in-browser inference mode**: the same documents and the same citation
+**Next is an in-browser inference mode**: the same documents and the same citation
 path, with a small model running locally through WebGPU. Nothing leaves the machine — which
 answers the residency gap in [Known gaps](#known-gaps-at-this-milestone) outright rather than
 narrowing it, and turns it into a choice the reader makes per question. Quality drops; the guarantee that a refusal

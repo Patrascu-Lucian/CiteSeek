@@ -24,6 +24,11 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: eslint
         update-types: [version-update:semver-major]
+      # The types must track the runtime `engines` says we deploy on, not the
+      # newest release. #91 bumped these to 26 against a Node 24 runtime, which
+      # lets typecheck pass on APIs that are absent when it runs.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
