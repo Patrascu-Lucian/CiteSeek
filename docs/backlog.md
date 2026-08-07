@@ -455,8 +455,10 @@ each of these is reversible and therefore safe to defer.
   Worth doing as **one mechanical pass in its own commit**, not folded into feature work: mixed
   into a diff that also changes behavior, a reviewer cannot tell the two apart, which is the
   opposite of what a review-heavy project wants. The risk is deleting the sentence that was
-  actually load-bearing, so the rule when cutting is to keep anything naming a number, a file, or
-  a bug.
+  actually load-bearing, so the rule when cutting is to keep anything naming a number, a file, a
+  bug, or **what a thing is not** — that last one is the easiest to lose and the most expensive.
+  The paragraph in `proxy.ts` saying the proxy is _not_ the authorization boundary names the exact
+  misconception behind middleware-bypass CVEs, and none of the other three would have spared it.
 
 - **A `/contact` page, once a domain is bought.** The privacy page has to name somewhere an
   erasure request can go, and that currently points at the GitHub repository. It works, and it is
