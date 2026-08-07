@@ -450,7 +450,7 @@ Playwright smoke suite all gate every pull request.
 | ----------- | ----- | ----------------------------------------------------------------------------------------------- |
 | Unit        | 526   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
 | Integration | 138   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
-| E2E         | 94    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
+| E2E         | 96    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
 

@@ -649,3 +649,10 @@ availability knowingly at risk from an attacker with rotating addresses.
   when it runs — narrow, but it is the same silent-mismatch shape as a lockfile holding three
   copies of one package. Pin the types to `^24` rather than moving the runtime: which Node version
   this deploys on is a deployment decision, not one a dependency bot should make.
+
+- **A nonce-based CSP, to drop `'unsafe-inline'` from `script-src`.** The App Router inlines the
+  RSC payload as `self.__next_f.push(...)`, so a strict policy needs a nonce minted per request in
+  `proxy.ts` and threaded into the document. Everything else in the policy is already closed —
+  `img-src` and `connect-src` to `'self'`, which is what stops a model-authored markdown image
+  pointing at an attacker's host. That is the exfiltration path the `img` component override
+  guarded alone until now.
