@@ -664,3 +664,84 @@ availability knowingly at risk from an attacker with rotating addresses.
   `VERCEL_ENV`), or treat any such gate as knowingly unrehearsed and say so at the point of the
   change. There is one such gate today and it has been reverted; the next one should not have to
   rediscover this.
+
+## From a deep review, 6 August 2026
+
+Ordered by value. The first two are the ones worth doing; the rest are recorded so they
+are not rediscovered.
+
+- **1. The vector search's workspace filter cannot use the HNSW index.** `chunks` carries
+  no `workspace_id` — scope is inherited through `documents`, so the filter lands on a
+  joined table and Postgres has two plans, both of which degrade. Join-first is exact but
+  computes a distance for every chunk in the tenant's corpus. **HNSW-first is the
+  dangerous one:** the index returns the globally nearest `ef_search` rows and the join
+  discards the ones belonging to other workspaces, so a small tenant in a large table
+  silently under-retrieves. Under-retrieval here means the relevance floor refuses a
+  question the documents answer — the failure looks like the product working.
+
+  Verified: `chunks` really has no `workspace_id` column. The fix is to denormalize it
+  (set at insert, backfilled by migration, indexed with the vector) so the filter and the
+  index are on the same table. Today one demo workspace hides it entirely; it appears
+  with the first real multi-tenant corpus, which is exactly when it is hardest to debug.
+
+- ~~**2. One request can cost an unbounded amount, and the caps cannot see it.**~~ **Done.**
+  `parseMessages` now bounds turns (100), total characters (200k) and the question itself (8k),
+  with four integration tests — three that the outsized are refused, one that an ordinary question
+  still is not, because a guard that refuses everything passes the first three.
+  `parseMessages` does not bound message count, total characters, or question length. The
+  limiter counts _requests_, not size, so a single enormous turn passes a cap designed for
+  a normal one. Cheap to fix and it closes the gap between what the limiter promises and
+  what it measures.
+
+- **3. Chat tokens may go unrecorded when the reader closes the tab.** `onFinish` never
+  fires on an aborted stream, so the provider was paid and the limiter never learned. The
+  gap favors the abuser: a client that disconnects on every turn is the cheapest way to
+  spend quota without being counted.
+
+  **Action:** record on abort as well as on finish, using whatever the SDK reports at that
+  point rather than nothing. **Do it when:** guest traffic stops being three addresses —
+  it is unexploitable at today's volume and the fix wants real numbers to check against.
+
+- **4. Two writes on a read endpoint polled every two seconds.** `GET /documents` performs
+  writes while the documents list polls it during ingestion. At one poller it is invisible;
+  at several it is write amplification on a path nobody thinks of as a write.
+
+  **Action:** guard them behind a module-level timestamp so they run at most once per
+  interval per process. **Do it when:** touching that route for another reason — the change
+  is small, but it needs the polling behavior re-verified, which is the expensive part.
+
+- **5. Ingestion writes embeddings one row at a time.** One `UPDATE` per chunk where one
+  statement per batch would do. A 51-page PDF is 32 chunks and finishes in 1.80s, so the
+  cost is invisible; a 500-page document is where it stops being.
+
+  **Action:** `UPDATE chunks SET embedding = v.embedding FROM (VALUES …) v` per batch.
+  **Do it when:** someone uploads something large enough to notice, or before any claim
+  about ingestion throughput goes in the README. The integration tests already cover
+  ingestion, so this is a rewrite with a net underneath it.
+
+- **6. The upload is fully buffered before its size is checked.** The whole body reaches
+  memory, then `MAX_FILE_BYTES` rejects it. A caller can make the server hold a large file
+  it was always going to refuse.
+
+  **Action:** check `content-length` first and reject before reading the body — keeping the
+  post-read check, since the header is client-supplied and can lie. **Do it when:** cheap
+  enough to take next time `ingest` is open; it is two lines and a test.
+
+- **7. Smaller things, and one that is already right.**
+  - **The unused GIN full-text index costs on every write.** ADR 021 measured hybrid
+    retrieval and rejected it, but `chunks_content_fts_idx` stayed. Nothing queries it and
+    every insert maintains it. **Action:** drop it in a migration, and note in ADR 021 that
+    the index went with the decision — the modules can stay, they cost nothing at rest.
+    This is the one worth doing soonest: it is a migration, it has no behaviour to verify,
+    and an index nobody reads is the clearest possible waste.
+  - **`GET /documents/[documentId]` returns the whole row**, including `contentText`, to
+    callers that want metadata. **Action:** select explicitly. **Do it when:** the source
+    panel is touched again.
+  - **`countAllRequestsSince` runs on every admitted request** — already tracked in its own
+    entry, no new action.
+  - **`recordUsage` swallowing errors** is deliberate and documented. **No action** — the
+    review agreed, and it is worth keeping the entry so nobody "fixes" it later.
+
+  None of 3–6 is user-visible today. Each becomes real at a different scale, and the
+  review's framing is right: this is where the current design stops holding as data grows,
+  not a list of defects.

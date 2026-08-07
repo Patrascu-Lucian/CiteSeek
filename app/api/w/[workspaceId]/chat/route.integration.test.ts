@@ -364,6 +364,59 @@ describe("POST /api/w/[workspaceId]/chat", () => {
     expect(response.status).toBe(404);
   });
 
+  /*
+    The limiter counts requests, not size, so an unbounded transcript passes a cap
+    built for a normal turn. `useChat` sends the whole conversation back on every
+    request, which makes its length a client-supplied input rather than a fact.
+  */
+  async function post(messages: unknown) {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    currentActor.value = asUser(user.id);
+
+    const { POST } = await import("./route");
+    return POST(
+      new Request("http://test/api/chat", {
+        method: "POST",
+        body: JSON.stringify({ messages }),
+      }),
+      { params: Promise.resolve({ workspaceId: workspace.id }) },
+    );
+  }
+
+  const turn = (text: string) => ({
+    id: "m1",
+    role: "user",
+    parts: [{ type: "text", text }],
+  });
+
+  it("rejects a transcript with too many turns", async () => {
+    const response = await post(Array.from({ length: 101 }, () => turn("hi")));
+
+    expect(response.status).toBe(400);
+  });
+
+  it("rejects a transcript that is too large in total", async () => {
+    // Under the turn limit, over the character limit — the two bounds are
+    // independent, and one long message would pass a count-only check.
+    const response = await post([turn("x".repeat(200_001))]);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("rejects a single question past the composer's own limit", async () => {
+    const response = await post([turn("y".repeat(8_001))]);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("accepts a transcript inside every bound", async () => {
+    // The guard has to refuse the outsized without refusing the ordinary.
+    const response = await post([turn("When is reimbursement paid?")]);
+
+    expect(response.status).not.toBe(400);
+  });
+
   it("rejects a request with no question", async () => {
     const user = await createTestUser(db);
     const workspace = await createTestWorkspace(db, { ownerId: user.id });

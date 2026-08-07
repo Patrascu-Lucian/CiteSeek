@@ -61,11 +61,31 @@ function lastUserText(messages: readonly ChatUIMessage[]): string | null {
   return null;
 }
 
+/*
+  The limiter counts requests, not size, so without these one enormous turn passes
+  a cap built for a normal one. A transcript is client-supplied on every request —
+  `useChat` sends the whole thing back — so its length is an input, not a fact.
+
+  Generous against real use: the composer caps a question well under 8k, and a
+  conversation reaching 100 turns has other problems.
+*/
+const MAX_MESSAGES = 100;
+const MAX_TOTAL_CHARS = 200_000;
+const MAX_QUESTION_CHARS = 8_000;
+
+function textOf(message: ChatUIMessage): string {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => ("text" in part ? part.text : ""))
+    .join("");
+}
+
 function parseMessages(body: unknown): ChatUIMessage[] | null {
   if (typeof body !== "object" || body === null) return null;
 
   const { messages } = body as { messages?: unknown };
   if (!Array.isArray(messages)) return null;
+  if (messages.length === 0 || messages.length > MAX_MESSAGES) return null;
 
   const valid = messages.every(
     (message: unknown) =>
@@ -76,7 +96,19 @@ function parseMessages(body: unknown): ChatUIMessage[] | null {
       Array.isArray((message as { parts: unknown }).parts),
   );
 
-  return valid ? (messages as ChatUIMessage[]) : null;
+  if (!valid) return null;
+
+  const parsed = messages as ChatUIMessage[];
+  const total = parsed.reduce(
+    (sum, message) => sum + textOf(message).length,
+    0,
+  );
+  if (total > MAX_TOTAL_CHARS) return null;
+
+  const last = parsed[parsed.length - 1];
+  if (last && textOf(last).length > MAX_QUESTION_CHARS) return null;
+
+  return parsed;
 }
 
 /**

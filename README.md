@@ -337,7 +337,7 @@ in. Tracked in [`docs/backlog.md`](docs/backlog.md).
 
 ## What's next
 
-**Milestone 6 is an in-browser inference mode**: the same documents and the same citation
+**Milestone 7 is an in-browser inference mode**: the same documents and the same citation
 path, with a small model running locally through WebGPU. Nothing leaves the machine — which
 answers the residency gap in [Known gaps](#known-gaps-at-this-milestone) outright rather than
 narrowing it, and turns it into a choice the reader makes per question. Quality drops; the guarantee that a refusal
@@ -449,7 +449,7 @@ Playwright smoke suite all gate every pull request.
 | Layer       | Count | What it covers                                                                                  |
 | ----------- | ----- | ----------------------------------------------------------------------------------------------- |
 | Unit        | 526   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
-| Integration | 138   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
+| Integration | 142   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
 | E2E         | 96    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
 
 The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
