@@ -43,8 +43,8 @@ Option 2 was genuinely attractive — free, unlimited, and deterministic output 
 `lib/rag` be unit-tested without mocking an API. It was set aside because running the ONNX
 runtime on Vercel's serverless functions brings cold-start and bundle-size problems that
 would need solving inside Milestone 1, and Milestone 1's real work is chunking and
-retrieval quality. It stays on the table as the Milestone 6 local-mode path, where it is
-the point rather than an optimization.
+retrieval quality. It stays on the table as the local-mode path, where it is the point
+rather than an optimization.
 
 Option 3 solves the wrong problem: it preserves dimensions we have no evidence we need.
 
@@ -67,7 +67,7 @@ Option 3 solves the wrong problem: it preserves dimensions we have no evidence w
   against the actual account before any claim is made to a user, and re-checked if billing
   ever moves. See [`007-commercial-optionality.md`](007-commercial-optionality.md).
 
-  Milestone 6's local mode is still worth building, but its honest justification is
+  Local mode is still worth building, but its honest justification is
   "nothing leaves your browser" as a capability, not remediation of a training-data problem
   that does not apply.
 

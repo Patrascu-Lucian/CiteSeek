@@ -194,7 +194,8 @@ export const chunks = pgTable(
     ),
     /** An **expression** index rather than a stored `tsvector` column, so nothing
      * is backfilled and citation offsets are untouched. Every query must use this
-     * exact expression or the planner ignores it. Unused by the product — ADR 021. */
+     * exact expression or the planner ignores it. The answer path never uses it; its
+     * only caller is `pnpm eval:retrieval`, and ADR 021 kept it deliberately. */
     index("chunks_content_fts_idx").using(
       "gin",
       sql`to_tsvector('english', ${table.content})`,

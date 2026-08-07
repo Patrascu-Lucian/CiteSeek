@@ -516,7 +516,8 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   consuming the signal that already exists —
   [`decisions/014-usage-limiting.md`](decisions/014-usage-limiting.md) had already written down
   that `recordUsage` reports whether it recorded and that nothing reads it, filed as a
-  consequence rather than a bug. It reads as a bug now.
+  consequence rather than a bug. It reads as a bug now. _Since done_: the usage dashboard's
+  `lastRecordedAt` consumes it (`lib/usage/dashboard.ts`).
 
 - **Lesson**: two, and the second is the one I would not have predicted.
 
@@ -1560,3 +1561,42 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   the other branch, so the production path is unexercised until it is live, and no amount of CI
   changes that. Such a change needs either a way to force the production branch in a preview, or
   the acceptance that it ships untested — stated out loud, not assumed away.
+
+## A finding that lost its second option in transcription
+
+- **Issue**: an outside review raised the unused GIN full-text index on `chunks`, and offered
+  **two** acceptable resolutions: "Either drop it in a migration and note that re-adding it is one
+  statement, **or** add a line to ADR 021 saying it is deliberately pre-built." What reached
+  `docs/backlog.md` was the first option as a directive, plus a sentence the review never wrote —
+  "an index nobody reads is the clearest possible waste" — and a ranking of **first of six** on the
+  grounds that it was the smallest.
+
+- **Cause**: the distortion happened in the paraphrase, not in the review. The review's own factual
+  claim is that "ADR 021 is explicit that nothing queries it", which is a misreading of one clause;
+  ADR 021 actually says the index is "unused by the product **and exercised by the evaluation**" —
+  `pnpm eval:retrieval` issues the query the index exists for, through `retrieveLexical`. But the
+  review had already priced its own finding correctly by leaving the keep-and-document path open,
+  and the backlog entry closed it. Everything in that entry that sounds most confident is the part
+  that came from nowhere.
+
+- **What was and was not verified**: ADR 021's write-cost argument stands as written — ingestion is
+  one ~1.8s embedding call for a 51-page PDF, so a GIN insert beside it does not show, and its
+  Consequences section already calls the retained index "a real cost and a deliberate one". Not
+  verified: whether the planner actually chooses the index at 51 chunks, which at that row count it
+  very likely does not. That does not change the decision, and it does mean "the eval uses the
+  index" is a claim about the query, not about a measured plan.
+
+- **Fix**: no migration. The backlog entry now carries both of the review's options and says which
+  was taken and why, plus the conditions that would reopen it. ADR 021 is unamended: the review's
+  suggested wording — pre-built "for the reranking work" — would have been a false reason, since a
+  reranker over the top _k_ does not read a full-text index.
+
+- **Lesson**: **a finding survives being transcribed only if its alternatives survive with it.** A
+  review that says "either A or B" becomes an instruction to do A the moment it is summarized into
+  a task list, because task lists hold actions and not choices. The expensive findings in this
+  review kept their nuance — a missing `workspace_id` was argued against the code before being
+  accepted — while the cheap one lost its second option and gained a rhetorical flourish, precisely
+  because a one-line migration does not feel like it needs a defense. The cost of _checking_ a
+  finding is unrelated to the cost of acting on it. The prior entry here says a report can be
+  accurate about the code and wrong about the project; this one is narrower and less flattering —
+  the report was fine, and the summary of it was not.

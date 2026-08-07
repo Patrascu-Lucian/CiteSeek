@@ -650,12 +650,14 @@ availability knowingly at risk from an attacker with rotating addresses.
   copies of one package. Pin the types to `^24` rather than moving the runtime: which Node version
   this deploys on is a deployment decision, not one a dependency bot should make.
 
-- **A nonce-based CSP, to drop `'unsafe-inline'` from `script-src`.** The App Router inlines the
-  RSC payload as `self.__next_f.push(...)`, so a strict policy needs a nonce minted per request in
-  `proxy.ts` and threaded into the document. Everything else in the policy is already closed —
-  `img-src` and `connect-src` to `'self'`, which is what stops a model-authored markdown image
-  pointing at an attacker's host. That is the exfiltration path the `img` component override
-  guarded alone until now.
+- ~~**A nonce-based CSP, to drop `'unsafe-inline'` from `script-src`.**~~ **Shipped.** The App
+  Router inlines the RSC payload as `self.__next_f.push(...)`, so the nonce is minted per request
+  in `proxy.ts`, set on the _request_ headers for Next to read, and paired with `'strict-dynamic'`.
+  The measured objection did not hold: a nonce forces dynamic rendering, but 23 of 25 routes were
+  already dynamic from the theme cookie (ADR 018), so it cost nothing. The rest of the policy was
+  already closed — `img-src` and `connect-src` at `'self'` are what stop a model-authored markdown
+  image pointing at an attacker's host, an exfiltration path the `img` component override had been
+  guarding alone.
 
 - **Changes gated on `VERCEL_ENV === "production"` ship untested.** Preview deployments take the
   other branch by definition, so the production path is unexercised until it is live — which is
@@ -667,8 +669,8 @@ availability knowingly at risk from an attacker with rotating addresses.
 
 ## From a deep review, 6 August 2026
 
-Ordered by value. The first two are the ones worth doing; the rest are recorded so they
-are not rediscovered.
+Ordered by value as the review ranked them. Item 2 is done and item 1 is the one left worth
+doing; 3–6 carry an action and a trigger rather than a schedule, and 7 is closed.
 
 - **1. The vector search's workspace filter cannot use the HNSW index.** `chunks` carries
   no `workspace_id` — scope is inherited through `documents`, so the filter lands on a
@@ -687,11 +689,9 @@ are not rediscovered.
 - ~~**2. One request can cost an unbounded amount, and the caps cannot see it.**~~ **Done.**
   `parseMessages` now bounds turns (100), total characters (200k) and the question itself (8k),
   with four integration tests — three that the outsized are refused, one that an ordinary question
-  still is not, because a guard that refuses everything passes the first three.
-  `parseMessages` does not bound message count, total characters, or question length. The
-  limiter counts _requests_, not size, so a single enormous turn passes a cap designed for
-  a normal one. Cheap to fix and it closes the gap between what the limiter promises and
-  what it measures.
+  still is not, because a guard that refuses everything passes the first three. The gap it closed:
+  the limiter counts _requests_, not size, so a single enormous turn passed a cap designed for a
+  normal one.
 
 - **3. Chat tokens may go unrecorded when the reader closes the tab.** `onFinish` never
   fires on an aborted stream, so the provider was paid and the limiter never learned. The
@@ -728,12 +728,20 @@ are not rediscovered.
   enough to take next time `ingest` is open; it is two lines and a test.
 
 - **7. Smaller things, and one that is already right.**
-  - **The unused GIN full-text index costs on every write.** ADR 021 measured hybrid
-    retrieval and rejected it, but `chunks_content_fts_idx` stayed. Nothing queries it and
-    every insert maintains it. **Action:** drop it in a migration, and note in ADR 021 that
-    the index went with the decision — the modules can stay, they cost nothing at rest.
-    This is the one worth doing soonest: it is a migration, it has no behaviour to verify,
-    and an index nobody reads is the clearest possible waste.
+  - **The unused GIN full-text index — kept, which was the review's own second option.**
+    The review offered either a migration dropping `chunks_content_fts_idx`, or a line
+    recording that it is retained deliberately. **Taken: the second.** The answer path
+    never queries it, but `pnpm eval:retrieval` issues the query it exists for, through
+    `retrieveLexical` — which is how ADR 021 reached its table and how anyone would
+    re-check it. ADR 021 also already priced the write and found it invisible: ingestion
+    is one ~1.8s embedding call for a 51-page PDF, and a GIN insert beside that does not
+    show. Its distinction between the index (ongoing cost) and `lexical.ts`/`fusion.ts`
+    (free at rest) is correct and is why only the index was in question.
+    **Unmeasured:** whether the planner picks the index at 51 chunks — at that size it
+    probably does not, so the argument above rests on the write cost, not on the read.
+    **Revisit if:** ingestion stops being API-bound (item 5 would do that), or a corpus
+    arrives large enough for the index's size to be worth measuring. This entry stays so
+    the finding is not re-raised as new.
   - **`GET /documents/[documentId]` returns the whole row**, including `contentText`, to
     callers that want metadata. **Action:** select explicitly. **Do it when:** the source
     panel is touched again.
@@ -742,6 +750,6 @@ are not rediscovered.
   - **`recordUsage` swallowing errors** is deliberate and documented. **No action** — the
     review agreed, and it is worth keeping the entry so nobody "fixes" it later.
 
-  None of 3–6 is user-visible today. Each becomes real at a different scale, and the
-  review's framing is right: this is where the current design stops holding as data grows,
-  not a list of defects.
+None of 3–6 is user-visible today. Each becomes real at a different scale, and the review's
+framing is right: this is where the current design stops holding as data grows, not a list of
+defects.
