@@ -37,10 +37,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/sign-in",
     error: "/sign-in",
   },
-  // Previews serve from a new host each deploy, so it has to come from the
-  // request there. In production a forged Host header would steer the OAuth
-  // callback, so `AUTH_URL` pins it instead.
-  trustHost: process.env.VERCEL_ENV !== "production",
+  /*
+    **This is not blanket trust of a client-supplied Host.** Every request arrives
+    through Vercel's proxy, which terminates TLS and sets the forwarded host
+    itself, so Auth.js needs those headers to resolve the callback for the request
+    in front of it — on previews, where the hostname changes per deploy, and in
+    production alike.
+
+    Gating this on `VERCEL_ENV` took production sign-in down on 6 August 2026.
+    `AUTH_URL` does not substitute: it pins the canonical URL Auth.js advertises,
+    not the host it is allowed to read. An outside review flagged the unconditional
+    value as something to tighten; on a bare Node server it would be, and here it
+    is the platform doing the work.
+  */
+  trustHost: true,
   events: {
     /**
      * The adapter creates a `users` row and stops there. Without a workspace to
