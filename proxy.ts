@@ -3,49 +3,86 @@ import { NextResponse, type NextRequest } from "next/server";
 import { GUEST_COOKIE_NAME, SESSION_COOKIE_NAMES } from "@/lib/auth/cookies";
 
 /**
- * A cheap first gate on the signed-in routes: does the request carry *any*
- * credential? If not, redirect to sign-in rather than letting the page render an
- * error.
+ * Two jobs: a Content-Security-Policy on every response, and a cheap credential
+ * gate on the signed-in routes.
  *
- * Formerly `middleware.ts`. Next 16 renamed the convention to `proxy` precisely
- * to discourage treating it as Express-style middleware, and its docs recommend
- * avoiding it unless nothing else fits. This use qualifies: turning the common
- * signed-out case into a redirect needs to happen before the route renders, and
- * there is no cheaper place to do it.
+ * The policy carries a per-request nonce, which is the only way to drop
+ * `'unsafe-inline'` from `script-src` — the App Router inlines the RSC payload,
+ * and Next applies the nonce to its own scripts when it finds one on the request.
+ * The usual objection is that a nonce forces dynamic rendering; measured here it
+ * costs nothing, because the theme cookie (ADR 018) had already made all 23
+ * routes dynamic and the only static ones are icons.
  *
- * It deliberately does not verify signatures or touch the database. This runs on
- * the Edge runtime on every matched request -- no `node:crypto`, no database
- * driver -- and the real decision needs the workspace row anyway. The
- * authoritative check is in the page: `getActor()` verifies the HMAC and
- * `accessToWorkspace()` decides.
+ * The gate is scoped by `GUARDED` rather than by the matcher, which now has to be
+ * wide enough for the policy. It does not verify signatures or touch the database:
+ * this is the Edge runtime, and the real decision needs the workspace row anyway.
  *
- * Worth being explicit about: this is *not* the authorization boundary. Setting
- * a cookie with the right name and junk contents gets past this and straight
- * into the real check, which rejects it. Treating the proxy as the security
- * boundary is a common and load-bearing mistake.
+ * **This is not the authorization boundary.** A cookie with the right name and junk
+ * contents gets past it and straight into `getActor()`, which rejects it. Treating
+ * the proxy as the boundary is a common and load-bearing mistake.
  */
+
+/** Routes where a missing credential is a redirect rather than a page. */
+const GUARDED = [/^\/w(\/|$)/, /^\/account$/];
+
+function policy(nonce: string): string {
+  return [
+    "default-src 'self'",
+    // `strict-dynamic` covers the chunks the nonced bootstrap loads; browsers
+    // that ignore it fall back to the `'self'` beside it.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // Tailwind and Radix set element styles at runtime; no nonce path for those.
+    "style-src 'self' 'unsafe-inline'",
+    // No remote hosts: a model-authored image cannot phone home.
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+  ].join("; ");
+}
+
 export function proxy(request: NextRequest) {
+  const nonce = btoa(crypto.randomUUID());
+
+  // Next reads the nonce off the *request*, not the response.
+  const headers = new Headers(request.headers);
+  headers.set("x-nonce", nonce);
+
+  const path = request.nextUrl.pathname;
+  const guarded = GUARDED.some((pattern) => pattern.test(path));
+
   const hasCredential =
     SESSION_COOKIE_NAMES.some((name) => request.cookies.has(name)) ||
     request.cookies.has(GUEST_COOKIE_NAME);
 
-  if (hasCredential) return NextResponse.next();
+  const response =
+    guarded && !hasCredential
+      ? NextResponse.redirect(signInFor(request))
+      : NextResponse.next({ request: { headers } });
 
+  response.headers.set("Content-Security-Policy", policy(nonce));
+
+  return response;
+}
+
+function signInFor(request: NextRequest): URL {
   const signInUrl = new URL("/sign-in", request.url);
   signInUrl.searchParams.set(
     "callbackUrl",
     request.nextUrl.pathname + request.nextUrl.search,
   );
 
-  return NextResponse.redirect(signInUrl);
+  return signInUrl;
 }
 
-/**
- * `/account` is matched alongside `/w/*` because it is the same situation: a
- * page that has nothing to show without a caller. A guest *does* pass this gate
- * and is meant to — they have a credential, and the page explains why a guest
- * session has no account rather than pretending the route does not exist.
- */
+/** Everything but the static assets Next serves itself. A guest passes the gate
+ * on `/account` and is meant to: they have a credential, and the page explains
+ * why a guest session has no account rather than pretending it does not exist. */
 export const config = {
-  matcher: ["/w/:path*", "/account"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png).*)",
+  ],
 };
