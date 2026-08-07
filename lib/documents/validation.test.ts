@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   ACCEPTED_EXTENSIONS,
   MAX_FILE_BYTES,
+  MULTIPART_OVERHEAD_BYTES,
+  declaredBodyTooLarge,
   validateUpload,
 } from "./validation";
 
@@ -162,5 +164,35 @@ describe("validateUpload — content must match the extension", () => {
       reason: "too-large",
     });
     expect(validateUpload("fine.pdf", head, 1024).ok).toBe(true);
+  });
+});
+
+describe("declaredBodyTooLarge", () => {
+  const CEILING = MAX_FILE_BYTES + MULTIPART_OVERHEAD_BYTES;
+
+  it("passes a body carrying a file at the size limit", () => {
+    // Multipart adds a boundary and part headers, so a 4 MB file arrives as a
+    // body slightly over 4 MB. Rejecting on the file limit would refuse it.
+    expect(declaredBodyTooLarge(String(MAX_FILE_BYTES + 512))).toBeNull();
+  });
+
+  it("reports the declared size once no valid upload could be that big", () => {
+    expect(declaredBodyTooLarge(String(CEILING + 1))).toBe(CEILING + 1);
+  });
+
+  it("passes a body exactly at the ceiling", () => {
+    expect(declaredBodyTooLarge(String(CEILING))).toBeNull();
+  });
+
+  it("passes when the header is absent, because chunked uploads send none", () => {
+    // The whole reason the post-read check cannot be removed.
+    expect(declaredBodyTooLarge(null)).toBeNull();
+  });
+
+  it("passes when the header is not a number rather than guessing", () => {
+    expect(declaredBodyTooLarge("banana")).toBeNull();
+    // A proxy that joins a repeated header. `Number` gives NaN, and a guess here
+    // would be a guess about the size of a body nobody has read.
+    expect(declaredBodyTooLarge("4194304, 4194304")).toBeNull();
   });
 });

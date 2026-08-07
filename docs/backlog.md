@@ -726,13 +726,18 @@ trigger rather than a schedule, and 7 is closed.
   about ingestion throughput goes in the README. The integration tests already cover
   ingestion, so this is a rewrite with a net underneath it.
 
-- **6. The upload is fully buffered before its size is checked.** The whole body reaches
-  memory, then `MAX_FILE_BYTES` rejects it. A caller can make the server hold a large file
-  it was always going to refuse.
+- ~~**6. The upload is fully buffered before its size is checked.**~~ **Done.**
+  `declaredBodyTooLarge` refuses on `content-length` before `formData()` is reached, with a
+  64 KB allowance because multipart wraps the file in a boundary and part headers. The
+  post-read check stays and is still the authority: the header is client-supplied, and a
+  chunked upload sends none at all.
 
-  **Action:** check `content-length` first and reject before reading the body — keeping the
-  post-read check, since the header is client-supplied and can lie. **Do it when:** cheap
-  enough to take next time `ingest` is open; it is two lines and a test.
+  Three things it turned up that the entry did not predict. The route had **no integration test
+  of any kind**, because `after()` throws outside a request scope — so the happy path was
+  unreachable until that was stubbed. Too-large was answered with `400` in one place and would
+  have been `413` in the other, so both now return `413`; one reason, one status. And the first
+  attempt at the regression test asserted a race rather than a fact, which is written up in
+  `docs/code-review-notes.md`.
 
 - **7. Smaller things, and one that is already right.**
   - **The unused GIN full-text index — kept, which was the review's own second option.**
