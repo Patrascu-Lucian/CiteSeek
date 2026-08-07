@@ -773,6 +773,17 @@ defects.
   answers it. **Do it when:** the answer is no — and note that `preload` is a one-way door,
   since removing a preloaded domain from the browser list takes months.
 
+- **`retrieveLexical` has no tiebreaker, so the eval is not reproducible to the last digit.**
+  It orders by `ts_rank_cd` alone; equal-ranked rows arrive in whatever order the scan
+  produced. Moving the workspace filter onto `chunks` changed that order and moved lexical
+  MRR@8 from 0.53 to 0.52 — one question sliding one rank, with `recall@8` unchanged.
+
+  Harmless today: lexical is not in the answer path. It matters because an evaluation that
+  wobbles between runs weakens every comparison made against it, and ADR 021's whole argument
+  is a comparison. **Action:** add `chunks.id` as a final `ORDER BY` key. **Do it when:**
+  `lexical.ts` is touched again, or before any future run of `pnpm eval:retrieval` is used to
+  argue for a change — a stable sort is what makes "unchanged" mean something.
+
 - **One unexplained E2E failure, recorded so a second one is not treated as the first.**
   `chat.spec.ts › when nothing relevant is found › says so, and cites nothing at all` failed
   once, on the first full run after installing Next 16.3.0. It then passed in isolation, on a

@@ -83,8 +83,18 @@ asserts the conditional instead: given this plan, the result must still be corre
 It fails without the fix, returning an empty list — the silent-refusal shape.
 
 **The join-first plan is still O(corpus).** This removes the plan that returns wrong
-answers, not the one that is merely slow. That is a separate problem and not yet one:
-`pnpm eval:retrieval` is unchanged by this.
+answers, not the one that is merely slow. That is a separate problem and not yet one.
+
+**Retrieval quality is unchanged, re-measured rather than assumed.** `pnpm eval:retrieval`
+on 7 August reproduced [ADR 021](021-hybrid-retrieval-measured-and-not-shipped.md)'s table
+exactly for every vector and hybrid strategy — vector alone still 0.67 / 0.95 / 0.82 — and
+every relevance-floor number, including the closest-chunk distributions to three decimals.
+Identical distances mean identical chunks and embeddings, so nothing about ingestion moved.
+
+One cell differed: **lexical MRR@8, 0.53 → 0.52**. Lexical `recall@8` held at 0.76, so the
+same questions still find their passage; one moved a rank. `retrieveLexical` orders by
+`ts_rank_cd` with no tiebreaker, and moving its filter from `documents` to `chunks` changes
+the scan order that equal-ranked rows arrive in. It is not in the answer path.
 
 **Iterative scan is bounded, so a residual remains.** `hnsw.max_scan_tuples` defaults
 to 20,000: under enough crowding the scan gives up and still returns fewer than `limit`

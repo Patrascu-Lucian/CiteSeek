@@ -1,6 +1,6 @@
 # Retrieval evaluation
 
-Run 2026-08-04 against `gemini-embedding-001`,
+Run 2026-08-07 against `gemini-embedding-001`,
 3 documents, 51 questions
 (41 answerable, 10 not).
 
@@ -19,7 +19,7 @@ alone**, on the same sweep rather than beside it.
 | ----------- | --- | ------ | --------- | ---- |
 | lexical     | 1   | 0.39   | 0.39      | 0.39 |
 | lexical     | 3   | 0.66   | 0.26      | 0.50 |
-| lexical     | 8   | 0.76   | 0.21      | 0.53 |
+| lexical     | 8   | 0.76   | 0.21      | 0.52 |
 | hybrid 0    | 1   | 0.67   | 0.68      | 0.68 |
 | hybrid 0    | 3   | 0.95   | 0.34      | 0.81 |
 | hybrid 0    | 8   | 1.00   | 0.14      | 0.82 |
