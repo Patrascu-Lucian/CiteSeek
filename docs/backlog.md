@@ -669,10 +669,17 @@ availability knowingly at risk from an attacker with rotating addresses.
 
 ## From a deep review, 6 August 2026
 
-Ordered by value as the review ranked them. Item 2 is done and item 1 is the one left worth
-doing; 3–6 carry an action and a trigger rather than a schedule, and 7 is closed.
+Ordered by value as the review ranked them. Items 1 and 2 are done; 3–6 carry an action and a
+trigger rather than a schedule, and 7 is closed.
 
-- **1. The vector search's workspace filter cannot use the HNSW index.** `chunks` carries
+- ~~**1. The vector search's workspace filter cannot use the HNSW index.**~~ **Done.** `chunks`
+  now carries `workspace_id`, and the retrieval transaction sets
+  `hnsw.iterative_scan = relaxed_order` — the column alone fixed nothing, which the measurement
+  in [ADR 026](decisions/026-scoping-chunks-by-workspace.md) shows directly. The regression test
+  forces the HNSW-first plan rather than waiting for a corpus large enough to produce it, and
+  fails without the fix by returning an empty list. Original entry follows.
+
+  **1. The vector search's workspace filter cannot use the HNSW index.** `chunks` carries
   no `workspace_id` — scope is inherited through `documents`, so the filter lands on a
   joined table and Postgres has two plans, both of which degrade. Join-first is exact but
   computes a distance for every chunk in the tenant's corpus. **HNSW-first is the

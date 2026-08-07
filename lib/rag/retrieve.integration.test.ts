@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { Embedder } from "@/lib/rag/embeddings";
 import {
@@ -8,6 +8,7 @@ import {
   createTestWorkspace,
   unitVector,
 } from "@/lib/db/test-helpers";
+import { chunks } from "@/lib/db/schema";
 import {
   createQueuedDocument,
   insertChunks,
@@ -264,5 +265,86 @@ describe("retrieveChunks", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]!.content).toBe("First.");
+  });
+});
+
+describe("retrieveChunks under an HNSW-first plan", () => {
+  // Forced, because row count cannot produce this plan at test scale — at 400 rows
+  // the planner filters and sorts, which is exact. `enable_seqscan = off` alone was
+  // not enough; removing the sort is what moves ordering into the vector index.
+  // Measured in ADR 026: 60 crowding rows at `ef_search = 10` starves the target.
+  const FORCED_PLAN =
+    "-c enable_sort=off -c enable_seqscan=off -c hnsw.ef_search=10";
+  const FOREIGN_CHUNKS = 60;
+
+  /** Nearer to the query than the target's `diagonalVector`, which is the point. */
+  function crowdVector(seed: number): number[] {
+    const values = new Array<number>(EMBEDDING_DIMENSIONS).fill(0);
+    values[0] = 1;
+    values[1 + (seed % 100)] = 0.05;
+    return l2Normalize(values);
+  }
+
+  async function retrieveUnderForcedPlan(workspaceId: string) {
+    const base = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!;
+    const url = new URL(base);
+    // Neon's pooler rejects startup options; the unpooled endpoint and CI's
+    // Postgres service container both accept them.
+    url.searchParams.set("options", FORCED_PLAN);
+
+    // `lib/db/index.ts` caches its pool on globalThis outside production, so a
+    // fresh import returns the old connection unless this is cleared first.
+    type DbGlobal = { __citeseekClient?: { end: () => Promise<void> } };
+    const dbGlobal = () => globalThis as unknown as DbGlobal;
+
+    const cached = dbGlobal().__citeseekClient;
+    const previousUrl = process.env.DATABASE_URL;
+
+    delete dbGlobal().__citeseekClient;
+    process.env.DATABASE_URL = url.toString();
+    vi.resetModules();
+
+    try {
+      const { retrieveChunks: forced } = await import("./retrieve");
+      return await forced(workspaceId, "anything", {
+        embedder: fixedEmbedder(unitVector(0)),
+      });
+    } finally {
+      await dbGlobal().__citeseekClient?.end();
+      dbGlobal().__citeseekClient = cached;
+      process.env.DATABASE_URL = previousUrl;
+      vi.resetModules();
+    }
+  }
+
+  it("still finds a small tenant's passage in a table crowded by another", async () => {
+    const foreign = await createTestWorkspace(db);
+    const { documentId: foreignDocument } = await seedChunk(foreign.id, {
+      content: "foreign 0",
+      embedding: crowdVector(0),
+    });
+    await db.insert(chunks).values(
+      Array.from({ length: FOREIGN_CHUNKS - 1 }, (_, i) => ({
+        workspaceId: foreign.id,
+        documentId: foreignDocument,
+        chunkIndex: i + 1,
+        content: `foreign ${i + 1}`,
+        embedding: crowdVector(i + 1),
+        charStart: 0,
+        charEnd: 10,
+      })),
+    );
+
+    const target = await createTestWorkspace(db);
+    await seedChunk(target.id, {
+      content: "The target passage.",
+      embedding: diagonalVector(),
+    });
+
+    const { chunks: results } = await retrieveUnderForcedPlan(target.id);
+
+    // Without the scope filter on `chunks` and an iterative scan, this is empty:
+    // the index returns the 10 nearest rows, all foreign, and the join drops them.
+    expect(results.map((r) => r.content)).toEqual(["The target passage."]);
   });
 });

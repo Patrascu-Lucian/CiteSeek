@@ -60,9 +60,9 @@ export async function retrieveLexical(
     .innerJoin(documents, eq(chunks.documentId, documents.id))
     .where(
       and(
-        eq(documents.workspaceId, workspaceId),
-        // The same scoping rule as vector search: the filter is in SQL, not
-        // applied to the results afterward.
+        // Not required here — a GIN index filters exactly — but kept identical to
+        // `retrieve.ts`, where it is load-bearing.
+        eq(chunks.workspaceId, workspaceId),
         sql`${document} @@ ${search}`,
       ),
     )
