@@ -441,6 +441,12 @@ let one file supply both the wrong answer and the confirmation of it.
 prints the `export SEED_HOST=…` line for the host it actually reached. In Neon's console it is
 the first segment of the connection hostname (`ep-…`), shown per branch under Connect.
 
+Two other commands guard themselves the same way, under their own names: `pnpm eval:retrieval`
+uses `EVAL_HOST` (it ingests documents and spends embedding quota) and `pnpm db:usage` uses
+`USAGE_HOST` (it reads, but reading the wrong branch gives a confident wrong answer). The
+schema commands above need neither — `db:check` changes nothing and prints the host it reached,
+and `db:migrate` carries no data and spends no quota.
+
 `format:check`, `lint`, `typecheck`, `test`, `build`, integration tests, and the
 Playwright smoke suite all gate every pull request.
 
