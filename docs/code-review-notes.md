@@ -1515,3 +1515,48 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   versions of one dependency, and "we upgraded it" can be true of the copy you edited and false of
   the one that got installed. Whatever tool reports the alert is reading the lockfile, so the
   question worth asking first is not "is it patched?" but "how many of it are there?"
+
+## A hardening change that took production sign-in down
+
+- **Issue**: `auth.ts` carried `trustHost: true` with a comment explaining that Vercel preview
+  deployments serve from a different host each time. An outside review flagged the unconditional
+  value as something an interviewer would poke at, and suggested gating it on `VERCEL_ENV` or
+  setting `AUTH_URL` in production. Both were done. Production sign-in returned
+  `?error=Configuration` — "Sign-in is not configured correctly" — for every visitor.
+
+- **Cause**: `trustHost` is not about having a canonical URL. It controls whether Auth.js will
+  read the forwarded host headers. Every request to this app arrives through Vercel's proxy, which
+  terminates TLS and sets those headers itself, so with `trustHost: false` Auth.js cannot resolve
+  the callback for the request in front of it — in production exactly as much as on a preview.
+  `AUTH_URL` pins the URL Auth.js _advertises_, not the host it is _allowed to read_, so setting
+  it changed nothing. Nor did setting it to the `/api/auth` form.
+
+- **Why nothing caught it.** Three layers, three reasons, and the third is the one worth keeping.
+  The unit and integration suites never construct a request through a proxy. The E2E suite runs
+  against `localhost`, where the header does not exist. And **the change was gated on
+  `VERCEL_ENV === "production"`, which is the one branch a preview deployment never takes** — so
+  the preview built for the pull request exercised the _old_ path and went green. Production was
+  the first place that code ever ran.
+
+- **What the trace showed**, once there was one: the form POST succeeded and returned
+  `x-action-redirect: /api/auth/signin/github`, so the action, the CSP and `form-action 'self'`
+  were all fine. The failure was inside Auth.js's own handler, which bounced back to
+  `/sign-in?error=Configuration`. That narrowed six candidate causes to one in a single response.
+
+- **Fix**: restored `trustHost: true`, with a comment that now says what it is _not_ — not blanket
+  trust of a client-supplied `Host`, because the platform sets the forwarded value — so the next
+  review does not reopen it. `AUTH_URL` stays: harmless, and it does pin the advertised URL.
+
+- **Lesson**: two, and the second is the general one.
+
+  **A recommendation can be correct in general and wrong for the platform.** The review's threat
+  model — a forged `Host` steering an OAuth callback — is real on a bare Node server exposed
+  directly. Here the proxy is what makes the unconditional value safe. The finding was accepted as
+  a defect without checking whether its premise held for this deployment, which is the same shape
+  as an earlier note in this file: a report can be accurate about the code and wrong about the
+  project.
+
+  **Anything gated on `VERCEL_ENV === "production"` has no rehearsal.** Preview deliberately takes
+  the other branch, so the production path is unexercised until it is live, and no amount of CI
+  changes that. Such a change needs either a way to force the production branch in a preview, or
+  the acceptance that it ships untested — stated out loud, not assumed away.

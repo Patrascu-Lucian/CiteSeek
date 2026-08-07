@@ -656,3 +656,11 @@ availability knowingly at risk from an attacker with rotating addresses.
   `img-src` and `connect-src` to `'self'`, which is what stops a model-authored markdown image
   pointing at an attacker's host. That is the exfiltration path the `img` component override
   guarded alone until now.
+
+- **Changes gated on `VERCEL_ENV === "production"` ship untested.** Preview deployments take the
+  other branch by definition, so the production path is unexercised until it is live — which is
+  how `trustHost` took sign-in down. Worth deciding once, rather than per change: either add a way
+  to force the production branch on a preview (a `FORCE_PROD_CONFIG` escape hatch read alongside
+  `VERCEL_ENV`), or treat any such gate as knowingly unrehearsed and say so at the point of the
+  change. There is one such gate today and it has been reverted; the next one should not have to
+  rediscover this.
