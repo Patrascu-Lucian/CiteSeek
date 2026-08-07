@@ -143,6 +143,12 @@ here, not in the current branch.
   database in Frankfurt (measured: 34 ms per query, ~100 ms for a workspace render) lengthens
   every server render and with it the time before hydration finishes.
 
+  ↳ **One of those queries is the session lookup, and it runs on every request.** Auth.js is on
+  database sessions here (ADR 005), so a route that never reads the user still pays a round trip
+  before it can render. That is a documented trade rather than an oversight — but it is a
+  contributor to this window, and the two were tracked as unrelated until an outside review put
+  them together. Anything that shortens the window has to count it.
+
   **Not ours to fix directly.** It reproduces on `main`, so it predates the recent header work,
   and the project is already on Next 16.2.12 — the latest release. What shortens the window is a
   smaller client bundle, which the README's own numbers show is where the workspace route's
