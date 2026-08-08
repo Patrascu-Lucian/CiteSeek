@@ -1,4 +1,4 @@
-import { count, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import {
   afterAll,
   beforeAll,
@@ -9,6 +9,7 @@ import {
   vi,
 } from "vitest";
 
+import type * as Provider from "@/lib/ai/provider";
 import type { Actor } from "@/lib/auth/actor";
 import { listChatMessages, listChats } from "@/lib/chats/queries";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
@@ -42,6 +43,23 @@ import { l2Normalize } from "@/lib/rag/vector";
  */
 
 const currentActor = vi.hoisted(() => ({ value: null as Actor | null }));
+
+/** Only the abort test needs a stream still in flight; every other test wants the
+ * fast default. Zero here delegates to the real resolver. */
+const chatChunkDelayMs = vi.hoisted(() => ({ value: 0 }));
+
+vi.mock("@/lib/ai/provider", async (importOriginal) => {
+  const actual = await importOriginal<typeof Provider>();
+  const { fakeChatModel } = await import("@/lib/ai/fake-chat-model");
+
+  return {
+    ...actual,
+    getChatModel: () =>
+      chatChunkDelayMs.value > 0
+        ? fakeChatModel(undefined, chatChunkDelayMs.value)
+        : actual.getChatModel(),
+  };
+});
 
 vi.mock("@/lib/auth/actor", () => ({
   getActor: () => Promise.resolve(currentActor.value),
@@ -98,7 +116,11 @@ async function seedPassage(workspaceId: string, content: string) {
   return { documentId: document.id, chunkId: inserted!.id };
 }
 
-async function postChat(workspaceId: string, question: string) {
+async function postChat(
+  workspaceId: string,
+  question: string,
+  signal?: AbortSignal,
+) {
   // Imported inside the call so the actor mock is in place first.
   const { POST } = await import("./route");
 
@@ -110,6 +132,7 @@ async function postChat(workspaceId: string, question: string) {
           { id: "m1", role: "user", parts: [{ type: "text", text: question }] },
         ],
       }),
+      signal,
     }),
     { params: Promise.resolve({ workspaceId }) },
   );
@@ -490,5 +513,52 @@ describe("POST /api/w/[workspaceId]/chat", () => {
     expect(sourcesOf(chunks)).toHaveLength(1);
     expect(sourcesOf(chunks)![0]!.quote).toBe(injection);
     expect(textOf(chunks)).toBe(FAKE_ANSWER);
+  });
+});
+
+describe("a reader who closes the tab mid-answer", () => {
+  it("is still metered and still has the turn stored", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+
+    /*
+      The *request* is aborted, not the response body: canceling a body leaves
+      `request.signal.aborted` false, so that version stayed green through the
+      very change it names. The delay is for the same reason — at 0 the stream
+      can finish before the abort lands.
+    */
+    chatChunkDelayMs.value = 40;
+    const controller = new AbortController();
+
+    try {
+      const response = await postChat(workspace.id, PASSAGE, controller.signal);
+      const reader = response.body!.getReader();
+      await reader.read();
+      controller.abort();
+      await reader.cancel();
+    } finally {
+      chatChunkDelayMs.value = 0;
+    }
+
+    // Polled rather than slept on: generation continues server-side after the
+    // reader is gone, so the write lands strictly later than the abort.
+    await vi.waitFor(
+      async () => {
+        const [metered] = await db
+          .select({ total: count() })
+          .from(usageEvents)
+          .where(
+            and(eq(usageEvents.actorId, user.id), eq(usageEvents.kind, "chat")),
+          );
+        expect(metered?.total).toBe(1);
+      },
+      { timeout: 10_000, interval: 100 },
+    );
+
+    const [chat] = await listChats(workspace.id, user.id);
+    const stored = await listChatMessages(workspace.id, user.id, chat!.id);
+    expect(stored).toHaveLength(2);
   });
 });

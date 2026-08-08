@@ -1673,3 +1673,53 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   looks harmless, and only one can distinguish "the work happened" from "we decided it should".
   The check-then-act split is where the failure lives — a throttle that cannot separate deciding
   from doing cannot get the failure case wrong.
+
+## The same transcription failure, twice, in the same list
+
+- **Issue**: a review flagged that chat tokens might go unrecorded when a reader closes the tab.
+  Its own words: `onFinish` is "**not guaranteed** to run"; it "could not verify this against the
+  installed SDK ... treat it as _worth confirming_ rather than confirmed"; and, concretely,
+  "**Verify:** an integration test that aborts the fetch after the first byte and then asserts a
+  `chat` usage row exists."
+
+  What reached the backlog was "`onFinish` **never fires** on an aborted stream, so the provider
+  was paid and the limiter never learned", with an action to record on abort.
+
+- **What the measurement says**: it fires, with full usage, on a stream canceled mid-flight. The
+  reason is an absence — `streamText` is never given an `abortSignal`, so a client disconnect does
+  not stop generation. There was no defect.
+
+- **Why the first probe was worthless**: canceling the route's stream showed usage recorded, but
+  the project's fake model had `chunkDelayInMs: 0`, so the stream had already finished before the
+  cancel. A probe against a fixture that cannot exhibit the condition is not evidence either way.
+  `fakeChatModel` now takes a delay, so the slow case is reproducible in CI rather than in a
+  scratch file — the first draft of this note cited a measurement nothing in the repo could
+  repeat, which is the same failure the note is about.
+
+- **This is the second time.** The entry above about the GIN index is the same failure: a review
+  offered "either drop it or record that it is deliberate", and the backlog kept only the first
+  half as a directive. Here a hedge became a fact and "confirm this" became "fix this". Both times
+  the summary was more confident than the source, and both times the confidence pointed at work
+  that was not needed.
+
+- **Three things were lost in one paragraph**, which is what makes it a pattern rather than a slip:
+  the uncertainty, the experiment that would have resolved it in ten minutes, and two side facts —
+  that `persist` is affected as well as the usage row, and that the caps survive regardless because
+  the embedding row is written before the stream opens.
+
+- **Fix**: no production change. An integration test pins the behavior, and `route.ts` now says
+  the missing `abortSignal` is deliberate — forwarding `request.signal` is the obvious improvement
+  and is exactly what would introduce the reported bug.
+
+- **And the first version of that test was vacuous**, which review caught. It canceled the
+  _response body_ reader, and canceling a body leaves `request.signal.aborted` false — so adding
+  `abortSignal: request.signal` would have left it green while production lost the row on every
+  disconnect. A test named for a regression it cannot detect is worse than none, because it
+  answers the question a future engineer actually asks. It now aborts an `AbortController` passed
+  into the request, and was checked by making the change it guards against: `expected +0 to be 1`.
+
+- **Lesson**: **hedged language in a review is data, not padding.** "Not guaranteed", "worth
+  confirming", "I could not verify" are the author telling you where the evidence stops, and they
+  are the first thing lost when a finding is compressed into a task. A backlog entry that reads
+  more confidently than its source has been edited into a claim nobody made. Where a review names
+  the experiment, run it before writing the entry — that is cheaper than the entry.

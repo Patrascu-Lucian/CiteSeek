@@ -692,14 +692,40 @@ trigger rather than a schedule, and 7 is closed.
   the limiter counts _requests_, not size, so a single enormous turn passed a cap designed for a
   normal one.
 
-- **3. Chat tokens may go unrecorded when the reader closes the tab.** `onFinish` never
-  fires on an aborted stream, so the provider was paid and the limiter never learned. The
-  gap favors the abuser: a client that disconnects on every turn is the cheapest way to
-  spend quota without being counted.
+- ~~**3. Chat tokens may go unrecorded when the reader closes the tab.**~~ **Not a defect,
+  measured.** A reader who closes the tab mid-answer is still metered and the turn is still
+  stored.
 
-  **Action:** record on abort as well as on finish, using whatever the SDK reports at that
-  point rather than nothing. **Do it when:** guest traffic stops being three addresses —
-  it is unexploitable at today's volume and the fix wants real numbers to check against.
+  **The reason is an absence:** `streamText` is given no `abortSignal`, so a client
+  disconnect does not stop generation — it completes server-side, `onFinish` runs, and both
+  writes land. Proven with a slow model — `fakeChatModel` now takes a chunk delay, because at
+  the default `0` a probe cancels a stream that has already finished:
+
+  | consumer            | `onFinish`        |
+  | ------------------- | ----------------- |
+  | read to completion  | fires, full usage |
+  | canceled mid-stream | fires, full usage |
+
+  **What ships is the inverse of the action this entry proposed:** an integration test
+  pinning the behavior, and a note in `route.ts` saying the signal is deliberately absent.
+  Forwarding `request.signal` is the obvious improvement and is what would introduce the bug
+  described here — verified by making that change and watching the test go red.
+
+  Half the reason is the SDK's rather than ours: `createUIMessageStream` drains the model
+  stream in a detached loop with no `cancel` handler, so a canceled response does not stop
+  consumption either. An `ai` upgrade could remove that half without touching this repo.
+
+  **The entry overstated its source.** The review said `onFinish` is "_not guaranteed_ to
+  run", flagged that it could not check against the installed SDK — "treat it as _worth
+  confirming_ rather than confirmed" — and named the exact experiment to settle it. This
+  entry recorded it as fact, converted "confirm" into "fix", and dropped both the caveat and
+  the test. It also lost two things the review said: that `persist` is affected as well as
+  the usage row, and that the caps survive regardless because the embedding row is written
+  before the stream opens. Written up in `docs/code-review-notes.md`.
+
+  **One residual, unmeasurable from here:** if Vercel terminates the invocation when a
+  client disconnects, `onFinish` never gets to run whatever the SDK does. That is platform
+  behavior, and answering it needs production instrumentation rather than a test.
 
 - ~~**4. Two writes on a read endpoint polled every two seconds.**~~ **Done.** Both sweeps on
   `GET /documents` now sit behind `atMostEvery` in `lib/sweeps.ts` — the stale-document sweep
@@ -839,3 +865,26 @@ defects.
   trace by construction** — there is never a first retry to record. Now
   `retain-on-failure` off CI. The next recurrence leaves evidence whether or not anyone
   remembers to look for it, which is the only reason this entry gets to stay open.
+
+  ↳ **Third sighting, same day, and the trace change paid for itself immediately.** Two tests
+  failed, both on the refusal branch — "says so, and cites nothing at all" and "what the
+  documents do cover". The captured page showed why: still "Searching the documents." with a
+  **Stop** button and an empty answer. Nothing was wrong with the assertion; the request had
+  not come back inside the 5s timeout.
+
+  **Diagnosis, and it is not cold start.** Locally `workers` is unset, so Playwright runs ~8
+  browsers on 16 cores, `fullyParallel`, all against the **remote** Neon branch `.env.local`
+  points at. CI runs `workers: 1` against a Postgres container on the same machine. And the
+  refusal branch is the slowest one in the route: it alone adds `countSearchableChunks` to
+  tell "nothing matched" from "nothing indexed". Eight workers, one remote database, the
+  branch with the extra round trip, a 5s ceiling.
+
+  Confirmed by running the same suite serially: **96 passed with `--workers=1`**, having just
+  failed twice in parallel.
+
+  **No config change.** Serialising locally costs 35s → 1.5m on every run to fix an artifact
+  CI cannot have, and raising the timeout would hide it rather than fix it. What was missing
+  was the diagnosis, and this is it: **a local E2E failure on the refusal path is contention
+  until proven otherwise — re-run with `--workers=1` before believing it.** That is also the
+  answer to the earlier worry about learning to ignore this test: it is not ignored, it is
+  explained.
