@@ -41,13 +41,21 @@ about it within two seconds.
 ### What polling actually costs
 
 One indexed query per interval per open workspace tab, returning a small JSON array. The
-same request also runs the stale-processing sweep, so looking at a stuck document is what
+same request carries the stale-processing sweep, so looking at a stuck document is what
 marks it failed — no cron, no queue, no separate worker.
+
+**Amended:** that sweep, and the usage prune beside it, ran on _every_ poll, which made two
+writes per two seconds on an endpoint that reads as a read. Both now sit behind a
+per-process interval (`lib/sweeps.ts`) — stale documents at most once a minute, the prune
+once an hour.
 
 ## Consequences
 
 - **Up to ~2 seconds of latency** before a status change appears. For work that takes tens
-  of seconds, this is invisible.
+  of seconds, this is invisible. One exception since the sweep was gated: `processing` →
+  `failed` is now up to ~62 seconds, because it waits for the sweep's interval rather than
+  the poll's. A document is only presumed dead after 10 minutes, so a minute on top of that
+  changes nothing a reader would notice.
 - **The client must stop polling.** An interval that keeps running against a finished
   workspace is a slow leak of requests and, on a metered function plan, of money. The
   condition is explicit: poll only while some document is `queued` or `processing`.

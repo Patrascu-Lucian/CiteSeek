@@ -12,6 +12,7 @@ import {
   validateUpload,
 } from "@/lib/documents/validation";
 import { processDocument } from "@/lib/rag/ingest";
+import { pruneOldUsage, sweepStaleDocuments } from "@/lib/sweeps";
 import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
 import { pruneUsageEvents, recordUsage } from "@/lib/usage/queries";
@@ -34,11 +35,10 @@ export async function GET(
   if (isDenied(auth)) return auth;
 
   // Looking at a stuck document is what unsticks it — no cron, and the only
-  // client that cares is already polling.
-  await failStaleProcessing();
-
-  // Swept from a request, like stale documents: no scheduler exists.
-  await pruneUsageEvents();
+  // client that cares is already polling. Gated because it polls every two
+  // seconds, which made each of these a write per poll.
+  await sweepStaleDocuments(failStaleProcessing);
+  await pruneOldUsage(pruneUsageEvents);
 
   return NextResponse.json({
     documents: await listDocuments(auth.workspaceId),

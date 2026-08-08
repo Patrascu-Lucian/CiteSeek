@@ -18,12 +18,14 @@ import {
   createTestUser,
   createTestWorkspace,
 } from "@/lib/db/test-helpers";
+import type * as DocumentQueries from "@/lib/documents/queries";
 import { listDocuments } from "@/lib/documents/queries";
 import { MAX_FILE_BYTES } from "@/lib/documents/validation";
+import type * as Sweeps from "@/lib/sweeps";
 
 /**
- * The upload route against a real database. Only the caller's identity is faked —
- * there is no browser to carry a session cookie.
+ * The documents route against a real database. Only the caller's identity is
+ * faked — there is no browser to carry a session cookie.
  */
 
 const currentActor = vi.hoisted(() => ({ value: null as Actor | null }));
@@ -39,6 +41,28 @@ vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof NextServer>()),
   after: () => {},
 }));
+
+const sweeps = vi.hoisted(() => ({
+  failStaleProcessing: vi.fn(() => Promise.resolve(0)),
+}));
+
+vi.mock("@/lib/documents/queries", async (importOriginal) => ({
+  ...(await importOriginal<typeof DocumentQueries>()),
+  failStaleProcessing: sweeps.failStaleProcessing,
+}));
+
+// The real gate's state is module-level, so "five polls, one sweep" would depend
+// on being the first `GET` in the file. The test owns the clock instead.
+const clock = vi.hoisted(() => ({ at: 0 }));
+
+vi.mock("@/lib/sweeps", async (importOriginal) => {
+  const { atMostEvery } = await importOriginal<typeof Sweeps>();
+  return {
+    atMostEvery,
+    sweepStaleDocuments: atMostEvery(60_000, () => clock.at),
+    pruneOldUsage: atMostEvery(60 * 60_000, () => clock.at),
+  };
+});
 
 function asUser(id: string): Actor {
   return { type: "user", id, name: null, email: null, image: null };
@@ -153,5 +177,33 @@ describe("POST /documents — oversized uploads", () => {
 
     expect(response.status).toBe(201);
     await expect(listDocuments(workspace.id)).resolves.toHaveLength(1);
+  });
+});
+
+describe("GET /documents — housekeeping on a polled path", () => {
+  it("sweeps once across a run of polls rather than once per poll", async () => {
+    const workspace = await signedInWorkspace();
+    const { GET } = await import("./route");
+
+    const poll = () =>
+      GET(new Request("http://test/api/documents"), {
+        params: Promise.resolve({ workspaceId: workspace.id }),
+      });
+
+    // Forward, never back: the gate holds a deadline, so resetting the clock to
+    // zero would shut it rather than open it if anything above had polled.
+    clock.at += 3_600_000;
+    sweeps.failStaleProcessing.mockClear();
+
+    for (let tick = 0; tick < 5; tick++) {
+      expect((await poll()).status).toBe(200);
+      clock.at += 2_000;
+    }
+    expect(sweeps.failStaleProcessing).toHaveBeenCalledTimes(1);
+
+    clock.at += 60_000;
+    await poll();
+
+    expect(sweeps.failStaleProcessing).toHaveBeenCalledTimes(2);
   });
 });

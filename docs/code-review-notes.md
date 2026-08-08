@@ -1637,3 +1637,39 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   runtime got there before the assertion did. Spying the call is the same intent without the race.
   The tell was available and I ignored it — a test that passes in isolation and fails in a suite is
   reporting a shared clock or shared state, and the first question is which, not "flaky".
+
+## A throttle that spent its interval on work that failed
+
+- **Issue**: gating two housekeeping sweeps behind `atMostEvery` turned a two-second poll from
+  60 writes a minute into one. Review found three things wrong with how, and they share a root.
+
+- **The gate advanced before the work ran.** `if (isDue()) await sweep()` claims the interval,
+  then does the thing. If the sweep throws — Neon dropping a connection is the ordinary case —
+  the window is spent and the sweep is skipped until the next one. Worse than it sounds here:
+  `GET /documents` is only polled while a document is `queued` or `processing`, so "the next
+  window" can be the next upload rather than the next minute.
+
+- **The name invited the misuse.** `staleSweepIsDue()` reads as a predicate and mutates on call.
+  The doc comment said so; the name is what a reader sees at the call site. Any later refactor
+  that reads it twice — a log line, an early return, hoisting it into a precondition — disables
+  the sweep silently, and the route test would still see exactly one call.
+
+- **Fix**: the gate takes the work. `atMostEvery(60_000)(failStaleProcessing)` runs it, advances
+  the interval **only on success**, and returns whether it ran. One change removes both problems:
+  the interval cannot be claimed without doing the work, and there is no predicate to read twice.
+  It also moved to `performance.now()`, which is monotonic — `Date.now()` going backwards over an
+  NTP step would leave the deadline in the future and hold the gate shut for the length of the
+  jump.
+
+- **The test was order-dependent and hid it.** `mockClear()` reset the spy but not the
+  module-level gate, so "five polls, one sweep" only passed because it was the first `GET` in the
+  file; anything added above it would fail as _the throttle is broken_. The test owns an injected
+  clock now. First attempt at that was wrong too — resetting the clock to zero **shuts** a gate
+  holding a deadline rather than opening it, so it moves forward instead. Verified by inserting
+  an earlier `GET` and re-running.
+
+- **Lesson**: **an API shaped as a question will be answered twice.** `isDue()` and
+  `run(work)` express the same policy, but only one of them can be misused by a refactor that
+  looks harmless, and only one can distinguish "the work happened" from "we decided it should".
+  The check-then-act split is where the failure lives — a throttle that cannot separate deciding
+  from doing cannot get the failure case wrong.
