@@ -325,6 +325,30 @@ describe("tenant isolation", () => {
       await listUnembeddedChunks(theirs.id, theirDocument.id),
     ).toHaveLength(1);
   });
+
+  it("writes only the named document's chunks when handed a mixture", async () => {
+    // One statement writes the whole batch, so the ownership filter is the only
+    // thing stopping `WHERE id = v.id` matching another document's chunk.
+    const workspace = await createTestWorkspace(db);
+    const [mine, other] = await Promise.all([
+      seedDocument(workspace.id, "mine.pdf"),
+      seedDocument(workspace.id, "other.pdf"),
+    ]);
+    await insertChunks(workspace.id, mine.id, [CHUNK]);
+    await insertChunks(workspace.id, other.id, [CHUNK]);
+
+    const [ours] = await listUnembeddedChunks(workspace.id, mine.id);
+    const [theirs] = await listUnembeddedChunks(workspace.id, other.id);
+
+    const written = await setChunkEmbeddings(workspace.id, mine.id, [
+      { id: ours!.id, embedding: unitVector(0) },
+      { id: theirs!.id, embedding: unitVector(1) },
+    ]);
+
+    expect(written).toBe(1);
+    expect(await listUnembeddedChunks(workspace.id, mine.id)).toHaveLength(0);
+    expect(await listUnembeddedChunks(workspace.id, other.id)).toHaveLength(1);
+  });
 });
 
 describe("stale processing watchdog", () => {

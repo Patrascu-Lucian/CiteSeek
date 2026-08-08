@@ -717,14 +717,32 @@ trigger rather than a schedule, and 7 is closed.
   interval per process. **Do it when:** touching that route for another reason — the change
   is small, but it needs the polling behavior re-verified, which is the expensive part.
 
-- **5. Ingestion writes embeddings one row at a time.** One `UPDATE` per chunk where one
-  statement per batch would do. A 51-page PDF is 32 chunks and finishes in 1.80s, so the
-  cost is invisible; a 500-page document is where it stops being.
+- ~~**5. Ingestion writes embeddings one row at a time.**~~ **Done.** `setChunkEmbeddings`
+  now issues one `UPDATE … FROM (VALUES …)` per batch instead of one per chunk.
 
-  **Action:** `UPDATE chunks SET embedding = v.embedding FROM (VALUES …) v` per batch.
-  **Do it when:** someone uploads something large enough to notice, or before any claim
-  about ingestion throughput goes in the README. The integration tests already cover
-  ingestion, so this is a rewrite with a net underneath it.
+  **The entry's own framing survived a measurement that looked like it would overturn it.**
+  Timed against Neon, 32 chunks fell from 1062 ms to 71 ms and 200 from 6501 ms to 192 ms —
+  which reads as most of the 1.80 s ingest, until you notice the round trip from this laptop
+  is **31.6 ms**, and 32 × 31.6 ≈ the entire loop. A colocated function pays ~1-2 ms, so on
+  today's documents the saving is tens of milliseconds. The cost was always latency × chunk
+  count, and the case is the 600-chunk ceiling, exactly as written.
+
+  Two things came with it. The batch is now **atomic** — previously a mid-batch failure left
+  some chunks written, and resume relied on `listUnembeddedChunks` catching up. And a
+  same-workspace ownership filter that had no test now has one: a single statement joining
+  `WHERE id = v.id` will happily match another document's chunk.
+
+  A review then pointed out that the rewrite had left a redundant `SELECT` beside it — the
+  filter was still being applied in JavaScript, from a set built by a preceding round trip, on
+  the hot path the change was priced against. It is `AND chunks.document_id = …` in the
+  `UPDATE` now: three round trips down to two, and the isolation guarantee moved out of a JS
+  `Set` and into SQL, where this project already says it belongs. Not taken: inlining
+  `chunks.workspace_id` and dropping the document lookup entirely. That column is denormalized
+  and can drift (ADR 026), so the workspace check stays on `documents`, the source of truth.
+
+  **Follow-up:** the README's ingestion table was measured on the deployed app and predates
+  this. Re-measure after it ships rather than editing the numbers on the strength of a local
+  benchmark.
 
 - ~~**6. The upload is fully buffered before its size is checked.**~~ **Done.**
   `declaredBodyTooLarge` refuses on `content-length` before `formData()` is reached, with a
