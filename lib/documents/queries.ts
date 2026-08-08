@@ -4,7 +4,6 @@ import {
   count,
   desc,
   eq,
-  inArray,
   isNotNull,
   isNull,
   lt,
@@ -219,25 +218,27 @@ export async function setChunkEmbeddings(
   const document = await findDocumentInWorkspace(workspaceId, documentId);
   if (!document) return 0;
 
-  const ids = updates.map((u) => u.id);
-  const owned = await db
-    .select({ id: chunks.id })
-    .from(chunks)
-    .where(and(eq(chunks.documentId, documentId), inArray(chunks.id, ids)));
+  // One statement, not one per chunk: the cost was a round trip each, so 600 for
+  // a document at the ceiling. 32 chunks 1062 ms → 71 ms — measured from a laptop
+  // 31.6 ms from Neon, where a colocated function pays ~1-2 ms.
+  const rows = updates.map(
+    (update) =>
+      sql`(${update.id}::uuid, ${JSON.stringify(update.embedding)}::vector)`,
+  );
 
-  const ownedIds = new Set(owned.map((row) => row.id));
-  let written = 0;
+  // A foreign id joins on `v.id` and then fails `document_id`, so it is dropped
+  // by the join rather than by a set built from a preceding SELECT. `workspace_id`
+  // is deliberately not the predicate here: it is denormalized (ADR 026) and can
+  // drift, so the workspace check above stays on `documents`.
+  const written = await db.execute(sql`
+    UPDATE ${chunks}
+    SET ${sql.identifier("embedding")} = v.embedding
+    FROM (VALUES ${sql.join(rows, sql`, `)}) AS v(id, embedding)
+    WHERE ${chunks.id} = v.id AND ${chunks.documentId} = ${documentId}
+    RETURNING ${chunks.id}
+  `);
 
-  for (const update of updates) {
-    if (!ownedIds.has(update.id)) continue;
-    await db
-      .update(chunks)
-      .set({ embedding: update.embedding })
-      .where(eq(chunks.id, update.id));
-    written += 1;
-  }
-
-  return written;
+  return written.length;
 }
 
 /** A chunk with no embedding cannot be retrieved, so "has documents" and "has
