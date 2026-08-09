@@ -231,9 +231,11 @@ function SourceBody({
             windowing would break both the scroll target and find-in-page. */}
           <p className="text-sm leading-relaxed whitespace-pre-wrap">
             {highlight.before}
+            {/* Underlined as well as tinted: the tint alone carried the whole
+              claim in color, which is the one thing a highlight must not do. */}
             <mark
               ref={markRef}
-              className="bg-primary/20 text-foreground rounded-sm px-0.5"
+              className="bg-primary/30 text-foreground decoration-primary rounded-sm box-decoration-clone px-0.5 underline decoration-2 underline-offset-4"
             >
               {highlight.cited}
             </mark>
