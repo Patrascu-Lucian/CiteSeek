@@ -291,6 +291,10 @@ export async function POST(
         // A tool call and then an answer. Without a bound, a model that keeps
         // calling the tool loops until the function times out.
         stopWhen: stepCountIs(2),
+        // **No `abortSignal`, deliberately.** Forwarding `request.signal` would
+        // stop `onFinish` running when a reader closes the tab, leaving tokens
+        // already paid for uncounted. A test holds it; the other half of the
+        // reason is the SDK's — `docs/backlog.md`.
         // Fires on Stop too — a partial answer is still what was shown. `usage`
         // aggregates across steps, which matters because `stepCountIs(2)` means a
         // tool-using turn runs two.

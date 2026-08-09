@@ -24,7 +24,12 @@ function answerChunks(answer: string): string[] {
   return answer.split(/(?<=\s)/);
 }
 
-export function fakeChatModel(answer: string = FAKE_ANSWER): LanguageModel {
+/** `chunkDelayMs` exists for one test: at 0 a stream finishes before an abort can
+ * land, so the abort proves nothing. */
+export function fakeChatModel(
+  answer: string = FAKE_ANSWER,
+  chunkDelayMs = 0,
+): LanguageModel {
   const chunks: LanguageModelV4StreamPart[] = [
     { type: "text-start", id: "0" },
     ...answerChunks(answer).map((delta) => ({
@@ -50,9 +55,12 @@ export function fakeChatModel(answer: string = FAKE_ANSWER): LanguageModel {
   return new MockLanguageModelV4({
     doStream: () =>
       Promise.resolve({
-        // No artificial delay: a test that waits out a simulated typing speed is
-        // a slow test, not a realistic one.
-        stream: simulateReadableStream({ chunks, chunkDelayInMs: 0 }),
+        // Zero by default: a test that waits out a simulated typing speed is a
+        // slow test, not a realistic one.
+        stream: simulateReadableStream({
+          chunks,
+          chunkDelayInMs: chunkDelayMs,
+        }),
       }),
   });
 }
