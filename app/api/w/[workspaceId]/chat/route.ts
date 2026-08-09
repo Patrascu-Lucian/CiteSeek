@@ -293,9 +293,8 @@ export async function POST(
         stopWhen: stepCountIs(2),
         // **No `abortSignal`, deliberately.** Forwarding `request.signal` would
         // stop `onFinish` running when a reader closes the tab, leaving tokens
-        // already paid for uncounted. A test aborts the request to hold this.
-        // The other half of the reason is the SDK's and could change under us —
-        // see `docs/backlog.md`.
+        // already paid for uncounted. A test holds it; the other half of the
+        // reason is the SDK's — `docs/backlog.md`.
         // Fires on Stop too — a partial answer is still what was shown. `usage`
         // aggregates across steps, which matters because `stepCountIs(2)` means a
         // tool-using turn runs two.

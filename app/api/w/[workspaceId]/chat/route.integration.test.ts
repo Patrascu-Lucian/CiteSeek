@@ -523,12 +523,9 @@ describe("a reader who closes the tab mid-answer", () => {
     await seedPassage(workspace.id, PASSAGE);
     currentActor.value = asUser(user.id);
 
-    /*
-      The *request* is aborted, not the response body: canceling a body leaves
-      `request.signal.aborted` false, so that version stayed green through the
-      very change it names. The delay is for the same reason — at 0 the stream
-      can finish before the abort lands.
-    */
+    // The *request*, not the response body: canceling a body leaves
+    // `request.signal.aborted` false, so that version stayed green through the
+    // very change it names. The delay is so the stream is still running.
     chatChunkDelayMs.value = 40;
     const controller = new AbortController();
 

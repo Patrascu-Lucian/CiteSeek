@@ -24,9 +24,8 @@ function answerChunks(answer: string): string[] {
   return answer.split(/(?<=\s)/);
 }
 
-/** `chunkDelayMs` exists for one test: a stream still in flight when the caller
- * goes away. At 0 the stream can finish before the abort lands, which makes such
- * a test prove nothing. */
+/** `chunkDelayMs` exists for one test: at 0 a stream finishes before an abort can
+ * land, so the abort proves nothing. */
 export function fakeChatModel(
   answer: string = FAKE_ANSWER,
   chunkDelayMs = 0,
