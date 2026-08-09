@@ -1685,7 +1685,10 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   What reached the backlog was "`onFinish` **never fires** on an aborted stream, so the provider
   was paid and the limiter never learned", with an action to record on abort.
 
-- **What the measurement says**: it fires, with full usage, on a stream canceled mid-flight. The
+- **What the measurement says**: it fires on a stream canceled mid-flight, writing both the usage
+  row and the complete turn. Not "full usage" — the fake model zeroes its token counts by design,
+  so no test here can check a total, and review caught that phrasing overclaiming in the very
+  entry about overclaiming. The
   reason is an absence — `streamText` is never given an `abortSignal`, so a client disconnect does
   not stop generation. There was no defect.
 

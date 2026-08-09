@@ -517,7 +517,13 @@ describe("POST /api/w/[workspaceId]/chat", () => {
 });
 
 describe("a reader who closes the tab mid-answer", () => {
-  it("is still metered and still has the turn stored", async () => {
+  /** One `read()` returns the sources part, written before generation starts, so
+   * the abort lands with the whole answer still to stream — 14 chunks at this
+   * delay. Shortening `FAKE_ANSWER` or this number returns the test to the
+   * vacuous state where it aborts something already finished. */
+  const CHUNK_DELAY_MS = 40;
+
+  it("is still metered and still has the whole turn stored", async () => {
     const user = await createTestUser(db);
     const workspace = await createTestWorkspace(db, { ownerId: user.id });
     await seedPassage(workspace.id, PASSAGE);
@@ -525,8 +531,8 @@ describe("a reader who closes the tab mid-answer", () => {
 
     // The *request*, not the response body: canceling a body leaves
     // `request.signal.aborted` false, so that version stayed green through the
-    // very change it names. The delay is so the stream is still running.
-    chatChunkDelayMs.value = 40;
+    // very change it names.
+    chatChunkDelayMs.value = CHUNK_DELAY_MS;
     const controller = new AbortController();
 
     try {
@@ -540,7 +546,8 @@ describe("a reader who closes the tab mid-answer", () => {
     }
 
     // Polled rather than slept on: generation continues server-side after the
-    // reader is gone, so the write lands strictly later than the abort.
+    // reader is gone, so both writes land later than the abort. Both are polled
+    // together so the test does not depend on which `onFinish` writes first.
     await vi.waitFor(
       async () => {
         const [metered] = await db
@@ -550,12 +557,15 @@ describe("a reader who closes the tab mid-answer", () => {
             and(eq(usageEvents.actorId, user.id), eq(usageEvents.kind, "chat")),
           );
         expect(metered?.total).toBe(1);
+
+        const [chat] = await listChats(workspace.id, user.id);
+        const stored = await listChatMessages(workspace.id, user.id, chat!.id);
+        expect(stored).toHaveLength(2);
+        // The content, not just the count: a truncated answer would also be two
+        // rows, and finishing is the thing being pinned.
+        expect(stored[1]!.content).toBe(FAKE_ANSWER);
       },
       { timeout: 10_000, interval: 100 },
     );
-
-    const [chat] = await listChats(workspace.id, user.id);
-    const stored = await listChatMessages(workspace.id, user.id, chat!.id);
-    expect(stored).toHaveLength(2);
   });
 });

@@ -701,10 +701,14 @@ trigger rather than a schedule, and 7 is closed.
   writes land. Proven with a slow model — `fakeChatModel` now takes a chunk delay, because at
   the default `0` a probe cancels a stream that has already finished:
 
-  | consumer            | `onFinish`        |
-  | ------------------- | ----------------- |
-  | read to completion  | fires, full usage |
-  | canceled mid-stream | fires, full usage |
+  | consumer            | `onFinish`                                        |
+  | ------------------- | ------------------------------------------------- |
+  | read to completion  | fires; a chat usage row and the whole turn stored |
+  | canceled mid-stream | fires; a chat usage row and the whole turn stored |
+
+  Not "full usage": the fake model reports **zeroed** token counts on purpose, so nothing
+  here can check a token total and the test asserts the row exists and the stored answer is
+  complete. Saying more than that would be the mistake this entry is already about.
 
   **What ships is the inverse of the action this entry proposed:** an integration test
   pinning the behavior, and a note in `route.ts` saying the signal is deliberately absent.
