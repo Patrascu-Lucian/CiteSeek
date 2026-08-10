@@ -1726,3 +1726,39 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   are the first thing lost when a finding is compressed into a task. A backlog entry that reads
   more confidently than its source has been edited into a claim nobody made. Where a review names
   the experiment, run it before writing the entry — that is cheaper than the entry.
+
+## One class change, three stale artifacts, and a grep that could not see two of them
+
+- **Issue**: bumping the citation highlight from `bg-primary/20` to `bg-primary/30` and adding an
+  underline was four tokens in one `className`. It invalidated three things elsewhere, none of
+  them code, so nothing could fail: **ADR 023**, which named `bg-primary/20` in three places and
+  carried a contrast table measured at that alpha; and **two README screenshots**, which show the
+  panel with the old tint and no underline.
+
+- **And the refactor beside it missed two of its own call sites.** Extracting the page gutter
+  converted twelve, and the grep that verified it searched for the literal `mx-auto w-full
+max-w-`. Two sites are written `mx-auto flex w-full max-w-…` — a class in the middle — so the
+  check could not match them however many times it was run. One of the two sat thirty lines above
+  a block the same commit had converted.
+
+- **What the check was actually doing.** Confirming, not testing. It could return "clean" whether
+  or not the work was complete, because the pattern it searched for was narrower than the pattern
+  the code uses. A verification that cannot produce a counterexample is a restatement of the
+  claim — and this is the third time in a fortnight: the throwing-stream test that measured a
+  clock, the contrast computed from `--card` when the panel paints `--background`, and now this.
+
+- **Fix**: both sites converted, and re-verified with `mx-auto[^"]*max-w-[0-9a-z]+[^"]*px-3` —
+  fourteen call sites, zero raw gutters. ADR 023 gained an `↳ Amended` block rather than an edit,
+  so the `/20` measurement stays on the record as what was true when the decision was made. The
+  screenshots were regenerated, and `answer.png` came back **byte-identical**, which is the
+  evidence that only the panel changed.
+
+- **Lesson**: **a change to something visual has a blast radius made entirely of things that
+  cannot fail.** No test asserts that an ADR describes the current class, or that a screenshot
+  shows the current UI, and no reviewer reads a PNG. The habit worth keeping is to ask, of any
+  visual change, _what recorded a measurement of this_ — because the answer is usually a document
+  and an image, and both go quietly wrong.
+
+  For the grep: **write the check to find counterexamples, then confirm it can.** Searching for a
+  literal you already know is present tests nothing. Had the pattern been run against the file
+  before the refactor and returned fourteen, twelve would have been visibly short.
