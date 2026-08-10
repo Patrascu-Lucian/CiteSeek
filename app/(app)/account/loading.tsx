@@ -1,3 +1,5 @@
+import { pageShell } from "@/components/ui/page-shell";
+
 /**
  * Streamed while the account query runs.
  *
@@ -12,11 +14,7 @@
  */
 export default function AccountLoading() {
   return (
-    <main
-      id="main"
-      className="mx-auto w-full max-w-2xl px-3 py-12 sm:px-6"
-      aria-busy="true"
-    >
+    <main id="main" className={pageShell("2xl")} aria-busy="true">
       <p role="status" className="sr-only">
         Loading your account…
       </p>

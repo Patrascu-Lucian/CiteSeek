@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { leaveDemoAction, signOutAction } from "@/lib/auth/actions";
+import { pageShell } from "@/components/ui/page-shell";
 
 /**
  * Account deletion, which used to sit in the header — an irreversible action one
@@ -29,7 +30,7 @@ export type AccountViewProps =
 
 export function AccountView(props: AccountViewProps) {
   return (
-    <main id="main" className="mx-auto w-full max-w-2xl px-3 py-12 sm:px-6">
+    <main id="main" className={pageShell("2xl")}>
       <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
 
       {props.kind === "guest" ? <GuestNotice /> : <UserAccount {...props} />}
