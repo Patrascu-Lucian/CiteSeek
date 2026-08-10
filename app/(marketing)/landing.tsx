@@ -46,7 +46,12 @@ const features = [
 export function Landing({ primary, secondary }: LandingCallsToAction) {
   return (
     <main id="main" className="flex flex-1 flex-col">
-      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-3 py-20 sm:px-6">
+      <section
+        className={pageShell(
+          "3xl",
+          "flex flex-1 flex-col justify-center py-20",
+        )}
+      >
         <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
           Document intelligence
         </p>

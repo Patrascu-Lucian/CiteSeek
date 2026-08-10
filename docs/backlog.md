@@ -216,8 +216,8 @@ each of these is reversible and therefore safe to defer.
 
 - ~~**A page-shell component for the gutter.**~~ **Done.** `pageShell(width, className)` in
   `components/ui/page-shell.ts` owns `mx-auto w-full px-3 py-12 sm:px-6` and the three widths;
-  twelve call sites pass only what differs. `py-12` is the default because eight of the twelve
-  want it, and `cn` lets the other four override it.
+  fourteen call sites pass only what differs. `py-12` is the default because eight of them want
+  it, and `cn` lets the rest override it.
 
   **Not the component this entry asked for**, for the reason the entry missed: the gutter sits on
   four different elements — `main`, `section`, `footer`, `div`. A component would have needed an
@@ -225,8 +225,14 @@ each of these is reversible and therefore safe to defer.
   element visible where it can be audited, and still removes the whole repetition rather than the
   quarter a static utility class would have.
 
-  Two corrections to the entry: it was 12 files, not 18, and `error.tsx`/`not-found.tsx` never
+  Two corrections to the entry: it was 14 files, not 18, and `error.tsx`/`not-found.tsx` never
   carried the gutter at all.
+
+  **The first pass found only twelve**, and review caught the two it missed — the landing hero and
+  the header nav, both written `mx-auto flex w-full max-w-…` with a class in the middle. The grep
+  that "verified" the extraction searched for the literal `mx-auto w-full max-w-`, so it could not
+  match them: the check was incapable of finding what it was claiming. Worse, one of the two sat
+  thirty lines from a block the same commit had converted.
 
 - **UUIDv7 primary keys instead of UUIDv4.** Postgres 18 ships a native `uuidv7()`.
   The schema currently uses Drizzle's `defaultRandom()`, which is `gen_random_uuid()`
