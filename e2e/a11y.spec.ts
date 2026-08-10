@@ -218,6 +218,24 @@ for (const theme of THEMES) {
         expect(await violationsOn(page)).toEqual([]);
       });
 
+      test("local mode, told this browser cannot run it", async ({ page }) => {
+        // Stubbed rather than left to the runner: whether headless Chromium
+        // grants a GPU adapter varies by machine, and this is the state most
+        // readers reaching /local will actually get.
+        await page.addInitScript(() => {
+          Object.defineProperty(navigator, "gpu", { value: undefined });
+        });
+        await page.goto("/local");
+        // By name, because Next's route announcer is also `role="alert"`.
+        await expect(
+          page
+            .getByRole("alert")
+            .filter({ hasText: /doesn't support WebGPU/i }),
+        ).toBeVisible();
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
       /** A second copy of the navigation, so a second chance at a duplicate
        * landmark — the header row already owns a `nav` named "Main". */
       test("the navigation menu on a small screen, open", async ({ page }) => {

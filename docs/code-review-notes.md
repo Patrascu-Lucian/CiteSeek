@@ -1762,3 +1762,32 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   For the grep: **write the check to find counterexamples, then confirm it can.** Searching for a
   literal you already know is present tests nothing. Had the pattern been run against the file
   before the refactor and returned fourteen, twelve would have been visibly short.
+
+## Four tested files that no user could reach
+
+- **Issue**: the plan for local mode's first slice listed "capability detection **and the mode
+  toggle**", so I built both — a `citeseek_mode` cookie, a `modeFromCookie` parser with four
+  fallback tests, and a server action to set it, all modeled on the theme cookie in ADR 018.
+  Everything passed. Nothing used it. Local inference does not exist until slice 6, so the cookie
+  recorded a preference that no code read and a toggle would have switched between one option and
+  the same option.
+
+- **Why it survived to the point of review**: every signal was green. The tests were real tests
+  of real behavior — `""`, `"LOCAL"` and `"../../etc"` all fall back to `cloud`, and they do. Type
+  checking, linting and the build have nothing to say about correct code that is never called.
+  The plan said to build it, and a plan is the one artifact that sounds like a requirement.
+
+- **The precedent that named it**: [ADR 016](decisions/016-workspace-membership-deferred.md)
+  rejected a `role` column whose only production value would be `owner` — a branch no user can
+  reach, carrying the cost of being maintained and the risk of being trusted. A preference nobody
+  honors is the same object with a different shape.
+
+- **Fix**: `lib/local/mode.ts`, its test and `lib/local/actions.ts` deleted; the cookie ships in
+  the slice that reads it. ADR 027 records the cut in its consequences, so the reasoning survives
+  the deletion rather than being rediscovered.
+
+- **Lesson**: **a plan is a hypothesis about the order of work, not a specification.** Written
+  before slice 1 existed, it grouped the cookie with detection because they are both "the toggle
+  feature" — a grouping that stops making sense the moment you notice one half has no counterpart
+  to switch to. The question that catches this is not "does it work" but **"what breaks if I
+  delete it"**, and the honest answer here was: four files, and nothing else.
