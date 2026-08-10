@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { WorkspaceUsage } from "@/lib/usage/dashboard";
+import { pageShell } from "@/components/ui/page-shell";
 
 /**
  * Split from `page.tsx` so every state is a prop and none needs a database.
@@ -31,7 +32,7 @@ export function UsageView({
   const busiest = Math.max(1, ...days.map((day) => day.requests));
 
   return (
-    <main id="main" className="mx-auto w-full max-w-3xl px-3 py-12 sm:px-6">
+    <main id="main" className={pageShell("3xl")}>
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Usage</h1>
         <p className="text-muted-foreground mt-1 text-sm">

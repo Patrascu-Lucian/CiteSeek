@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { REPOSITORY_URL } from "@/lib/links";
+import { pageShell } from "@/components/ui/page-shell";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -21,10 +22,7 @@ export const metadata: Metadata = {
  */
 export default function PrivacyPage() {
   return (
-    <main
-      id="main"
-      className="mx-auto w-full max-w-2xl flex-1 px-3 py-12 sm:px-6"
-    >
+    <main id="main" className={pageShell("2xl", "flex-1")}>
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
       <p className="text-muted-foreground mt-2 text-sm">
         Last updated 3 August 2026. This describes what the application actually

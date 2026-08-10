@@ -11,6 +11,7 @@ import {
 } from "@/lib/chats/queries";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
 import { listDocuments } from "@/lib/documents/queries";
+import { pageShell } from "@/components/ui/page-shell";
 
 /**
  * Shared by `/w/<id>` (last-used conversation) and `/w/<id>/c/<chatId>` (a named
@@ -71,10 +72,7 @@ export async function WorkspaceView({
   }
 
   return (
-    <main
-      id="main"
-      className="mx-auto w-full max-w-5xl flex-1 px-3 py-12 sm:px-6"
-    >
+    <main id="main" className={pageShell("5xl", "flex-1")}>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">
