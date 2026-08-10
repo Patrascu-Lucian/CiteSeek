@@ -20,7 +20,7 @@ const OUTPUT_DIR = join(
   "images",
 );
 
-// 1×, since four frames at 2× is over a megabyte. 1280 is past the header's `md`
+// 1×, since these at 2× run to about a megabyte. 1280 is past the header's `md`
 // breakpoint, so the nav is the desktop one rather than the hamburger.
 const VIEWPORT = { width: 1280, height: 900 };
 
@@ -76,15 +76,6 @@ try {
     };
 
     try {
-      if (names.includes("landing")) {
-        await page.goto("/");
-        await page
-          .getByRole("heading", { level: 1 })
-          .first()
-          .waitFor({ state: "visible" });
-        await shot("landing");
-      }
-
       // `/demo` mints the guest cookie and redirects. Going straight to `/w/<id>`
       // would be bounced to sign-in and shoot that instead.
       await page.goto("/demo");
@@ -145,10 +136,10 @@ try {
     }
   };
 
-  await capture("light", ["landing", "answer", "source"]);
+  await capture("light", ["answer", "source"]);
   await capture("dark", ["dark"]);
 
-  console.log(`\nFour shots in ${OUTPUT_DIR}. Open them — a wrong crop or a`);
+  console.log(`\nThree shots in ${OUTPUT_DIR}. Open them — a wrong crop or a`);
   console.log("half-written sentence is not something any assertion reports.");
 } finally {
   await browser.close();
