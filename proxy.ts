@@ -45,7 +45,10 @@ export function proxy(request: NextRequest) {
       ? NextResponse.redirect(signInFor(request))
       : NextResponse.next({ request: { headers } });
 
-  response.headers.set("Content-Security-Policy", contentSecurityPolicy(nonce));
+  response.headers.set(
+    "Content-Security-Policy",
+    contentSecurityPolicy(nonce, { path }),
+  );
 
   return response;
 }
