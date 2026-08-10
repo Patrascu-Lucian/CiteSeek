@@ -48,13 +48,12 @@ async function gotoDemo(page: Page) {
  * updates only the copy in front of them.
  */
 /**
- * Contrast of an element's text against its own background, both painted onto a
- * canvas first. `getComputedStyle` returns `lab()` and `oklab()` here, and
- * reading those numbers as RGB reports 1:1 for every pair; painting also
- * composites the `/20` tints that several surfaces are built from.
+ * An element's colors, painted onto a canvas first. `getComputedStyle` returns
+ * `lab()` and `oklab()` here, and reading those numbers as RGB reports 1:1 for
+ * every pair; painting also composites the tints several surfaces are built from.
  */
-async function contrastOf(locator: Locator): Promise<number> {
-  const { fg, bg } = await locator.evaluate((node) => {
+async function paintedColorsOf(locator: Locator) {
+  return locator.evaluate((node) => {
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = 1;
     const ctx = canvas.getContext("2d")!;
@@ -77,12 +76,20 @@ async function contrastOf(locator: Locator): Promise<number> {
 
     const style = getComputedStyle(node);
     const own = style.backgroundColor;
+    // Text and decoration sit on the element's own background, or on whatever is
+    // behind it when the element has none of its own.
+    const surface = own === "rgba(0, 0, 0, 0)" ? behind : own;
+
     return {
-      bg: paint(own, behind),
-      fg: paint(style.color, own === "rgba(0, 0, 0, 0)" ? behind : own),
+      background: paint(own, behind),
+      text: paint(style.color, surface),
+      decoration: paint(style.textDecorationColor, surface),
+      decorationLine: style.textDecorationLine,
     };
   });
+}
 
+function contrastRatio(a: number[], b: number[]): number {
   const luminance = (rgb: number[]) => {
     const channel = (v: number) => {
       const c = v / 255;
@@ -95,8 +102,25 @@ async function contrastOf(locator: Locator): Promise<number> {
     );
   };
 
-  const [hi, lo] = [luminance(fg), luminance(bg)].sort((a, b) => b - a);
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (hi! + 0.05) / (lo! + 0.05);
+}
+
+async function contrastOf(locator: Locator): Promise<number> {
+  const { text, background } = await paintedColorsOf(locator);
+
+  return contrastRatio(text, background);
+}
+
+/** Zero when nothing is drawn: `textDecorationColor` still reports a color with
+ * no underline under it, so measuring it would pass on a line nobody can see. */
+async function decorationContrastOf(locator: Locator): Promise<number> {
+  const { decoration, decorationLine, background } =
+    await paintedColorsOf(locator);
+
+  if (!decorationLine.includes("underline")) return 0;
+
+  return contrastRatio(decoration, background);
 }
 
 const THEMES = ["light", "dark"] as const;
@@ -319,8 +343,8 @@ for (const theme of THEMES) {
         /*
           `--primary` is the brand accent and it paints the two things the product
           is about: the pressed chip and the passage it highlights. The highlight
-          is `bg-primary/20`, a tint over the page that the stylesheet never names,
-          so axe cannot see the pair it actually produces.
+          is a tint over the page that the stylesheet never names, so axe cannot
+          see the pair it actually produces.
         */
         await gotoDemo(page);
         await page
@@ -344,6 +368,27 @@ for (const theme of THEMES) {
           .toBeGreaterThanOrEqual(4.5);
 
         expect(await contrastOf(mark)).toBeGreaterThanOrEqual(4.5);
+      });
+
+      test("the cited passage is findable without its tint", async ({
+        page,
+      }) => {
+        // The tint measures 1.68:1 in light and 1.92:1 in dark — visible, and not
+        // enough to carry the claim alone. Greyscale, low contrast sensitivity and
+        // daylight each remove the color; the underline survives them.
+        await gotoDemo(page);
+        await page
+          .getByRole("textbox", { name: /ask a question/i })
+          .fill("When is reimbursement paid?");
+        await page.getByRole("button", { name: /send/i }).click();
+        await page.getByRole("button", { name: /^Citation 1:/ }).click();
+
+        const mark = page.getByRole("dialog").locator("mark");
+        await expect(mark).toBeVisible();
+
+        // Returns 0 when the underline is gone, so removing it fails here rather
+        // than passing on a decoration color nothing draws.
+        expect(await decorationContrastOf(mark)).toBeGreaterThanOrEqual(3);
       });
 
       test("the source text can be scrolled by keyboard alone", async ({
