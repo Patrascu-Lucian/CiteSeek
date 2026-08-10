@@ -1,3 +1,5 @@
+import { pageShell } from "@/components/ui/page-shell";
+
 /**
  * The landing page reads the session to decide what to offer — a returning guest
  * is shown their demo rather than a signup — so it is server work like any other
@@ -8,11 +10,7 @@
  */
 export default function MarketingLoading() {
   return (
-    <main
-      id="main"
-      className="mx-auto w-full max-w-3xl px-3 py-20 sm:px-6"
-      aria-busy="true"
-    >
+    <main id="main" className={pageShell("3xl", "py-20")} aria-busy="true">
       <p role="status" className="sr-only">
         Loading…
       </p>

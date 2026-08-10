@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 
 import type { LandingCallsToAction } from "./calls-to-action";
+import { pageShell } from "@/components/ui/page-shell";
 
 /**
  * The landing page's markup, with no idea who is reading it.
@@ -45,7 +46,12 @@ const features = [
 export function Landing({ primary, secondary }: LandingCallsToAction) {
   return (
     <main id="main" className="flex flex-1 flex-col">
-      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-3 py-20 sm:px-6">
+      <section
+        className={pageShell(
+          "3xl",
+          "flex flex-1 flex-col justify-center py-20",
+        )}
+      >
         <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
           Document intelligence
         </p>
@@ -77,7 +83,7 @@ export function Landing({ primary, secondary }: LandingCallsToAction) {
         aria-labelledby="features-heading"
         className="border-border/60 border-t"
       >
-        <div className="mx-auto w-full max-w-5xl px-3 py-16 sm:px-6">
+        <div className={pageShell("5xl", "py-16")}>
           <h2 id="features-heading" className="sr-only">
             What CiteSeek does
           </h2>

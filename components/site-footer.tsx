@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { REPOSITORY_URL } from "@/lib/links";
+import { pageShell } from "@/components/ui/page-shell";
 
 /**
  * Footer for every route. It lived inside the landing page's `<main>`, where **a
@@ -12,7 +13,7 @@ import { REPOSITORY_URL } from "@/lib/links";
 export function SiteFooter() {
   return (
     <footer className="border-border/60 mt-auto border-t">
-      <div className="text-muted-foreground mx-auto w-full max-w-5xl px-3 py-8 text-sm sm:px-6">
+      <div className={pageShell("5xl", "text-muted-foreground py-8 text-sm")}>
         {/*
           Names spelled out: "Privacy" alone could be a setting. Right-aligned
           from `md`, measured as where the row below stops wrapping — 640px still

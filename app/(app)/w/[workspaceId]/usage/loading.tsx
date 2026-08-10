@@ -1,3 +1,5 @@
+import { pageShell } from "@/components/ui/page-shell";
+
 /**
  * Streamed while the usage query runs, so the click commits immediately and the
  * layout is reserved before the numbers arrive — the same reason every other
@@ -5,11 +7,7 @@
  */
 export default function UsageLoading() {
   return (
-    <main
-      id="main"
-      className="mx-auto w-full max-w-3xl px-3 py-12 sm:px-6"
-      aria-busy="true"
-    >
+    <main id="main" className={pageShell("3xl")} aria-busy="true">
       <p role="status" className="sr-only">
         Loading usage…
       </p>

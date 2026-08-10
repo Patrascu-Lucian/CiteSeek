@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { pageShell } from "@/components/ui/page-shell";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -19,10 +20,7 @@ export const metadata: Metadata = {
  */
 export default function TermsPage() {
   return (
-    <main
-      id="main"
-      className="mx-auto w-full max-w-2xl flex-1 px-3 py-12 sm:px-6"
-    >
+    <main id="main" className={pageShell("2xl", "flex-1")}>
       <h1 className="text-3xl font-semibold tracking-tight">
         Terms of Service
       </h1>

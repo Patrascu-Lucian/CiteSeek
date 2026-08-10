@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { GUEST_COOKIE_NAME, SESSION_COOKIE_NAMES } from "@/lib/auth/cookies";
+import { contentSecurityPolicy } from "@/lib/security/content-security-policy";
 
 /**
  * Two jobs: a Content-Security-Policy on every response, and a cheap credential
@@ -25,25 +26,6 @@ import { GUEST_COOKIE_NAME, SESSION_COOKIE_NAMES } from "@/lib/auth/cookies";
 /** Routes where a missing credential is a redirect rather than a page. */
 const GUARDED = [/^\/w(\/|$)/, /^\/account$/];
 
-function policy(nonce: string): string {
-  return [
-    "default-src 'self'",
-    // `strict-dynamic` covers the chunks the nonced bootstrap loads; browsers
-    // that ignore it fall back to the `'self'` beside it.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
-    // Tailwind and Radix set element styles at runtime; no nonce path for those.
-    "style-src 'self' 'unsafe-inline'",
-    // No remote hosts: a model-authored image cannot phone home.
-    "img-src 'self' data:",
-    "font-src 'self'",
-    "connect-src 'self'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "object-src 'none'",
-  ].join("; ");
-}
-
 export function proxy(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
 
@@ -63,7 +45,7 @@ export function proxy(request: NextRequest) {
       ? NextResponse.redirect(signInFor(request))
       : NextResponse.next({ request: { headers } });
 
-  response.headers.set("Content-Security-Policy", policy(nonce));
+  response.headers.set("Content-Security-Policy", contentSecurityPolicy(nonce));
 
   return response;
 }

@@ -1,3 +1,5 @@
+import { pageShell } from "@/components/ui/page-shell";
+
 /**
  * Streamed while the workspace query runs. A skeleton rather than a spinner:
  * it reserves the real layout, so nothing jumps when content arrives.
@@ -7,11 +9,7 @@
  */
 export default function WorkspaceLoading() {
   return (
-    <main
-      id="main"
-      className="mx-auto w-full max-w-5xl flex-1 px-3 py-12 sm:px-6"
-      aria-busy="true"
-    >
+    <main id="main" className={pageShell("5xl", "flex-1")} aria-busy="true">
       <p role="status" className="sr-only">
         Loading workspace…
       </p>

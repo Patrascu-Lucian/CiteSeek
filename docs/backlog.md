@@ -214,13 +214,25 @@ each of these is reversible and therefore safe to defer.
 
 ## Ideas (unscheduled)
 
-- **A page-shell component for the gutter.** Every route repeats
-  `mx-auto w-full max-w-Nxl px-3 py-12 sm:px-6` — 18 files, including each `error.tsx`,
-  `loading.tsx` and `not-found.tsx`. Unlike the bordered surfaces, these do not have to _agree_
-  with one another, so this is tidiness rather than correctness. The gutter never travels alone
-  either, which is why the honest abstraction is a layout component with a width prop rather than
-  a padding utility — a class would standardize a quarter of the repetition and leave the rest.
-  Touches enough files to want a commit with nothing else in it.
+- ~~**A page-shell component for the gutter.**~~ **Done.** `pageShell(width, className)` in
+  `components/ui/page-shell.ts` owns `mx-auto w-full px-3 py-12 sm:px-6` and the three widths;
+  fourteen call sites pass only what differs. `py-12` is the default because eight of them want
+  it, and `cn` lets the rest override it.
+
+  **Not the component this entry asked for**, for the reason the entry missed: the gutter sits on
+  four different elements — `main`, `section`, `footer`, `div`. A component would have needed an
+  `as` prop, burying a semantic choice behind a string. A function returning classes keeps the
+  element visible where it can be audited, and still removes the whole repetition rather than the
+  quarter a static utility class would have.
+
+  Two corrections to the entry: it was 14 files, not 18, and `error.tsx`/`not-found.tsx` never
+  carried the gutter at all.
+
+  **The first pass found only twelve**, and review caught the two it missed — the landing hero and
+  the header nav, both written `mx-auto flex w-full max-w-…` with a class in the middle. The grep
+  that "verified" the extraction searched for the literal `mx-auto w-full max-w-`, so it could not
+  match them: the check was incapable of finding what it was claiming. Worse, one of the two sat
+  thirty lines from a block the same commit had converted.
 
 - **UUIDv7 primary keys instead of UUIDv4.** Postgres 18 ships a native `uuidv7()`.
   The schema currently uses Drizzle's `defaultRandom()`, which is `gen_random_uuid()`
@@ -613,14 +625,6 @@ Nothing below that. A portfolio demo with no attackers does not need a WAF rules
 one would be diligence that reads as over-engineering. The defensible position is the one already
 true: cost bounded three ways, guests unable to starve signed-in users, and a day of demo
 availability knowingly at risk from an attacker with rotating addresses.
-
-- **A page-shell component for the gutter.** Every route repeats
-  `mx-auto w-full max-w-Nxl px-3 py-12 sm:px-6` — 18 files, including each `error.tsx`,
-  `loading.tsx` and `not-found.tsx`. Unlike the bordered surfaces, these do not have to _agree_
-  with one another, so this is tidiness rather than correctness. The gutter never travels alone
-  either, which is why the honest abstraction is a layout component with a width prop rather than
-  a padding utility — a class would standardize a quarter of the repetition and leave the rest.
-  Touches enough files to want a commit with nothing else in it.
 
 ## Measured, 6 August 2026
 
