@@ -1736,8 +1736,8 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   panel with the old tint and no underline.
 
 - **And the refactor beside it missed two of its own call sites.** Extracting the page gutter
-  converted twelve, and the grep that verified it searched for the literal `mx-auto w-full
-max-w-`. Two sites are written `mx-auto flex w-full max-w-…` — a class in the middle — so the
+  converted twelve, and the grep that verified it searched for the literal
+  `mx-auto w-full max-w-`. Two sites are written `mx-auto flex w-full max-w-…` — a class in the middle — so the
   check could not match them however many times it was run. One of the two sat thirty lines above
   a block the same commit had converted.
 
