@@ -7,6 +7,7 @@ import { MainNav } from "@/components/main-nav";
 import { SignInLink } from "@/components/sign-in-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { pageShell } from "@/components/ui/page-shell";
 import { signOutAction } from "@/lib/auth/actions";
 import { getActor } from "@/lib/auth/actor";
 import { findDemoWorkspace } from "@/lib/auth/demo";
@@ -93,7 +94,7 @@ export async function SiteHeader() {
     <header className="border-border/60 border-b">
       <nav
         aria-label="Main"
-        className="mx-auto flex w-full max-w-5xl items-center gap-4 px-3 py-4 sm:px-6"
+        className={pageShell("5xl", "flex items-center gap-4 py-4")}
       >
         {/*
           Full header height like the nav links, so the space around the wordmark

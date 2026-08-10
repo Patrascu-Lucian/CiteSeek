@@ -9,7 +9,7 @@ is the shadcn scaffold's default, unchanged since Milestone 0.
 The interesting part is not that a color was missing. It is **what `--primary` already paints**:
 
 - the pressed citation chip,
-- the highlighted passage in the source panel (`bg-primary/20`),
+- the highlighted passage in the source panel (`bg-primary/20`, since amended — see below),
 - the reader's own message bubble,
 - the usage bar.
 
@@ -53,6 +53,13 @@ tint is composited rather than guessed:
 | Citation chip, at rest               | 19.80:1 | 18.97:1 |
 | Citation chip, pressed               | 8.26:1  | 8.65:1  |
 | Highlighted passage, `bg-primary/20` | 14.15:1 | 11.48:1 |
+
+↳ **Amended, 10 August 2026:** the highlight is `bg-primary/30` now, and it is underlined. The
+tint was never the problem this table was checking — text on it passed comfortably either way —
+but the tint was the _only_ thing marking the passage, which is WCAG 1.4.1 rather than a contrast
+figure. Re-measured at `/30`: **11.79:1 light, 8.94:1 dark**, still far above the 4.5:1 bar, with
+the underline carrying the meaning at ~5:1. The row above stands as what was measured at the
+time. The alpha in the closing paragraph should be read as 30% for the same reason.
 
 The wordmark takes the accent too, and it is the only piece of chrome that does — 8.63:1 light,
 9.85:1 dark, at 18px/400, so the 4.5:1 bar applies rather than the large-text 3:1.
