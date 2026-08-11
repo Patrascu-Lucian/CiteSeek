@@ -973,3 +973,36 @@ performance story.
 **Revisit if the site gets real users.** Doing it properly then means one commit carrying: the
 component, the privacy page's "what is never done" list, a line in the processor list naming
 Vercel as receiving visitor metrics, and a check that the nonce reaches the injected script.
+
+## Landing and branding, raised 12 August 2026
+
+Four things noticed while reading the deployed site. The first three are design work; the
+fourth is a defect with a diagnosis.
+
+- **A logo mark, and real icons.** `app/icon.png` and `app/apple-icon.png` exist but are
+  placeholders, and the header renders the wordmark as plain text, so there is no symbol
+  anywhere. One job with the hero below rather than three: a mark that only ever appears at
+  32px is designed differently from one that has to sit on an image, and deciding them apart
+  is how you end up with two.
+
+- **A hero image behind the landing headline.** Currently type on a flat background. The
+  constraint that decides the approach: `img-src` is `'self' data:` and ADR 032 keeps remote
+  hosts to model weights, so this is a self-hosted asset, not a stock URL. It also has to
+  survive both palettes and keep the headline at WCAG AA against whatever sits behind it —
+  which is the part that usually fails, and which `paintedColorsOf` in `e2e/a11y.spec.ts`
+  can measure rather than eyeball.
+
+- **A sticky header, possibly translucent with a blur.** `components/site-header.tsx:94` is
+  `border-b` and nothing else. Two things to check if it becomes `sticky top-0`: the skip
+  link must still land correctly, and `backdrop-blur` over a hero image is exactly where
+  text contrast stops being a constant — the same measurement as above.
+
+- **The usage table's bars drift left-to-right between rows.** `usage-view.tsx:115` puts the
+  bar in the row-header cell beside the date, in a `flex items-center gap-2`. The numeric
+  `<td>`s carry `tabular-nums`; **the date `<th>` does not**, so `2026-08-11` and
+  `2026-08-09` occupy slightly different widths and every bar starts at a slightly different
+  x. Two fixes, and they are not equivalent: `tabular-nums` on the date is one class and
+  keeps the bar as an inline annotation, while giving the bar its own `<td>` aligns it by
+  construction and is arguably better semantics — a `<th scope="row">` should identify the
+  row, not carry data. The second needs a header cell for the new column, and an empty `<th>`
+  is not free for a screen reader reading the table.
