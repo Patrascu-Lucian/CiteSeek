@@ -10,6 +10,15 @@ import { expect, test } from "@playwright/test";
 
 const FIXTURES = join(import.meta.dirname, "..", "lib", "rag", "__fixtures__");
 
+/** Otherwise every upload pulls a 30 MB model, on a runner that may have no
+ * Hugging Face access at all. */
+const stubEmbedder = (page: Page) =>
+  page.addInitScript(() => {
+    (
+      globalThis as { __citeseekLocalEmbedder?: string }
+    ).__citeseekLocalEmbedder = "fake";
+  });
+
 const uploadPanel = (page: Page) =>
   page.getByRole("region", { name: /add a document/i });
 
@@ -17,6 +26,7 @@ const storagePanel = (page: Page) =>
   page.getByRole("region", { name: /stored on this machine/i });
 
 async function upload(page: Page, name: string) {
+  await stubEmbedder(page);
   await page.goto("/local");
   await expect(uploadPanel(page)).toBeVisible();
   await page.locator('input[type="file"]').setInputFiles(join(FIXTURES, name));
@@ -48,14 +58,57 @@ test.describe("local ingestion", () => {
     );
   });
 
-  test("says a passage is not searchable yet, rather than implying it is", async ({
-    page,
-  }) => {
+  test("indexes the passages, not only the text", async ({ page }) => {
     await upload(page, "sample.md");
 
     await expect(uploadPanel(page).getByRole("status")).toContainText(
-      /not searchable yet/i,
+      /indexed on this machine/i,
     );
+  });
+
+  test("marks the document ready once every passage has a vector", async ({
+    page,
+  }) => {
+    // `processing` until the vectors land is the same order the server uses, and
+    // the state a half-embedded document must not leave.
+    await upload(page, "sample.pdf");
+    await expect(uploadPanel(page).getByRole("status")).toContainText(
+      /indexed on this machine/i,
+    );
+
+    const stored = await page.evaluate(
+      () =>
+        new Promise<{ status: string; embedded: number; total: number }>(
+          (resolve, reject) => {
+            const open = indexedDB.open("citeseek-local");
+            open.onerror = () => reject(new Error("could not open"));
+            open.onsuccess = () => {
+              const db = open.result;
+              const tx = db.transaction(["documents", "chunks"], "readonly");
+              const docs = tx.objectStore("documents").getAll() as IDBRequest<
+                { status: string }[]
+              >;
+              const chunks = tx.objectStore("chunks").getAll() as IDBRequest<
+                { embedding: number[] | null }[]
+              >;
+              tx.oncomplete = () => {
+                db.close();
+                resolve({
+                  status: docs.result[0]!.status,
+                  embedded: chunks.result.filter((c) => c.embedding !== null)
+                    .length,
+                  total: chunks.result.length,
+                });
+              };
+              tx.onerror = () => reject(new Error("transaction failed"));
+            };
+          },
+        ),
+    );
+
+    expect(stored.status).toBe("ready");
+    expect(stored.embedded).toBe(stored.total);
+    expect(stored.total).toBeGreaterThan(0);
   });
 
   test("keeps the parsed text in this browser across a reload", async ({
@@ -76,6 +129,7 @@ test.describe("local ingestion", () => {
   test("reports an unreadable file instead of storing an empty document", async ({
     page,
   }) => {
+    await stubEmbedder(page);
     await page.goto("/local");
     await expect(uploadPanel(page)).toBeVisible();
     await page.locator('input[type="file"]').setInputFiles({
@@ -88,5 +142,26 @@ test.describe("local ingestion", () => {
     await expect(storagePanel(page).getByRole("status")).toContainText(
       /nothing yet/i,
     );
+  });
+});
+
+test.describe("the vendored ONNX runtime", () => {
+  test("is served from this origin, not fetched from a CDN", async ({
+    request,
+  }) => {
+    /*
+      The stub replaces the embedder in every other spec here, so nothing else
+      would notice if `public/onnx` were empty — an upstream rename, a miss in
+      `copy-onnx-runtime.mts`, or the CI artifact not carrying it. Since
+      `connect-src` no longer allows jsDelivr, that failure is local mode broken
+      in production with a green suite. ADR 032.
+    */
+    const response = await request.get(
+      "/onnx/ort-wasm-simd-threaded.asyncify.wasm",
+    );
+
+    expect(response.status()).toBe(200);
+    // The body, not `content-length`: the response is chunked and carries none.
+    expect((await response.body()).byteLength).toBeGreaterThan(1_000_000);
   });
 });

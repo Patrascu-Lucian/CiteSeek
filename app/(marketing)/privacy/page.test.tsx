@@ -72,6 +72,15 @@ describe("the privacy page", () => {
     ).toBeInTheDocument();
   });
 
+  it("names the one request local mode does make", () => {
+    // The mode claims nothing leaves the machine. The weights download does
+    // leave it, so the page says which direction the data goes.
+    render(<PrivacyPage />);
+
+    expect(screen.getByText(/downloads the model from/i)).toBeInTheDocument();
+    expect(screen.getByText(/no document text is sent/i)).toBeInTheDocument();
+  });
+
   it("says what account deletion does not reach", () => {
     // The page promised deletion removes "everything". A store the server
     // cannot see makes that a lie unless the exception is stated, and an

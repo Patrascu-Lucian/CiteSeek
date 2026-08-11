@@ -1829,3 +1829,32 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   that nothing went wrong, confirm the instrument can see the place the work is happening.
   Second: when a fix moves work somewhere slower, measure before writing the apology — the
   number here removed the tradeoff entirely rather than quantifying it.
+
+## Comments that lost their own subject, 11 August 2026
+
+- **Issue**: four comments in the local-mode code were missing the identifiers they
+  existed to name. `content-security-policy.ts` read "the file URL on redirects to a
+  regional CDN ( here), and a redirect target is checked against in its own right" — in the
+  file that _is_ the CSP seam, naming none of the three things it was written to name.
+  `local-data-controls.tsx` read "— on a disabled button is a no-op". Two of the four were
+  already merged.
+
+- **Cause**: writing them through `node -e "...backtick..."` inside a double-quoted bash
+  string. The shell reads a backtick pair as command substitution, runs
+  `` `focus()` `` as a command, and splices the empty output in. Every affected comment
+  used backticks around an identifier, which is exactly the house style.
+
+- **Why nothing caught it**: Prettier reformats comments and does not read them; ESLint does
+  not lint prose; the tests pass either way. A comment is the one artifact in the repo with
+  no automated reader at all, so a corruption that would be obvious in code is invisible here
+  until a human reads the line.
+
+- **Fix**: all four rewritten through the editor rather than the shell. The rule going
+  forward is that anything containing backticks, `$`, or `!` is written with an editing tool,
+  never interpolated through a shell string.
+
+- **Lesson**: **the tooling that writes a file is part of its correctness.** I chose `node -e`
+  for speed on multi-line edits and it silently degraded the one thing in the diff that no
+  linter, formatter or test inspects. Worth a grep before any commit that touched comments
+  through a shell: `grep -rn "[a-z,)] \{2,\}[a-z(]"` over comment lines finds the swallowed
+  identifiers, because the removed text leaves a double space behind.

@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "coverage/**",
     "playwright-report/**",
     "test-results/**",
+    // Vendored by `pnpm onnx:copy`, not written here. Prettier skips it via
+    // `.gitignore`; ESLint has no such default.
+    "public/onnx/**",
     "next-env.d.ts",
   ]),
 

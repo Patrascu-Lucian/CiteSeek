@@ -39,7 +39,16 @@ export type LocalChunk = {
   embedding: number[] | null;
 };
 
-export class LocalStoreUnavailableError extends Error {
+/** Anything the local store refused or failed to do. Typed so a caller can tell
+ * a storage problem from a model one without matching on message text. */
+export class LocalStoreError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "LocalStoreError";
+  }
+}
+
+export class LocalStoreUnavailableError extends LocalStoreError {
   constructor() {
     super(
       "This browser has no IndexedDB, so local mode cannot store anything.",
@@ -58,7 +67,7 @@ function indexedDbOrThrow(): IDBFactory {
  * DOM types make it nullable, and `error ?? fallback` is a branch that cannot
  * be reached, since an error event always carries one. */
 const failed = (what: string, cause: DOMException | null) =>
-  new Error(`The IndexedDB ${what} failed.`, { cause });
+  new LocalStoreError(`The IndexedDB ${what} failed.`, { cause });
 
 function promise<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -155,7 +164,7 @@ export async function putLocalChunks(
   chunks: LocalChunk[],
 ): Promise<void> {
   const document = await getLocalDocument(documentId);
-  if (!document) throw new Error(`No local document ${documentId}`);
+  if (!document) throw new LocalStoreError(`No local document ${documentId}`);
 
   const wrong = chunks.find(
     (chunk) =>
@@ -163,7 +172,7 @@ export async function putLocalChunks(
       chunk.embedding.length !== document.embeddingDimensions,
   );
   if (wrong) {
-    throw new Error(
+    throw new LocalStoreError(
       `Chunk ${wrong.id} has ${wrong.embedding!.length} dimensions, expected ${document.embeddingDimensions}`,
     );
   }
@@ -238,5 +247,91 @@ export async function summarizeLocalStore(): Promise<LocalStoreSummary> {
     ]);
 
     return { documents, chunks };
+  });
+}
+
+/** Written back after embedding, in one transaction: a half-embedded document
+ * that reported `ready` would answer from the passages that happened to finish. */
+export async function setLocalEmbeddings(
+  documentId: string,
+  embeddings: Map<string, number[]>,
+): Promise<void> {
+  await withStores([DOCUMENTS, CHUNKS], "readwrite", async (transaction) => {
+    const documents = transaction.objectStore(DOCUMENTS);
+    // Read inside this transaction, not before it. Embedding takes tens of
+    // seconds and "Delete everything" is reachable throughout: a snapshot taken
+    // outside would be written back afterwards, resurrecting a deleted document
+    // as `ready` with no passages at all.
+    const document = await getOne<LocalDocument>(documents, documentId);
+    if (!document) throw new LocalStoreError(`No local document ${documentId}`);
+
+    const chunks = transaction.objectStore(CHUNKS);
+    const stored = await getAll<LocalChunk>(
+      chunks.index(CHUNKS_BY_DOCUMENT),
+      documentId,
+    );
+
+    // Missing first: a chunk absent from the map also fails the width check,
+    // and reporting it as the wrong size would name the wrong problem.
+    const missing = stored.filter((chunk) => !embeddings.has(chunk.id));
+    if (missing.length > 0) {
+      // Refused rather than skipped: this call is what marks the document
+      // `ready`, and a passage left without a vector is one the answer can
+      // never retrieve while the document claims to be searchable.
+      throw new LocalStoreError(
+        `${String(missing.length)} of ${String(stored.length)} passages have no embedding`,
+      );
+    }
+
+    const wrong = stored.find(
+      (chunk) =>
+        embeddings.get(chunk.id)!.length !== document.embeddingDimensions,
+    );
+    if (wrong) {
+      // The same guard `putLocalChunks` carries, because this is now the only
+      // path that stores a vector — and cosine similarity over a mismatched
+      // width returns a number rather than an error.
+      throw new LocalStoreError(
+        `Chunk ${wrong.id} does not have ${String(document.embeddingDimensions)} dimensions`,
+      );
+    }
+
+    await Promise.all(
+      stored.map((chunk) =>
+        promise(chunks.put({ ...chunk, embedding: embeddings.get(chunk.id)! })),
+      ),
+    );
+
+    await promise(
+      documents.put({
+        ...document,
+        status: "ready",
+        updatedAt: Date.now(),
+      } satisfies LocalDocument),
+    );
+  });
+}
+
+/** So a document whose embedding died is visible as failed rather than sitting
+ * in `processing` forever, which nothing resumes and nothing surfaces. */
+export async function markLocalDocumentFailed(
+  documentId: string,
+  error: string,
+): Promise<void> {
+  await withStores([DOCUMENTS], "readwrite", async (transaction) => {
+    const documents = transaction.objectStore(DOCUMENTS);
+    const document = await getOne<LocalDocument>(documents, documentId);
+
+    // Deleted mid-embed is not a failure worth recording against nothing.
+    if (!document) return;
+
+    await promise(
+      documents.put({
+        ...document,
+        status: "failed",
+        error,
+        updatedAt: Date.now(),
+      } satisfies LocalDocument),
+    );
   });
 }

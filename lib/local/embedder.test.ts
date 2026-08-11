@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const extract = vi.hoisted(() => vi.fn());
 const pipeline = vi.hoisted(() => vi.fn());
 
-vi.mock("@huggingface/transformers", () => ({ pipeline }));
+const env = vi.hoisted(() => ({
+  backends: { onnx: { wasm: { wasmPaths: "" } } },
+}));
+
+vi.mock("@huggingface/transformers", () => ({ env, pipeline }));
 
 beforeEach(() => {
   vi.resetModules();
@@ -57,6 +61,15 @@ describe("localEmbedder", () => {
     });
   });
 
+  it("loads the runtime from this origin, not a CDN", async () => {
+    // The default fetches a dev-tagged WASM build from jsDelivr. ADR 032.
+    const embed = await load();
+
+    await embed(["anything"], "RETRIEVAL_DOCUMENT");
+
+    expect(env.backends.onnx.wasm.wasmPaths).toBe("/onnx/");
+  });
+
   it("loads the weights once across calls", async () => {
     // Tens of megabytes. Reloading per ingest and per question is the difference
     // between local mode being usable and not.
@@ -74,5 +87,29 @@ describe("localEmbedder", () => {
 
     expect(LOCAL_EMBEDDING_MODEL).toBe("Xenova/bge-small-en-v1.5");
     expect(LOCAL_EMBEDDING_DIMENSIONS).toBe(384);
+  });
+});
+
+describe("resolveLocalEmbedder", () => {
+  it("returns the real model when nothing has flagged otherwise", async () => {
+    // The default has to be the real one: a fake that shipped would write
+    // word-overlap vectors into a reader's browser and mark them ready.
+    delete (globalThis as { __citeseekLocalEmbedder?: string })
+      .__citeseekLocalEmbedder;
+
+    const { resolveLocalEmbedder, localEmbedder } = await import("./embedder");
+
+    expect(await resolveLocalEmbedder()).toBe(localEmbedder);
+  });
+
+  it("returns the fake only when explicitly flagged", async () => {
+    (
+      globalThis as { __citeseekLocalEmbedder?: string }
+    ).__citeseekLocalEmbedder = "fake";
+
+    const { resolveLocalEmbedder } = await import("./embedder");
+    const { fakeLocalEmbedder } = await import("./fake-embedder");
+
+    expect(await resolveLocalEmbedder()).toBe(fakeLocalEmbedder);
   });
 });

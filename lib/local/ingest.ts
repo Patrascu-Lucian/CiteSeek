@@ -1,12 +1,17 @@
 import type { Chunk } from "@/lib/rag/chunking";
+import { DocumentTooLargeError } from "@/lib/rag/chunking";
 import { UnreadableDocumentError } from "@/lib/rag/extract";
 import { validateUpload } from "@/lib/documents/validation";
-import { LOCAL_EMBEDDING_DIMENSIONS } from "./embedder";
+import { LOCAL_EMBEDDING_DIMENSIONS, resolveLocalEmbedder } from "./embedder";
 
 import {
   putLocalChunks,
   putLocalDocument,
+  markLocalDocumentFailed,
+  setLocalEmbeddings,
+  LocalStoreError,
   LocalStoreUnavailableError,
+  listLocalChunks,
   type LocalChunk,
   type LocalDocument,
 } from "./store";
@@ -45,12 +50,14 @@ async function parseFile(file: File, mimeType: string): Promise<IngestResult> {
       chunks: chunkText(extracted.text, extracted.pageSpans),
     };
   } catch (cause) {
-    // Only an unusable *file* gets its message shown. Anything else is a defect
-    // here, and its text is for a console rather than a reader.
+    // Both of these explain themselves to a reader; anything else is a defect
+    // here, and its text belongs in a console. The too-large one comes from the
+    // chunker rather than the parser, which is why it needs naming separately.
     return {
       ok: false,
       message:
-        cause instanceof UnreadableDocumentError
+        cause instanceof UnreadableDocumentError ||
+        cause instanceof DocumentTooLargeError
           ? cause.message
           : "This document could not be read.",
     };
@@ -113,14 +120,70 @@ export async function ingestLocalFile(
       })),
     );
   } catch (cause) {
-    return {
-      ok: false,
-      message:
-        cause instanceof LocalStoreUnavailableError
-          ? cause.message
-          : "This browser would not store the document. It may be out of space, or storage may be blocked.",
-    };
+    return { ok: false, message: describe(cause) };
   }
 
   return { ok: true, document };
+}
+
+/** Same size as the server batches at, and for the same reason: one call per
+ * passage is a round trip per passage even when the model is local. */
+const EMBED_BATCH_SIZE = 32;
+
+/**
+ * Separate from `ingestLocalFile` because it is the slow half — tens of seconds
+ * on a first run, while the weights download. The caller shows progress against
+ * it, which it cannot do if both halves are one await.
+ */
+export async function embedLocalDocument(
+  documentId: string,
+  onProgress?: (embedded: number, total: number) => void,
+  resolveEmbedder = resolveLocalEmbedder,
+): Promise<{ ok: true } | IngestFailure> {
+  try {
+    const chunks = await listLocalChunks(documentId);
+    const embed = await resolveEmbedder();
+    const embeddings = new Map<string, number[]>();
+
+    for (let start = 0; start < chunks.length; start += EMBED_BATCH_SIZE) {
+      const batch = chunks.slice(start, start + EMBED_BATCH_SIZE);
+      const { vectors } = await embed(
+        batch.map((chunk) => chunk.text),
+        "RETRIEVAL_DOCUMENT",
+      );
+
+      batch.forEach((chunk, index) => {
+        embeddings.set(chunk.id, vectors[index]!);
+      });
+
+      onProgress?.(
+        Math.min(start + batch.length, chunks.length),
+        chunks.length,
+      );
+    }
+
+    await setLocalEmbeddings(documentId, embeddings);
+
+    return { ok: true };
+  } catch (cause) {
+    // Marked `failed`, not left in `processing`: nothing resumes an abandoned
+    // ingest, so a document stuck mid-flight is invisible in the counts and
+    // unreachable except by deleting everything.
+    await markLocalDocumentFailed(documentId, describe(cause)).catch(() => {
+      // The store is the thing that failed. Reporting beats masking it.
+    });
+
+    return { ok: false, message: describe(cause) };
+  }
+}
+
+/** Storage and model failures read differently to a reader, and telling someone
+ * out of disk space to check their connection sends them the wrong way. Typed,
+ * not matched on message text, so a reworded error cannot change the advice. */
+function describe(cause: unknown): string {
+  if (cause instanceof LocalStoreUnavailableError) return cause.message;
+
+  return cause instanceof LocalStoreError
+    ? "This browser would not store the document. It may be out of space, or storage may be blocked."
+    : "The model could not be loaded. Check your connection and try again.";
 }

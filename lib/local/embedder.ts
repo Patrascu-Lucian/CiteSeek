@@ -28,14 +28,44 @@ let loading: Promise<FeatureExtraction> | null = null;
 /** Cached across calls: the weights are tens of megabytes, and every ingest and
  * every question would otherwise pay for them again. */
 function load(): Promise<FeatureExtraction> {
-  loading ??= import("@huggingface/transformers").then(
-    ({ pipeline }) =>
-      pipeline("feature-extraction", LOCAL_EMBEDDING_MODEL, {
+  loading ??= import("@huggingface/transformers")
+    .then(({ env, pipeline }) => {
+      // From this origin, not the CDN default — ADR 032.
+      env.backends.onnx.wasm!.wasmPaths = "/onnx/";
+
+      return pipeline("feature-extraction", LOCAL_EMBEDDING_MODEL, {
         dtype: "fp32",
-      }) as unknown as Promise<FeatureExtraction>,
-  );
+      });
+    })
+    .catch((cause: unknown) => {
+      // Cleared, or `??=` would cache the *rejection*: one dropped connection
+      // during a 30 MB download and every later attempt fails instantly, which
+      // makes the "try again" the caller offers impossible to satisfy.
+      loading = null;
+      throw cause;
+    });
 
   return loading;
+}
+
+/**
+ * A runtime flag rather than a build-time one, so CI keeps a single artifact:
+ * its E2E job runs the *exact* build the gate produced, and an env var would
+ * have made that build differ from the one it certifies.
+ *
+ * Setting it only swaps which vectors this browser writes for its own local
+ * documents. It reaches no server, no account and no other reader — which is why
+ * a test hook is acceptable here and would not be on any other surface.
+ */
+export async function resolveLocalEmbedder(): Promise<Embedder> {
+  const flagged = (globalThis as { __citeseekLocalEmbedder?: string })
+    .__citeseekLocalEmbedder;
+
+  if (flagged === "fake") {
+    return (await import("./fake-embedder")).fakeLocalEmbedder;
+  }
+
+  return localEmbedder;
 }
 
 export const localEmbedder: Embedder = async (

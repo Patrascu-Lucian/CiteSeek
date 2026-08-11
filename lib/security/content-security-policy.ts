@@ -1,3 +1,14 @@
+/**
+ * Where the model weights come from, measured rather than assumed: the file URL
+ * on `huggingface.co` redirects to a regional CDN (`us.aws.cdn.hf.co` here), and
+ * a redirect target is checked against `connect-src` in its own right. Wildcards
+ * because that prefix is the reader's region, not ours.
+ *
+ * No document text goes to either — this is a GET for a public model file.
+ */
+const WEIGHTS_HOSTS =
+  "https://huggingface.co https://*.huggingface.co https://*.hf.co";
+
 /** Local inference compiles WebAssembly and spawns a worker; no other route does. */
 const WASM_ROUTES = [/^\/local(\/|$)/];
 
@@ -56,6 +67,11 @@ export function contentSecurityPolicy(
     .map((directive) =>
       directive.startsWith("script-src")
         ? `${directive} 'wasm-unsafe-eval'`
+        : directive,
+    )
+    .map((directive) =>
+      directive.startsWith("connect-src")
+        ? `${directive} ${WEIGHTS_HOSTS}`
         : directive,
     )
     .concat("worker-src 'self' blob:")
