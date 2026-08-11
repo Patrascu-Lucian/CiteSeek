@@ -3,11 +3,8 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  LOCAL_EMBEDDING_DIMENSIONS,
-  ingestLocalFile,
-  type IngestResult,
-} from "./ingest";
+import { LOCAL_EMBEDDING_DIMENSIONS } from "./embedder";
+import { ingestLocalFile, type IngestResult } from "./ingest";
 import { getLocalDocument, listLocalChunks } from "./store";
 
 const DOCX =
