@@ -607,6 +607,24 @@ test.describe("response headers", () => {
     expect(headers["x-powered-by"]).toBeUndefined();
   });
 
+  test("the WASM relaxation reaches /local and stops there", async ({
+    page,
+  }) => {
+    // The unit tests prove the policy; this proves the wiring, which is the half
+    // that breaks. A `path` never threaded through `proxy.ts` would leave /local
+    // unable to compile a module and every unit test still green.
+    const local = (await page.goto("/local"))!.headers();
+    const demo = (await page.goto("/demo"))!.headers();
+
+    expect(local["content-security-policy"]).toContain("'wasm-unsafe-eval'");
+    expect(local["content-security-policy"]).toContain(
+      "worker-src 'self' blob:",
+    );
+
+    expect(demo["content-security-policy"]).not.toContain("wasm-unsafe-eval");
+    expect(demo["content-security-policy"]).not.toContain("worker-src");
+  });
+
   test("the app runs clean under the policy", async ({ page }) => {
     const violations: string[] = [];
     page.on("console", (message) => {

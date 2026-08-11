@@ -1,13 +1,28 @@
+/** Local inference compiles WebAssembly and spawns a worker; no other route does. */
+const WASM_ROUTES = [/^\/local(\/|$)/];
+
+type PolicyOptions = {
+  path?: string;
+  isProduction?: boolean;
+};
+
 /**
  * The policy `proxy.ts` sets on every response. Lives here rather than inline so
- * the one directive that differs between environments can be asserted instead of
- * assumed.
+ * the directives that differ between environments and routes can be asserted
+ * instead of assumed.
+ *
+ * Options rather than positional flags: `(nonce, true, false)` at a call site is
+ * two same-typed booleans that no compiler can tell apart, in the one function
+ * where swapping them ships a hole.
  */
 export function contentSecurityPolicy(
   nonce: string,
-  isProduction = process.env.NODE_ENV === "production",
+  {
+    path = "/",
+    isProduction = process.env.NODE_ENV === "production",
+  }: PolicyOptions = {},
 ): string {
-  return [
+  const directives = [
     "default-src 'self'",
     // `strict-dynamic` covers the chunks the nonced bootstrap loads; browsers
     // that ignore it fall back to the `'self'` beside it.
@@ -29,5 +44,20 @@ export function contentSecurityPolicy(
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
-  ].join("; ");
+  ];
+
+  if (!WASM_ROUTES.some((route) => route.test(path))) {
+    return directives.join("; ");
+  }
+
+  // Derived from the policy above rather than written out again, so a directive
+  // added there cannot be silently dropped here.
+  return directives
+    .map((directive) =>
+      directive.startsWith("script-src")
+        ? `${directive} 'wasm-unsafe-eval'`
+        : directive,
+    )
+    .concat("worker-src 'self' blob:")
+    .join("; ");
 }
