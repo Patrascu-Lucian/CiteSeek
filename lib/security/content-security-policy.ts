@@ -1,7 +1,7 @@
 /**
  * Where the model weights come from, measured rather than assumed: the file URL
- * on  redirects to a regional CDN ( here), and
- * a redirect target is checked against  in its own right. Wildcards
+ * on `huggingface.co` redirects to a regional CDN (`us.aws.cdn.hf.co` here), and
+ * a redirect target is checked against `connect-src` in its own right. Wildcards
  * because that prefix is the reader's region, not ours.
  *
  * No document text goes to either — this is a GET for a public model file.

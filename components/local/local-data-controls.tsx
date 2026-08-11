@@ -71,7 +71,7 @@ export function LocalDataControls({
       setDeleted(true);
       setState(await read());
       // Radix restores focus to the trigger, which this delete has just
-      // disabled —  on a disabled button is a no-op and the caret
+      // disabled — `focus()` on a disabled button is a no-op and the caret
       // falls to <body>, so the next Tab restarts from the top of the page.
       summary.current?.focus();
       // Only on success. Left open, it would state a count that is no longer

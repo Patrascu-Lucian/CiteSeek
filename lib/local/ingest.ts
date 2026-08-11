@@ -7,7 +7,9 @@ import { LOCAL_EMBEDDING_DIMENSIONS, resolveLocalEmbedder } from "./embedder";
 import {
   putLocalChunks,
   putLocalDocument,
+  markLocalDocumentFailed,
   setLocalEmbeddings,
+  LocalStoreError,
   LocalStoreUnavailableError,
   listLocalChunks,
   type LocalChunk,
@@ -118,13 +120,7 @@ export async function ingestLocalFile(
       })),
     );
   } catch (cause) {
-    return {
-      ok: false,
-      message:
-        cause instanceof LocalStoreUnavailableError
-          ? cause.message
-          : "This browser would not store the document. It may be out of space, or storage may be blocked.",
-    };
+    return { ok: false, message: describe(cause) };
   }
 
   return { ok: true, document };
@@ -142,10 +138,11 @@ const EMBED_BATCH_SIZE = 32;
 export async function embedLocalDocument(
   documentId: string,
   onProgress?: (embedded: number, total: number) => void,
+  resolveEmbedder = resolveLocalEmbedder,
 ): Promise<{ ok: true } | IngestFailure> {
   try {
     const chunks = await listLocalChunks(documentId);
-    const embed = await resolveLocalEmbedder();
+    const embed = await resolveEmbedder();
     const embeddings = new Map<string, number[]>();
 
     for (let start = 0; start < chunks.length; start += EMBED_BATCH_SIZE) {
@@ -169,12 +166,24 @@ export async function embedLocalDocument(
 
     return { ok: true };
   } catch (cause) {
-    return {
-      ok: false,
-      message:
-        cause instanceof LocalStoreUnavailableError
-          ? cause.message
-          : "The model could not be loaded. Check your connection and try again.",
-    };
+    // Marked `failed`, not left in `processing`: nothing resumes an abandoned
+    // ingest, so a document stuck mid-flight is invisible in the counts and
+    // unreachable except by deleting everything.
+    await markLocalDocumentFailed(documentId, describe(cause)).catch(() => {
+      // The store is the thing that failed. Reporting beats masking it.
+    });
+
+    return { ok: false, message: describe(cause) };
   }
+}
+
+/** Storage and model failures read differently to a reader, and telling someone
+ * out of disk space to check their connection sends them the wrong way. Typed,
+ * not matched on message text, so a reworded error cannot change the advice. */
+function describe(cause: unknown): string {
+  if (cause instanceof LocalStoreUnavailableError) return cause.message;
+
+  return cause instanceof LocalStoreError
+    ? "This browser would not store the document. It may be out of space, or storage may be blocked."
+    : "The model could not be loaded. Check your connection and try again.";
 }

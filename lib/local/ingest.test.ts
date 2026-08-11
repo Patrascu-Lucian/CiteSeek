@@ -256,26 +256,63 @@ describe("embedLocalDocument", () => {
     expect(seen).toEqual([[2, 2]]);
   });
 
-  it("leaves the document unready when the model cannot load", async () => {
-    // A document reporting `ready` with no vectors would answer from nothing.
+  it("marks the document failed when the model cannot load", async () => {
+    // Left in `processing`, it would be invisible in the counts and unreachable
+    // except by deleting everything, because nothing resumes an abandoned embed.
     const stored = await ingestLocalFile(aFile(), twoChunks);
     if (!stored.ok) throw new Error("setup failed");
-    (
-      globalThis as { __citeseekLocalEmbedder?: string }
-    ).__citeseekLocalEmbedder = "real-but-mocked";
-    vi.doMock("./embedder", () => ({
-      LOCAL_EMBEDDING_DIMENSIONS: 384,
-      resolveLocalEmbedder: () => Promise.reject(new Error("offline")),
-    }));
 
-    const { embedLocalDocument: embed } = await import("./ingest");
-    const result = await embed(stored.document.id);
-
-    expect(result).toMatchObject({ ok: false, message: /model could not/i });
-    expect((await getLocalDocument(stored.document.id))?.status).toBe(
-      "processing",
+    const result = await embedLocalDocument(stored.document.id, undefined, () =>
+      Promise.reject(new Error("offline")),
     );
 
-    vi.doUnmock("./embedder");
+    expect(result).toMatchObject({ ok: false, message: /model could not/i });
+    expect(await getLocalDocument(stored.document.id)).toMatchObject({
+      status: "failed",
+      error: /model could not/i,
+    });
+  });
+});
+
+describe("what a failure tells the reader", () => {
+  it("names storage when the store is what refused", async () => {
+    // Telling someone out of disk space to check their connection sends them
+    // to fix the wrong thing.
+    const stored = await ingestLocalFile(aFile(), twoChunks);
+    if (!stored.ok) throw new Error("setup failed");
+
+    // Half the vectors, which the store refuses rather than half-writing.
+    const result = await embedLocalDocument(stored.document.id, undefined, () =>
+      Promise.resolve((texts: readonly string[]) =>
+        Promise.resolve({
+          vectors: texts.map(() => Array<number>(384).fill(0.1)).slice(0, 1),
+          tokens: 0,
+        }),
+      ),
+    );
+
+    expect(result).toMatchObject({ ok: false, message: /out of space/i });
+  });
+});
+
+describe("a document past the chunk ceiling", () => {
+  it("says it is too large rather than that it could not be read", async () => {
+    // `chunkText` throws `DocumentTooLargeError`, which is not an
+    // `UnreadableDocumentError` — so this message came out generic until the
+    // chunker's error was named alongside the parser's.
+    const huge = new File(
+      [
+        new TextEncoder().encode(
+          "Reimbursement policy detail. ".repeat(40_000),
+        ),
+      ],
+      "huge.txt",
+      { type: "text/plain" },
+    );
+
+    expect(await ingestLocalFile(huge)).toMatchObject({
+      ok: false,
+      message: /above the limit|Split it/i,
+    });
   });
 });

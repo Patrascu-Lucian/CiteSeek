@@ -108,9 +108,10 @@ describe("contentSecurityPolicy", () => {
       );
     });
 
-    it("reaches no CDN for executable code", () => {
-      // The ONNX runtime is served from this origin instead. Everything above is
-      // model data; a third-party host for WASM is a different kind of trust.
+    it("names no CDN for executable code", () => {
+      // Policy only. That the runtime is *actually* served from this origin is
+      // an E2E assertion — this one cannot see a runtime that went back to
+      // fetching itself from jsDelivr.
       expect(named(local(), "connect-src")).not.toContain("jsdelivr");
     });
   });

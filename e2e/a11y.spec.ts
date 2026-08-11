@@ -612,7 +612,7 @@ test.describe("response headers", () => {
   }) => {
     // A route-scoped CSP only applies to a document response, so a client-side
     // <Link> would leave the privacy page's tight policy governing local mode
-    // for the rest of the session. The  test below cannot catch that.
+    // for the rest of the session. The `goto` test below cannot catch that.
     const documents: string[] = [];
     page.on("request", (request) => {
       if (request.resourceType() === "document") documents.push(request.url());

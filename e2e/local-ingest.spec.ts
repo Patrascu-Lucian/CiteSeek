@@ -144,3 +144,24 @@ test.describe("local ingestion", () => {
     );
   });
 });
+
+test.describe("the vendored ONNX runtime", () => {
+  test("is served from this origin, not fetched from a CDN", async ({
+    request,
+  }) => {
+    /*
+      The stub replaces the embedder in every other spec here, so nothing else
+      would notice if `public/onnx` were empty — an upstream rename, a miss in
+      `copy-onnx-runtime.mts`, or the CI artifact not carrying it. Since
+      `connect-src` no longer allows jsDelivr, that failure is local mode broken
+      in production with a green suite. ADR 032.
+    */
+    const response = await request.get(
+      "/onnx/ort-wasm-simd-threaded.asyncify.wasm",
+    );
+
+    expect(response.status()).toBe(200);
+    // The body, not `content-length`: the response is chunked and carries none.
+    expect((await response.body()).byteLength).toBeGreaterThan(1_000_000);
+  });
+});

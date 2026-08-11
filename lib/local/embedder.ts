@@ -28,14 +28,22 @@ let loading: Promise<FeatureExtraction> | null = null;
 /** Cached across calls: the weights are tens of megabytes, and every ingest and
  * every question would otherwise pay for them again. */
 function load(): Promise<FeatureExtraction> {
-  loading ??= import("@huggingface/transformers").then(({ env, pipeline }) => {
-    // From this origin, not the CDN default — ADR 032.
-    env.backends.onnx.wasm!.wasmPaths = "/onnx/";
+  loading ??= import("@huggingface/transformers")
+    .then(({ env, pipeline }) => {
+      // From this origin, not the CDN default — ADR 032.
+      env.backends.onnx.wasm!.wasmPaths = "/onnx/";
 
-    return pipeline("feature-extraction", LOCAL_EMBEDDING_MODEL, {
-      dtype: "fp32",
+      return pipeline("feature-extraction", LOCAL_EMBEDDING_MODEL, {
+        dtype: "fp32",
+      });
+    })
+    .catch((cause: unknown) => {
+      // Cleared, or `??=` would cache the *rejection*: one dropped connection
+      // during a 30 MB download and every later attempt fails instantly, which
+      // makes the "try again" the caller offers impossible to satisfy.
+      loading = null;
+      throw cause;
     });
-  });
 
   return loading;
 }

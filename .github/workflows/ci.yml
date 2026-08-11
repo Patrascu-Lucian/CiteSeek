@@ -62,12 +62,17 @@ jobs:
           AUTH_SECRET: build-time-placeholder-not-a-real-secret
 
       # The e2e job needs this exact build. Uploading it avoids paying for a
-      # second `next build` and guarantees both jobs test the same artifact.
+      # second build and guarantees both jobs test the same artifact.
+      #
+      # `public/onnx` too: `prebuild` vendors the ONNX runtime there and it is
+      # gitignored, so a checkout alone would serve 404s for every wasm request.
       - name: Upload build output
         uses: actions/upload-artifact@v7
         with:
           name: next-build
-          path: .next
+          path: |
+            .next
+            public/onnx
           retention-days: 1
           include-hidden-files: true
 
@@ -178,7 +183,6 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: next-build
-          path: .next
 
       - name: Run migrations
         run: pnpm db:migrate

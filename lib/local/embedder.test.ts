@@ -89,3 +89,27 @@ describe("localEmbedder", () => {
     expect(LOCAL_EMBEDDING_DIMENSIONS).toBe(384);
   });
 });
+
+describe("resolveLocalEmbedder", () => {
+  it("returns the real model when nothing has flagged otherwise", async () => {
+    // The default has to be the real one: a fake that shipped would write
+    // word-overlap vectors into a reader's browser and mark them ready.
+    delete (globalThis as { __citeseekLocalEmbedder?: string })
+      .__citeseekLocalEmbedder;
+
+    const { resolveLocalEmbedder, localEmbedder } = await import("./embedder");
+
+    expect(await resolveLocalEmbedder()).toBe(localEmbedder);
+  });
+
+  it("returns the fake only when explicitly flagged", async () => {
+    (
+      globalThis as { __citeseekLocalEmbedder?: string }
+    ).__citeseekLocalEmbedder = "fake";
+
+    const { resolveLocalEmbedder } = await import("./embedder");
+    const { fakeLocalEmbedder } = await import("./fake-embedder");
+
+    expect(await resolveLocalEmbedder()).toBe(fakeLocalEmbedder);
+  });
+});

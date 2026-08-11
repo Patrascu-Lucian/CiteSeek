@@ -94,7 +94,7 @@ describe("LocalDataControls", () => {
 
   it("moves focus to the count, since the trigger it came from is now disabled", async () => {
     // Radix restores focus to the trigger on close, and this delete disables it.
-    //  on a disabled button is a no-op, so the caret would land on
+    // `focus()` on a disabled button is a no-op, so the caret would land on
     // <body> and the next Tab would restart at the top of the page.
     summarize
       .mockResolvedValueOnce({ documents: 2, chunks: 59 })

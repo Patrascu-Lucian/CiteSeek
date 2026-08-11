@@ -11,6 +11,7 @@ import {
   listLocalDocuments,
   putLocalChunks,
   putLocalDocument,
+  markLocalDocumentFailed,
   setLocalEmbeddings,
   summarizeLocalStore,
   type LocalChunk,
@@ -249,5 +250,59 @@ describe("setLocalEmbeddings", () => {
     await expect(setLocalEmbeddings("ghost", new Map())).rejects.toThrow(
       /ghost/,
     );
+  });
+});
+
+describe("setLocalEmbeddings, against a store that changed underneath it", () => {
+  it("does not resurrect a document deleted while it was embedding", async () => {
+    /*
+      Embedding takes tens of seconds and "Delete everything" stays enabled the
+      whole time. Reading the document before the transaction and writing that
+      snapshot back afterwards would restore it as `ready` with no passages —
+      a searchable document made of nothing, next to a panel saying the store
+      is empty.
+    */
+    await putLocalDocument(aDocument({ status: "processing" }));
+    await putLocalChunks("doc-1", [aChunk({ id: "c1" })]);
+    const embeddings = new Map([["c1", Array<number>(DIMENSIONS).fill(0.1)]]);
+
+    await deleteEverythingLocal();
+
+    await expect(setLocalEmbeddings("doc-1", embeddings)).rejects.toThrow(
+      /doc-1/,
+    );
+    expect(await listLocalDocuments()).toEqual([]);
+  });
+
+  it("refuses a vector of the wrong width", async () => {
+    // The guard `putLocalChunks` carries. This is now the only path that
+    // actually stores a vector, so losing it here loses it entirely.
+    await putLocalDocument(aDocument({ status: "processing" }));
+    await putLocalChunks("doc-1", [aChunk({ id: "c1" })]);
+
+    await expect(
+      setLocalEmbeddings("doc-1", new Map([["c1", [0.1, 0.2]]])),
+    ).rejects.toThrow(/does not have 384 dimensions/);
+
+    expect((await getLocalDocument("doc-1"))?.status).toBe("processing");
+  });
+});
+
+describe("markLocalDocumentFailed", () => {
+  it("records why, so a stuck document is visible rather than silent", async () => {
+    await putLocalDocument(aDocument({ status: "processing" }));
+
+    await markLocalDocumentFailed("doc-1", "The model could not be loaded.");
+
+    expect(await getLocalDocument("doc-1")).toMatchObject({
+      status: "failed",
+      error: "The model could not be loaded.",
+    });
+  });
+
+  it("says nothing about a document that is already gone", async () => {
+    await expect(
+      markLocalDocumentFailed("ghost", "whatever"),
+    ).resolves.toBeUndefined();
   });
 });
