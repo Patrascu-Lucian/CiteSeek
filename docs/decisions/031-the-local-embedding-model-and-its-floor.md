@@ -69,9 +69,14 @@ is the whole argument for the per-provider table.
 draft duplicated the pipeline and the query instruction in the script; the two
 would drift, and the measurement would report a floor for something nobody runs.
 
-**`onnxruntime-node` is denied in `pnpm-workspace.yaml`.** transformers.js pulls it
-in for Node inference and its install script builds a native binary. Local mode
-runs on WASM in the browser and never loads it, and the eval script uses that same
-WASM backend. Left unbuilt deliberately — and declared, because pnpm 11 exits
-non-zero on every command until an unapproved build script is answered for, which
-would have failed CI rather than warned.
+**`onnxruntime-node`'s install script is denied in `pnpm-workspace.yaml`.**
+transformers.js pulls it in for Node inference.
+
+↳ _Corrected 12 August 2026._ This first said the native binary "is never
+loaded". It is: the package ships prebuilt binaries for every platform, so
+denying the script skips a postinstall rather than the dependency, and
+`pnpm eval:local` runs on it. What is true is that the **browser** never touches
+it — that path is `onnxruntime-web`, self-hosted per ADR 032. Declared rather
+than left unanswered because pnpm 11 exits non-zero on _every_ command until an
+unapproved build script is resolved, which would have failed CI rather than
+warned.
