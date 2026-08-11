@@ -1,19 +1,16 @@
 /**
- * The local model's relevance floor, measured the way local retrieval will use
- * it: chunks and questions embedded in memory, ranked by `cosineSimilarity`.
+ * The local relevance floor, in memory. Not `pnpm eval:retrieval`: that ingests
+ * through Postgres, whose column is `vector(768)`, and these models are 384.
+ * Numbers and reasoning in ADR 031.
  *
- * **Not `pnpm eval:retrieval`.** That harness ingests through Postgres, and
- * `chunks.embedding` is `vector(768)`. This model is 384-wide, so the insert
- * would be rejected before any number came out. No database is involved here,
- * which is also true of local mode itself.
- *
- * Usage: pnpm eval:local
+ * Usage: pnpm eval:local [--fake]
  */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { GOLDEN_SET } from "../eval/golden-set.ts";
 import { LOCAL_EMBEDDING_MODEL, localEmbedder } from "../lib/local/embedder.ts";
+import { fakeLocalEmbedder } from "../lib/local/fake-embedder.ts";
 import { chunkText } from "../lib/rag/chunking.ts";
 import { extractText } from "../lib/rag/extract.ts";
 import { RETRIEVAL_LIMIT } from "../lib/rag/retrieval-config.ts";
@@ -28,13 +25,18 @@ const FILES = [
 ];
 
 const THRESHOLDS = [
-  0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7,
+  0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8,
+  0.85, 0.9, 0.95,
 ];
+
+const useFake = process.argv.includes("--fake");
+const embedder = useFake ? fakeLocalEmbedder : localEmbedder;
+const label = useFake ? "fake (bag of words)" : LOCAL_EMBEDDING_MODEL;
 
 /** The shipping embedder, not a second copy of it: a query instruction that
  * drifted between the two would measure a floor nothing uses. */
 async function embed(texts: string[], isQuery: boolean): Promise<number[][]> {
-  const { vectors } = await localEmbedder(
+  const { vectors } = await embedder(
     texts,
     isQuery ? "RETRIEVAL_QUERY" : "RETRIEVAL_DOCUMENT",
   );
@@ -60,7 +62,7 @@ for (const file of FILES) {
   });
 }
 
-console.log(`${LOCAL_EMBEDDING_MODEL}: ${String(passages.length)} passages`);
+console.log(`${label}: ${String(passages.length)} passages`);
 
 const answerable = GOLDEN_SET.filter((one) => one.expect.length > 0);
 const unanswerable = GOLDEN_SET.filter((one) => one.expect.length === 0);

@@ -30,17 +30,15 @@ export const MAX_DISTANCE_BY_PROVIDER: Record<EmbeddingsProviderName, number> =
      */
     fake: 0.88,
 
-    /**
-     * `bge-small-en-v1.5`, measured by `pnpm eval:local` against the same golden
-     * set — 41 answerable questions, 10 the corpus cannot answer. At 0.50 it
-     * answers 38 of 41 and refuses 6 of 10; at 0.55 it answers all 41 and
-     * refuses only 3. The distributions overlap (answerable 0.313–0.546,
-     * unanswerable 0.367–0.655), so this is a trade rather than a boundary.
-     *
-     * Higher than Google's 0.4 because a 384-wide model spreads its mass over
-     * fewer dimensions, not because it retrieves worse: recall@8 is 100%.
-     */
+    /** `bge-small-en-v1.5`, measured by `pnpm eval:local`; the trade against
+     * 0.55 is in ADR 031. Higher than Google's only because 384 dimensions
+     * arrange distances differently — recall@8 is 100%. */
     local: 0.5,
+
+    /** The browser fake, and not `fake` above: different hash, different width,
+     * so that 0.88 would answer "what is the capital of France". Measured on the
+     * demo handbook — on-topic 0.70–0.72, unrelated 0.85–0.90. */
+    "local-fake": 0.8,
   };
 
 export function maxDistanceFor(provider: EmbeddingsProviderName): number {
