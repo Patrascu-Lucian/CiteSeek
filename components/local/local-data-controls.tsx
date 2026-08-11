@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,12 +26,17 @@ type State =
 
 const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
-export function LocalDataControls() {
+export function LocalDataControls({
+  refreshToken = 0,
+}: {
+  refreshToken?: number;
+}) {
   const [state, setState] = useState<State>({ status: "loading" });
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleted, setDeleted] = useState(false);
+  const summary = useRef<HTMLParagraphElement>(null);
 
   // Returns the next state rather than setting it, so the effect below applies
   // it from a callback: a `setState` the effect reaches synchronously is a
@@ -55,7 +60,7 @@ export function LocalDataControls() {
     return () => {
       current = false;
     };
-  }, [read]);
+  }, [read, refreshToken]);
 
   async function deleteEverything() {
     setIsDeleting(true);
@@ -65,6 +70,10 @@ export function LocalDataControls() {
       await deleteEverythingLocal();
       setDeleted(true);
       setState(await read());
+      // Radix restores focus to the trigger, which this delete has just
+      // disabled —  on a disabled button is a no-op and the caret
+      // falls to <body>, so the next Tab restarts from the top of the page.
+      summary.current?.focus();
       // Only on success. Left open, it would state a count that is no longer
       // true, over a confirmation the reader can no longer reach.
       setIsOpen(false);
@@ -119,7 +128,12 @@ export function LocalDataControls() {
 
       {/* `status` rather than a bare `aria-live`: the count changing is the only
           confirmation a screen reader gets that the deletion happened. */}
-      <p role="status" className="text-muted-foreground mt-2 text-sm">
+      <p
+        ref={summary}
+        tabIndex={-1}
+        role="status"
+        className="text-muted-foreground mt-2 text-sm outline-none"
+      >
         {isEmpty
           ? deleted
             ? "Deleted. Nothing from local mode remains in this browser."

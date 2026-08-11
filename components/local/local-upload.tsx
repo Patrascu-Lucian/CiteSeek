@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ACCEPT_ATTRIBUTE } from "@/lib/documents/validation";
 import { ingestLocalFile } from "@/lib/local/ingest";
 
 type State =
@@ -49,8 +50,9 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
       <input
         ref={input}
         type="file"
-        accept=".pdf,.docx,.md,.txt"
+        accept={ACCEPT_ATTRIBUTE}
         aria-label="Add a document to local mode"
+        disabled={state.status === "parsing"}
         className="sr-only"
         onChange={(event) => {
           const file = event.target.files?.[0];

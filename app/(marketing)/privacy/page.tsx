@@ -99,9 +99,9 @@ export default function PrivacyPage() {
       <Section title="Local mode, which stores nothing on our servers">
         <p>
           Documents added in{" "}
-          <Link href="/local" className="underline">
+          <a href="/local" className="underline">
             local mode
-          </Link>{" "}
+          </a>{" "}
           are stored <strong>in your browser</strong>, not on our servers. They
           are never uploaded, no processor below receives them, and none of the
           hosting above applies to them.
@@ -114,11 +114,14 @@ export default function PrivacyPage() {
           <strong>deleting your account does not remove it</strong>, because the
           deletion runs on our servers and this data never reached them.
         </p>
+        {/* A plain anchor, not <Link>: a client-side navigation reuses this
+            document's CSP, and /local needs the WASM directives its own
+            response carries (ADR 028, ADR 030). */}
         <p className="mt-3">
           Delete it yourself with <strong>Delete everything</strong> on the{" "}
-          <Link href="/local" className="underline">
+          <a href="/local" className="underline">
             local mode page
-          </Link>
+          </a>
           . That removes the documents, their passages and their embeddings from
           this browser, with no recovery.
         </p>

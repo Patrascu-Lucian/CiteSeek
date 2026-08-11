@@ -92,6 +92,26 @@ describe("LocalDataControls", () => {
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 
+  it("moves focus to the count, since the trigger it came from is now disabled", async () => {
+    // Radix restores focus to the trigger on close, and this delete disables it.
+    //  on a disabled button is a no-op, so the caret would land on
+    // <body> and the next Tab would restart at the top of the page.
+    summarize
+      .mockResolvedValueOnce({ documents: 2, chunks: 59 })
+      .mockResolvedValue({ documents: 0, chunks: 0 });
+    deleteEverything.mockResolvedValue(undefined);
+
+    render(<LocalDataControls />);
+    const dialog = await openDialog();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Delete everything" }),
+    );
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("status")),
+    );
+  });
+
   it("keeps the dialog open when the delete fails", async () => {
     summarize.mockResolvedValue({ documents: 2, chunks: 59 });
     deleteEverything.mockRejectedValue(new Error("blocked"));

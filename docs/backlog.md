@@ -938,3 +938,38 @@ is cheap — it is the same unit suite with the v8 provider attached.
 
 Not fixed on the local-mode branch: unrelated to that work, and a config change that turns a
 job red belongs in a commit that is about the job.
+
+## Local mode stores offsets but not the text they index into, 11 August 2026
+
+Found by a review of the local-mode slices. `lib/local/ingest.ts` keeps each chunk's
+`startOffset`/`endOffset`, and discards `extracted.text`; `LocalDocument` has no field for it.
+
+That is fine for what shipped — nothing renders a local citation yet — but it is a hard
+dependency for the slice that does. `components/chat/source-panel.tsx` resolves a citation by
+slicing the **canonical document text** with those offsets, which is why the server writes
+`contentText` before the chunks. Offsets alone address a string that does not exist locally,
+and re-deriving it would mean re-parsing a file the browser also does not keep.
+
+**Do it in the slice that renders local citations, not before**: add `text` to the stored
+document, write it in the same transaction as the chunks, and the pinning question becomes
+whether a local highlight lands on the same characters a cloud one does. The offsets test in
+`lib/local/ingest.test.ts` says so in its comment rather than asserting it, deliberately —
+there is nothing yet to assert against.
+
+## Vercel Speed Insights: declined for now, 11 August 2026
+
+Vercel suggests adding `@vercel/speed-insights`. Not taken, and the reason is not technical —
+it is served same-origin, so the CSP would likely cope.
+
+`app/(marketing)/privacy/page.tsx` states "There is no analytics, advertising or third-party
+tracking." Speed Insights is analytics. Adding it makes a published privacy claim false, and
+this project's rule is that the page changes in the same commit as the thing it describes,
+never after ([ADR 025](decisions/025-paying-for-the-model-tier.md)).
+
+The trade as it stands: a clean and unusual claim, against field data there is almost no
+traffic to populate. The README's hand-measured TTFT and Lighthouse numbers already carry the
+performance story.
+
+**Revisit if the site gets real users.** Doing it properly then means one commit carrying: the
+component, the privacy page's "what is never done" list, a line in the processor list naming
+Vercel as receiving visitor metrics, and a check that the nonce reaches the injected script.

@@ -215,7 +215,11 @@ export async function deleteLocalDocument(id: string): Promise<void> {
  * everything, and nothing would fail.
  */
 export async function deleteEverythingLocal(): Promise<void> {
-  const names = Array.from((await openDatabase()).objectStoreNames);
+  // Closed before the clear: a connection left open makes the next version bump
+  // fire `blocked` and hang the upgrade for anyone who used this control.
+  const db = await openDatabase();
+  const names = Array.from(db.objectStoreNames);
+  db.close();
 
   await withStores(names, "readwrite", async (transaction) => {
     await Promise.all(
