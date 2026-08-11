@@ -1,3 +1,4 @@
+import type { EmbeddingsProviderName } from "@/lib/ai/provider";
 import type { Embedder, EmbeddingResult } from "@/lib/rag/embeddings";
 
 /**
@@ -48,24 +49,24 @@ function load(): Promise<FeatureExtraction> {
   return loading;
 }
 
-/**
- * A runtime flag rather than a build-time one, so CI keeps a single artifact:
- * its E2E job runs the *exact* build the gate produced, and an env var would
- * have made that build differ from the one it certifies.
- *
- * Setting it only swaps which vectors this browser writes for its own local
- * documents. It reaches no server, no account and no other reader — which is why
- * a test hook is acceptable here and would not be on any other surface.
- */
+/** A runtime flag, not a build-time one, so CI's E2E job runs the exact build
+ * the gate produced. It only changes which vectors this browser writes for its
+ * own documents — no server, no account, no other reader. */
 export async function resolveLocalEmbedder(): Promise<Embedder> {
-  const flagged = (globalThis as { __citeseekLocalEmbedder?: string })
-    .__citeseekLocalEmbedder;
-
-  if (flagged === "fake") {
+  if (resolveLocalProvider() === "local-fake") {
     return (await import("./fake-embedder")).fakeLocalEmbedder;
   }
 
   return localEmbedder;
+}
+
+/** From the same flag as the embedder, because the two cannot be chosen
+ * separately: judging fake vectors by the real model's floor refuses everything. */
+export function resolveLocalProvider(): EmbeddingsProviderName {
+  const flagged = (globalThis as { __citeseekLocalEmbedder?: string })
+    .__citeseekLocalEmbedder;
+
+  return flagged === "fake" ? "local-fake" : "local";
 }
 
 export const localEmbedder: Embedder = async (
