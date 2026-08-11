@@ -1791,3 +1791,41 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   feature" — a grouping that stops making sense the moment you notice one half has no counterpart
   to switch to. The question that catches this is not "does it work" but **"what breaks if I
   delete it"**, and the honest answer here was: four files, and nothing else.
+
+## A library that hangs, and two confident wrong answers, 11 August 2026
+
+- **Issue**: local ingestion was built around a Web Worker, so parsing would not block the
+  page. Word, Markdown and plain text parsed correctly. PDF did not: `unpdf` inside the
+  worker **neither resolved nor threw**. The upload sat on "Parsing…" forever.
+
+- **Every signal was green.** All worker chunks loaded 200. The browser console was empty.
+  An `unhandledrejection` listener added inside the worker never fired. There was no error
+  to read because there was no error — the promise simply never settled, and `try/catch`
+  has nothing to say about code that stops rather than fails.
+
+- **Two hypotheses, both confidently wrong.** First: the CSP. `/local` gets
+  `'wasm-unsafe-eval'` but not `'unsafe-eval'`, and PDF.js is known to use `eval` on some
+  paths — a tidy story that also explained why mammoth was unaffected. It failed identically
+  under `pnpm dev`, which _does_ carry `'unsafe-eval'`. Second: the worker itself. Also
+  wrong — Word parses in that same worker. What settled it was replacing the worker with a
+  main-thread parse: all five ingest specs passed immediately. Each test cost about a minute
+  and eliminated a whole branch, which is the argument for running the cheap one before
+  reasoning further.
+
+- **Fix**: parse on the main thread and delete the worker rather than keep it for the three
+  formats it handled — that would have been a runtime branch on file type with PDF still
+  broken. **Then measure, because "moved it to the main thread" invites the obvious
+  objection.** Upload to rendered result: ~0.40s for a 2-page PDF, ~0.43s for a 51-page one.
+  Identical, so the cost is the one-off `import("unpdf")` rather than parsing, and the worker
+  had been guarding a stall that does not exist at this size. ADR 030.
+
+- **A real defect the suite caught on its own**: the visually-hidden file input had no
+  accessible name. The `/local` axe sweep written in an earlier slice failed with "Form
+  elements must have labels", impact critical, in both themes — no new test required.
+
+- **Lesson**: **the absence of an error is not evidence of success, and an instrument can be
+  the thing that is silent.** Playwright's `page.on("console")` does not receive worker
+  output, and I read that silence as "no error occurred" for several runs. Before concluding
+  that nothing went wrong, confirm the instrument can see the place the work is happening.
+  Second: when a fix moves work somewhere slower, measure before writing the apology — the
+  number here removed the tradeoff entirely rather than quantifying it.
