@@ -31,10 +31,16 @@ async function seed(page: Page, documents: number) {
           reject(open.error ?? new Error("Could not open the local database."));
         open.onsuccess = () => {
           const db = open.result;
-          const transaction = db.transaction(
-            ["documents", "chunks"],
-            "readwrite",
-          );
+          // `transaction()` throws synchronously if a store is missing, and a
+          // throw in here escapes the promise entirely — it would hang to the
+          // Playwright timeout with no reason attached.
+          let transaction: IDBTransaction;
+          try {
+            transaction = db.transaction(["documents", "chunks"], "readwrite");
+          } catch (error) {
+            reject(error instanceof Error ? error : new Error(String(error)));
+            return;
+          }
 
           for (let index = 0; index < count; index += 1) {
             transaction.objectStore("documents").put({
@@ -89,10 +95,13 @@ async function storedRecords(page: Page) {
             );
           open.onsuccess = () => {
             const db = open.result;
-            const transaction = db.transaction(
-              ["documents", "chunks"],
-              "readonly",
-            );
+            let transaction: IDBTransaction;
+            try {
+              transaction = db.transaction(["documents", "chunks"], "readonly");
+            } catch (error) {
+              reject(error instanceof Error ? error : new Error(String(error)));
+              return;
+            }
             const documents = transaction.objectStore("documents").count();
             const chunks = transaction
               .objectStore("chunks")

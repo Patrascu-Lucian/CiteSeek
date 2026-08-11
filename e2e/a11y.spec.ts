@@ -607,6 +607,26 @@ test.describe("response headers", () => {
     expect(headers["x-powered-by"]).toBeUndefined();
   });
 
+  test("the privacy page reaches /local with a document request", async ({
+    page,
+  }) => {
+    // A route-scoped CSP only applies to a document response, so a client-side
+    // <Link> would leave the privacy page's tight policy governing local mode
+    // for the rest of the session. The  test below cannot catch that.
+    const documents: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "document") documents.push(request.url());
+    });
+
+    await page.goto("/privacy");
+    await page.getByRole("link", { name: "local mode", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Local mode" }),
+    ).toBeVisible();
+
+    expect(documents.filter((url) => url.endsWith("/local"))).toHaveLength(1);
+  });
+
   test("the WASM relaxation reaches /local and stops there", async ({
     page,
   }) => {
