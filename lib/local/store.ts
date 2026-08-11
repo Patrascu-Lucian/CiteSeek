@@ -34,7 +34,9 @@ export type LocalChunk = {
   page: number | null;
   startOffset: number;
   endOffset: number;
-  embedding: number[];
+  /** Null until embedding runs, mirroring the server, where chunks are inserted
+   * first and `setChunkEmbeddings` fills them in afterwards. */
+  embedding: number[] | null;
 };
 
 export class LocalStoreUnavailableError extends Error {
@@ -156,11 +158,13 @@ export async function putLocalChunks(
   if (!document) throw new Error(`No local document ${documentId}`);
 
   const wrong = chunks.find(
-    (chunk) => chunk.embedding.length !== document.embeddingDimensions,
+    (chunk) =>
+      chunk.embedding !== null &&
+      chunk.embedding.length !== document.embeddingDimensions,
   );
   if (wrong) {
     throw new Error(
-      `Chunk ${wrong.id} has ${wrong.embedding.length} dimensions, expected ${document.embeddingDimensions}`,
+      `Chunk ${wrong.id} has ${wrong.embedding!.length} dimensions, expected ${document.embeddingDimensions}`,
     );
   }
 

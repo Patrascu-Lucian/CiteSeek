@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { LocalDataControls } from "@/components/local/local-data-controls";
+import { LocalWorkspace } from "@/components/local/local-workspace";
 import { WebGpuGate } from "@/components/local/webgpu-gate";
 import { pageShell } from "@/components/ui/page-shell";
 
@@ -20,8 +20,8 @@ export default function LocalPage() {
       <div className="mt-6">
         <WebGpuGate>
           <p className="text-muted-foreground text-sm">
-            This browser can run a model locally. Nothing to index yet —
-            ingestion arrives in the next slice.
+            This browser can run a model locally. Answering arrives with the
+            model; documents added below are parsed and indexed already.
           </p>
         </WebGpuGate>
       </div>
@@ -30,7 +30,7 @@ export default function LocalPage() {
           driver change — must not strand a reader with documents they can see
           no way to delete. */}
       <div className="mt-6">
-        <LocalDataControls />
+        <LocalWorkspace />
       </div>
     </main>
   );

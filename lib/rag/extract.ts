@@ -81,6 +81,20 @@ async function extractPdf(bytes: Uint8Array): Promise<ExtractedDocument> {
   return { text, pageSpans, pageCount: totalPages };
 }
 
+/** Both keys: mammoth's `browser` field swaps in a build reading only
+ * `arrayBuffer`, while the Node build reads only `buffer`, and each ignores the
+ * other's. `Buffer` is guarded because a worker has no such global. */
+export function mammothInput(bytes: Uint8Array) {
+  const arrayBuffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+
+  return typeof Buffer === "undefined"
+    ? { arrayBuffer }
+    : { arrayBuffer, buffer: Buffer.from(bytes) };
+}
+
 async function extractDocx(bytes: Uint8Array): Promise<ExtractedDocument> {
   const mammoth = await import("mammoth");
 
@@ -88,9 +102,7 @@ async function extractDocx(bytes: Uint8Array): Promise<ExtractedDocument> {
   try {
     // `extractRawText`, not `convertToHtml`: markup would need stripping before
     // offsets meant anything, and every transformation risks drift.
-    const result = await mammoth.extractRawText({
-      buffer: Buffer.from(bytes),
-    });
+    const result = await mammoth.extractRawText(mammothInput(bytes));
     raw = result.value;
   } catch (cause) {
     throw new UnreadableDocumentError(
