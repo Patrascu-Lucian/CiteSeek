@@ -79,7 +79,7 @@ describe("contentSecurityPolicy", () => {
       expect(named(local(), "script-src")).not.toContain("'unsafe-eval'");
     });
 
-    it("relaxes exactly two directives and widens no host", () => {
+    it("relaxes exactly the three directives local inference needs", () => {
       // The guard on the whole seam. Milestone 6's policy is the baseline, and a
       // route-scoped relaxation that leaked into `connect-src` or `img-src` would
       // pass every check above.
@@ -90,18 +90,28 @@ describe("contentSecurityPolicy", () => {
 
       expect(loose.filter((d) => !tight.includes(d))).toEqual([
         `script-src 'self' 'nonce-${NONCE}' 'strict-dynamic' 'wasm-unsafe-eval'`,
+        "connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co",
         "worker-src 'self' blob:",
       ]);
       expect(tight.filter((d) => !loose.includes(d))).toEqual([
         `script-src 'self' 'nonce-${NONCE}' 'strict-dynamic'`,
+        "connect-src 'self'",
       ]);
     });
 
-    it("names no remote host yet, so weights cannot be fetched", () => {
-      // Deliberate, and the reason ADR 028 exists: the download that would name
-      // the host has not been run. This test fails the day one is added without
-      // the ADR being revisited.
-      expect(named(local(), "connect-src")).toBe("connect-src 'self'");
+    it("reaches the weights hosts a real download was measured touching", () => {
+      // Both, because the file URL on huggingface.co redirects to a regional
+      // CDN and a redirect target is checked against `connect-src` in its own
+      // right. Measured with an actual download, not assumed (ADR 032).
+      expect(named(local(), "connect-src")).toBe(
+        "connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co",
+      );
+    });
+
+    it("reaches no CDN for executable code", () => {
+      // The ONNX runtime is served from this origin instead. Everything above is
+      // model data; a third-party host for WASM is a different kind of trust.
+      expect(named(local(), "connect-src")).not.toContain("jsdelivr");
     });
   });
 

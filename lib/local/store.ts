@@ -240,3 +240,45 @@ export async function summarizeLocalStore(): Promise<LocalStoreSummary> {
     return { documents, chunks };
   });
 }
+
+/** Written back after embedding, in one transaction: a half-embedded document
+ * that reported `ready` would answer from the passages that happened to finish. */
+export async function setLocalEmbeddings(
+  documentId: string,
+  embeddings: Map<string, number[]>,
+): Promise<void> {
+  const document = await getLocalDocument(documentId);
+  if (!document) throw new Error(`No local document ${documentId}`);
+
+  await withStores([DOCUMENTS, CHUNKS], "readwrite", async (transaction) => {
+    const chunks = transaction.objectStore(CHUNKS);
+    const stored = await getAll<LocalChunk>(
+      chunks.index(CHUNKS_BY_DOCUMENT),
+      documentId,
+    );
+
+    const missing = stored.filter((chunk) => !embeddings.has(chunk.id));
+    if (missing.length > 0) {
+      // Refused rather than skipped: this call is what marks the document
+      // `ready`, and a passage left without a vector is one the answer can
+      // never retrieve while the document claims to be searchable.
+      throw new Error(
+        `${String(missing.length)} of ${String(stored.length)} passages have no embedding`,
+      );
+    }
+
+    await Promise.all(
+      stored.map((chunk) =>
+        promise(chunks.put({ ...chunk, embedding: embeddings.get(chunk.id)! })),
+      ),
+    );
+
+    await promise(
+      transaction.objectStore(DOCUMENTS).put({
+        ...document,
+        status: "ready",
+        updatedAt: Date.now(),
+      } satisfies LocalDocument),
+    );
+  });
+}

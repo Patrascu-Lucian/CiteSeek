@@ -4,11 +4,12 @@ import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ACCEPT_ATTRIBUTE } from "@/lib/documents/validation";
-import { ingestLocalFile } from "@/lib/local/ingest";
+import { embedLocalDocument, ingestLocalFile } from "@/lib/local/ingest";
 
 type State =
   | { status: "idle" }
   | { status: "parsing"; filename: string }
+  | { status: "embedding"; filename: string; done: number; total: number }
   | { status: "done"; filename: string; passages: number }
   | { status: "failed"; message: string };
 
@@ -27,12 +28,33 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
     }
 
     setState({
+      status: "embedding",
+      filename: file.name,
+      done: 0,
+      total: result.document.chunkCount,
+    });
+    onIngested();
+
+    const embedded = await embedLocalDocument(
+      result.document.id,
+      (done, total) =>
+        setState({ status: "embedding", filename: file.name, done, total }),
+    );
+
+    if (!embedded.ok) {
+      setState({ status: "failed", message: embedded.message });
+      return;
+    }
+
+    setState({
       status: "done",
       filename: file.name,
       passages: result.document.chunkCount,
     });
     onIngested();
   }
+
+  const busy = state.status === "parsing" || state.status === "embedding";
 
   return (
     <section
@@ -52,7 +74,7 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
         type="file"
         accept={ACCEPT_ATTRIBUTE}
         aria-label="Add a document to local mode"
-        disabled={state.status === "parsing"}
+        disabled={busy}
         className="sr-only"
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -66,18 +88,20 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
         type="button"
         variant="outline"
         className="mt-3"
-        disabled={state.status === "parsing"}
+        disabled={busy}
         onClick={() => input.current?.click()}
       >
-        {state.status === "parsing" ? "Parsing…" : "Choose a file"}
+        {busy ? "Working…" : "Choose a file"}
       </Button>
 
       <p role="status" className="text-muted-foreground mt-3 text-sm">
         {state.status === "parsing"
           ? `Parsing ${state.filename}…`
-          : state.status === "done"
-            ? `${state.filename} — ${state.passages} passage${state.passages === 1 ? "" : "s"}. Not searchable yet: answering locally arrives with the model.`
-            : null}
+          : state.status === "embedding"
+            ? `Indexing ${state.filename} — ${String(state.done)} of ${String(state.total)} passages. The model downloads once, then stays on this machine.`
+            : state.status === "done"
+              ? `${state.filename} — ${state.passages} passage${state.passages === 1 ? "" : "s"} indexed on this machine. Asking questions locally arrives with the model.`
+              : null}
       </p>
 
       {state.status === "failed" ? (

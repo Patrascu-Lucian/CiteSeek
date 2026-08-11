@@ -4,7 +4,11 @@ import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LOCAL_EMBEDDING_DIMENSIONS } from "./embedder";
-import { ingestLocalFile, type IngestResult } from "./ingest";
+import {
+  embedLocalDocument,
+  ingestLocalFile,
+  type IngestResult,
+} from "./ingest";
 import { getLocalDocument, listLocalChunks } from "./store";
 
 const DOCX =
@@ -214,5 +218,64 @@ describe("the real parser, not an injected one", () => {
       const chunks = await listLocalChunks(result.document.id);
       expect(chunks[0]?.text).toContain("Paid within 30 days.");
     }
+  });
+});
+
+describe("embedLocalDocument", () => {
+  const embedder = vi.fn();
+
+  beforeEach(() => {
+    embedder.mockReset();
+    (
+      globalThis as { __citeseekLocalEmbedder?: string }
+    ).__citeseekLocalEmbedder = "fake";
+  });
+
+  it("fills every passage and marks the document ready", async () => {
+    const stored = await ingestLocalFile(aFile(), twoChunks);
+    if (!stored.ok) throw new Error("setup failed");
+
+    expect(await embedLocalDocument(stored.document.id)).toEqual({ ok: true });
+
+    const chunks = await listLocalChunks(stored.document.id);
+    expect(chunks.every((chunk) => chunk.embedding?.length === 384)).toBe(true);
+    expect((await getLocalDocument(stored.document.id))?.status).toBe("ready");
+  });
+
+  it("reports progress against the passage count", async () => {
+    // The slow half: on a first run the weights download while this ticks, and
+    // a reader with no progress assumes it has hung.
+    const stored = await ingestLocalFile(aFile(), twoChunks);
+    if (!stored.ok) throw new Error("setup failed");
+    const seen: [number, number][] = [];
+
+    await embedLocalDocument(stored.document.id, (done, total) =>
+      seen.push([done, total]),
+    );
+
+    expect(seen).toEqual([[2, 2]]);
+  });
+
+  it("leaves the document unready when the model cannot load", async () => {
+    // A document reporting `ready` with no vectors would answer from nothing.
+    const stored = await ingestLocalFile(aFile(), twoChunks);
+    if (!stored.ok) throw new Error("setup failed");
+    (
+      globalThis as { __citeseekLocalEmbedder?: string }
+    ).__citeseekLocalEmbedder = "real-but-mocked";
+    vi.doMock("./embedder", () => ({
+      LOCAL_EMBEDDING_DIMENSIONS: 384,
+      resolveLocalEmbedder: () => Promise.reject(new Error("offline")),
+    }));
+
+    const { embedLocalDocument: embed } = await import("./ingest");
+    const result = await embed(stored.document.id);
+
+    expect(result).toMatchObject({ ok: false, message: /model could not/i });
+    expect((await getLocalDocument(stored.document.id))?.status).toBe(
+      "processing",
+    );
+
+    vi.doUnmock("./embedder");
   });
 });

@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const extract = vi.hoisted(() => vi.fn());
 const pipeline = vi.hoisted(() => vi.fn());
 
-vi.mock("@huggingface/transformers", () => ({ pipeline }));
+const env = vi.hoisted(() => ({
+  backends: { onnx: { wasm: { wasmPaths: "" } } },
+}));
+
+vi.mock("@huggingface/transformers", () => ({ env, pipeline }));
 
 beforeEach(() => {
   vi.resetModules();
@@ -55,6 +59,15 @@ describe("localEmbedder", () => {
       vectors: [[0.1, 0.2]],
       tokens: 0,
     });
+  });
+
+  it("loads the runtime from this origin, not a CDN", async () => {
+    // The default fetches a dev-tagged WASM build from jsDelivr. ADR 032.
+    const embed = await load();
+
+    await embed(["anything"], "RETRIEVAL_DOCUMENT");
+
+    expect(env.backends.onnx.wasm.wasmPaths).toBe("/onnx/");
   });
 
   it("loads the weights once across calls", async () => {

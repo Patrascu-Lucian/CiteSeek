@@ -107,6 +107,14 @@ export default function PrivacyPage() {
           hosting above applies to them.
         </p>
         <p className="mt-3">
+          One thing does leave: the first time you use local mode, your browser
+          downloads the model from <strong>Hugging Face</strong>, which sees the
+          request the way any website you visit does.{" "}
+          <strong>No document text is sent</strong> — it is a download of a
+          public file, in that direction only, and the model is reused from your
+          browser&rsquo;s cache afterwards.
+        </p>
+        <p className="mt-3">
           Two consequences worth being direct about. That storage belongs to{" "}
           <strong>the browser profile, not to your account</strong> — signing
           out does not clear it, and anyone else using this browser on this

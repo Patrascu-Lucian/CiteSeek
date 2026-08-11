@@ -31,7 +31,10 @@
     "db:check": "tsx lib/db/check-migrations.mts",
     "eval:retrieval": "tsx scripts/eval-retrieval.mts",
     "db:usage": "tsx scripts/usage-report.mts",
-    "eval:local": "tsx scripts/eval-local-embedder.mts"
+    "eval:local": "tsx scripts/eval-local-embedder.mts",
+    "onnx:copy": "tsx scripts/copy-onnx-runtime.mts",
+    "prebuild": "pnpm onnx:copy",
+    "predev": "pnpm onnx:copy"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.33",

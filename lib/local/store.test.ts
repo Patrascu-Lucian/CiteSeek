@@ -11,6 +11,7 @@ import {
   listLocalDocuments,
   putLocalChunks,
   putLocalDocument,
+  setLocalEmbeddings,
   summarizeLocalStore,
   type LocalChunk,
   type LocalDocument,
@@ -223,5 +224,30 @@ describe("the local store", () => {
 
     expect(await summarizeLocalStore()).toEqual({ documents: 1, chunks: 0 });
     expect(await getLocalDocument("doc-1")).toBeDefined();
+  });
+});
+
+describe("setLocalEmbeddings", () => {
+  it("refuses to mark a document ready with a passage left unembedded", async () => {
+    // The failure this function exists to prevent: `ready` is a promise that
+    // every passage can be retrieved, and a missing vector silently breaks it.
+    await putLocalDocument(aDocument({ status: "processing" }));
+    await putLocalChunks("doc-1", [aChunk({ id: "c1" }), aChunk({ id: "c2" })]);
+
+    await expect(
+      setLocalEmbeddings(
+        "doc-1",
+        new Map([["c1", Array<number>(DIMENSIONS).fill(0.1)]]),
+      ),
+    ).rejects.toThrow(/1 of 2 passages have no embedding/);
+
+    // Still `processing`, not `ready`: the whole write is one transaction.
+    expect((await getLocalDocument("doc-1"))?.status).toBe("processing");
+  });
+
+  it("refuses a document that does not exist", async () => {
+    await expect(setLocalEmbeddings("ghost", new Map())).rejects.toThrow(
+      /ghost/,
+    );
   });
 });
