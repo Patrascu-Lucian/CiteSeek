@@ -8,7 +8,7 @@ import { fakeChatModel } from "./fake-chat-model";
  * mode plugs into. */
 
 /** Set `EMBEDDINGS_PROVIDER=fake` to run the full pipeline with no API key. */
-export type EmbeddingsProviderName = "google" | "fake";
+export type EmbeddingsProviderName = "google" | "fake" | "local";
 
 /** Only the variables read: `NodeJS.ProcessEnv` demands `NODE_ENV`, forcing every
  * test to supply an irrelevant value. */

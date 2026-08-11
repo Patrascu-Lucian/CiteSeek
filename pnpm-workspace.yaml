@@ -3,10 +3,15 @@
 #   sharp         -> Next.js image optimization (next/image)
 #   unrs-resolver -> native module resolver used by eslint-config-next's import plugin
 #   esbuild       -> bundler used by drizzle-kit to run TS config and migrations
+#   onnxruntime-node, protobufjs -> denied. transformers.js pulls them in for
+#   Node inference; local mode runs in the browser on WASM, and the eval script
+#   uses that same WASM backend, so the native binary is never loaded.
 allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+  onnxruntime-node: false
+  protobufjs: false
 
 minimumReleaseAgeExclude:
   - jsdom@30.0.0

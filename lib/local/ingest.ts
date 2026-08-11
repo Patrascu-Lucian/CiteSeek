@@ -1,6 +1,7 @@
 import type { Chunk } from "@/lib/rag/chunking";
 import { UnreadableDocumentError } from "@/lib/rag/extract";
 import { validateUpload } from "@/lib/documents/validation";
+import { LOCAL_EMBEDDING_DIMENSIONS } from "./embedder";
 
 import {
   putLocalChunks,
@@ -19,10 +20,6 @@ export type IngestSuccess = {
 export type IngestFailure = { ok: false; message: string };
 
 export type IngestResult = IngestSuccess | IngestFailure;
-
-/** The width the local embedder will produce. Carried per document so a change
- * of model does not silently mix two vector spaces in one store. */
-export const LOCAL_EMBEDDING_DIMENSIONS = 384;
 
 type Parser = (file: File, mimeType: string) => Promise<IngestResult>;
 
