@@ -62,6 +62,43 @@ describe("the privacy page", () => {
     ).toBeInTheDocument();
   });
 
+  it("says local mode's documents are not stored on our servers", () => {
+    // The claim local mode exists to make. It stops being true the moment any
+    // part of that path sends a document anywhere.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/never uploaded, no processor below receives them/i),
+    ).toBeInTheDocument();
+  });
+
+  it("says what account deletion does not reach", () => {
+    // The page promised deletion removes "everything". A store the server
+    // cannot see makes that a lie unless the exception is stated, and an
+    // unstated exception in a deletion promise is the worst kind.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/deletes everything on our servers/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/does not reach documents stored in your browser/i),
+    ).toBeInTheDocument();
+  });
+
+  it("warns that browser storage is shared with anyone using the computer", () => {
+    // The consequence a reader will not derive on their own: this data belongs
+    // to the browser profile, not the account, so signing out leaves it there.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/signing out does not clear it/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/anyone else using this browser/i),
+    ).toBeInTheDocument();
+  });
+
   it("carries the landmark the skip link points at", () => {
     // Every route has to, or "Skip to main content" lands nowhere.
     const { container } = render(<PrivacyPage />);

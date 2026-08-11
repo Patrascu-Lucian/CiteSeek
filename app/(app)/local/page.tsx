@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { LocalDataControls } from "@/components/local/local-data-controls";
 import { WebGpuGate } from "@/components/local/webgpu-gate";
 import { pageShell } from "@/components/ui/page-shell";
 
@@ -20,9 +21,16 @@ export default function LocalPage() {
         <WebGpuGate>
           <p className="text-muted-foreground text-sm">
             This browser can run a model locally. Nothing to index yet —
-            document storage arrives in the next slice.
+            ingestion arrives in the next slice.
           </p>
         </WebGpuGate>
+      </div>
+
+      {/* Outside the gate on purpose. Losing WebGPU — a flag switched off, a
+          driver change — must not strand a reader with documents they can see
+          no way to delete. */}
+      <div className="mt-6">
+        <LocalDataControls />
       </div>
     </main>
   );

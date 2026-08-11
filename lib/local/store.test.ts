@@ -1,0 +1,227 @@
+import "fake-indexeddb/auto";
+
+import { IDBFactory } from "fake-indexeddb";
+import { beforeEach, describe, expect, it } from "vitest";
+
+import {
+  deleteEverythingLocal,
+  deleteLocalDocument,
+  getLocalDocument,
+  listLocalChunks,
+  listLocalDocuments,
+  putLocalChunks,
+  putLocalDocument,
+  summarizeLocalStore,
+  type LocalChunk,
+  type LocalDocument,
+} from "./store";
+
+const DIMENSIONS = 384;
+
+const aDocument = (overrides: Partial<LocalDocument> = {}): LocalDocument => ({
+  id: "doc-1",
+  filename: "handbook.pdf",
+  mimeType: "application/pdf",
+  sizeBytes: 1024,
+  status: "ready",
+  error: null,
+  pageCount: 3,
+  chunkCount: 0,
+  embeddingDimensions: DIMENSIONS,
+  createdAt: 1,
+  updatedAt: 1,
+  ...overrides,
+});
+
+const aChunk = (overrides: Partial<LocalChunk> = {}): LocalChunk => ({
+  id: "chunk-1",
+  documentId: "doc-1",
+  index: 0,
+  text: "Reimbursement is paid within 30 days.",
+  page: 1,
+  startOffset: 0,
+  endOffset: 37,
+  embedding: Array<number>(DIMENSIONS).fill(0.1),
+  ...overrides,
+});
+
+beforeEach(() => {
+  // A fresh factory per test, because the database is module-level state and
+  // one test's documents would otherwise be another's starting point.
+  globalThis.indexedDB = new IDBFactory();
+});
+
+describe("the local store", () => {
+  it("round-trips a document", async () => {
+    await putLocalDocument(aDocument());
+
+    expect(await getLocalDocument("doc-1")).toMatchObject({
+      filename: "handbook.pdf",
+      embeddingDimensions: DIMENSIONS,
+    });
+  });
+
+  it("returns nothing for a document that was never stored", async () => {
+    expect(await getLocalDocument("missing")).toBeUndefined();
+  });
+
+  it("lists documents newest first", async () => {
+    await putLocalDocument(aDocument({ id: "old", createdAt: 1 }));
+    await putLocalDocument(aDocument({ id: "new", createdAt: 2 }));
+
+    expect((await listLocalDocuments()).map((d) => d.id)).toEqual([
+      "new",
+      "old",
+    ]);
+  });
+
+  it("returns chunks in document order, not insertion order", async () => {
+    await putLocalDocument(aDocument());
+    await putLocalChunks("doc-1", [
+      aChunk({ id: "c2", index: 1 }),
+      aChunk({ id: "c1", index: 0 }),
+    ]);
+
+    expect((await listLocalChunks("doc-1")).map((c) => c.id)).toEqual([
+      "c1",
+      "c2",
+    ]);
+  });
+
+  it("only returns the requested document's chunks", async () => {
+    await putLocalDocument(aDocument({ id: "a" }));
+    await putLocalDocument(aDocument({ id: "b" }));
+    await putLocalChunks("a", [aChunk({ id: "a1", documentId: "a" })]);
+    await putLocalChunks("b", [aChunk({ id: "b1", documentId: "b" })]);
+
+    expect((await listLocalChunks("a")).map((c) => c.id)).toEqual(["a1"]);
+  });
+
+  it("refuses a vector of the wrong width", async () => {
+    // Cosine similarity over mismatched dimensions returns a number rather than
+    // throwing, so this is the only place the mistake is still visible.
+    await putLocalDocument(aDocument());
+
+    await expect(
+      putLocalChunks("doc-1", [aChunk({ embedding: [0.1, 0.2] })]),
+    ).rejects.toThrow(/2 dimensions, expected 384/);
+
+    expect(await listLocalChunks("doc-1")).toEqual([]);
+  });
+
+  it("refuses chunks for a document that does not exist", async () => {
+    await expect(putLocalChunks("ghost", [aChunk()])).rejects.toThrow(/ghost/);
+  });
+
+  describe("deleting one document", () => {
+    it("takes its chunks with it, since IndexedDB has no cascade", async () => {
+      await putLocalDocument(aDocument());
+      await putLocalChunks("doc-1", [aChunk(), aChunk({ id: "chunk-2" })]);
+
+      await deleteLocalDocument("doc-1");
+
+      expect(await getLocalDocument("doc-1")).toBeUndefined();
+      expect(await summarizeLocalStore()).toEqual({ documents: 0, chunks: 0 });
+    });
+
+    it("leaves every other document's chunks alone", async () => {
+      await putLocalDocument(aDocument({ id: "a" }));
+      await putLocalDocument(aDocument({ id: "b" }));
+      await putLocalChunks("a", [aChunk({ id: "a1", documentId: "a" })]);
+      await putLocalChunks("b", [aChunk({ id: "b1", documentId: "b" })]);
+
+      await deleteLocalDocument("a");
+
+      expect(await summarizeLocalStore()).toEqual({ documents: 1, chunks: 1 });
+      expect((await listLocalChunks("b")).map((c) => c.id)).toEqual(["b1"]);
+    });
+  });
+
+  describe("deleting everything", () => {
+    it("leaves nothing recoverable", async () => {
+      // The local half of the cascade test the server has: the claim on the
+      // privacy page is that this is real, not that the list looks empty.
+      await putLocalDocument(aDocument({ id: "a" }));
+      await putLocalDocument(aDocument({ id: "b" }));
+      await putLocalChunks("a", [aChunk({ id: "a1", documentId: "a" })]);
+      await putLocalChunks("b", [aChunk({ id: "b1", documentId: "b" })]);
+
+      await deleteEverythingLocal();
+
+      expect(await listLocalDocuments()).toEqual([]);
+      expect(await listLocalChunks("a")).toEqual([]);
+      expect(await listLocalChunks("b")).toEqual([]);
+      expect(await summarizeLocalStore()).toEqual({ documents: 0, chunks: 0 });
+    });
+
+    it("clears every store the database has, not a hardcoded list", async () => {
+      // Guards the one thing that would rot silently: a store added in a later
+      // version, missing from a written-out list, surviving "delete everything".
+      await putLocalDocument(aDocument());
+      await putLocalChunks("doc-1", [aChunk()]);
+
+      await deleteEverythingLocal();
+
+      const database = await new Promise<IDBDatabase>((resolve) => {
+        const request = indexedDB.open("citeseek-local");
+        request.onsuccess = () => resolve(request.result);
+      });
+      const names = Array.from(database.objectStoreNames);
+      const counts = await Promise.all(
+        names.map(
+          (name) =>
+            new Promise<number>((resolve) => {
+              const request = database
+                .transaction(name, "readonly")
+                .objectStore(name)
+                .count();
+              request.onsuccess = () => resolve(request.result);
+            }),
+        ),
+      );
+      database.close();
+
+      expect(names.length).toBeGreaterThan(1);
+      expect(counts).toEqual(names.map(() => 0));
+    });
+
+    it("is safe to call when there is nothing stored", async () => {
+      await expect(deleteEverythingLocal()).resolves.toBeUndefined();
+    });
+  });
+
+  it("fails rather than opening a database newer than this build", async () => {
+    // A reader who used a later version of the app and then got a rollback.
+    // IndexedDB refuses to open at a lower version than the stored one, and the
+    // rejection has to carry the reason rather than a bare `null`.
+    await new Promise<void>((resolve) => {
+      const request = indexedDB.open("citeseek-local", 2);
+      request.onupgradeneeded = () =>
+        request.result.createObjectStore("documents", { keyPath: "id" });
+      request.onsuccess = () => {
+        request.result.close();
+        resolve();
+      };
+    });
+
+    await expect(listLocalDocuments()).rejects.toThrow(/IndexedDB request/);
+  });
+
+  it("names the missing capability rather than throwing a DOM error", async () => {
+    // Private browsing in some engines, and every server render. The gate on
+    // /local checks WebGPU; this is the other thing that can be absent.
+    // @ts-expect-error deleting a global the DOM types declare as present
+    delete globalThis.indexedDB;
+
+    await expect(listLocalDocuments()).rejects.toThrow(/no IndexedDB/);
+  });
+
+  it("survives a second open, which is what outliving a sign-out means", async () => {
+    // Nothing clears this store on sign-out, so the privacy page has to say it
+    // belongs to the browser profile rather than to an account.
+    await putLocalDocument(aDocument());
+
+    expect(await summarizeLocalStore()).toEqual({ documents: 1, chunks: 0 });
+    expect(await getLocalDocument("doc-1")).toBeDefined();
+  });
+});

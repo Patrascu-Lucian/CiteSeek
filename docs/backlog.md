@@ -896,3 +896,45 @@ defects.
   until proven otherwise — re-run with `--workers=1` before believing it.** That is also the
   answer to the earlier worry about learning to ignore this test: it is not ignored, it is
   explained.
+
+## A coverage threshold nothing runs, 11 August 2026
+
+Found while adding `lib/local/**` to `vitest.config.ts`'s thresholds: **`pnpm test:coverage`
+has been failing, and no pipeline runs it.** CI runs `pnpm test`, `pnpm test:integration` and
+`pnpm test:e2e` — coverage is a local command nobody had a reason to type.
+
+```
+ERROR: Coverage for branches (85.83%) does not meet "lib/rag/**" threshold (90%)
+```
+
+Reproducible on `develop` at `f0e8a8b`, so it predates local mode and is not caused by it.
+
+**The cause is one file, and it is dead on purpose.** `lib/rag/lexical.ts` is at **0 of 6
+branches**. It is the hybrid-retrieval implementation [ADR
+021](decisions/021-hybrid-retrieval-measured-and-not-shipped.md) measured and rejected —
+nothing on the answer path imports it, and it is kept as the evidence behind that decision.
+The coverage glob counts it as production code anyway. Every other file in the directory is at
+or near the bar:
+
+| File                            | Branches      |
+| ------------------------------- | ------------- |
+| `lexical.ts`                    | 0/6 — **0%**  |
+| `extract.ts`                    | 10/13 — 76.9% |
+| `chunking.ts`                   | 31/35 — 88.6% |
+| `eval-metrics.ts`               | 19/21 — 90.5% |
+| `embeddings.ts`, `normalize.ts` | 11/12 — 91.7% |
+| `fusion.ts`, `vector.ts`        | 100%          |
+
+Excluding `lexical.ts` puts the directory at **90.35%**, over the line without writing a test.
+That is the honest fix: the config already excludes `ingest.ts` and `retrieve.ts` with a
+written reason, and "retained as the record of a rejected decision, on no code path" is the
+same kind of reason. The alternative is deleting the file, which ADR 021 makes safe — the
+measurement is in the ADR, not in the module.
+
+**The larger item is the gate, not the number.** A threshold no workflow evaluates is
+documentation, and this one silently stopped being true at some point nobody can name. Either
+CI runs `test:coverage` or the thresholds should stop claiming to be enforced. Running it in CI
+is cheap — it is the same unit suite with the v8 provider attached.
+
+Not fixed on the local-mode branch: unrelated to that work, and a config change that turns a
+job red belongs in a commit that is about the job.

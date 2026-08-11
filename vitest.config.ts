@@ -91,6 +91,12 @@ export default defineConfig({
           functions: 90,
           lines: 90,
         },
+        "lib/local/**": {
+          statements: 90,
+          branches: 90,
+          functions: 90,
+          lines: 90,
+        },
       },
     },
   },
