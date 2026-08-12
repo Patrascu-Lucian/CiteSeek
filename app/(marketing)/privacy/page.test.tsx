@@ -199,3 +199,17 @@ describe("the contact route the policy promises", () => {
     );
   });
 });
+
+describe("the way into local mode", () => {
+  it("is reachable from the footer, flagged as experimental", () => {
+    // The only entry point in the app: before this, /local was reachable only
+    // by typing the URL or reading the privacy policy.
+    render(<SiteFooter />);
+
+    expect(screen.getByRole("link", { name: "Local mode" })).toHaveAttribute(
+      "href",
+      "/local",
+    );
+    expect(screen.getByText("(Experimental)")).toBeInTheDocument();
+  });
+});

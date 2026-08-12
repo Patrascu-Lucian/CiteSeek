@@ -627,6 +627,29 @@ test.describe("response headers", () => {
     expect(documents.filter((url) => url.endsWith("/local"))).toHaveLength(1);
   });
 
+  test("the footer reaches /local with a document request, from any route", async ({
+    page,
+  }) => {
+    // The footer is on every route, so a <Link> here would strand local mode
+    // from all of them rather than from one page. Starting somewhere that is
+    // not /privacy, because that link is already covered above.
+    const documents: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "document") documents.push(request.url());
+    });
+
+    await page.goto("/about");
+    await page
+      .getByRole("contentinfo")
+      .getByRole("link", { name: "Local mode" })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Local mode" }),
+    ).toBeVisible();
+
+    expect(documents.filter((url) => url.endsWith("/local"))).toHaveLength(1);
+  });
+
   test("the WASM relaxation reaches /local and stops there", async ({
     page,
   }) => {
