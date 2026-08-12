@@ -56,10 +56,17 @@ party — on a project whose CSP is one of the things it argues for.
 ## Consequences
 
 **74 MB is copied into the deployment**, generated rather than committed and
-gitignored. All four `ort-wasm-simd-threaded` variants, because the browser picks
-by capability — `jsep` where WebGPU is available, `asyncify` behind a proxy — and
-shipping one guesses on the reader's behalf. Only one is ever fetched by a given
-reader.
+gitignored. All four `ort-wasm-simd-threaded` variants, because which one the
+runtime picks is not guessable from the outside and shipping one guesses on the
+reader's behalf. Only one is ever fetched by a given reader.
+
+↳ **2026-08-12: the guess in this paragraph was wrong.** It said `jsep` where
+WebGPU is available and `asyncify` behind a proxy. Watched on a real run with
+`device: "webgpu"` ([ADR 034](034-answering-on-the-gpu.md)), the browser fetches
+**`asyncify`** — onnxruntime-web 1.22 replaced the JS-based WebGPU backend with a
+native one requiring Asyncify or JSPI, and transformers.js defaults `wasmPaths`
+to the asyncify pair for every non-Safari browser. Copying all four is what made
+the wrong guess harmless, which is the argument for copying all four.
 
 **The privacy page changed in this commit.** Local mode's claim is that nothing
 leaves the machine, and the weights download does leave it: Hugging Face sees the

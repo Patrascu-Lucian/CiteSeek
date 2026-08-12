@@ -75,7 +75,12 @@
   --muted-foreground: oklch(0.556 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  /* Darkened from shadcn's 0.577, which failed AA where it is actually used:
+     the destructive button paints this on a 10% tint of itself, giving 4.01:1
+     against the 4.5:1 it needs. 0.52 gives 4.70 there and 5.61 as plain text.
+     Every sweep missed it because the button was disabled — axe exempts those —
+     on every page scanned until local mode had something to delete. */
+  --destructive: oklch(0.52 0.245 27.325);
   --success: oklch(0.47 0.13 152);
   --border: oklch(0.922 0 0);
   --scrollbar-thumb: oklch(0.8 0 0);

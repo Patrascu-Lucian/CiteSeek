@@ -1,7 +1,6 @@
-import { join } from "node:path";
-
-import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+
+import { uploadAndAsk } from "./local-mode";
 
 /**
  * The milestone's acceptance criterion: **the same citation path**. A local
@@ -9,40 +8,6 @@ import { expect, test } from "@playwright/test";
  * from IndexedDB rather than a route, by the identical offsets the cloud path
  * uses.
  */
-
-const FIXTURES = join(import.meta.dirname, "..", "lib", "rag", "__fixtures__");
-
-/**
- * Three stubs, all for the same reason: a headless runner has no GPU and no
- * business downloading 884 MB of weights. `navigator.gpu` because the gate
- * requires an adapter; the model flag because it swaps both the embedder and
- * the generator for deterministic stand-ins.
- */
-const stubLocalModels = (page: Page) =>
-  page.addInitScript(() => {
-    (
-      globalThis as { __citeseekLocalEmbedder?: string }
-    ).__citeseekLocalEmbedder = "fake";
-
-    Object.defineProperty(navigator, "gpu", {
-      value: { requestAdapter: () => Promise.resolve({}) },
-    });
-  });
-
-async function uploadAndAsk(page: Page, question: string) {
-  await stubLocalModels(page);
-  await page.goto("/local");
-
-  await page
-    .locator('input[type="file"]')
-    .setInputFiles(join(FIXTURES, "sample.md"));
-  await expect(
-    page.getByRole("region", { name: /add a document/i }).getByRole("status"),
-  ).toContainText(/indexed on this machine/i, { timeout: 30_000 });
-
-  await page.getByRole("textbox", { name: /ask a question/i }).fill(question);
-  await page.getByRole("button", { name: /send/i }).click();
-}
 
 test.describe("answering locally", () => {
   test("cites the passage it answered from", async ({ page }) => {
