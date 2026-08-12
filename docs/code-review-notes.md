@@ -1925,3 +1925,42 @@ tests, 117 E2E and a production build, green.
   fail if the library changed its behavior underneath — if the answer is none, the suite is
   measuring the mock. And for anything persisted, write the fixture at the _old_ version:
   every test that builds its store fresh is blind to migrations by construction.
+
+## The bug that needed a person, 12 August 2026
+
+- **Issue**: the local model's worked example was sent as `user`/`assistant` turns before the
+  question. A model does not read those as an illustration; it reads them as things that were
+  said. Typing `cite` returned "The passage [1] says the office closes at six" — the example's
+  own user turn — with a marker that **resolved**, so the chip opened a real paragraph of the
+  reader's CV. A fabricated claim wearing a working citation, reachable in one word, and
+  deterministic under `do_sample: false`.
+
+- **What every layer of review missed, in order.** The gate was green throughout: format,
+  lint, typecheck, 683 unit tests, 117 E2E, production build. `/code-review` read the diff and
+  found seven other defects without flagging this one. I wrote the example, noted the leak risk
+  in my own head while writing it, judged it low because the text began with "Example.", and
+  moved on. None of that was going to catch it.
+
+- **Why the tests could not.** Two reasons, and the second is the interesting one. The suite
+  fakes the generator so CI never downloads 756 MB, so nothing in it watches a real model read a
+  real prompt. But the deeper problem is that the tests asserted the example was _present_ and
+  its marker looked right — they described what we sent. They would have passed at full green
+  no matter how badly the model answered out of it.
+
+- **Fix**: the example moves into the system prompt and is built from the retrieved passage, so
+  a parroting model quotes the reader's own document (ADR 035). The guard is an assertion about
+  **shape**: the message array holds exactly the system prompt and the question. A leak cannot
+  satisfy that.
+
+- **Lesson**: **assert the shape of what leaves your process, not just its contents.** Content
+  assertions encode what you meant; shape assertions encode what is structurally possible. Here
+  the difference was "the example is in the prompt" — true, and useless — against "nothing but
+  the system prompt and the question is in the array", which is the property that was violated.
+  When something must never be true, find the assertion a bug cannot pass.
+
+- **Second lesson, for the README rather than the code.** The same session showed three guards
+  firing on real content — an invented marker left inert, model-emitted markdown links rendered
+  anchorless, a grounded example quoting the reader — and every one of them looked like
+  breakage. The reader who reported "that citation is not clickable" was the person who wrote
+  the rule making it unclickable. A safety property that communicates nothing gets read as a
+  defect and eventually gets "fixed".
