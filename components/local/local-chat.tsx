@@ -87,12 +87,24 @@ export function LocalChat({ filenames }: { filenames: readonly string[] }) {
               Downloading the model. You can leave this page open; it resumes
               from the browser cache next time.
             </p>
-            <progress
-              className="mt-2 w-full"
-              value={load.percent}
-              max={100}
+            {/* Two divs rather than `<progress>`, whose fill is only reachable
+                through `::-webkit-progress-value` and `::-moz-progress-bar` —
+                two rules for one bar, and the unstyled default paints green,
+                which is in no palette here. `role="progressbar"` carries the
+                same semantics. */}
+            <div
+              role="progressbar"
+              aria-valuenow={load.percent}
+              aria-valuemin={0}
+              aria-valuemax={100}
               aria-label="Model download progress"
-            />
+              className="bg-muted mt-2 h-1.5 w-full overflow-hidden rounded-full"
+            >
+              <div
+                className="bg-primary h-full transition-[width] duration-300"
+                style={{ width: `${String(load.percent)}%` }}
+              />
+            </div>
           </div>
         ) : (
           <Button

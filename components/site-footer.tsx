@@ -49,6 +49,24 @@ export function SiteFooter() {
           </Link>
         </nav>
 
+        {/*
+          Its own row rather than joining the nav above: that landmark is named
+          for pages about the project, and a route the reader can use does not
+          belong under it.
+
+          A plain anchor, not <Link> — /local needs the WASM directives its own
+          response carries, and a client-side navigation would leave whichever
+          page the reader came from governing it (ADR 028). This footer renders
+          on every route, so a <Link> here would break local mode from all of
+          them rather than from one page.
+        */}
+        <p className="mt-4 flex flex-wrap items-center gap-2 md:justify-end">
+          <a href="/local" className="hover:text-foreground underline">
+            Local mode
+          </a>
+          <span>(Experimental)</span>
+        </p>
+
         <div className="border-border/60 mt-6 border-t pt-6">
           {/* The repository is public with no license file, so everything is
             already all rights reserved — stated rather than inferred. */}
