@@ -72,12 +72,15 @@ describe("the privacy page", () => {
     ).toBeInTheDocument();
   });
 
-  it("names the one request local mode does make", () => {
-    // The mode claims nothing leaves the machine. The weights download does
-    // leave it, so the page says which direction the data goes.
+  it("names both downloads local mode makes, with their sizes", () => {
+    // The mode claims nothing leaves the machine, and two model downloads do
+    // leave it. Sizes because 884 MB is a thing a reader on a phone plan needs
+    // told before it starts, not after.
     render(<PrivacyPage />);
 
-    expect(screen.getByText(/downloads the model from/i)).toBeInTheDocument();
+    expect(screen.getByText(/downloads two models from/i)).toBeInTheDocument();
+    expect(screen.getByText(/128 MB/)).toBeInTheDocument();
+    expect(screen.getByText(/756 MB/)).toBeInTheDocument();
     expect(screen.getByText(/no document text is sent/i)).toBeInTheDocument();
   });
 

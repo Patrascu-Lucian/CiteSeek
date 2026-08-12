@@ -107,12 +107,12 @@ export default function PrivacyPage() {
           hosting above applies to them.
         </p>
         <p className="mt-3">
-          One thing does leave: the first time you use local mode, your browser
-          downloads the model from <strong>Hugging Face</strong>, which sees the
-          request the way any website you visit does.{" "}
-          <strong>No document text is sent</strong> — it is a download of a
-          public file, in that direction only, and the model is reused from your
-          browser&rsquo;s cache afterwards.
+          One thing does leave: your browser downloads two models from{" "}
+          <strong>Hugging Face</strong>, which sees those requests the way any
+          website you visit does — about 128 MB to index a document, and about
+          756 MB more before it can answer one, each fetched once and then
+          cached. <strong>No document text is sent</strong>: they are downloads
+          of public files, in that direction only.
         </p>
         <p className="mt-3">
           Two consequences worth being direct about. That storage belongs to{" "}

@@ -16,6 +16,10 @@ export type LocalDocument = {
   error: string | null;
   pageCount: number | null;
   chunkCount: number;
+  /** The canonical text every offset indexes into. Stored because a citation is
+   * resolved by slicing it — the server keeps `contentText` for the same reason,
+   * and offsets without it address a string that does not exist. */
+  text: string;
   /**
    * The local model's width, carried per document rather than imported from
    * `EMBEDDING_DIMENSIONS`: that constant is 768 to match the `vector(768)`

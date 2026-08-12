@@ -1858,3 +1858,32 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   linter, formatter or test inspects. Worth a grep before any commit that touched comments
   through a shell: `grep -rn "[a-z,)] \{2,\}[a-z(]"` over comment lines finds the swallowed
   identifiers, because the removed text leaves a double space behind.
+
+## A comment that argued for the defect it was written to prevent, 12 August 2026
+
+- **Issue**: `local-workspace.tsx` passes a refresh token to `LocalDataControls` as a prop.
+  The comment above it said "Keyed so a finished ingest remounts the panel and it re-reads
+  the store." Nothing is keyed and nothing remounts — but the comment it replaced had said
+  the opposite, and said why: a `key` would recreate the `role="status"` region, and a live
+  region that is absent at the moment the count changes announces nothing. That region is
+  the only confirmation a screen reader gets that **Delete everything** worked.
+
+- **Cause**: the slice moved the chat into this file and rewrote the surrounding comment from
+  the code as it read at that moment. `refreshToken={ingested}` does look like a remount
+  trigger; the reason it is not one is invisible from this file, which is exactly why the
+  original comment existed.
+
+- **Why nothing caught it**: the same blind spot as the swallowed identifiers above, one
+  level up. Formatters and linters do not read prose, and here the tests could not help
+  either — the code was correct, so every check passed while the diff shipped an argument
+  for breaking it. The next reader "simplifying" the prop into a `key` would have been
+  following the file's own instructions.
+
+- **Fix**: the original comment restored verbatim.
+
+- **Lesson**: **a comment in the "defect this prevents" category is load-bearing, and
+  rewriting it from the current code cannot reconstruct it.** The code shows what is done;
+  only the comment holds what was tried and rejected. When a diff touches one of these,
+  the check is not "is the new sentence true" — this one nearly was — but "does it still
+  name the thing that must not happen." If the rationale is not recoverable from the diff
+  under review, the comment is not editable from the diff under review either.

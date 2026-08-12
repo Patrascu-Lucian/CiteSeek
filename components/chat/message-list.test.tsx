@@ -72,7 +72,7 @@ describe("MessageList", () => {
         messages={[]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn
@@ -94,7 +94,7 @@ describe("MessageList", () => {
         messages={[]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload={false}
         signedIn={false}
@@ -117,7 +117,7 @@ describe("MessageList", () => {
         messages={[]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload={false}
         signedIn={false}
@@ -137,7 +137,7 @@ describe("MessageList", () => {
         messages={[]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn
@@ -158,7 +158,7 @@ describe("MessageList", () => {
         messages={[userMessage("What is the policy?")]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn
@@ -177,7 +177,7 @@ describe("MessageList", () => {
         messages={[userMessage("What is the policy?")]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn
@@ -196,7 +196,7 @@ describe("MessageList", () => {
         messages={[userMessage("What is the policy?")]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn
@@ -217,7 +217,7 @@ describe("MessageList", () => {
         ]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn
@@ -250,7 +250,7 @@ describe("MessageList", () => {
         messages={[userMessage("What does **bold** mean here?")]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn
@@ -308,7 +308,7 @@ describe("MessageList — a conversation restored from the database", () => {
         messages={restored}
         onSelectSource={onSelectSource}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn
@@ -337,7 +337,7 @@ describe("MessageList — a conversation restored from the database", () => {
         messages={restored}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn
@@ -380,7 +380,7 @@ describe("MessageList — a refusal", () => {
         messages={[refusalMessage()]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn
@@ -407,7 +407,7 @@ describe("MessageList — a refusal", () => {
         messages={[refusalMessage()]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn
@@ -429,7 +429,7 @@ describe("MessageList — a refusal", () => {
         messages={[assistantMessage("Paid in 30 days [1].", [SOURCE])]}
         onSelectSource={vi.fn()}
         selectedChunkId={null}
-        workspaceId="w1"
+        uploadHref="/w/w1"
         documents={["handbook.pdf"]}
         canUpload
         signedIn

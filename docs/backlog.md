@@ -1006,3 +1006,34 @@ fourth is a defect with a diagnosis.
   construction and is arguably better semantics — a `<th scope="row">` should identify the
   row, not carry data. The second needs a header cell for the new column, and an empty `<th>`
   is not free for a screen reader reading the table.
+
+## Local mode, found in review of the answering slice, 12 August 2026
+
+Three things noticed reading `lib/local/generate.ts` and the chat wiring. None breaks an
+answer; the first is the one a reader would notice.
+
+- **Stop does not stop a local answer.** `chat-panel.tsx` renders a stop button and
+  `Composer` calls `stop()`, which in cloud mode aborts the fetch. `LocalChatTransport`
+  ignores the `abortSignal` the SDK hands `sendMessages`, and `generateLocally` passes no
+  `stopping_criteria`, so the model runs on to its 320-token limit — roughly ten seconds of
+  GPU after the reader asked it to stop. The UI detaches and looks obedient, which is worse
+  than a button that is visibly absent. The fix threads the signal into a
+  `stopping_criteria` callback; the test is that the generator stops being consumed _and_
+  the pipeline call settles early.
+
+- **The tokenizer is rebuilt for every question.** `generateLocally` calls
+  `AutoTokenizer.from_pretrained` per turn, re-reading and re-instantiating 6.7 MB, when the
+  pipeline returned by `loadChatModel` already carries one. Taking it from there means
+  typing the pipeline as more than a call signature, which is why it was not done in the
+  slice.
+
+- **The consent gate says "a few seconds"; the measurement was ~11 s.** ADR 033 records
+  ~11 s to a first token from cache. That gate exists to state a number before the reader
+  commits to a download, and eleven seconds is not what "a few" prepares anyone for.
+
+Related, and deliberately not fixed in the slice: the gate re-asks on every mount. The
+weights stay in the module's cache, so leaving `/local` and coming back offers a 756 MB
+download that has already happened. An exported `isChatModelLoaded` was written for this
+and wired to nothing; it was deleted rather than left in as an export with no caller. Doing
+it properly means deciding what the gate shows when a load is still in flight — treating
+"started" as "ready" would drop the progress readout mid-download.

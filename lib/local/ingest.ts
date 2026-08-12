@@ -18,6 +18,7 @@ import {
 
 export type IngestSuccess = {
   ok: true;
+  text: string;
   pageCount: number | null;
   chunks: Chunk[];
 };
@@ -46,6 +47,7 @@ async function parseFile(file: File, mimeType: string): Promise<IngestResult> {
 
     return {
       ok: true,
+      text: extracted.text,
       pageCount: extracted.pageCount,
       chunks: chunkText(extracted.text, extracted.pageSpans),
     };
@@ -97,6 +99,7 @@ export async function ingestLocalFile(
     sizeBytes: file.size,
     status: "processing",
     error: null,
+    text: parsed.text,
     pageCount: parsed.pageCount,
     chunkCount: parsed.chunks.length,
     embeddingDimensions: LOCAL_EMBEDDING_DIMENSIONS,

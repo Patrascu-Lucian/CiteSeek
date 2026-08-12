@@ -26,6 +26,7 @@ export function ChatPanel({
   onOpenSource,
   openChunkId,
   transport,
+  uploadHref,
 }: {
   workspaceId: string;
   /** Whether anything has finished processing. Nothing to search without it. */
@@ -54,6 +55,9 @@ export function ChatPanel({
   /** Local mode supplies one that never leaves the browser. Unset means the
    * workspace route, which is what every server-backed surface uses. */
   transport?: ChatTransport<ChatUIMessage>;
+  /** Overrides where the refusal points for uploads. Null means the upload area
+   * is on this page already, which is how local mode uses it. */
+  uploadHref?: string | null;
 }) {
   // Memoized, or every render allocates a transport and `useChat` is handed a
   // new object each time.
@@ -142,7 +146,11 @@ export function ChatPanel({
           messages={messages}
           onSelectSource={onOpenSource}
           selectedChunkId={openChunkId}
-          workspaceId={workspaceId}
+          // `=== undefined`, not `??`: null is an explicit "no link, the
+          // upload area is on this page", and `??` would swallow it.
+          uploadHref={
+            uploadHref === undefined ? `/w/${workspaceId}` : uploadHref
+          }
           documents={documents}
           canUpload={canUpload}
           signedIn={signedIn}
