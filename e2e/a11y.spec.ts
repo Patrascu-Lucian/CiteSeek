@@ -2,6 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
+import { stubWebGpu, uploadAndAsk } from "./local-mode";
+
 /**
  * **axe is a floor, not the pass.** A citation chip here once rendered in exactly
  * the color of the bubble behind it — labeled, operable, invisible — and every
@@ -232,6 +234,33 @@ for (const theme of THEMES) {
             .getByRole("alert")
             .filter({ hasText: /doesn't support WebGPU/i }),
         ).toBeVisible();
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
+      test("local mode, offered a download it has not taken", async ({
+        page,
+      }) => {
+        // The state above scans the *refusal*, where the chat never renders. An
+        // adapter without the stand-in flag is what a first-time reader meets,
+        // and nothing is fetched until the button is pressed — so this reaches
+        // the consent gate without pulling 884 MB.
+        await stubWebGpu(page);
+        await page.goto("/local");
+        await expect(
+          page.getByRole("button", { name: /download the model/i }),
+        ).toBeVisible();
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
+      test("local mode, having answered with a citation", async ({ page }) => {
+        // The whole point of the mode, and until now the only state of `/local`
+        // never scanned: an indexed document, an answer, and a citation chip.
+        await uploadAndAsk(page, "Markdown has no pages either");
+        await expect(
+          page.getByRole("button", { name: /citation 1/i }).first(),
+        ).toBeVisible({ timeout: 30_000 });
 
         expect(await violationsOn(page)).toEqual([]);
       });

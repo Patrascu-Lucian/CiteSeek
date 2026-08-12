@@ -26,8 +26,15 @@ const transformers = require.resolve("@huggingface/transformers");
 const source = dirname(createRequire(transformers).resolve("onnxruntime-web"));
 const target = join(import.meta.dirname, "..", "public", "onnx");
 
-/** All four variants: the browser picks by capability — `jsep` with WebGPU,
- * `asyncify` behind a proxy — and shipping one guesses on the reader's behalf. */
+/**
+ * All four variants, because which one loads is the runtime's choice and it is
+ * not the obvious one. Measured on this build: with `device: "webgpu"` the
+ * browser fetches **`asyncify`**, not `jsep` — onnxruntime-web 1.22 replaced the
+ * JS-based WebGPU backend with a native one that needs Asyncify or JSPI, and
+ * transformers.js defaults `wasmPaths` to the asyncify pair for every non-Safari
+ * browser. Shipping the file that sounds right would have served a 404 to the
+ * path local mode actually takes.
+ */
 const WANTED = /^ort-wasm-simd-threaded\.[\w.]*(wasm|mjs)$/;
 
 await mkdir(target, { recursive: true });
