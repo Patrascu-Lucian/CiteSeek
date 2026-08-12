@@ -1123,7 +1123,11 @@ quality metrics opening with "I don't have access to your PDF" — which also br
 "never describe your inputs". All of it is a 0.5B ignoring the prompt, none of it reachable on
 the cloud path, and all of it an argument for what `/local` is labelled as.
 
-## The first demo chat after a cold start loses a race, 12 August 2026
+## ~~The first demo chat after a cold start loses a race~~, 12 August 2026
+
+**Fixed — `e2e/global-setup.ts`.** Two wrong diagnoses before the right one, kept below because
+the wrong ones are the useful part. Two consecutive cold builds now pass 122/122, where five in
+a row had failed. The stale-build note at the end is still open.
 
 `chat.spec.ts:99` ("says so, and cites nothing at all") failed four times across one afternoon
 and passed on every re-run and in isolation. Treating it as noise was wrong; it has a shape.
@@ -1138,8 +1142,23 @@ Worth confirming before fixing, because the obvious remedy is the wrong one. Rai
 timeout hides whatever the cold cost actually is, and this suite is the only place the number
 would ever be noticed — `webServer.timeout` already allows 120 s for the server to accept
 connections, which is not the same as being ready to serve a route that touches the database.
-A warm-up request in a global setup would make the run honest about it; measuring the first
-response against later ones would say whether it is worth caring about beyond the test.
+
+↳ **What it actually was, after two wrong answers.** First guess: the route needed warming, so
+`/demo` was fetched before the suite. It failed again, and worse — two tests instead of one.
+Second guess: the first vector search paying for the HNSW index, since both failures were the
+refusal tests, the only ones asserting on retrieval's own reply with no streaming to wait
+behind. A warm chat POST was added, and the chat spec alone then passed on a cold build in
+15.7s — but the full suite still failed.
+
+The measurement that ended it: the warm-up reported `chat 200 in 592ms`. Retrieval was never
+slow. The cause is that `fullyParallel` starts every worker the instant a build finishes, and
+all twelve routes meet their first request simultaneously on a machine still busy from the
+build. One warm path cannot help when the others are cold. Warming the routes the suite opens,
+sequentially, fixed it.
+
+**Both wrong guesses were plausible and cheap to disprove, and neither was disproven by
+thinking harder.** The `592ms` line is what settled it — the same lesson as the unpdf worker
+in the entry above: run the cheap measurement before reasoning further.
 
 Related and separate: **`webServer.command` is `pnpm start`, so Playwright serves whatever
 `.next` already exists and never builds.** A local `pnpm test:e2e` after an edit silently tests
