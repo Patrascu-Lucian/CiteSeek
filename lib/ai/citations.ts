@@ -56,6 +56,30 @@ export function linkCitationMarkers(
   });
 }
 
+/**
+ * The numbers an answer cited that no retrieved passage backs.
+ *
+ * `linkCitationMarkers` already refuses to link these, which is the guarantee.
+ * This is what lets the reader be told — an inert number is indistinguishable
+ * from a broken button, and the one moment the model is caught inventing a
+ * source is the moment the page looks most broken (ADR 036).
+ */
+export function unresolvedMarkers(
+  text: string,
+  sources: readonly ChatSource[],
+): number[] {
+  const known = new Set(sources.map((source) => source.marker));
+  const invented = new Set<number>();
+
+  for (const [run] of text.matchAll(GROUPED_MARKER)) {
+    for (const marker of (run.match(MARKER_NUMBER) ?? []).map(Number)) {
+      if (!known.has(marker)) invented.add(marker);
+    }
+  }
+
+  return [...invented].sort((a, b) => a - b);
+}
+
 export function parseCitationHref(href: string | undefined): number | null {
   if (!href?.startsWith(CITATION_HREF_PREFIX)) return null;
 

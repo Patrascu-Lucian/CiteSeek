@@ -5,6 +5,7 @@ import {
   CITATION_HREF_PREFIX,
   citationLabel,
   linkCitationMarkers,
+  unresolvedMarkers,
   parseCitationHref,
 } from "./citations";
 
@@ -174,5 +175,40 @@ describe("citationLabel", () => {
     expect(
       citationLabel(source({ pageNumber: null, filename: "notes.md" })),
     ).toBe("Citation 1: notes.md");
+  });
+});
+
+describe("unresolvedMarkers", () => {
+  it("names the number the model invented", () => {
+    expect(unresolvedMarkers("A claim [7].", [source()])).toEqual([7]);
+  });
+
+  it("says nothing when every marker resolves", () => {
+    expect(unresolvedMarkers("A claim [1].", [source()])).toEqual([]);
+  });
+
+  it("reports each invented number once, in order", () => {
+    // The same fabricated marker twice is one thing to tell the reader.
+    const text = "First [5], then [3], then [5] again.";
+
+    expect(unresolvedMarkers(text, [source()])).toEqual([3, 5]);
+  });
+
+  it("picks the invented number out of a group that also has a real one", () => {
+    // `linkCitationMarkers` leaves the whole run literal, so [1] is unlinked
+    // too; the number worth naming is the one that does not exist.
+    expect(unresolvedMarkers("Both [1][9] agree.", [source()])).toEqual([9]);
+  });
+
+  it("treats every marker as invented when nothing was retrieved", () => {
+    expect(unresolvedMarkers("A claim [1].", [])).toEqual([1]);
+  });
+
+  it("ignores a bracket that is a markdown link, not a marker", () => {
+    // The same negative lookahead `linkCitationMarkers` relies on: `[1](url)`
+    // is a link the model wrote, not a citation.
+    expect(
+      unresolvedMarkers("See [9](https://x.example).", [source()]),
+    ).toEqual([]);
   });
 });

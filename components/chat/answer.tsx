@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { Streamdown } from "streamdown";
+import { AlertTriangle } from "lucide-react";
 
-import { linkCitationMarkers } from "@/lib/ai/citations";
+import { linkCitationMarkers, unresolvedMarkers } from "@/lib/ai/citations";
 import type { ChatSource } from "@/lib/ai/types";
 
 import { CitationLink } from "./citation-chip";
@@ -44,6 +45,8 @@ export function Answer({
     [sources, selectedChunkId, onSelectSource],
   );
 
+  const invented = unresolvedMarkers(text, sources);
+
   return (
     <CitationProvider value={citations}>
       <Streamdown
@@ -53,6 +56,30 @@ export function Answer({
       >
         {linkCitationMarkers(text, sources)}
       </Streamdown>
+
+      {invented.length > 0 ? <InventedMarkers markers={invented} /> : null}
     </CitationProvider>
+  );
+}
+
+/**
+ * The inert marker, explained. Refusing to link an invented number is the
+ * guarantee; saying nothing about it is what made the author of that rule report
+ * it as a broken button (ADR 036).
+ */
+function InventedMarkers({ markers }: { markers: readonly number[] }) {
+  const list = markers.map((marker) => `[${String(marker)}]`).join(", ");
+  const one = markers.length === 1;
+
+  return (
+    <p className="text-muted-foreground mt-2 flex gap-2 text-xs">
+      <AlertTriangle aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+      <span>
+        <strong>{list}</strong>{" "}
+        {one
+          ? "is not one of the passages found, so it is not a link. Treat that claim as unsupported."
+          : "are not among the passages found, so they are not links. Treat those claims as unsupported."}
+      </span>
+    </p>
   );
 }

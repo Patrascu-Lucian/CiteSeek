@@ -1096,3 +1096,29 @@ rewriting the query against the recent turns before embedding, which is a real f
 measurable before and after, and belongs in a slice with the evaluation harness rather than a
 patch. Until then the refusal wording is the cheap half of the problem and could say that a
 short follow-up may need naming its subject again.
+
+## An answer that cites nothing at all, 12 August 2026
+
+The worse half of [ADR 036](decisions/036-saying-why-a-citation-did-not-link.md), split out
+because the fix is not obvious. Asked "how many files can i upload?", the local model answered
+**"you can upload up to 2 files"** — false, specific, confident, and carrying no marker. Rule 2
+of the system prompt requires a citation on every factual claim, so this is a rule violation
+with no artifact: nothing renders oddly, nothing is inert, and the reader has no signal at all.
+The inert marker ADR 036 explains is the _detectable_ case; this one is invisible.
+
+Counting resolvable markers is trivial. The difficulty is that **an uncited answer is sometimes
+correct**: rule 4 says never attach a marker to a refusal, so a model that writes "the documents
+do not cover that" is behaving exactly as told. A flat "this answer cites nothing" warning would
+fire on the honest case as often as the fabricated one, and a warning that cries wolf on correct
+behavior is worse than none — which is the same lesson the inert marker taught.
+
+What would need deciding: whether a refusal is distinguishable from a claim without asking a
+model to judge (the refusal path already emits `data-refusal`, so a _model-written_ refusal is
+the only ambiguous case), and whether the answer is to warn, to re-prompt, or to treat a high
+uncited rate as a signal about the model rather than about any one answer.
+
+Related, same session, same root: "do you use webgpu?" answered "Yes, I can run GPU code on my
+device", and "i can't see anything related to that on my pdf" produced a paragraph about code
+quality metrics opening with "I don't have access to your PDF" — which also breaks rule 7's
+"never describe your inputs". All of it is a 0.5B ignoring the prompt, none of it reachable on
+the cloud path, and all of it an argument for what `/local` is labelled as.
