@@ -4,6 +4,8 @@ import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  DATABASE_VERSION,
+  RE_INGEST_REQUIRED,
   deleteEverythingLocal,
   deleteLocalDocument,
   getLocalDocument,
@@ -198,7 +200,7 @@ describe("the local store", () => {
     // IndexedDB refuses to open at a lower version than the stored one, and the
     // rejection has to carry the reason rather than a bare `null`.
     await new Promise<void>((resolve) => {
-      const request = indexedDB.open("citeseek-local", 2);
+      const request = indexedDB.open("citeseek-local", DATABASE_VERSION + 1);
       request.onupgradeneeded = () =>
         request.result.createObjectStore("documents", { keyPath: "id" });
       request.onsuccess = () => {
@@ -305,5 +307,66 @@ describe("markLocalDocumentFailed", () => {
     await expect(
       markLocalDocumentFailed("ghost", "whatever"),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("opening a store written by version 1", () => {
+  /** Version 1 had no `text` field. Building the old schema by hand is the only
+   * way to prove the upgrade path, since the store only ever writes the new one. */
+  const writeVersionOne = (document: Record<string, unknown>) =>
+    new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open("citeseek-local", 1);
+
+      request.onupgradeneeded = () => {
+        const database = request.result;
+
+        database.createObjectStore("documents", { keyPath: "id" });
+        database
+          .createObjectStore("chunks", { keyPath: "id" })
+          .createIndex("documentId", "documentId", { unique: false });
+      };
+
+      request.onsuccess = () => {
+        const database = request.result;
+        const transaction = database.transaction("documents", "readwrite");
+
+        transaction.objectStore("documents").put(document);
+        transaction.oncomplete = () => {
+          database.close();
+          resolve();
+        };
+        transaction.onerror = () =>
+          reject(new Error("Writing the version 1 fixture failed."));
+      };
+
+      request.onerror = () =>
+        reject(new Error("Opening the version 1 fixture failed."));
+    });
+
+  it("fails a document that has no text, rather than letting it be cited", async () => {
+    // It would otherwise retrieve and be cited, and only then would the panel
+    // report the passage missing — the guarantee failing after the claim.
+    const { text: _text, ...withoutText } = aDocument();
+    await writeVersionOne(withoutText);
+
+    expect(await getLocalDocument("doc-1")).toMatchObject({
+      status: "failed",
+      error: RE_INGEST_REQUIRED,
+    });
+  });
+
+  it("keeps the document readable, so the reader can still delete it", async () => {
+    const { text: _text, ...withoutText } = aDocument();
+    await writeVersionOne(withoutText);
+
+    expect(await listLocalDocuments()).toHaveLength(1);
+  });
+
+  it("leaves the chunk index in place across the upgrade", async () => {
+    const { text: _text, ...withoutText } = aDocument();
+    await writeVersionOne(withoutText);
+    await putLocalChunks("doc-1", [aChunk()]);
+
+    expect(await listLocalChunks("doc-1")).toHaveLength(1);
   });
 });

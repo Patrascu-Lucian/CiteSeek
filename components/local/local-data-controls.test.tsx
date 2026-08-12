@@ -159,3 +159,36 @@ describe("LocalDataControls", () => {
     );
   });
 });
+
+describe("telling the rest of the page the corpus is gone", () => {
+  it("reports a successful delete, so the chat stops offering deleted files", async () => {
+    // Nothing else notifies the chat above: its filenames came from IndexedDB
+    // once, and a refusal would keep listing documents that no longer exist.
+    summarize.mockResolvedValue({ documents: 2, chunks: 59 });
+    deleteEverything.mockResolvedValue(undefined);
+    const onCleared = vi.fn();
+
+    render(<LocalDataControls onCleared={onCleared} />);
+    const dialog = await openDialog();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Delete everything" }),
+    );
+
+    await waitFor(() => expect(onCleared).toHaveBeenCalledTimes(1));
+  });
+
+  it("says nothing when the delete failed", async () => {
+    summarize.mockResolvedValue({ documents: 2, chunks: 59 });
+    deleteEverything.mockRejectedValue(new Error("blocked"));
+    const onCleared = vi.fn();
+
+    render(<LocalDataControls onCleared={onCleared} />);
+    const dialog = await openDialog();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Delete everything" }),
+    );
+
+    await screen.findByRole("alert");
+    expect(onCleared).not.toHaveBeenCalled();
+  });
+});

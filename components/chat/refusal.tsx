@@ -44,9 +44,11 @@ export function Refusal({
           : "What I can answer from"}
       </p>
 
+      {/* Not "in this workspace": local mode has none, and this is the first
+          sentence a reader sees there before anything is indexed. */}
       {nothingIndexed ? (
         <p className="text-muted-foreground text-sm">
-          Answers here come only from documents in this workspace, and none have
+          Answers come only from the documents available here, and none have
           finished processing.
         </p>
       ) : (

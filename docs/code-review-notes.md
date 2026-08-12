@@ -1887,3 +1887,41 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   the check is not "is the new sentence true" — this one nearly was — but "does it still
   name the thing that must not happen." If the rationale is not recoverable from the diff
   under review, the comment is not editable from the diff under review either.
+
+## A green gate that proved the mock, 12 August 2026
+
+Review of the merged local-answering branch found eight defects, seven of them in code that
+branch had just written, and the gate had passed all of it: format, lint, typecheck, 668 unit
+tests, 117 E2E and a production build, green.
+
+- **Issue**: three of the seven were the same mistake in different clothes — a test that
+  asserted our own stand-in rather than the library. `loadChatModel` passed no `device`, so
+  transformers.js used its browser default of `wasm` while `WebGpuGate` refused the feature
+  to anyone without an adapter; the progress filter kept the per-file `progress` event
+  instead of the aggregate `progress_total` the library emits alongside it, so the readout
+  hit 100% on a 4 KB config file; and `generateLocally` was covered by a mocked pipeline that
+  echoed whatever it was handed. Each test passed because it described what our code sent,
+  and nothing described what the library did with it.
+
+- **Cause**: the mock was written from our side of the boundary. `vi.mock` of
+  `@huggingface/transformers` is a fixture of _our expectations_ — and where the library
+  wraps the callback we pass (`DefaultProgressCallback`, undocumented in the published
+  types), our expectations were simply wrong. A mock cannot disagree with you.
+
+- **Fix**: assert the arguments actually handed to `pipeline` — `device`, and which status
+  the filter keeps — rather than only the shape of what comes back. The two-line check that
+  `pipeline` was called with `{ device: "webgpu" }` is worth more than the four tests around
+  it, because it is the only one that could have failed.
+
+- **A separate one worth naming**: `text` became a required field on `LocalDocument` while
+  `DATABASE_VERSION` stayed at 1. IndexedDB has no schema to reject the write, so documents
+  from the previous release keep `status: "ready"`, retrieve, get cited — and only then does
+  the panel report the passage missing. A schemaless store makes a migration look free, and
+  the tests all ran against a database created fresh at the current version, which is the one
+  case the defect cannot occur in.
+
+- **Lesson**: **the tests you write against a boundary you control test the boundary, not
+  what is past it.** Before trusting a suite over an integration, ask which assertion would
+  fail if the library changed its behavior underneath — if the answer is none, the suite is
+  measuring the mock. And for anything persisted, write the fixture at the _old_ version:
+  every test that builds its store fresh is blind to migrations by construction.

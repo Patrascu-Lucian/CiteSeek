@@ -91,3 +91,14 @@ describe("Refusal — what it offers depends on who is reading", () => {
     ).toHaveAttribute("href", "/w");
   });
 });
+
+describe("Refusal — with nothing indexed at all", () => {
+  it("does not name a workspace, because local mode has none", () => {
+    // The one sentence a reader on /local sees before anything is indexed. It
+    // said "documents in this workspace", which there is no such thing as.
+    renderRefusal({ reason: "no_documents", documents: [], uploadHref: null });
+
+    expect(screen.getByText(/documents available here/i)).toBeInTheDocument();
+    expect(screen.queryByText(/in this workspace/i)).toBeNull();
+  });
+});
