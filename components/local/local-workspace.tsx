@@ -10,7 +10,7 @@ import { LocalUpload } from "./local-upload";
 import { WebGpuGate } from "./webgpu-gate";
 
 export function LocalWorkspace() {
-  const [ingested, setIngested] = useState(0);
+  const [revision, setRevision] = useState(0);
   const [ready, setReady] = useState<string[]>([]);
 
   const read = useCallback(
@@ -26,22 +26,33 @@ export function LocalWorkspace() {
   useEffect(() => {
     let current = true;
 
-    void read().then((filenames) => {
-      if (current) setReady(filenames);
-    });
+    // Two arguments, not `void …then(ok)`: withheld storage rejects here, and a
+    // one-argument `then` leaves that unhandled. `LocalDataControls` reads the
+    // same store and renders the error; this only has to stop asking.
+    void read().then(
+      (filenames) => {
+        if (current) setReady(filenames);
+      },
+      () => {
+        if (current) setReady([]);
+      },
+    );
 
     return () => {
       current = false;
     };
-  }, [read, ingested]);
+  }, [read, revision]);
+
+  const changed = () => setRevision((n) => n + 1);
 
   return (
     <div className="space-y-6">
-      <LocalUpload onIngested={() => setIngested((n) => n + 1)} />
+      <LocalUpload onIngested={changed} />
 
-      {/* Inside the gate: answering is the part that needs a GPU. Uploading and
-          deleting stay outside it, so losing WebGPU never strands a reader with
-          documents they cannot remove. */}
+      {/* Inside the gate because `loadChatModel` asks for `device: "webgpu"` and
+          throws without it. Uploading and deleting stay outside — those run on
+          wasm, so losing WebGPU never strands a reader with documents they
+          cannot remove. */}
       <WebGpuGate>
         <LocalChat filenames={ready} />
       </WebGpuGate>
@@ -49,7 +60,7 @@ export function LocalWorkspace() {
       {/* A prop, not a `key`: remounting would recreate the `role="status"`
           region, and a live region absent when the change happens announces
           nothing. Its count comes from IndexedDB, which nothing notifies. */}
-      <LocalDataControls refreshToken={ingested} />
+      <LocalDataControls refreshToken={revision} onCleared={changed} />
     </div>
   );
 }

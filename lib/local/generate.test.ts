@@ -22,6 +22,12 @@ vi.mock("@huggingface/transformers", () => ({
       streamerOptions.callback_function = options.callback_function;
     }
   },
+  InterruptableStoppingCriteria: class {
+    interrupted = false;
+    interrupt() {
+      this.interrupted = true;
+    }
+  },
 }));
 
 const source: ChatSource = {
@@ -68,6 +74,21 @@ describe("the local chat model", () => {
     await loadChatModel();
 
     expect(env.backends.onnx.wasm.wasmPaths).toBe("/onnx/");
+  });
+
+  it("asks for the GPU the gate upstream checked for", async () => {
+    // Without `device`, transformers.js defaults to wasm in a browser, and
+    // `WebGpuGate` would be blocking a feature that needs no GPU.
+    pipeline.mockResolvedValue(vi.fn());
+    const { loadChatModel } = await import("./generate");
+
+    await loadChatModel();
+
+    expect(pipeline).toHaveBeenCalledWith(
+      "text-generation",
+      "onnx-community/Qwen2.5-0.5B-Instruct",
+      expect.objectContaining({ device: "webgpu" }),
+    );
   });
 
   it("loads the weights once across questions", async () => {
@@ -179,7 +200,9 @@ describe("the stand-in generator", () => {
 });
 
 describe("the download progress the gate reports", () => {
-  it("reports percent as the weights arrive", async () => {
+  const reporting = (
+    reports: { status?: string; loaded?: number; total?: number }[],
+  ) =>
     pipeline.mockImplementation(
       (
         _task: string,
@@ -192,21 +215,41 @@ describe("the download progress the gate reports", () => {
           }) => void;
         },
       ) => {
-        options.progress_callback?.({
-          status: "progress",
-          loaded: 50,
-          total: 200,
-        });
-        options.progress_callback?.({ status: "done" });
+        for (const report of reports) options.progress_callback?.(report);
+
         return Promise.resolve(vi.fn());
       },
     );
+
+  it("reports percent as the weights arrive", async () => {
+    reporting([
+      { status: "progress_total", loaded: 50, total: 200 },
+      { status: "done" },
+    ]);
     const { loadChatModel } = await import("./generate");
     const seen: { loaded: number; total: number }[] = [];
 
     await loadChatModel((progress) => seen.push(progress));
 
     expect(seen).toEqual([{ loaded: 50, total: 200 }]);
+  });
+
+  it("ignores the per-file events, which reach 100% on a 4 KB config", async () => {
+    /*
+      transformers.js wraps the callback and emits an aggregate `progress_total`
+      followed by the per-file `progress` for the same bytes. Keeping the latter
+      showed "100%" twice before the weights began.
+    */
+    reporting([
+      { status: "progress_total", loaded: 4_000, total: 800_000_000 },
+      { status: "progress", loaded: 4_000, total: 4_000 },
+    ]);
+    const { loadChatModel } = await import("./generate");
+    const seen: { loaded: number; total: number }[] = [];
+
+    await loadChatModel((progress) => seen.push(progress));
+
+    expect(seen).toEqual([{ loaded: 4_000, total: 800_000_000 }]);
   });
 });
 
@@ -244,5 +287,110 @@ describe("the stand-in with nothing retrieved", () => {
     }
 
     expect(answer).toBe("According to the document,  [1].");
+  });
+});
+
+describe("stopping a local answer", () => {
+  const criteriaOf = (model: ReturnType<typeof generatingModel>) =>
+    (model.mock.calls[0]![1] as { stopping_criteria: { interrupted: boolean } })
+      .stopping_criteria;
+
+  it("interrupts the model, rather than only dropping the stream", async () => {
+    /*
+      `useChat`'s stop cancels the consumer and re-enables the composer. Without
+      this the model runs on to `max_new_tokens` and a second question starts a
+      concurrent generation on the same pipeline.
+    */
+    const model = generatingModel(["ok"]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+    const controller = new AbortController();
+
+    for await (const _ of generateLocally(
+      "when?",
+      [source],
+      controller.signal,
+    ));
+
+    expect(criteriaOf(model).interrupted).toBe(false);
+
+    controller.abort();
+
+    expect(criteriaOf(model).interrupted).toBe(true);
+  });
+
+  it("starts already interrupted when the turn was aborted first", async () => {
+    const model = generatingModel(["ok"]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally(
+      "when?",
+      [source],
+      AbortSignal.abort(),
+    ));
+
+    expect(criteriaOf(model).interrupted).toBe(true);
+  });
+
+  it("leaves generation running when no signal is given", async () => {
+    const model = generatingModel(["ok"]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [source]));
+
+    expect(criteriaOf(model).interrupted).toBe(false);
+  });
+});
+
+describe("the stand-in, once the reader has stopped it", () => {
+  it("stops mid-answer rather than finishing the sentence", async () => {
+    // The E2E runs on this generator, so it has to honor the signal or a test
+    // of stopping would pass against a stand-in that cannot stop.
+    (
+      globalThis as { __citeseekLocalEmbedder?: string }
+    ).__citeseekLocalEmbedder = "fake";
+    const { resolveLocalGenerator } = await import("./generate");
+    const controller = new AbortController();
+
+    let answer = "";
+    for await (const delta of resolveLocalGenerator()(
+      "when?",
+      [source],
+      controller.signal,
+    )) {
+      answer += delta;
+      controller.abort();
+    }
+
+    expect(answer).toBe("According to the document, ");
+  });
+});
+
+describe("progress with no total to divide by", () => {
+  it("reports nothing rather than dividing by zero", async () => {
+    // transformers.js emits status events with no byte counts; `loaded / 0`
+    // would put NaN% in front of the reader.
+    pipeline.mockImplementation(
+      (
+        _task: string,
+        _model: string,
+        options: {
+          progress_callback?: (r: { status?: string; total?: number }) => void;
+        },
+      ) => {
+        options.progress_callback?.({ status: "progress_total", total: 0 });
+        options.progress_callback?.({ status: "initiate" });
+
+        return Promise.resolve(vi.fn());
+      },
+    );
+    const { loadChatModel } = await import("./generate");
+    const seen: unknown[] = [];
+
+    await loadChatModel((progress) => seen.push(progress));
+
+    expect(seen).toEqual([]);
   });
 });

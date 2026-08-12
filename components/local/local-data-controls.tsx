@@ -28,8 +28,12 @@ const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
 export function LocalDataControls({
   refreshToken = 0,
+  onCleared,
 }: {
   refreshToken?: number;
+  /** Deleting here empties the corpus the chat above is answering from, and
+   * nothing else tells it so. */
+  onCleared?: () => void;
 }) {
   const [state, setState] = useState<State>({ status: "loading" });
   const [isOpen, setIsOpen] = useState(false);
@@ -70,6 +74,7 @@ export function LocalDataControls({
       await deleteEverythingLocal();
       setDeleted(true);
       setState(await read());
+      onCleared?.();
       // Radix restores focus to the trigger, which this delete has just
       // disabled — `focus()` on a disabled button is a no-op and the caret
       // falls to <body>, so the next Tab restarts from the top of the page.

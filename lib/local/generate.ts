@@ -49,12 +49,18 @@ export function loadChatModel(
 
       return pipeline("text-generation", LOCAL_CHAT_MODEL, {
         dtype: "q4",
+        // Named, or transformers.js falls back to `DEFAULT_DEVICE`, which is
+        // `wasm` in a browser — and `WebGpuGate` would then be denying a feature
+        // that runs without a GPU.
+        device: "webgpu",
+        // `progress_total`, not `progress`: the latter is per file, so the
+        // readout reaches 100% on a 4 KB config before the weights begin.
         progress_callback: (report: {
           status?: string;
           loaded?: number;
           total?: number;
         }) => {
-          if (report.status === "progress" && report.total) {
+          if (report.status === "progress_total" && report.total) {
             onProgress?.({ loaded: report.loaded ?? 0, total: report.total });
           }
         },
@@ -77,6 +83,7 @@ export function loadChatModel(
 export async function* generateLocally(
   question: string,
   sources: readonly ChatSource[],
+  signal?: AbortSignal,
 ): AsyncIterable<string> {
   const generate = await loadChatModel();
 
@@ -84,9 +91,18 @@ export async function* generateLocally(
   let resolveNext: (() => void) | null = null;
   let finished = false;
 
-  const { TextStreamer, AutoTokenizer } =
+  const { TextStreamer, AutoTokenizer, InterruptableStoppingCriteria } =
     await import("@huggingface/transformers");
   const tokenizer = await AutoTokenizer.from_pretrained(LOCAL_CHAT_MODEL);
+
+  /* Stopping the consumer is not enough: `useChat`'s stop only cancels the
+     stream, and the model would run on to `max_new_tokens` holding the tab
+     while the composer re-enables. A second question then starts a concurrent
+     generation on the same pipeline. */
+  const stopping = new InterruptableStoppingCriteria();
+
+  if (signal?.aborted) stopping.interrupt();
+  signal?.addEventListener("abort", () => stopping.interrupt(), { once: true });
 
   const streamer = new TextStreamer(tokenizer, {
     skip_prompt: true,
@@ -103,7 +119,12 @@ export async function* generateLocally(
       ...MARKER_EXAMPLE,
       { role: "user", content: question },
     ],
-    { max_new_tokens: 320, do_sample: false, streamer },
+    {
+      max_new_tokens: 320,
+      do_sample: false,
+      streamer,
+      stopping_criteria: stopping,
+    },
   ).finally(() => {
     finished = true;
     resolveNext?.();
@@ -138,6 +159,7 @@ export function resolveLocalGenerator(): LocalGeneratorFn {
 type LocalGeneratorFn = (
   question: string,
   sources: readonly ChatSource[],
+  signal?: AbortSignal,
 ) => AsyncIterable<string>;
 
 /**
@@ -150,8 +172,11 @@ type LocalGeneratorFn = (
 async function* fakeGenerator(
   _question: string,
   sources: readonly ChatSource[],
+  signal?: AbortSignal,
 ): AsyncIterable<string> {
   yield "According to the document, ";
+  if (signal?.aborted) return;
   yield `${sources[0]?.quote.slice(0, 60) ?? ""}`;
+  if (signal?.aborted) return;
   yield ` [${String(sources[0]?.marker ?? 1)}].`;
 }

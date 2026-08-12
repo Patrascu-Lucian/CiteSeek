@@ -68,3 +68,10 @@ to `/local`.
 backed by Postgres rows and a workspace scope; this one has neither and makes no
 server query. `proxy.ts`'s `GUARDED` list does not match it, so it needs no
 credential — deliberately, since local mode has no account to belong to.
+
+↳ **2026-08-12.** For one release this gate guarded nothing: the chat model shipped without a
+`device`, so it ran on wasm and would have worked for the readers this screen was turning
+away. [ADR 034](034-answering-on-the-gpu.md) sets `device: "webgpu"`, which makes the check
+above load-bearing rather than decorative. The reasoning here did not change; what changed is
+that it became true. A capability check is only as good as the line that consumes the
+capability, and nothing in this ADR pointed at that line — `local-workspace.tsx` now names it.

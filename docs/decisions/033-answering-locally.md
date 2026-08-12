@@ -29,6 +29,23 @@ Measured, cached, on this machine:
 | generate                | ~1.7 s                                          |
 | first token, end to end | ~11 s                                           |
 
+↳ **2026-08-12: every row below the download was measured on the CPU, and is superseded.**
+This code passed no `device`, so transformers.js used its `wasm` default while the WebGPU gate
+refused the feature to anyone without an adapter. [ADR 034](034-answering-on-the-gpu.md) sets
+`device: "webgpu"`. Re-measured on the same machine and the same question, weights already
+cached:
+
+| first token | `device: "webgpu"`       | `device: "wasm"`       |
+| ----------- | ------------------------ | ---------------------- |
+|             | **2–3 s, ~5 s at worst** | no answer in over 60 s |
+
+**The ~11 s above did not reproduce, and is withdrawn rather than quietly corrected.** The
+same question on the CPU now runs past a minute, so that figure cannot have been this prompt
+on this path. The likeliest explanation is that it was taken before retrieval was feeding real
+passages into the system prompt — CPU prefill cost scales with prompt length, and the gap
+between eleven seconds and sixty is about the size that would explain. That is a hypothesis,
+not a measurement, which is exactly why the number is withdrawn instead of adjusted.
+
 ## What a 0.5B model would not do
 
 **It ignored the citation rule entirely.** `buildSystemPrompt`'s rule 2 says to

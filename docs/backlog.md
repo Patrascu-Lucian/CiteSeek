@@ -1009,31 +1009,85 @@ fourth is a defect with a diagnosis.
 
 ## Local mode, found in review of the answering slice, 12 August 2026
 
-Three things noticed reading `lib/local/generate.ts` and the chat wiring. None breaks an
-answer; the first is the one a reader would notice.
-
-- **Stop does not stop a local answer.** `chat-panel.tsx` renders a stop button and
-  `Composer` calls `stop()`, which in cloud mode aborts the fetch. `LocalChatTransport`
-  ignores the `abortSignal` the SDK hands `sendMessages`, and `generateLocally` passes no
-  `stopping_criteria`, so the model runs on to its 320-token limit — roughly ten seconds of
-  GPU after the reader asked it to stop. The UI detaches and looks obedient, which is worse
-  than a button that is visibly absent. The fix threads the signal into a
-  `stopping_criteria` callback; the test is that the generator stops being consumed _and_
-  the pipeline call settles early.
+Most of what this section listed was fixed in the follow-up; see
+[ADR 034](decisions/034-answering-on-the-gpu.md). Two things were not.
 
 - **The tokenizer is rebuilt for every question.** `generateLocally` calls
   `AutoTokenizer.from_pretrained` per turn, re-reading and re-instantiating 6.7 MB, when the
   pipeline returned by `loadChatModel` already carries one. Taking it from there means
-  typing the pipeline as more than a call signature, which is why it was not done in the
-  slice.
+  typing the pipeline as more than a call signature, which is why it keeps being deferred.
 
-- **The consent gate says "a few seconds"; the measurement was ~11 s.** ADR 033 records
-  ~11 s to a first token from cache. That gate exists to state a number before the reader
-  commits to a download, and eleven seconds is not what "a few" prepares anyone for.
+- **The consent gate re-asks on every mount.** The weights stay in the module's cache, so
+  leaving `/local` and coming back offers a download that has already happened. An exported
+  `isChatModelLoaded` was written for this and wired to nothing; it was deleted rather than
+  left in as an export with no caller. Doing it properly means deciding what the gate shows
+  when a load is still in flight — treating "started" as "ready" would drop the progress
+  readout mid-download.
 
-Related, and deliberately not fixed in the slice: the gate re-asks on every mount. The
-weights stay in the module's cache, so leaving `/local` and coming back offers a 756 MB
-download that has already happened. An exported `isChatModelLoaded` was written for this
-and wired to nothing; it was deleted rather than left in as an export with no caller. Doing
-it properly means deciding what the gate shows when a load is still in flight — treating
-"started" as "ready" would drop the progress readout mid-download.
+## The worked example leaks into answers, 12 August 2026
+
+Found in manual testing against a real CV, and it defeats the guarantee the project is built
+on. `MARKER_EXAMPLE` in `lib/local/generate.ts` is sent as real `user`/`assistant` messages
+between the system prompt and the question. Asked "you forgot to add the citation", the 0.5B
+model replayed the example's assistant turn verbatim — "It closes at six" — renumbering the
+marker to `[2]`, which **resolves**: the chip opens a passage of the reader's own document
+that has nothing to do with the claim.
+
+A wrong answer is survivable. A wrong answer wearing a citation that opens cleanly is the
+failure [ADR 011](decisions/011-retrieval-and-citation-strategy.md) exists to prevent, because
+the citation is what a reader checks it with.
+
+**It reproduces on one word.** Asking `cite` returns "The passage [1] says the office closes
+at six" every time — that is the example's _user_ turn, so the model is not merely echoing the
+answer, it is treating the pair as retrieved material and answering out of it. Generation is
+`do_sample: false`, so this is deterministic rather than unlucky. Whatever replaces the example
+has to be checked against `cite`, `citation` and `cite again` specifically; a normal question
+was never what exposed this.
+
+**The fix to try**: move the example inside the system prompt as delimited illustrative text
+rather than conversation turns. [ADR 033](decisions/033-answering-locally.md) measured the
+system prompt with **no example** producing no markers at all; an example _within_ the prompt
+was never tried, so this is not re-running a failed experiment. The regression probe is the
+question that triggered it — "you forgot to add the citation" — and the bar is markers still
+appearing on ordinary questions.
+
+Related and separate, because it is model capability rather than prompt construction: asked
+"do you use webgpu?", the model answered "Yes, I can run GPU code on my device" with no marker
+and no refusal. Retrieval had cleared the floor on some chunk, and the model then answered from
+its own knowledge against a system prompt that says it has none outside the documents —
+including about this app. Worth considering whether an answer containing no marker at all
+should be surfaced differently, since that is detectable where a plausible-looking leak is not.
+
+## An unresolvable citation is inert, and nothing says why, 12 August 2026
+
+Found the best way possible: in production, on a real CV, by the person who wrote the rule.
+The 0.5B model answered "Lucian developed React frontend applications [2]" when one passage
+had cleared the floor, so there was no source 2. `linkCitationMarkers` did exactly what
+[ADR 011](decisions/011-retrieval-and-citation-strategy.md) requires and left the marker as
+literal text rather than linking it to nothing.
+
+Then the reader typed "that citation is not clickable" — and the reader was the author of the
+guard. **The property held and communicated nothing.** A dead number is indistinguishable from
+a broken button, so the one moment the system catches a model inventing a source is the moment
+it looks most broken.
+
+Worth being careful with the fix. Styling every unresolved marker as an error would put a
+warning in front of readers for something that is working, and on the cloud path it is rare
+enough that nobody has hit it. The options, roughly in order of how much they claim: a muted
+style with a `title`; a footnote under the answer naming how many markers did not resolve; or
+counting them and treating a high rate as a signal about the model rather than the answer.
+Any of them needs a decision about whether this is addressed to the reader or to us.
+
+## Follow-up questions retrieve nothing, 12 August 2026
+
+Same session. "Where did he use React?" answered; "where?" and "at which company?" both
+refused, because `questionFrom` embeds the last message alone and a two-word follow-up carries
+no retrievable meaning. The refusal copy is then actively misleading — it suggests rephrasing
+or that the document may still be processing, when the truth is that the question was
+understood only in a context retrieval never saw.
+
+This is not local-only: the chat route retrieves on the latest question too. Fixing it means
+rewriting the query against the recent turns before embedding, which is a real feature with a
+measurable before and after, and belongs in a slice with the evaluation harness rather than a
+patch. Until then the refusal wording is the cheap half of the problem and could say that a
+short follow-up may need naming its subject again.

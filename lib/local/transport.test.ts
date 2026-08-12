@@ -175,6 +175,35 @@ describe("LocalChatTransport", () => {
     expect(generate).toHaveBeenCalledWith(
       "reimbursement paid within thirty",
       expect.arrayContaining([expect.objectContaining({ chunkId: "c1" })]),
+      undefined,
+    );
+  });
+
+  it("hands the generator the signal, so stop reaches the model", async () => {
+    // Without it the model runs to `max_new_tokens` after the composer has
+    // re-enabled, and the next question generates concurrently.
+    await seed();
+    const generate = vi.fn(answers);
+    const transport = new LocalChatTransport(generate);
+    const controller = new AbortController();
+
+    await collect(
+      await transport.sendMessages({
+        messages: [
+          {
+            id: "1",
+            role: "user",
+            parts: [{ type: "text", text: "reimbursement paid within thirty" }],
+          },
+        ],
+        abortSignal: controller.signal,
+      }),
+    );
+
+    expect(generate).toHaveBeenCalledWith(
+      "reimbursement paid within thirty",
+      expect.anything(),
+      controller.signal,
     );
   });
 

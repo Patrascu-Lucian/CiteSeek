@@ -52,10 +52,12 @@ export function LocalChat({ filenames }: { filenames: readonly string[] }) {
       );
       setLoad({ status: "ready" });
     } catch {
+      // Not "check your connection": this also rejects when WebGPU errors on a
+      // device after the gate has already accepted the adapter.
       setLoad({
         status: "failed",
         message:
-          "The model could not be downloaded. Check your connection and try again.",
+          "The model could not be loaded. Check your connection and try again.",
       });
     }
   }
@@ -72,15 +74,26 @@ export function LocalChat({ filenames }: { filenames: readonly string[] }) {
         <p className="text-muted-foreground mt-2 text-sm">
           It needs a language model, which is{" "}
           <strong>{LOCAL_CHAT_MODEL_MB} MB</strong> to download once and is then
-          cached by your browser. Answers take a few seconds each — noticeably
+          cached by your browser. Answers take two or three seconds each —
           slower than cloud mode, which stays available either way.
         </p>
 
         {load.status === "loading" ? (
-          <p role="status" className="text-muted-foreground mt-3 text-sm">
-            Downloading the model — {load.percent}%. You can leave this page
-            open; it resumes from the browser cache next time.
-          </p>
+          <div className="mt-3">
+            {/* The percent is deliberately outside the live region: it changes
+                about a hundred times, and `role="status"` queues every one of
+                them into a screen reader. */}
+            <p role="status" className="text-muted-foreground text-sm">
+              Downloading the model. You can leave this page open; it resumes
+              from the browser cache next time.
+            </p>
+            <progress
+              className="mt-2 w-full"
+              value={load.percent}
+              max={100}
+              aria-label="Model download progress"
+            />
+          </div>
         ) : (
           <Button
             type="button"

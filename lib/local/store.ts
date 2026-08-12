@@ -1,5 +1,13 @@
 const DATABASE_NAME = "citeseek-local";
-const DATABASE_VERSION = 1;
+/** Exported so the rollback test opens "one above this build" rather than a
+ * literal, which is what silently stopped testing anything at version 2. */
+export const DATABASE_VERSION = 2;
+
+/** Version 1 stored no `text`, so its documents cannot resolve a citation: they
+ * retrieve, get cited, and the panel then reports the passage missing. Failing
+ * them keeps retrieval away from them and tells the reader to re-add. */
+export const RE_INGEST_REQUIRED =
+  "This document was added before local mode could open a cited passage. Add it again to make its citations resolve.";
 
 const DOCUMENTS = "documents";
 const CHUNKS = "chunks";
@@ -93,21 +101,42 @@ const getOne = <T>(store: IDBObjectStore, key: IDBValidKey) =>
 function openDatabase(): Promise<IDBDatabase> {
   const request = indexedDbOrThrow().open(DATABASE_NAME, DATABASE_VERSION);
 
-  // No `contains` guards: at version 1 this fires only for a database that does
-  // not exist yet. Version 2 needs `oldVersion` branching instead, and that is
-  // migration logic to write then, not to guess at now.
-  request.onupgradeneeded = () => {
+  request.onupgradeneeded = (event) => {
     const db = request.result;
 
-    db.createObjectStore(DOCUMENTS, { keyPath: "id" });
+    if (event.oldVersion < 1) {
+      db.createObjectStore(DOCUMENTS, { keyPath: "id" });
 
-    const chunks = db.createObjectStore(CHUNKS, { keyPath: "id" });
-    // Without it, deleting one document means reading every chunk in the
-    // profile to find out which ones belonged to it.
-    chunks.createIndex(CHUNKS_BY_DOCUMENT, "documentId", { unique: false });
+      const chunks = db.createObjectStore(CHUNKS, { keyPath: "id" });
+      // Without it, deleting one document means reading every chunk in the
+      // profile to find out which ones belonged to it.
+      chunks.createIndex(CHUNKS_BY_DOCUMENT, "documentId", { unique: false });
+    }
+
+    if (event.oldVersion === 1) failTextlessDocuments(request.transaction!);
   };
 
   return promise(request);
+}
+
+/** A cursor, not the `getAll` helpers above: this runs inside the version-change
+ * transaction, and awaiting anything outside it lets that transaction commit. */
+function failTextlessDocuments(transaction: IDBTransaction) {
+  const cursor = transaction.objectStore(DOCUMENTS).openCursor();
+
+  cursor.onsuccess = () => {
+    const at = cursor.result;
+
+    if (!at) return;
+
+    const document = at.value as LocalDocument;
+
+    if (!document.text) {
+      at.update({ ...document, status: "failed", error: RE_INGEST_REQUIRED });
+    }
+
+    at.continue();
+  };
 }
 
 async function withStores<T>(

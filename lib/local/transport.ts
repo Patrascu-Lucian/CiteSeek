@@ -17,6 +17,7 @@ import { retrieveLocally } from "./retrieve";
 export type LocalGenerator = (
   question: string,
   sources: Awaited<ReturnType<typeof retrieveLocally>>["sources"],
+  signal?: AbortSignal,
 ) => AsyncIterable<string>;
 
 /**
@@ -29,6 +30,7 @@ export type LocalGenerator = (
 export function localAnswerStream(
   question: string,
   generate: LocalGenerator,
+  signal?: AbortSignal,
 ): ReadableStream<UIMessageChunk> {
   return createUIMessageStream<ChatUIMessage>({
     execute: async ({ writer }) => {
@@ -62,7 +64,7 @@ export function localAnswerStream(
 
       writer.write({ type: "text-start", id: "0" });
 
-      for await (const delta of generate(question, sources)) {
+      for await (const delta of generate(question, sources, signal)) {
         writer.write({ type: "text-delta", id: "0", delta });
       }
 
@@ -81,11 +83,13 @@ export class LocalChatTransport implements ChatTransport<ChatUIMessage> {
 
   sendMessages({
     messages,
+    abortSignal,
   }: {
     messages: ChatUIMessage[];
+    abortSignal?: AbortSignal;
   }): Promise<ReadableStream<UIMessageChunk>> {
     return Promise.resolve(
-      localAnswerStream(questionFrom(messages), this.generate),
+      localAnswerStream(questionFrom(messages), this.generate, abortSignal),
     );
   }
 
