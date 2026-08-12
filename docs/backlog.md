@@ -1122,3 +1122,28 @@ device", and "i can't see anything related to that on my pdf" produced a paragra
 quality metrics opening with "I don't have access to your PDF" — which also breaks rule 7's
 "never describe your inputs". All of it is a 0.5B ignoring the prompt, none of it reachable on
 the cloud path, and all of it an argument for what `/local` is labelled as.
+
+## The first demo chat after a cold start loses a race, 12 August 2026
+
+`chat.spec.ts:99` ("says so, and cites nothing at all") failed four times across one afternoon
+and passed on every re-run and in isolation. Treating it as noise was wrong; it has a shape.
+
+Every failure came on the first full-suite run after a fresh `pnpm build`, and none on a re-run
+against the same build. The saved snapshot shows no error state — the trailing `- alert` in it
+is Next's route announcer, which is empty on every page — only the refusal text missing after
+the 5 s `expect` timeout. So nothing failed; the first request to a just-started server did not
+answer inside five seconds.
+
+Worth confirming before fixing, because the obvious remedy is the wrong one. Raising that one
+timeout hides whatever the cold cost actually is, and this suite is the only place the number
+would ever be noticed — `webServer.timeout` already allows 120 s for the server to accept
+connections, which is not the same as being ready to serve a route that touches the database.
+A warm-up request in a global setup would make the run honest about it; measuring the first
+response against later ones would say whether it is worth caring about beyond the test.
+
+Related and separate: **`webServer.command` is `pnpm start`, so Playwright serves whatever
+`.next` already exists and never builds.** A local `pnpm test:e2e` after an edit silently tests
+the previous build — which happened repeatedly during this session and produced one confident
+"the test fails" report against a bundle from another branch. CI builds first, so its results
+stand. Either the command should build, or the docs should say `pnpm build && pnpm test:e2e` is
+the only sound local invocation.

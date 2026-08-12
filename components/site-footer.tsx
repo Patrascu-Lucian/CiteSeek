@@ -15,38 +15,55 @@ export function SiteFooter() {
     <footer className="border-border/60 mt-auto border-t">
       <div className={pageShell("5xl", "text-muted-foreground py-8 text-sm")}>
         {/*
-          Names spelled out: "Privacy" alone could be a setting. Right-aligned
-          from `md`, measured as where the row below stops wrapping — 640px still
-          stacks, 768px does not. Labeled for what it holds, since a landmark
-          whose name does not describe its contents is worse than an unnamed one.
+          Names spelled out: "Privacy" alone could be a setting. Labeled for what
+          it holds, since a landmark whose name does not describe its contents is
+          worse than an unnamed one.
+
+          Two columns at every width above a phone, including desktop — a single
+          row of four was the old layout and `flex-wrap` stranded a lone name on
+          its own line at the widths in between.
+
+          Two nested groups rather than four children flowing into a grid: the
+          split is what a reader recognises — the project, then the policies —
+          and it survives a fifth link, where `grid-flow-col` over two rows would
+          silently regroup and `nth-child` styling would point at the wrong one.
         */}
         <nav
           aria-label="About this project"
-          className="flex flex-wrap items-center gap-6 md:justify-end"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2"
         >
-          {/* About and Contact first: they are what this landmark is named for,
-            and the two anyone actually clicks. The policies are reference. */}
-          <Link href="/about" className="hover:text-foreground underline">
-            About
-          </Link>
-          {/* The privacy page promises somewhere to send an erasure request, and
-            until this link existed that promise pointed at nothing. A repository
-            rather than a form, which would need a sender and spam handling to do
-            what issues already do. */}
-          <a
-            href={REPOSITORY_URL}
-            className="hover:text-foreground underline"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Contact
-          </a>
-          <Link href="/privacy" className="hover:text-foreground underline">
-            Privacy Policy
-          </Link>
-          <Link href="/terms" className="hover:text-foreground underline">
-            Terms of Service
-          </Link>
+          <div className="flex flex-col gap-3">
+            {/* About and Contact first: they are what this landmark is named
+              for, and the two anyone actually clicks. */}
+            <Link href="/about" className="hover:text-foreground underline">
+              About
+            </Link>
+            {/* The privacy page promises somewhere to send an erasure request,
+              and until this link existed that promise pointed at nothing. A
+              repository rather than a form, which would need a sender and spam
+              handling to do what issues already do. */}
+            <a
+              href={REPOSITORY_URL}
+              className="hover:text-foreground underline"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Contact
+            </a>
+          </div>
+
+          {/* Flush right from `sm`, so the pair reads as one group pinned to the
+            edge rather than a second column starting mid-container. Left-aligned
+            on a phone, where there is only one column and a ragged left edge
+            would be the odd thing. */}
+          <div className="flex flex-col gap-3 sm:items-end">
+            <Link href="/privacy" className="hover:text-foreground underline">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground underline">
+              Terms of Service
+            </Link>
+          </div>
         </nav>
 
         {/*
@@ -60,7 +77,7 @@ export function SiteFooter() {
           on every route, so a <Link> here would break local mode from all of
           them rather than from one page.
         */}
-        <p className="mt-4 flex flex-wrap items-center gap-2 md:justify-end">
+        <p className="mt-3 flex flex-wrap items-center gap-2">
           <a href="/local" className="hover:text-foreground underline">
             Local mode
           </a>

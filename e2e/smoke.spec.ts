@@ -394,4 +394,76 @@ test.describe("the footer", () => {
       "Terms of Service",
     ]);
   });
+
+  /**
+   * Rows the links actually occupy, not the classes that should produce them: a
+   * grid utility can be present and overridden, and the failure this guards
+   * against is visual.
+   */
+  async function footerRows(page: Page) {
+    const boxes = await page
+      .getByRole("navigation", { name: /about this project/i })
+      .getByRole("link")
+      .evaluateAll((links) =>
+        links.map((link) => link.getBoundingClientRect().y),
+      );
+
+    return new Set(boxes.map(Math.round)).size;
+  }
+
+  test("stacks the links on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto("/");
+
+    expect(await footerRows(page)).toBe(4);
+  });
+
+  test("pairs them into two columns on a tablet", async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await page.goto("/");
+
+    expect(await footerRows(page)).toBe(2);
+  });
+
+  test("groups the project left and the policies flush right", async ({
+    page,
+  }) => {
+    // Two claims at once: the pair a reader thinks of as one group shares a
+    // column, and that column is pinned to the edge rather than starting
+    // mid-container. Right-aligned links share a *right* edge, not a left one —
+    // asserting `x` here would fail on two names of different lengths.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+
+    const nav = page.getByRole("navigation", { name: /about this project/i });
+    const edges = async (name: string) => {
+      const box = (await nav
+        .getByRole("link", { name, exact: true })
+        .boundingBox())!;
+
+      return { left: Math.round(box.x), right: Math.round(box.x + box.width) };
+    };
+
+    const [about, contact, privacy, terms] = await Promise.all([
+      edges("About"),
+      edges("Contact"),
+      edges("Privacy Policy"),
+      edges("Terms of Service"),
+    ]);
+
+    expect(about.left).toBe(contact.left);
+    expect(privacy.right).toBe(terms.right);
+    expect(privacy.left).toBeGreaterThan(about.left);
+  });
+
+  test("keeps two columns on a desktop, rather than one row of four", async ({
+    page,
+  }) => {
+    // Deliberate, and the reason this is asserted at a width where a single row
+    // would fit: four names across was the old layout and was not wanted back.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+
+    expect(await footerRows(page)).toBe(2);
+  });
 });
