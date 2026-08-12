@@ -18,7 +18,7 @@ export function Refusal({
   documents,
   canUpload,
   signedIn,
-  workspaceId,
+  uploadHref,
 }: {
   reason: RefusalReason;
   /** Filenames of what is searchable now — not what was searchable when the
@@ -26,7 +26,9 @@ export function Refusal({
   documents: readonly string[];
   canUpload: boolean;
   signedIn: boolean;
-  workspaceId: string;
+  /** Where the upload area lives. Null when it is already on this page, which
+   * is local mode: a link to where the reader already is helps nobody. */
+  uploadHref: string | null;
 }) {
   const nothingIndexed = reason === "no_documents" || documents.length === 0;
 
@@ -75,7 +77,7 @@ export function Refusal({
       <Affordance
         canUpload={canUpload}
         signedIn={signedIn}
-        workspaceId={workspaceId}
+        uploadHref={uploadHref}
       />
     </div>
   );
@@ -89,20 +91,26 @@ export function Refusal({
 function Affordance({
   canUpload,
   signedIn,
-  workspaceId,
+  uploadHref,
 }: {
   canUpload: boolean;
   signedIn: boolean;
-  workspaceId: string;
+  /** Where the upload area lives. Null when it is already on this page, which
+   * is local mode: a link to where the reader already is helps nobody. */
+  uploadHref: string | null;
 }) {
   if (canUpload) {
     return (
       <p className="text-muted-foreground text-sm">
         Or add the document that has the answer — the upload area is at the top
         of{" "}
-        <Link href={`/w/${workspaceId}`} className="underline">
-          this workspace
-        </Link>
+        {uploadHref === null ? (
+          "this page"
+        ) : (
+          <Link href={uploadHref} className="underline">
+            this workspace
+          </Link>
+        )}
         .
       </p>
     );

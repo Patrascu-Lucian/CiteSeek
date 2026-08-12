@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { LocalWorkspace } from "@/components/local/local-workspace";
-import { WebGpuGate } from "@/components/local/webgpu-gate";
 import { pageShell } from "@/components/ui/page-shell";
 
 export const metadata: Metadata = { title: "Local mode" };
@@ -17,18 +16,6 @@ export default function LocalPage() {
         uploaded, and no question reaches a model provider.
       </p>
 
-      <div className="mt-6">
-        <WebGpuGate>
-          <p className="text-muted-foreground text-sm">
-            This browser can run a model locally. Answering arrives with the
-            model; documents added below are parsed and indexed already.
-          </p>
-        </WebGpuGate>
-      </div>
-
-      {/* Outside the gate on purpose. Losing WebGPU — a flag switched off, a
-          driver change — must not strand a reader with documents they can see
-          no way to delete. */}
       <div className="mt-6">
         <LocalWorkspace />
       </div>

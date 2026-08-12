@@ -32,6 +32,7 @@ const parsedAs = (result: IngestResult) => vi.fn().mockResolvedValue(result);
 
 const twoChunks = parsedAs({
   ok: true,
+  text: "Reimbursement is paid within 30 days. Expenses need a receipt.",
   pageCount: 2,
   chunks: [
     {
@@ -101,7 +102,7 @@ describe("ingestLocalFile", () => {
   });
 
   it("refuses an unsupported extension before parsing", async () => {
-    const parse = parsedAs({ ok: true, pageCount: null, chunks: [] });
+    const parse = parsedAs({ ok: true, text: "", pageCount: null, chunks: [] });
 
     const result = await ingestLocalFile(
       aFile("photo.png", "image/png"),
@@ -137,6 +138,7 @@ describe("ingestLocalFile", () => {
 
     const parse = vi.fn().mockResolvedValue({
       ok: true,
+      text: "# Notes",
       pageCount: null,
       chunks: [],
     });

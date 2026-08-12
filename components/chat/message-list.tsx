@@ -123,7 +123,7 @@ export function MessageList({
   messages,
   onSelectSource,
   selectedChunkId,
-  workspaceId,
+  uploadHref,
   documents,
   canUpload,
   signedIn,
@@ -134,7 +134,8 @@ export function MessageList({
   messages: readonly ChatUIMessage[];
   onSelectSource: (source: ChatSource) => void;
   selectedChunkId: string | null;
-  workspaceId: string;
+  /** Passed through to the refusal, which is the only thing that needs it. */
+  uploadHref: string | null;
   /** Searchable filenames, for a refusal to say what it can answer from. */
   documents: readonly string[];
   canUpload: boolean;
@@ -195,7 +196,7 @@ export function MessageList({
                       documents={documents}
                       canUpload={canUpload}
                       signedIn={signedIn}
-                      workspaceId={workspaceId}
+                      uploadHref={uploadHref}
                     />
                   ) : null}
                 </>

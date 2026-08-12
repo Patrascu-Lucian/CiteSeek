@@ -4,11 +4,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 
 import { ChatPanel } from "@/components/chat/chat-panel";
+import { workspaceDocumentText } from "@/lib/documents/text-loader";
 import { SourcePanel, type SourceTarget } from "@/components/chat/source-panel";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { DocumentList } from "@/components/documents/document-list";
@@ -71,6 +72,13 @@ export function WorkspaceSections({
 
   // One panel, two openers: a citation from the transcript, a document from the list.
   const [source, setSource] = useState<SourceTarget | null>(null);
+
+  // Memoized: the panel's effect depends on it, so a new function each render
+  // would refetch the document on every keystroke elsewhere on the page.
+  const loadDocumentText = useMemo(
+    () => workspaceDocumentText(workspaceId),
+    [workspaceId],
+  );
 
   /*
     The conversation list is server-rendered, so after a rename or delete the
@@ -277,7 +285,7 @@ export function WorkspaceSections({
 
       <SourcePanel
         target={source}
-        workspaceId={workspaceId}
+        loadText={loadDocumentText}
         onClose={() => setSource(null)}
       />
     </>

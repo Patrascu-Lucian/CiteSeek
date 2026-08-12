@@ -10,7 +10,7 @@ function renderRefusal(props: Partial<Parameters<typeof Refusal>[0]> = {}) {
       documents={["handbook.pdf", "expenses.docx"]}
       canUpload
       signedIn
-      workspaceId="w1"
+      uploadHref="/w/w1"
       {...props}
     />,
   );

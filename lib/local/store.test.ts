@@ -27,6 +27,7 @@ const aDocument = (overrides: Partial<LocalDocument> = {}): LocalDocument => ({
   sizeBytes: 1024,
   status: "ready",
   error: null,
+  text: "stored document text",
   pageCount: 3,
   chunkCount: 0,
   embeddingDimensions: DIMENSIONS,
