@@ -897,7 +897,16 @@ defects.
   answer to the earlier worry about learning to ignore this test: it is not ignored, it is
   explained.
 
-## A coverage threshold nothing runs, 11 August 2026
+## ~~A coverage threshold nothing runs~~, 11 August 2026
+
+**Fixed, 12 August 2026.** `lexical.ts` excluded with a written reason, which puts `lib/rag/**`
+at 90.51%, and CI's unit step now runs `test:coverage` instead of `test` — the same suite with
+the v8 provider attached, so the bar is evaluated rather than described. One correction to the
+diagnosis below: it says nothing imports the file. Nothing on the **answer path** does, which
+is the part that matters, but `scripts/eval-retrieval.mts` imports it as
+`await import("../lib/rag/lexical.ts")` — an explicit extension, which is why more than one
+grep for it has come back empty. That is the difference between deleting the file and
+excluding it, so the wrong version should not stay on the record.
 
 Found while adding `lib/local/**` to `vitest.config.ts`'s thresholds: **`pnpm test:coverage`
 has been failing, and no pipeline runs it.** CI runs `pnpm test`, `pnpm test:integration` and
