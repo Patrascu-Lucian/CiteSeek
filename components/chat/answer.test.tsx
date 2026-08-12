@@ -67,7 +67,12 @@ describe("Answer — citation markers", () => {
     // to open, so nothing may look openable.
     renderAnswer({ text: "A claim [7] with no passage behind it." });
 
-    expect(await screen.findByText(/\[7\]/)).toBeInTheDocument();
+    // `findByText` on the marker alone now matches the note below the answer as
+    // well, so this asks the question it always meant: the sentence keeps its
+    // number, and nothing in the answer is pressable.
+    expect(
+      await screen.findByText(/A claim \[7\] with no passage behind it\./),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
@@ -138,5 +143,38 @@ describe("Answer — grouped markers", () => {
 
     expect(await screen.findByText(/\[1, 7\]/)).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});
+
+describe("Answer — a marker the model invented", () => {
+  it("says why the number is not a link, rather than leaving it dead", () => {
+    // The guard already refuses to link it. This is the half that was missing:
+    // an inert number reads as a broken button, and the person who reported it
+    // that way had written the rule. ADR 036.
+    renderAnswer({ text: "A claim [7] with nothing behind it." });
+
+    expect(
+      screen.getByText(/is not one of the passages found/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/treat that claim as unsupported/i)).toBeVisible();
+    // The number itself, so the reader can match the note to the sentence.
+    expect(screen.getByText("[7]")).toBeInTheDocument();
+  });
+
+  it("names every invented number when there are several", () => {
+    renderAnswer({ text: "Claims [7] and [9]." });
+
+    expect(screen.getByText("[7], [9]")).toBeInTheDocument();
+    expect(
+      screen.getByText(/are not among the passages found/i),
+    ).toBeInTheDocument();
+  });
+
+  it("stays quiet when the answer cites honestly", () => {
+    // The note is for a caught fabrication. On a well-cited answer it would be
+    // noise in front of every reader.
+    renderAnswer();
+
+    expect(screen.queryByText(/not one of the passages/i)).toBeNull();
   });
 });
