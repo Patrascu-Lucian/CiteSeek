@@ -145,9 +145,14 @@ describe("generateLocally", () => {
     expect(messages[0]?.content).toContain("[1]");
   });
 
-  it("shows the model a worked example, since the rule alone does not work", async () => {
-    // Measured: with the system prompt only, neither the 0.5B nor the 1.5B
-    // model emitted a marker. One example fixed it. ADR 033.
+  it("sends the system prompt and the question, and nothing else", async () => {
+    /*
+      The shape, not the content — and it is the assertion that was missing.
+      The worked example used to ride in this array as `user`/`assistant` turns,
+      which a model reads as things that were said: asking "cite" returned the
+      example's own sentence carrying a marker that resolved. Anything here
+      other than these two is transcript. ADR 035.
+    */
     const model = generatingModel(["ok"]);
     pipeline.mockResolvedValue(model);
     const { generateLocally } = await import("./generate");
@@ -158,9 +163,46 @@ describe("generateLocally", () => {
       role: string;
       content: string;
     }[];
-    expect(messages.at(-2)?.role).toBe("assistant");
-    expect(messages.at(-2)?.content).toMatch(/\[1\]/);
-    expect(messages.at(-1)).toEqual({ role: "user", content: "when?" });
+    expect(messages).toHaveLength(2);
+    expect(messages.map((message) => message.role)).toEqual(["system", "user"]);
+    expect(messages[1]).toEqual({ role: "user", content: "when?" });
+  });
+
+  it("shows the citation format using the passage that was retrieved", async () => {
+    // Built from the real passage so that a model which parrots the example
+    // quotes the reader's document rather than inventing an office that closes
+    // at six — which is what the fixed example produced. ADR 035.
+    const model = generatingModel(["ok"]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [source]));
+
+    const system = (model.mock.calls[0]![0] as { content: string }[])[0]!
+      .content;
+    expect(system).toContain("Reimbursement is paid within thirty days");
+    expect(system).toMatch(/\[1\]/);
+    expect(system).not.toMatch(/office closes at six/i);
+  });
+
+  it("skips a chunk's opening fragment, which is not a sentence", async () => {
+    // Chunks are cut on character offsets, so one usually starts mid-sentence.
+    // Demonstrating that fragment made the model answer with a fragment.
+    const model = generatingModel(["ok"]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [
+      {
+        ...source,
+        quote:
+          "is never called, so nothing is produced. Claims carry a marker.",
+      },
+    ]));
+
+    const system = (model.mock.calls[0]![0] as { content: string }[])[0]!
+      .content;
+    expect(system).toContain("Claims carry a marker. [1]");
   });
 });
 

@@ -10,19 +10,28 @@ export const LOCAL_CHAT_MODEL = "onnx-community/Qwen2.5-0.5B-Instruct";
 export const LOCAL_CHAT_MODEL_MB = 756;
 
 /**
- * A worked example, not extra rules. Measured: with the system prompt alone —
- * whose rule 2 already says to cite inline — neither the 0.5B nor the 1.5B model
- * emitted a single marker. One example produced `[1]` from the 0.5B immediately.
- * Instruction-following at this size comes from demonstration, not instruction.
+ * A worked example, because rule 2 alone produced no markers (ADR 033). In the
+ * system prompt, never the message array: as `user`/`assistant` turns it was
+ * transcript, and "cite" returned the example itself with a resolving marker.
+ * Built from the retrieved passage so a parroted example still quotes the
+ * reader's own document (ADR 035).
  */
-const MARKER_EXAMPLE = [
-  {
-    role: "user",
-    content:
-      "Example. Passage [1] says the office closes at six. Q: When does it close?",
-  },
-  { role: "assistant", content: "It closes at six [1]." },
-] as const;
+function markerExample(sources: readonly ChatSource[]): string {
+  const source = sources[0]!;
+  // The first sentence that *starts* one: chunks are cut on character offsets,
+  // so a chunk usually opens mid-sentence and the example would demonstrate a
+  // fragment — which the model then reproduces as its answer.
+  const sentences = source.quote.trim().split(/(?<=[.!?])\s+/);
+  const sentence =
+    sentences.find((one) => /^[A-Z]/.test(one)) ?? sentences[0] ?? "";
+
+  return [
+    "Citation format. An answer taken from the passage marked",
+    `[${String(source.marker)}] is written like this:`,
+    "",
+    `${sentence.slice(0, 200)} [${String(source.marker)}]`,
+  ].join("\n");
+}
 
 type Message = { role: string; content: string };
 
@@ -115,8 +124,10 @@ export async function* generateLocally(
 
   const running = generate(
     [
-      { role: "system", content: buildSystemPrompt(sources) },
-      ...MARKER_EXAMPLE,
+      {
+        role: "system",
+        content: `${buildSystemPrompt(sources)}\n\n${markerExample(sources)}`,
+      },
       { role: "user", content: question },
     ],
     {

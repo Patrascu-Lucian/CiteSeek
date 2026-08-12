@@ -1024,7 +1024,12 @@ Most of what this section listed was fixed in the follow-up; see
   when a load is still in flight — treating "started" as "ready" would drop the progress
   readout mid-download.
 
-## The worked example leaks into answers, 12 August 2026
+## ~~The worked example leaks into answers~~, 12 August 2026
+
+**Fixed the same day — [ADR 035](decisions/035-where-the-worked-example-goes.md).** The example
+moved into the system prompt and is now built from the retrieved passage; `cite` no longer
+mentions an office, and real questions still carry clickable chips. The entry stays for the
+reasoning. The unrelated paragraph at the end of it is still open.
 
 Found in manual testing against a real CV, and it defeats the guarantee the project is built
 on. `MARKER_EXAMPLE` in `lib/local/generate.ts` is sent as real `user`/`assistant` messages
