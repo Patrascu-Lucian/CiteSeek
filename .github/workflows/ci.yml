@@ -47,8 +47,12 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Unit tests
-        run: pnpm test
+      # `test:coverage` is `test` with the v8 provider attached, so this replaces
+      # the plain run rather than adding a second one. Until now nothing
+      # evaluated `vitest.config.ts`'s thresholds and they had been failing for
+      # an unknown length of time — a bar no job checks is documentation.
+      - name: Unit tests and coverage thresholds
+        run: pnpm test:coverage
 
       - name: Build
         run: pnpm build
