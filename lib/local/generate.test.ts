@@ -436,3 +436,40 @@ describe("progress with no total to divide by", () => {
     expect(seen).toEqual([]);
   });
 });
+
+describe("the status the consent gate reads on a remount", () => {
+  it("is idle before anything has been asked for", async () => {
+    const { chatModelStatus } = await import("./generate");
+
+    expect(chatModelStatus()).toBe("idle");
+  });
+
+  it("is loading while the weights are in flight, not ready", async () => {
+    // The distinction the whole state exists for: `loading !== null` means a
+    // download started. Reporting that as ready renders the chat over weights
+    // still arriving, and the first question hangs with nothing explaining why.
+    let release: (value: unknown) => void = () => undefined;
+    pipeline.mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    const { loadChatModel, chatModelStatus } = await import("./generate");
+
+    const loading = loadChatModel();
+    expect(chatModelStatus()).toBe("loading");
+
+    release(vi.fn());
+    await loading;
+    expect(chatModelStatus()).toBe("ready");
+  });
+
+  it("returns to idle when the download failed, so a retry is offered", async () => {
+    pipeline.mockRejectedValueOnce(new Error("offline"));
+    const { loadChatModel, chatModelStatus } = await import("./generate");
+
+    await expect(loadChatModel()).rejects.toThrow("offline");
+
+    expect(chatModelStatus()).toBe("idle");
+  });
+});

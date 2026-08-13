@@ -44,6 +44,18 @@ let loading: Promise<Generator> | null = null;
 
 export type LoadProgress = { loaded: number; total: number };
 
+/** Three states, because `loading !== null` only means a download *started*:
+ * rendering the chat over weights still arriving is what this prevents. */
+export type ChatModelStatus = "idle" | "loading" | "ready";
+
+let status: ChatModelStatus = "idle";
+
+/** Module state, so it survives a remount: leaving `/local` and coming back
+ * must not re-offer a download this tab has already made. */
+export function chatModelStatus(): ChatModelStatus {
+  return status;
+}
+
 /**
  * Cached across questions, and cleared on failure — `??=` alone would keep a
  * rejected promise and make every retry fail instantly (the same defect the
@@ -52,6 +64,8 @@ export type LoadProgress = { loaded: number; total: number };
 export function loadChatModel(
   onProgress?: (progress: LoadProgress) => void,
 ): Promise<Generator> {
+  if (loading === null) status = "loading";
+
   loading ??= import("@huggingface/transformers")
     .then(({ env, pipeline }) => {
       env.backends.onnx.wasm!.wasmPaths = "/onnx/";
@@ -75,8 +89,16 @@ export function loadChatModel(
         },
       });
     })
+    .then((generate) => {
+      status = "ready";
+      return generate;
+    })
     .catch((cause: unknown) => {
+      // Both reset together: a caller offered "try again" has to reach a real
+      // retry, and a gate reading `loading` would otherwise sit on a download
+      // that is not happening.
       loading = null;
+      status = "idle";
       throw cause;
     });
 

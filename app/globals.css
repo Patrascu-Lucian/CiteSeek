@@ -215,3 +215,15 @@
     width: 70%;
   }
 }
+
+/* For a load whose size is unknown — the model coming back from the browser
+   cache reports no bytes, so a width-driven bar sat at zero and then vanished,
+   reading as broken rather than working. */
+@keyframes indeterminate-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
