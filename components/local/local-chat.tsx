@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { SourcePanel } from "@/components/chat/source-panel";
@@ -8,18 +8,46 @@ import { Button } from "@/components/ui/button";
 import type { ChatSource } from "@/lib/ai/types";
 import {
   LOCAL_CHAT_MODEL_MB,
+  chatModelStatus,
   loadChatModel,
   localGeneratorIsFake,
   resolveLocalGenerator,
 } from "@/lib/local/generate";
+import {
+  hasConsentedToModelDownload,
+  rememberModelConsent,
+} from "@/lib/local/consent";
 import { localDocumentText } from "@/lib/local/text-loader";
 import { LocalChatTransport } from "@/lib/local/transport";
 
+/** Not "check your connection": this also rejects when WebGPU errors on a
+ * device after the gate has already accepted the adapter. */
+const LOAD_FAILED =
+  "The model could not be loaded. Check your connection and try again.";
+
 type Load =
   | { status: "idle" }
-  | { status: "loading"; percent: number }
+  /** `percent: null` when this mount joined a download already running, where
+   * the callback reporting bytes belongs to the mount that started it. */
+  | { status: "loading"; percent: number | null }
   | { status: "ready" }
   | { status: "failed"; message: string };
+
+/** What the gate shows on arrival, from stored state rather than assumed. */
+function initialLoad(): Load {
+  // Nothing to download when the stand-in is in use, so the gate would be a
+  // consent prompt for an action that never happens.
+  if (localGeneratorIsFake()) return { status: "ready" };
+
+  if (chatModelStatus() === "ready") return { status: "ready" };
+
+  // `percent: null` covers both ways of arriving here — rejoining a load this
+  // page started, and resuming one agreed to on an earlier visit. Neither has a
+  // byte count yet; the first `progress_total` supplies one.
+  return chatModelStatus() === "loading" || hasConsentedToModelDownload()
+    ? { status: "loading", percent: null }
+    : { status: "idle" };
+}
 
 /**
  * The download is consented to before a byte is fetched, which is the whole
@@ -29,38 +57,52 @@ type Load =
  * Declining leaves cloud mode working, which is what makes the offer honest.
  */
 export function LocalChat({ filenames }: { filenames: readonly string[] }) {
-  const [load, setLoad] = useState<Load>(
-    // Nothing to download when the stand-in is in use, so the gate would be a
-    // consent prompt for an action that never happens.
-    localGeneratorIsFake() ? { status: "ready" } : { status: "idle" },
-  );
+  const [load, setLoad] = useState<Load>(initialLoad);
   const [openSource, setOpenSource] = useState<ChatSource | null>(null);
+
+  /*
+    The only place the model is loaded, so pressing the button and returning to
+    a page you already agreed to take the same path. `loadChatModel` hands back
+    the running promise when there is one, so this rejoins rather than starting
+    a second. Keyed on `status` alone: the progress updates below change `load`
+    without re-running it.
+  */
+  useEffect(() => {
+    if (load.status !== "loading") return;
+
+    let current = true;
+
+    void loadChatModel(({ loaded, total }) => {
+      if (current) {
+        setLoad({
+          status: "loading",
+          percent: Math.round((loaded / total) * 100),
+        });
+      }
+    }).then(
+      () => {
+        if (current) setLoad({ status: "ready" });
+      },
+      () => {
+        if (current) setLoad({ status: "failed", message: LOAD_FAILED });
+      },
+    );
+
+    return () => {
+      current = false;
+    };
+  }, [load.status]);
 
   const transport = useMemo(
     () => new LocalChatTransport(resolveLocalGenerator()),
     [],
   );
 
-  async function download() {
-    setLoad({ status: "loading", percent: 0 });
-
-    try {
-      await loadChatModel(({ loaded, total }) =>
-        setLoad({
-          status: "loading",
-          percent: Math.round((loaded / total) * 100),
-        }),
-      );
-      setLoad({ status: "ready" });
-    } catch {
-      // Not "check your connection": this also rejects when WebGPU errors on a
-      // device after the gate has already accepted the adapter.
-      setLoad({
-        status: "failed",
-        message:
-          "The model could not be loaded. Check your connection and try again.",
-      });
-    }
+  /** Records the agreement and lets the effect above do the work, so a returning
+   * reader and a first-time one take one code path rather than two. */
+  function consent() {
+    rememberModelConsent();
+    setLoad({ status: "loading", percent: null });
   }
 
   if (load.status !== "ready") {
@@ -84,35 +126,41 @@ export function LocalChat({ filenames }: { filenames: readonly string[] }) {
             {/* The percent is deliberately outside the live region: it changes
                 about a hundred times, and `role="status"` queues every one of
                 them into a screen reader. */}
+            {/* "Loading", not "Downloading": on a return visit the bytes are
+                usually already in the browser's cache, and nothing here can tell
+                which of the two is happening. */}
             <p role="status" className="text-muted-foreground text-sm">
-              Downloading the model. You can leave this page open; it resumes
-              from the browser cache next time.
+              Loading the model. It downloads once and comes from your
+              browser&rsquo;s cache after that.
             </p>
-            {/* Two divs rather than `<progress>`, whose fill is only reachable
-                through `::-webkit-progress-value` and `::-moz-progress-bar` —
-                two rules for one bar, and the unstyled default paints green,
-                which is in no palette here. `role="progressbar"` carries the
-                same semantics. */}
+            {/* Not `<progress>`: styling its fill takes a different vendor rule
+                per engine, and the default paints green. `aria-valuenow` is
+                omitted rather than zeroed, which is how ARIA spells
+                indeterminate. */}
             <div
               role="progressbar"
-              aria-valuenow={load.percent}
+              aria-valuenow={load.percent ?? undefined}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-label="Model download progress"
               className="bg-muted mt-2 h-1.5 w-full overflow-hidden rounded-full"
             >
-              <div
-                className="bg-primary h-full transition-[width] duration-300"
-                style={{ width: `${String(load.percent)}%` }}
-              />
+              {load.percent === null ? (
+                // A third of the track sliding across, because there is no
+                // number to fill to. `motion-reduce` leaves it parked rather
+                // than removing it — the text beside it says what is happening,
+                // and a full bar would read as finished.
+                <div className="bg-primary h-full w-1/3 animate-[indeterminate-bar_1.4s_ease-in-out_infinite] motion-reduce:animate-none" />
+              ) : (
+                <div
+                  className="bg-primary h-full transition-[width] duration-300"
+                  style={{ width: `${String(load.percent)}%` }}
+                />
+              )}
             </div>
           </div>
         ) : (
-          <Button
-            type="button"
-            className="mt-3"
-            onClick={() => void download()}
-          >
+          <Button type="button" className="mt-3" onClick={consent}>
             Download the model
           </Button>
         )}

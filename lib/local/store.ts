@@ -1,3 +1,5 @@
+import { forgetModelConsent } from "./consent";
+
 const DATABASE_NAME = "citeseek-local";
 /** Exported so the rollback test opens "one above this build" rather than a
  * literal, which is what silently stopped testing anything at version 2. */
@@ -268,6 +270,11 @@ export async function deleteEverythingLocal(): Promise<void> {
       names.map((name) => promise(transaction.objectStore(name).clear())),
     );
   });
+
+  // The agreement to fetch the model lives outside IndexedDB, so clearing every
+  // store misses it — and "delete everything" that leaves a record of what you
+  // agreed to is not everything.
+  forgetModelConsent();
 }
 
 export type LocalStoreSummary = { documents: number; chunks: number };

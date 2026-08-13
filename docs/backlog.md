@@ -1031,12 +1031,13 @@ Most of what this section listed was fixed in the follow-up; see
   pipeline returned by `loadChatModel` already carries one. Taking it from there means
   typing the pipeline as more than a call signature, which is why it keeps being deferred.
 
-- **The consent gate re-asks on every mount.** The weights stay in the module's cache, so
-  leaving `/local` and coming back offers a download that has already happened. An exported
-  `isChatModelLoaded` was written for this and wired to nothing; it was deleted rather than
-  left in as an export with no caller. Doing it properly means deciding what the gate shows
-  when a load is still in flight — treating "started" as "ready" would drop the progress
-  readout mid-download.
+- ~~**The consent gate re-asks on every mount.**~~ **Fixed.** The question this entry said had
+  to be decided first was the whole of it: `loading !== null` means a download _started_, so a
+  two-state answer would have rendered the chat over weights still arriving. `chatModelStatus()`
+  reports `idle | loading | ready` instead, and a mount arriving mid-download rejoins the running
+  promise rather than starting a second — with no `aria-valuenow`, because the callback carrying
+  the real byte count belongs to the mount that began it and inventing a number would be worse
+  than admitting the percentage is unknown.
 
 ## ~~The worked example leaks into answers~~, 12 August 2026
 
