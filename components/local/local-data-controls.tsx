@@ -119,7 +119,7 @@ export function LocalDataControls({
     );
   }
 
-  const { documents, chunks } = state.summary;
+  const { documents, chunks, filenames } = state.summary;
   const isEmpty = documents === 0;
 
   return (
@@ -145,6 +145,19 @@ export function LocalDataControls({
             : "Nothing yet. Documents you add in local mode are kept in this browser and never uploaded."
           : `${count(documents, "document")} and ${count(chunks, "passage")}, including the text and the embeddings.`}
       </p>
+
+      {/* Outside the live region above: naming the files is useful on arrival,
+          and reading the whole list aloud after every delete is not. */}
+      {isEmpty ? null : (
+        <ul className="text-muted-foreground mt-2 space-y-1 text-sm">
+          {filenames.map((filename) => (
+            <li key={filename} className="flex items-center gap-2">
+              <span aria-hidden="true">•</span>
+              <span className="truncate">{filename}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <AlertDialog
         open={isOpen}
