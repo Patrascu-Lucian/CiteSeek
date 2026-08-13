@@ -24,7 +24,8 @@ type Load =
 /**
  * The download is consented to before a byte is fetched, which is the whole
  * reason this gate exists rather than a spinner. Both numbers are measured:
- * 756 MB of weights, and ~11 s to a first token even once they are cached.
+ * 756 MB of weights, and two to three seconds to a first token once they are
+ * cached (ADR 034 — an earlier ~11 s was measured on the CPU and withdrawn).
  * Declining leaves cloud mode working, which is what makes the offer honest.
  */
 export function LocalChat({ filenames }: { filenames: readonly string[] }) {
