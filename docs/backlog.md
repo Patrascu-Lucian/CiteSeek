@@ -948,7 +948,12 @@ is cheap — it is the same unit suite with the v8 provider attached.
 Not fixed on the local-mode branch: unrelated to that work, and a config change that turns a
 job red belongs in a commit that is about the job.
 
-## Local mode stores offsets but not the text they index into, 11 August 2026
+## ~~Local mode stores offsets but not the text they index into~~, 11 August 2026
+
+**Done, in the slice this entry said to do it in.** `LocalDocument.text` is written in the same
+transaction as the chunks, and `lib/local/text-loader.ts` slices it for the source panel — so a
+local citation resolves by the same offsets a cloud one does, which an E2E asserts with **zero**
+requests to `/api/w/`. The pinning question this entry asked for is answered there.
 
 Found by a review of the local-mode slices. `lib/local/ingest.ts` keeps each chunk's
 `startOffset`/`endOffset`, and discards `extracted.text`; `LocalDocument` has no field for it.
@@ -1072,7 +1077,12 @@ its own knowledge against a system prompt that says it has none outside the docu
 including about this app. Worth considering whether an answer containing no marker at all
 should be surfaced differently, since that is detectable where a plausible-looking leak is not.
 
-## An unresolvable citation is inert, and nothing says why, 12 August 2026
+## ~~An unresolvable citation is inert, and nothing says why~~, 12 August 2026
+
+**Fixed — [ADR 036](decisions/036-saying-why-a-citation-did-not-link.md).** The invented numbers
+are named under the answer, and the note says "unsupported" rather than "error", because nothing
+failed. Its sibling — an answer citing nothing at all — took a second attempt and is
+[ADR 037](decisions/037-an-answer-that-cites-nothing.md).
 
 Found the best way possible: in production, on a real CV, by the person who wrote the rule.
 The 0.5B model answered "Lucian developed React frontend applications [2]" when one passage
@@ -1100,11 +1110,26 @@ no retrievable meaning. The refusal copy is then actively misleading — it sugg
 or that the document may still be processing, when the truth is that the question was
 understood only in a context retrieval never saw.
 
-This is not local-only: the chat route retrieves on the latest question too. Fixing it means
-rewriting the query against the recent turns before embedding, which is a real feature with a
-measurable before and after, and belongs in a slice with the evaluation harness rather than a
-patch. Until then the refusal wording is the cheap half of the problem and could say that a
-short follow-up may need naming its subject again.
+**This is not local-only, and that is the part worth being careful about.** The chat route
+retrieves on the latest question too, so this reaches cloud mode — the default path, which
+carries no experimental label. Deferring it is a decision about priority, not something the
+`/local` badge covers, and the release notes should not imply otherwise.
+
+Two fixes, and they are not alternatives — the second is worth doing whether or not the first
+ever happens.
+
+**The full fix: rewrite the query against the recent turns before embedding.** "where?" becomes
+something carrying its own subject, and retrieval sees what the reader meant. A real feature
+with a measurable before and after: the evaluation harness already scores recall over the golden
+set, so a rewriting step can be shown to earn its place rather than argued for. It also has a
+failure mode worth measuring — a rewrite that invents a subject retrieves confidently wrong
+passages, which is worse than refusing.
+
+**The quick fix: stop the refusal blaming the document.** It currently offers "check that the
+document you have in mind has finished processing", which is false here and sends the reader to
+inspect something that is working. A refusal that misdiagnoses is worse than a blunt one. The
+wording should allow that a short follow-up may need naming its subject again — one sentence,
+no retrieval changes, and correct regardless of what happens to the full fix.
 
 ## ~~An answer that cites nothing at all~~, 12 August 2026
 
