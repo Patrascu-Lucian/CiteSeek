@@ -100,7 +100,7 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
           : state.status === "embedding"
             ? `Indexing ${state.filename} — ${String(state.done)} of ${String(state.total)} passages. The model downloads once, then stays on this machine.`
             : state.status === "done"
-              ? `${state.filename} — ${state.passages} passage${state.passages === 1 ? "" : "s"} indexed on this machine. Asking questions about it locally arrives in a later release.`
+              ? `${state.filename} — ${state.passages} passage${state.passages === 1 ? "" : "s"} indexed on this machine. Ask about it below.`
               : null}
       </p>
 
