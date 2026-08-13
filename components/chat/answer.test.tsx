@@ -229,3 +229,19 @@ describe("Answer — an answer that cites nothing", () => {
     expect(screen.queryByText(/nothing here is cited/i)).toBeNull();
   });
 });
+
+describe("Answer — a chip beside a number", () => {
+  it("cannot be read as the quantity in the sentence", () => {
+    /*
+      Measured: the local model answered "Employees receive [1] days of annual
+      leave" about a document saying 28, and a bare chip rendered it as
+      "Employees receive 1 days" — wrong, and only the grammar gave it away.
+      Every guard passed: the marker resolves, so nothing flags it.
+    */
+    renderAnswer({ text: "Employees receive [1] days of annual leave." });
+
+    expect(
+      screen.getByRole("button", { name: /^Citation 1/ }),
+    ).toHaveTextContent("[1]");
+  });
+});
