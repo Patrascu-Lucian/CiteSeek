@@ -4,6 +4,7 @@ import type { ChatSource } from "./types";
 import {
   CITATION_HREF_PREFIX,
   citationLabel,
+  citedMarkers,
   linkCitationMarkers,
   unresolvedMarkers,
   parseCitationHref,
@@ -209,6 +210,34 @@ describe("unresolvedMarkers", () => {
     // is a link the model wrote, not a citation.
     expect(
       unresolvedMarkers("See [9](https://x.example).", [source()]),
+    ).toEqual([]);
+  });
+});
+
+describe("citedMarkers", () => {
+  it("reports the markers a passage actually backs", () => {
+    expect(citedMarkers("A claim [1].", [source()])).toEqual([1]);
+  });
+
+  it("is empty when the answer pointed at nothing", () => {
+    // The case worth telling the reader about: passages were found and the
+    // model cited none of them.
+    expect(citedMarkers("You can upload up to 2 files.", [source()])).toEqual(
+      [],
+    );
+  });
+
+  it("does not count a number the model invented", () => {
+    expect(citedMarkers("A claim [7].", [source()])).toEqual([]);
+  });
+
+  it("ignores a bare number that is not a marker", () => {
+    // "up to 2 files" must not read as a citation of passage 2.
+    expect(
+      citedMarkers("Up to 2 files, over 30 days.", [
+        source({ marker: 2 }),
+        source({ marker: 30, chunkId: "c30" }),
+      ]),
     ).toEqual([]);
   });
 });

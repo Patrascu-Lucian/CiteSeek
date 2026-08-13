@@ -1106,7 +1106,14 @@ measurable before and after, and belongs in a slice with the evaluation harness 
 patch. Until then the refusal wording is the cheap half of the problem and could say that a
 short follow-up may need naming its subject again.
 
-## An answer that cites nothing at all, 12 August 2026
+## ~~An answer that cites nothing at all~~, 12 August 2026
+
+**Fixed — [ADR 037](decisions/037-an-answer-that-cites-nothing.md).** The deadlock below was
+self-inflicted: every wording tried said something about the answer's _quality_, which needs to
+know whether a sentence is a claim or a refusal. Stating only what happened — nothing here is
+cited, and a refusal is expected to cite nothing — is true in both cases and needs no such
+judgement. What remains open is the harder half, kept below the rule about resolving citations:
+a marker that resolves proves the passage was retrieved, not that it supports the sentence.
 
 The worse half of [ADR 036](decisions/036-saying-why-a-citation-did-not-link.md), split out
 because the fix is not obvious. Asked "how many files can i upload?", the local model answered
