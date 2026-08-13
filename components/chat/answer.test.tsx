@@ -178,3 +178,54 @@ describe("Answer — a marker the model invented", () => {
     expect(screen.queryByText(/not one of the passages/i)).toBeNull();
   });
 });
+
+describe("Answer — an answer that cites nothing", () => {
+  it("says so when passages were found and none were cited", () => {
+    // "You can upload up to 2 files" — false, specific, and carrying no marker,
+    // which left the reader no signal at all. ADR 037.
+    renderAnswer({ text: "You can upload up to 2 files." });
+
+    expect(screen.getByText(/nothing here is cited/i)).toBeInTheDocument();
+  });
+
+  it("names both readings rather than calling the answer wrong", () => {
+    // An uncited refusal is correct under rule 4; an uncited claim is invented.
+    // Nothing here can tell which, so the note states the fact and says so.
+    renderAnswer({ text: "The documents do not cover that." });
+
+    expect(
+      screen.getByText(/a refusal is expected to cite nothing/i),
+    ).toBeVisible();
+  });
+
+  it("stays quiet once the answer cites a passage", () => {
+    renderAnswer();
+
+    expect(screen.queryByText(/nothing here is cited/i)).toBeNull();
+  });
+
+  it("stays quiet while the answer is still streaming", () => {
+    // Every answer cites nothing before its first marker arrives, so without
+    // this the note flashes on all of them.
+    renderAnswer({ text: "Expenses are paid", settled: false });
+
+    expect(screen.queryByText(/nothing here is cited/i)).toBeNull();
+  });
+
+  it("stays quiet when retrieval found nothing to cite", () => {
+    // The refusal the route writes: no passages, so citing none is the only
+    // possible outcome and there is nothing to report.
+    renderAnswer({ text: "I couldn't find anything relevant.", sources: [] });
+
+    expect(screen.queryByText(/nothing here is cited/i)).toBeNull();
+  });
+
+  it("does not stack a second warning on an invented marker", () => {
+    // `[7]` already gets the note above; adding "nothing here is cited" beneath
+    // it states the same fact twice, which is how both stop being read.
+    renderAnswer({ text: "A claim [7]." });
+
+    expect(screen.getByText(/is not one of the passages found/i)).toBeVisible();
+    expect(screen.queryByText(/nothing here is cited/i)).toBeNull();
+  });
+});

@@ -157,6 +157,7 @@ export function ChatPanel({
           isDemo={isDemo}
           onAsk={ask}
           pending={status === "submitted"}
+          streaming={status === "streaming"}
         />
       </div>
 

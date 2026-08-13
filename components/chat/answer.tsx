@@ -2,7 +2,11 @@ import { useMemo } from "react";
 import { Streamdown } from "streamdown";
 import { AlertTriangle } from "lucide-react";
 
-import { linkCitationMarkers, unresolvedMarkers } from "@/lib/ai/citations";
+import {
+  citedMarkers,
+  linkCitationMarkers,
+  unresolvedMarkers,
+} from "@/lib/ai/citations";
 import type { ChatSource } from "@/lib/ai/types";
 
 import { CitationLink } from "./citation-chip";
@@ -34,11 +38,16 @@ export function Answer({
   sources,
   onSelectSource,
   selectedChunkId,
+  settled = true,
 }: {
   text: string;
   sources: readonly ChatSource[];
   onSelectSource: (source: ChatSource) => void;
   selectedChunkId: string | null;
+  /** False while this answer is still streaming. Every answer cites nothing
+   * before its first marker arrives, so the note below would flash on all of
+   * them. Defaults true: a message being re-rendered from history is finished. */
+  settled?: boolean;
 }) {
   const citations = useMemo(
     () => ({ sources, selectedChunkId, onSelect: onSelectSource }),
@@ -46,6 +55,14 @@ export function Answer({
   );
 
   const invented = unresolvedMarkers(text, sources);
+  const groundless =
+    settled &&
+    sources.length > 0 &&
+    text.trim().length > 0 &&
+    // No invented ones either: an answer citing `[7]` already gets the note
+    // above, and two warnings for one situation is how both stop being read.
+    invented.length === 0 &&
+    citedMarkers(text, sources).length === 0;
 
   return (
     <CitationProvider value={citations}>
@@ -58,7 +75,30 @@ export function Answer({
       </Streamdown>
 
       {invented.length > 0 ? <InventedMarkers markers={invented} /> : null}
+      {groundless ? <NothingCited /> : null}
     </CitationProvider>
+  );
+}
+
+/**
+ * Passages were found, the model was called, and it pointed at none of them.
+ *
+ * States the fact and names both readings rather than judging between them: an
+ * uncited refusal is correct under the system prompt's rule 4, an uncited claim
+ * is the model's own invention, and nothing on this side can tell which one a
+ * sentence is. Saying "unsupported" would be wrong half the time; saying what
+ * happened is right every time (ADR 037).
+ */
+function NothingCited() {
+  return (
+    <p className="text-muted-foreground mt-2 flex gap-2 text-xs">
+      <AlertTriangle aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+      <span>
+        <strong>Nothing here is cited.</strong> A refusal is expected to cite
+        nothing — anything else is the model&rsquo;s own words rather than your
+        documents.
+      </span>
+    </p>
   );
 }
 
