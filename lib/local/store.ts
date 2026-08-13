@@ -277,16 +277,29 @@ export async function deleteEverythingLocal(): Promise<void> {
   forgetModelConsent();
 }
 
-export type LocalStoreSummary = { documents: number; chunks: number };
+export type LocalStoreSummary = {
+  documents: number;
+  chunks: number;
+  /** Names, not just a count: nothing else in local mode says *which* documents
+   * are stored, so after a reload the reader had a number and no way to tell
+   * what it counted. */
+  filenames: string[];
+};
 
 export async function summarizeLocalStore(): Promise<LocalStoreSummary> {
   return withStores([DOCUMENTS, CHUNKS], "readonly", async (transaction) => {
-    const [documents, chunks] = await Promise.all([
-      promise(transaction.objectStore(DOCUMENTS).count()),
+    // `getAll` rather than `count` on the documents: a browser corpus is bounded
+    // by what one person uploaded, and the names come from the same read.
+    const [stored, chunks] = await Promise.all([
+      getAll<LocalDocument>(transaction.objectStore(DOCUMENTS)),
       promise(transaction.objectStore(CHUNKS).count()),
     ]);
 
-    return { documents, chunks };
+    return {
+      documents: stored.length,
+      chunks,
+      filenames: stored.map((document) => document.filename),
+    };
   });
 }
 

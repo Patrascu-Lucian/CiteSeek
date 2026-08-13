@@ -126,7 +126,11 @@ describe("the local store", () => {
       await deleteLocalDocument("doc-1");
 
       expect(await getLocalDocument("doc-1")).toBeUndefined();
-      expect(await summarizeLocalStore()).toEqual({ documents: 0, chunks: 0 });
+      expect(await summarizeLocalStore()).toEqual({
+        documents: 0,
+        chunks: 0,
+        filenames: [],
+      });
     });
 
     it("leaves every other document's chunks alone", async () => {
@@ -137,7 +141,11 @@ describe("the local store", () => {
 
       await deleteLocalDocument("a");
 
-      expect(await summarizeLocalStore()).toEqual({ documents: 1, chunks: 1 });
+      expect(await summarizeLocalStore()).toEqual({
+        documents: 1,
+        chunks: 1,
+        filenames: ["handbook.pdf"],
+      });
       expect((await listLocalChunks("b")).map((c) => c.id)).toEqual(["b1"]);
     });
   });
@@ -156,7 +164,11 @@ describe("the local store", () => {
       expect(await listLocalDocuments()).toEqual([]);
       expect(await listLocalChunks("a")).toEqual([]);
       expect(await listLocalChunks("b")).toEqual([]);
-      expect(await summarizeLocalStore()).toEqual({ documents: 0, chunks: 0 });
+      expect(await summarizeLocalStore()).toEqual({
+        documents: 0,
+        chunks: 0,
+        filenames: [],
+      });
     });
 
     it("clears every store the database has, not a hardcoded list", async () => {
@@ -226,7 +238,11 @@ describe("the local store", () => {
     // belongs to the browser profile rather than to an account.
     await putLocalDocument(aDocument());
 
-    expect(await summarizeLocalStore()).toEqual({ documents: 1, chunks: 0 });
+    expect(await summarizeLocalStore()).toEqual({
+      documents: 1,
+      chunks: 0,
+      filenames: ["handbook.pdf"],
+    });
     expect(await getLocalDocument("doc-1")).toBeDefined();
   });
 });
