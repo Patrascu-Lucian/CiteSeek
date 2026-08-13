@@ -11,6 +11,7 @@ import { WebGpuGate } from "./webgpu-gate";
 
 export function LocalWorkspace() {
   const [revision, setRevision] = useState(0);
+  const [emptied, setEmptied] = useState(0);
   const [ready, setReady] = useState<string[]>([]);
 
   const read = useCallback(
@@ -45,6 +46,11 @@ export function LocalWorkspace() {
 
   const changed = () => setRevision((n) => n + 1);
 
+  const cleared = () => {
+    changed();
+    setEmptied((n) => n + 1);
+  };
+
   return (
     <div className="space-y-6">
       <LocalUpload onIngested={changed} />
@@ -54,13 +60,18 @@ export function LocalWorkspace() {
           wasm, so losing WebGPU never strands a reader with documents they
           cannot remove. */}
       <WebGpuGate>
-        <LocalChat filenames={ready} />
+        {/* Keyed on deletions only, never uploads: the transcript lives inside
+            `useChat` and nothing else discards it, so after "Delete everything"
+            the reader was left with an answer whose citations open a document
+            that is gone. Keying on every change would throw away a conversation
+            for adding a second document to it. */}
+        <LocalChat key={emptied} filenames={ready} />
       </WebGpuGate>
 
       {/* A prop, not a `key`: remounting would recreate the `role="status"`
           region, and a live region absent when the change happens announces
           nothing. Its count comes from IndexedDB, which nothing notifies. */}
-      <LocalDataControls refreshToken={revision} onCleared={changed} />
+      <LocalDataControls refreshToken={revision} onCleared={cleared} />
     </div>
   );
 }
