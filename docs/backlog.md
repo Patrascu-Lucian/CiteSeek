@@ -1167,9 +1167,31 @@ the cloud path, and all of it an argument for what `/local` is labelled as.
 
 ## ~~The first demo chat after a cold start loses a race~~, 12 August 2026
 
-**Fixed — `e2e/global-setup.ts`.** Two wrong diagnoses before the right one, kept below because
-the wrong ones are the useful part. Two consecutive cold builds now pass 122/122, where five in
+**Partly fixed — `e2e/global-setup.ts`.** Two wrong diagnoses before that one, kept below because
+the wrong ones are the useful part. Two consecutive cold builds then passed 122/122 where five in
 a row had failed. The stale-build note at the end is still open.
+
+↳ **13 August 2026: the warm-up was not the whole story, and "cold start" was the wrong name.**
+The same three `chat.spec.ts` tests failed twice in a row on a _warm_ build, each showing
+"Searching the documents." with a Stop button — a request in flight, not an error. They pass
+individually, and the suite passes **126/126 with `--workers=1`**.
+
+The line that explains it is in `playwright.config.ts`:
+
+```ts
+workers: process.env.CI ? 1 : undefined,
+```
+
+**CI runs serially and cannot hit this. Locally Playwright defaults to half the cores** — eight
+here — so eight browsers put concurrent chat requests through one Next server and one Postgres,
+and the slowest of them lose a 5 s expect. It got worse the day the machine had less free memory,
+which is the tell: the failures track load rather than anything in the code.
+
+So the warm-up is still worth having — it removed a real first-request cost — but the residual
+failures are a local parallelism setting, not a defect. What is left to decide is whether local
+runs should cap workers (reliable, roughly twice the wall clock) or keep the default and accept
+that a local red is sometimes about the machine. The second is what the repository does today,
+and it is the option that trains you to ignore a red suite.
 
 `chat.spec.ts:99` ("says so, and cites nothing at all") failed four times across one afternoon
 and passed on every re-run and in isolation. Treating it as noise was wrong; it has a shape.
