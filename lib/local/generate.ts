@@ -33,6 +33,31 @@ function markerExample(sources: readonly ChatSource[]): string {
   ].join("\n");
 }
 
+/**
+ * Long enough that prose does not repeat it by accident, short enough to catch a
+ * loop on its second pass rather than its seventh.
+ */
+const LOOP_WINDOW = 80;
+
+/**
+ * Greedy decoding has no way out of a loop it has entered: asked to correct
+ * itself, the model repeated one paragraph seven times until `max_new_tokens`
+ * stopped it.
+ *
+ * Detected here rather than configured on the model. `repetition_penalty` is
+ * presence-based over the whole sequence — `new Set(input_ids)`, prompt included
+ * — so the repeated words were already penalised before the first repeat and it
+ * changed nothing, byte for byte. `no_repeat_ngram_size` does work, and also
+ * spans the prompt, which would forbid quoting the passage that rule 6 asks the
+ * model to quote. This reads only what was generated, so it costs quoting
+ * nothing.
+ */
+function isLooping(answer: string): boolean {
+  if (answer.length < LOOP_WINDOW * 2) return false;
+
+  return answer.slice(0, -LOOP_WINDOW).includes(answer.slice(-LOOP_WINDOW));
+}
+
 type Message = { role: string; content: string };
 
 type Generator = (
@@ -135,11 +160,19 @@ export async function* generateLocally(
   if (signal?.aborted) stopping.interrupt();
   signal?.addEventListener("abort", () => stopping.interrupt(), { once: true });
 
+  let answer = "";
+
   const streamer = new TextStreamer(tokenizer, {
     skip_prompt: true,
     skip_special_tokens: true,
     callback_function: (text: string) => {
       deltas.push(text);
+      answer += text;
+
+      // The same interrupt the Stop button uses: what has already been written
+      // still reaches the reader, and the loop stops adding to it.
+      if (isLooping(answer)) stopping.interrupt();
+
       resolveNext?.();
     },
   });

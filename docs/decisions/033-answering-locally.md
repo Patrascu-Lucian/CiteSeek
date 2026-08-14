@@ -92,3 +92,31 @@ undefined. The E2E caught it.
 **Local mode downloads 884 MB in total**, across two models. The privacy page
 now says so with both figures rather than "the model", which undercounted by an
 embedding model nobody had consented to.
+
+↳ **2026-08-13: greedy decoding loops, and the fix is ours rather than the model's.** Pushed on
+a wrong answer — "you are wrong, document says 28 days" — the model repeated one paragraph seven
+times until `max_new_tokens` cut it off. `do_sample: false` has no mechanism to leave a loop it
+has entered.
+
+**`repetition_penalty: 1.1` was tried first and did nothing — byte for byte the same output.**
+Reading the implementation afterwards explains why, and it is not a matter of the value being
+too low: the processor iterates `new Set(input_ids)` over the whole sequence, the prompt
+included. It penalises a token for being _present_, not for being frequent, and every word of
+that paragraph was already present in the retrieved passage. It was penalised identically before
+the first repeat and after the seventh. The tool cannot see the difference this needed.
+
+**`no_repeat_ngram_size` would work, and costs too much.** `getNgrams` also spans the prompt, so
+banning a repeated n-gram forbids reproducing the passage's own wording — which rule 6 asks the
+model to do when the phrasing matters. That trades a visible failure on an adversarial path for
+a quiet one on the ordinary path.
+
+**So the loop is detected here instead.** The stream is ours: `isLooping` checks whether the last
+80 characters generated have already appeared earlier in the same answer, and interrupts through
+the criteria the Stop button already uses. It reads only what the model wrote, never the prompt,
+so quoting is untouched, and it catches the repeat on its second pass rather than its seventh.
+Three unit tests pin it, including one asserting that long non-repeating prose runs to the end.
+
+**It does not make the answers right.** The same session had the model answer "1" and then "two
+days" about a document saying 28, and reach the correct figure only when the question contained
+it. That is what a model small enough to fit in a browser does, and it is why `/local` ships
+labelled experimental with the quality stated on the page before anything is downloaded.
