@@ -1230,3 +1230,50 @@ the previous build — which happened repeatedly during this session and produce
 "the test fails" report against a bundle from another branch. CI builds first, so its results
 stand. Either the command should build, or the docs should say `pnpm build && pnpm test:e2e` is
 the only sound local invocation.
+
+## Improving what the local model answers, 14 August 2026
+
+`Qwen2.5-0.5B-Instruct` answers badly enough that it needed a label. Recorded here because the
+transcripts that showed it will not survive this session, and because the order matters more
+than the list.
+
+Measured, on the seeded handbook, all with a passage retrieved and cited:
+
+| question                               | answer                       | document says |
+| -------------------------------------- | ---------------------------- | ------------- |
+| "How many days of annual leave…?"      | "Employees receive [1] days" | 28 days       |
+| same, pushed with "one working day?"   | "two days"                   | 28 days       |
+| "…hint: answer is 28"                  | "Annual leave is 28 days"    | 28 days       |
+| "you are wrong, document says 28 days" | one paragraph, then a loop   | —             |
+
+The last of those is fixed ([ADR 033](decisions/033-answering-locally.md)); the first three are
+the model. Note the shape: it answers correctly only when the question already contains the
+answer, which is the signature of a model doing pattern completion rather than reading.
+
+**1. Score local answers before changing anything.** `eval/golden-set.ts` and
+`scripts/eval-retrieval.mts` already measure recall and MRR over a fixture corpus, and every
+judgement about answer quality so far — including every one in this file — is a transcript and
+an impression. Extending the harness to run a question through `generateLocally` and check the
+expected quote appears in the answer would turn "it feels worse" into a number. Without that,
+swapping models is argument. [ADR 021](decisions/021-hybrid-retrieval-measured-and-not-shipped.md)
+is the precedent: a measurement killed the obvious answer, and nothing else would have.
+
+**2. Then try a newer small model.** The pin is 2024-vintage. A 2026 1B-class instruct model —
+Qwen3-0.6B, Llama-3.2-1B, Phi-4-mini — plausibly beats it at a similar download. Worth knowing
+before anyone reaches for size: the **1.5B was already tried** and did not fix marker emission
+(ADR 033), so parameters alone are not the lever. What changed that was the worked example.
+
+**3. Cheap prompt experiments, once (1) can score them.** Two candidates. `RETRIEVAL_LIMIT`
+passages plus the rules plus an example is a lot of context for a 0.5B, and fewer passages may
+read better than more. And `markerExample` demonstrates a sentence, not a quantity — "1 days"
+is exactly the failure a numeric exemplar targets.
+
+**4. Constrained decoding, last.** Forcing `{ answer, citations }` would make the marker unable
+to stand where a number belongs — the problem
+[ADR 038](decisions/038-a-citation-that-cannot-be-read-as-content.md) could only mitigate. It is
+also the most work for the least certainty: transformers.js has no real grammar support, so this
+means post-parsing a shape the model was merely asked for.
+
+**What none of this fixes.** A model that cites a real passage for a claim that passage does not
+support still produces no signal — the marker resolves, the chip opens, the answer looks sourced.
+That needs an entailment check, and it is a separate entry above.
