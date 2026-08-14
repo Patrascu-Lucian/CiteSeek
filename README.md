@@ -163,13 +163,13 @@ no database to marginally faster. Every query had been crossing the Atlantic twi
 See [`docs/decisions/006-deployment-topology.md`](docs/decisions/006-deployment-topology.md).
 
 **Ingestion**, measured on the deployed app from the document's own status
-timestamps — a 51-page PDF, 1.03 MB, producing 32 passages:
+timestamps — a 51-page PDF, 1.03 MB, producing 59 passages:
 
 | Stage                  | Elapsed    |
 | ---------------------- | ---------- |
-| Upload → `processing`  | 347 ms     |
-| `processing` → `ready` | 1,456 ms   |
-| **Total**              | **1.80 s** |
+| Upload → `processing`  | 253 ms     |
+| `processing` → `ready` | 1,472 ms   |
+| **Total**              | **1.73 s** |
 
 Against the 300-second serverless ceiling that is 0.6% of budget, which is what settles
 whether background ingestion needs a queue: it does not. Extrapolating to the 600-chunk
@@ -177,10 +177,18 @@ document limit gives roughly 19 embedding batches at 2 concurrent calls — on t
 tens of seconds. The binding constraint is the embedding provider's requests-per-minute,
 not function duration.
 
+The same PDF measured 32 passages and 1.80 s when this table was first recorded. Halving
+the chunk target for citation precision ([ADR 008](docs/decisions/008-chunking-strategy.md))
+nearly doubled the passage count, and the total did not move: 59 passages is two embedding
+batches where 32 was one, and the two run concurrently, so both are a single round trip. The
+phase that does the embedding is unchanged at ~1.47 s. That is the useful reading of these
+numbers — one sample cannot resolve anything smaller.
+
 The sample is a design document at roughly 517 characters per page, so it is light on text
-for its page count; a dense report of the same length would produce closer to 500 passages.
-The figure above proves the path works end to end in production, not that the ceiling has
-been stressed.
+for its page count. Passage count follows characters, not pages — at a 500-character effective
+stride a text-dense document of the same length produces several times as many, which is the
+case the 600-chunk ceiling exists for. The figure above proves the path works end to end in
+production, not that the ceiling has been stressed.
 
 **Time to first token** — the deployed app, as a guest, asking a question the demo document
 answers. Two figures, because only one of them is TTFT:
