@@ -45,7 +45,7 @@ export function CitationLink({
       aria-label={citationLabel(source)}
       aria-pressed={isSelected}
       className={cn(
-        "mx-0.5 inline-flex min-w-6 items-center justify-center rounded-md px-1 align-baseline text-xs font-medium tabular-nums transition-colors",
+        "mx-0.5 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 align-baseline text-xs font-medium tabular-nums transition-colors",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none",
         // `bg-background` with a ring, not `bg-muted`: the assistant bubble is
         // itself `bg-muted`, so the pill was invisible and markers read as stray
@@ -55,16 +55,10 @@ export function CitationLink({
           : "bg-background text-foreground ring-border hover:bg-accent ring-1",
       )}
     >
-      {/*
-        Bracketed, not bare. A chip is inline in prose, and a bare numeral is
-        readable as part of the sentence: a 0.5B model answered "Employees
-        receive [1] days of annual leave" about a document saying 28, and it
-        rendered as "Employees receive 1 days" — a wrong number wearing a working
-        citation, given away only by the grammar. Brackets cannot be read as a
-        quantity, and they are what the model was asked to write. They also
-        survive being copied, where two adjacent chips used to flatten into "35".
-      */}
-      [{source.marker}]
+      {/* Bare, and the pill is what distinguishes it. Brackets were tried and
+          looked wrong inside one — ADR 038 has the case that prompted them and
+          what reverting costs. */}
+      {source.marker}
     </button>
   );
 }

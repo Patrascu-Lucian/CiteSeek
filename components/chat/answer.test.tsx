@@ -230,18 +230,24 @@ describe("Answer — an answer that cites nothing", () => {
   });
 });
 
-describe("Answer — a chip beside a number", () => {
-  it("cannot be read as the quantity in the sentence", () => {
+describe("Answer — a chip standing where a number could", () => {
+  it("is a control rather than part of the sentence", () => {
     /*
       Measured: the local model answered "Employees receive [1] days of annual
-      leave" about a document saying 28, and a bare chip rendered it as
-      "Employees receive 1 days" — wrong, and only the grammar gave it away.
-      Every guard passed: the marker resolves, so nothing flags it.
+      leave" about a document saying 28, so the chip lands exactly where the
+      quantity belongs. Every guard passed — the marker resolves, so nothing
+      flags it — which leaves the pill's own styling doing the work. ADR 038
+      records that brackets were tried here and reverted, and what that costs.
     */
     renderAnswer({ text: "Employees receive [1] days of annual leave." });
 
-    expect(
-      screen.getByRole("button", { name: /^Citation 1/ }),
-    ).toHaveTextContent("[1]");
+    const chip = screen.getByRole("button", { name: /^Citation 1/ });
+
+    expect(chip).toHaveTextContent("1");
+    // The paragraph keeps the surrounding words only: the marker left the prose
+    // and became a control, rather than being rendered as literal text in it.
+    expect(chip.closest("p")).toHaveTextContent(
+      "Employees receive 1 days of annual leave.",
+    );
   });
 });
