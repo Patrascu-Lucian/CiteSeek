@@ -473,3 +473,58 @@ describe("the status the consent gate reads on a remount", () => {
     expect(chatModelStatus()).toBe("idle");
   });
 });
+
+describe("a model that has fallen into a loop", () => {
+  const criteriaOf = (model: ReturnType<typeof generatingModel>) =>
+    (model.mock.calls[0]![1] as { stopping_criteria: { interrupted: boolean } })
+      .stopping_criteria;
+
+  /** Longer than the 80-character window the detector compares. */
+  const PARAGRAPH =
+    "Meeting Schedule The meeting schedule specifies: scheduled outside a " +
+    "colleague's recorded overlap hours may be declined without explanation. ";
+
+  it("interrupts on the second pass, not the seventh", async () => {
+    // Observed: pushed on a wrong answer, the model repeated one paragraph seven
+    // times until `max_new_tokens` cut it off. ADR 033.
+    const model = generatingModel([PARAGRAPH, PARAGRAPH, PARAGRAPH]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [source]));
+
+    expect(criteriaOf(model).interrupted).toBe(true);
+  });
+
+  it("keeps what was written before the repeat", async () => {
+    // Interrupting is not discarding: the first pass is the answer, and the
+    // reader should see it rather than an empty bubble.
+    const model = generatingModel([PARAGRAPH, PARAGRAPH]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    let answer = "";
+    for await (const delta of generateLocally("when?", [source])) {
+      answer += delta;
+    }
+
+    expect(answer).toContain("Meeting Schedule");
+  });
+
+  it("leaves an answer that merely quotes the passage alone", async () => {
+    // The reason this is not `no_repeat_ngram_size`: that spans the prompt, so
+    // quoting the source — which rule 6 asks for — would trip it. Long prose
+    // that never repeats itself must generate to the end untouched.
+    const model = generatingModel([
+      "Annual leave is 28 days plus public holidays [1]. ",
+      "Requests of five days or fewer are approved automatically, and longer ",
+      "ones need a line manager's approval with three weeks' notice.",
+    ]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [source]));
+
+    expect(criteriaOf(model).interrupted).toBe(false);
+  });
+});
