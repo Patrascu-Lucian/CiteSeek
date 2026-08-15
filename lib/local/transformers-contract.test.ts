@@ -6,12 +6,13 @@ import {
 } from "@huggingface/transformers";
 
 /**
- * The library, not our code. `generate.test.ts` mocks transformers.js, so every
- * assertion there is about what we *send*; these are about what it does with it.
+ * The library, not our code: `generate.test.ts` mocks transformers.js, so every
+ * assertion there is about what we *send*.
  *
- * Both things pinned here were established by reading the bundle during a
- * debugging session, and reading is not a test — a version bump could change
- * either one and nothing would go red until someone opened a browser.
+ * Necessary, not sufficient. The method that actually receives our bare criteria
+ * is `_get_stopping_criteria`, which is private and unreachable without a model,
+ * so a version demanding a list would leave the second test green and break Stop
+ * in the browser. Closing that needs a real model — `docs/backlog.md`.
  */
 
 /** `generate` passes token ids; only the batch shape matters to the criteria. */
@@ -33,8 +34,8 @@ describe("the contract generateLocally depends on", () => {
 
   it("accepts a bare criteria where a list is expected", () => {
     // `generateLocally` passes `stopping_criteria: stopping` — one object, not a
-    // list. transformers.js calls `criteria.extend(...)` on it internally, which
-    // only works because `extend` takes either.
+    // list — and `_get_stopping_criteria` puts it through `extend`, which only
+    // works because `extend` takes either.
     const criteria = new InterruptableStoppingCriteria();
     const list = new StoppingCriteriaList();
 
