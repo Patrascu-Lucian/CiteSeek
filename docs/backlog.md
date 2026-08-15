@@ -1282,13 +1282,15 @@ That needs an entailment check, and it is a separate entry above.
 
 Raised by a review of the local-mode slice, and it is the structural reason every defect in that
 code had to be found by hand in a browser rather than by a red test. `e2e/local-chat.spec.ts`
-sets `__citeseekLocalEmbedder = "fake"`, which swaps in `fakeGenerator`, so `loadChatModel` and
-`generateLocally` are never executed by any job.
+sets `__citeseekLocalEmbedder = "fake"`, which swaps in `fakeGenerator`, so no job ever runs
+`loadChatModel` or `generateLocally` **against the real library**. `lib/local/generate.test.ts`
+runs both against a mock of it, which is a different thing: it proves what we send, not what
+transformers.js does with it.
 
 **Most of the gap is now closed without a model.** Device selection, the `progress_total`
 filter, the message array being exactly `[system, user]`, the loop detector and the abort call
 are all asserted against the arguments handed to `pipeline` (`lib/local/generate.test.ts`), and
-`lib/local/transformers-contract.test.ts` pins the two library behaviours that were established
+`lib/local/transformers-contract.test.ts` pins the two library behaviors that were established
 by reading the bundle rather than by testing it.
 
 **What is left needs a model, and the real one will not fit.** 756 MB from Hugging Face per run,
