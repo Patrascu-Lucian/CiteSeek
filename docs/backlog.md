@@ -1277,3 +1277,30 @@ means post-parsing a shape the model was merely asked for.
 **What none of this fixes.** A model that cites a real passage for a claim that passage does not
 support still produces no signal — the marker resolves, the chip opens, the answer looks sourced.
 That needs an entailment check, and it is a separate entry above.
+
+## CI never runs the real local model, 14 August 2026
+
+Raised by a review of the local-mode slice, and it is the structural reason every defect in that
+code had to be found by hand in a browser rather than by a red test. `e2e/local-chat.spec.ts`
+sets `__citeseekLocalEmbedder = "fake"`, which swaps in `fakeGenerator`, so `loadChatModel` and
+`generateLocally` are never executed by any job.
+
+**Most of the gap is now closed without a model.** Device selection, the `progress_total`
+filter, the message array being exactly `[system, user]`, the loop detector and the abort call
+are all asserted against the arguments handed to `pipeline` (`lib/local/generate.test.ts`), and
+`lib/local/transformers-contract.test.ts` pins the two library behaviours that were established
+by reading the bundle rather than by testing it.
+
+**What is left needs a model, and the real one will not fit.** 756 MB from Hugging Face per run,
+plus WebGPU on a runner with no GPU — the CPU path was measured at over sixty seconds for a
+single answer, against a fifteen-minute job. The E2E suite is also deliberately free of any
+network dependency on a model provider, for the reason `playwright.config.ts` already gives
+about rate limits.
+
+**The tractable version is a tiny model, node-side.** Something in the low megabytes, loaded
+through the same `loadChatModel` path, generating a few tokens of nonsense — enough to prove
+that generation actually stops when the criteria are interrupted, that `progress_total` fires
+during a real fetch, and that the options object is accepted end to end. The open question is
+whether it is downloaded (network in CI, the thing that suite avoids) or vendored (a binary in
+the repository, which `public/onnx` is deliberately not). That choice is the work; the test
+around it is small.
