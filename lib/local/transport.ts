@@ -5,6 +5,7 @@ import {
 } from "ai";
 
 import { NO_RELEVANT_PASSAGES_REPLY } from "@/lib/ai/prompt";
+import { questionFrom } from "@/lib/ai/question";
 import {
   REFUSAL_PART_ID,
   SOURCES_PART_ID,
@@ -88,8 +89,14 @@ export class LocalChatTransport implements ChatTransport<ChatUIMessage> {
     messages: ChatUIMessage[];
     abortSignal?: AbortSignal;
   }): Promise<ReadableStream<UIMessageChunk>> {
+    // `?? ""`: the route answers null with a 400, which means nothing here —
+    // there is no request to reject, and retrieval refuses an empty question.
     return Promise.resolve(
-      localAnswerStream(questionFrom(messages), this.generate, abortSignal),
+      localAnswerStream(
+        questionFrom(messages) ?? "",
+        this.generate,
+        abortSignal,
+      ),
     );
   }
 
@@ -98,13 +105,4 @@ export class LocalChatTransport implements ChatTransport<ChatUIMessage> {
   reconnectToStream(): Promise<ReadableStream<UIMessageChunk> | null> {
     return Promise.resolve(null);
   }
-}
-
-function questionFrom(messages: ChatUIMessage[]): string {
-  const last = messages.at(-1);
-
-  return (last?.parts ?? [])
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
-    .join("");
 }

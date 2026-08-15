@@ -17,6 +17,7 @@ import {
   buildSystemPrompt,
 } from "@/lib/ai/prompt";
 import { getChatModel } from "@/lib/ai/provider";
+import { questionFrom } from "@/lib/ai/question";
 import type { ChatSource, ChatUIMessage, RefusalReason } from "@/lib/ai/types";
 import { REFUSAL_PART_ID, SOURCES_PART_ID } from "@/lib/ai/types";
 import { appendMessages, resolveChatForTurn } from "@/lib/chats/queries";
@@ -40,25 +41,6 @@ const REQUIRED_ACCESS = "read" as const;
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
-}
-
-/** v7 messages carry `parts`, which can mix text with tool calls and data. Only
- * text is a question. */
-function lastUserText(messages: readonly ChatUIMessage[]): string | null {
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const message = messages[i]!;
-    if (message.role !== "user") continue;
-
-    const text = message.parts
-      .filter((part) => part.type === "text")
-      .map((part) => part.text)
-      .join(" ")
-      .trim();
-
-    return text.length > 0 ? text : null;
-  }
-
-  return null;
 }
 
 /*
@@ -161,7 +143,7 @@ export async function POST(
   const messages = parseMessages(body);
   if (!messages) return badRequest("Expected a messages array.");
 
-  const question = lastUserText(messages);
+  const question = questionFrom(messages);
   if (!question) return badRequest("Expected a question.");
 
   // Optional: the conversation the client is showing. Validated against the
