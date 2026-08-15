@@ -62,6 +62,55 @@ describe("the privacy page", () => {
     ).toBeInTheDocument();
   });
 
+  it("says local mode's documents are not stored on our servers", () => {
+    // The claim local mode exists to make. It stops being true the moment any
+    // part of that path sends a document anywhere.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/never uploaded, no processor below receives them/i),
+    ).toBeInTheDocument();
+  });
+
+  it("names both downloads local mode makes, with their sizes", () => {
+    // The mode claims nothing leaves the machine, and two model downloads do
+    // leave it. Sizes because 884 MB is a thing a reader on a phone plan needs
+    // told before it starts, not after.
+    render(<PrivacyPage />);
+
+    expect(screen.getByText(/downloads two models from/i)).toBeInTheDocument();
+    expect(screen.getByText(/128 MB/)).toBeInTheDocument();
+    expect(screen.getByText(/756 MB/)).toBeInTheDocument();
+    expect(screen.getByText(/no document text is sent/i)).toBeInTheDocument();
+  });
+
+  it("says what account deletion does not reach", () => {
+    // The page promised deletion removes "everything". A store the server
+    // cannot see makes that a lie unless the exception is stated, and an
+    // unstated exception in a deletion promise is the worst kind.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/deletes everything on our servers/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/does not reach documents stored in your browser/i),
+    ).toBeInTheDocument();
+  });
+
+  it("warns that browser storage is shared with anyone using the computer", () => {
+    // The consequence a reader will not derive on their own: this data belongs
+    // to the browser profile, not the account, so signing out leaves it there.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/signing out does not clear it/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/anyone else using this browser/i),
+    ).toBeInTheDocument();
+  });
+
   it("carries the landmark the skip link points at", () => {
     // Every route has to, or "Skip to main content" lands nowhere.
     const { container } = render(<PrivacyPage />);
@@ -148,5 +197,19 @@ describe("the contact route the policy promises", () => {
       "href",
       REPOSITORY_URL,
     );
+  });
+});
+
+describe("the way into local mode", () => {
+  it("is reachable from the footer, flagged as experimental", () => {
+    // The only entry point in the app: before this, /local was reachable only
+    // by typing the URL or reading the privacy policy.
+    render(<SiteFooter />);
+
+    expect(screen.getByRole("link", { name: "Local mode" })).toHaveAttribute(
+      "href",
+      "/local",
+    );
+    expect(screen.getByText("(Experimental)")).toBeInTheDocument();
   });
 });

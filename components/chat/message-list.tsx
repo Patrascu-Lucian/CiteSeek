@@ -123,18 +123,20 @@ export function MessageList({
   messages,
   onSelectSource,
   selectedChunkId,
-  workspaceId,
+  uploadHref,
   documents,
   canUpload,
   signedIn,
   isDemo,
   onAsk,
   pending = false,
+  streaming = false,
 }: {
   messages: readonly ChatUIMessage[];
   onSelectSource: (source: ChatSource) => void;
   selectedChunkId: string | null;
-  workspaceId: string;
+  /** Passed through to the refusal, which is the only thing that needs it. */
+  uploadHref: string | null;
   /** Searchable filenames, for a refusal to say what it can answer from. */
   documents: readonly string[];
   canUpload: boolean;
@@ -144,15 +146,19 @@ export function MessageList({
   onAsk: (question: string) => void;
   /** Asked, nothing back yet — measured at ~1.03s to the first token. */
   pending?: boolean;
+  /** Only the last message can be mid-stream, and only it needs holding back
+   * from the "nothing here is cited" note until its markers have arrived. */
+  streaming?: boolean;
 }) {
   if (messages.length === 0 && !pending)
     return <EmptyState isDemo={isDemo} onAsk={onAsk} />;
 
   return (
     <ol className="space-y-4">
-      {messages.map((message) => {
+      {messages.map((message, index) => {
         const isUser = message.role === "user";
         const refusal = messageRefusal(message);
+        const settled = !streaming || index < messages.length - 1;
 
         return (
           <li
@@ -186,6 +192,7 @@ export function MessageList({
                     sources={messageSources(message)}
                     onSelectSource={onSelectSource}
                     selectedChunkId={selectedChunkId}
+                    settled={settled}
                   />
                   {/* Below the text, not instead of it: the sentence saying
                       nothing was found is still the answer to the question. */}
@@ -195,7 +202,7 @@ export function MessageList({
                       documents={documents}
                       canUpload={canUpload}
                       signedIn={signedIn}
-                      workspaceId={workspaceId}
+                      uploadHref={uploadHref}
                     />
                   ) : null}
                 </>

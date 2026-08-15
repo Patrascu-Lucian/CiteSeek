@@ -69,6 +69,14 @@ export default defineConfig({
         // database actually executing it.
         "lib/rag/ingest.ts",
         "lib/rag/retrieve.ts",
+        // The lexical twin of `retrieve.ts`, and excluded on the same grounds:
+        // a `to_tsquery` against a real index, whose only interesting claims
+        // need Postgres to answer. It has no caller in the product at all —
+        // ADR 021 measured hybrid retrieval and did not ship it — so its only
+        // exercise is `pnpm eval:retrieval`, which the unit suite never runs.
+        // Left in the include list it scores 0% and, being pure SQL, dragged
+        // `lib/rag/**` branches to 86% and held this gate red.
+        "lib/rag/lexical.ts",
       ],
       // >=90% on the pure core, enabled now that it exists -- a threshold over
       // an empty tree passes vacuously and proves nothing.
@@ -86,6 +94,12 @@ export default defineConfig({
           lines: 90,
         },
         "lib/ai/**": {
+          statements: 90,
+          branches: 90,
+          functions: 90,
+          lines: 90,
+        },
+        "lib/local/**": {
           statements: 90,
           branches: 90,
           functions: 90,

@@ -3,10 +3,16 @@
 #   sharp         -> Next.js image optimization (next/image)
 #   unrs-resolver -> native module resolver used by eslint-config-next's import plugin
 #   esbuild       -> bundler used by drizzle-kit to run TS config and migrations
+#   onnxruntime-node, protobufjs -> denied. Both ship prebuilt binaries, so the
+#   install script compiles nothing we need; denying it skips a postinstall
+#   rather than the package. Node scripts still load it — the browser does not,
+#   and that is the path local mode ships on.
 allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+  onnxruntime-node: false
+  protobufjs: false
 
 minimumReleaseAgeExclude:
   - jsdom@30.0.0

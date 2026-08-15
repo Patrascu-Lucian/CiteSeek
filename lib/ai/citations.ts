@@ -56,6 +56,57 @@ export function linkCitationMarkers(
   });
 }
 
+/**
+ * The numbers an answer cited that no retrieved passage backs.
+ *
+ * `linkCitationMarkers` already refuses to link these, which is the guarantee.
+ * This is what lets the reader be told — an inert number is indistinguishable
+ * from a broken button, and the one moment the model is caught inventing a
+ * source is the moment the page looks most broken (ADR 036).
+ */
+export function unresolvedMarkers(
+  text: string,
+  sources: readonly ChatSource[],
+): number[] {
+  return distinct(markersIn(text), sources, false);
+}
+
+/**
+ * The markers an answer wrote that a retrieved passage does back.
+ *
+ * **Not the same as the chips on screen.** `linkCitationMarkers` is all or
+ * nothing per run, so in `[1][9]` neither number is linked while this still
+ * reports `[1]` — the model did point at a real passage, which is the question
+ * this answers. Its emptiness is the interesting case: passages were found, the
+ * model was called, and it pointed at none of them (ADR 037).
+ */
+export function citedMarkers(
+  text: string,
+  sources: readonly ChatSource[],
+): number[] {
+  return distinct(markersIn(text), sources, true);
+}
+
+/** Every marker written, in the runs `linkCitationMarkers` recognises — defined
+ * once so the two readings above cannot come to disagree about what a marker is. */
+function markersIn(text: string): number[] {
+  return [...text.matchAll(GROUPED_MARKER)].flatMap((match) =>
+    (match[0].match(MARKER_NUMBER) ?? []).map(Number),
+  );
+}
+
+const distinct = (
+  markers: number[],
+  sources: readonly ChatSource[],
+  keepKnown: boolean,
+) => {
+  const known = new Set(sources.map((source) => source.marker));
+
+  return [
+    ...new Set(markers.filter((marker) => known.has(marker) === keepKnown)),
+  ].sort((a, b) => a - b);
+};
+
 export function parseCitationHref(href: string | undefined): number | null {
   if (!href?.startsWith(CITATION_HREF_PREFIX)) return null;
 

@@ -2,6 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
+import { stubWebGpu, uploadAndAsk } from "./local-mode";
+
 /**
  * **axe is a floor, not the pass.** A citation chip here once rendered in exactly
  * the color of the bubble behind it — labeled, operable, invisible — and every
@@ -214,6 +216,51 @@ for (const theme of THEMES) {
 
       test("the 404", async ({ page }) => {
         await page.goto("/no-such-page");
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
+      test("local mode, told this browser cannot run it", async ({ page }) => {
+        // Stubbed rather than left to the runner: whether headless Chromium
+        // grants a GPU adapter varies by machine, and this is the state most
+        // readers reaching /local will actually get.
+        await page.addInitScript(() => {
+          Object.defineProperty(navigator, "gpu", { value: undefined });
+        });
+        await page.goto("/local");
+        // By name, because Next's route announcer is also `role="alert"`.
+        await expect(
+          page
+            .getByRole("alert")
+            .filter({ hasText: /doesn't support WebGPU/i }),
+        ).toBeVisible();
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
+      test("local mode, offered a download it has not taken", async ({
+        page,
+      }) => {
+        // The state above scans the *refusal*, where the chat never renders. An
+        // adapter without the stand-in flag is what a first-time reader meets,
+        // and nothing is fetched until the button is pressed — so this reaches
+        // the consent gate without pulling 884 MB.
+        await stubWebGpu(page);
+        await page.goto("/local");
+        await expect(
+          page.getByRole("button", { name: /download the model/i }),
+        ).toBeVisible();
+
+        expect(await violationsOn(page)).toEqual([]);
+      });
+
+      test("local mode, having answered with a citation", async ({ page }) => {
+        // The whole point of the mode, and until now the only state of `/local`
+        // never scanned: an indexed document, an answer, and a citation chip.
+        await uploadAndAsk(page, "Markdown has no pages either");
+        await expect(
+          page.getByRole("button", { name: /citation 1/i }).first(),
+        ).toBeVisible({ timeout: 30_000 });
 
         expect(await violationsOn(page)).toEqual([]);
       });
@@ -587,6 +634,67 @@ test.describe("response headers", () => {
     expect(headers["permissions-policy"]).toContain("camera=()");
 
     expect(headers["x-powered-by"]).toBeUndefined();
+  });
+
+  test("the privacy page reaches /local with a document request", async ({
+    page,
+  }) => {
+    // A route-scoped CSP only applies to a document response, so a client-side
+    // <Link> would leave the privacy page's tight policy governing local mode
+    // for the rest of the session. The `goto` test below cannot catch that.
+    const documents: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "document") documents.push(request.url());
+    });
+
+    await page.goto("/privacy");
+    await page.getByRole("link", { name: "local mode", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Local mode" }),
+    ).toBeVisible();
+
+    expect(documents.filter((url) => url.endsWith("/local"))).toHaveLength(1);
+  });
+
+  test("the footer reaches /local with a document request, from any route", async ({
+    page,
+  }) => {
+    // The footer is on every route, so a <Link> here would strand local mode
+    // from all of them rather than from one page. Starting somewhere that is
+    // not /privacy, because that link is already covered above.
+    const documents: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "document") documents.push(request.url());
+    });
+
+    await page.goto("/about");
+    await page
+      .getByRole("contentinfo")
+      .getByRole("link", { name: "Local mode" })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Local mode" }),
+    ).toBeVisible();
+
+    expect(documents.filter((url) => url.endsWith("/local"))).toHaveLength(1);
+  });
+
+  test("the WASM relaxation reaches /local and stops there", async ({
+    page,
+  }) => {
+    // The unit tests prove the policy; this proves the wiring, which is the half
+    // that breaks. A `path` never threaded through `proxy.ts` would leave /local
+    // unable to compile a module and every unit test still green.
+    const local = (await page.goto("/local"))!.headers();
+    const demo = (await page.goto("/demo"))!.headers();
+
+    expect(local["content-security-policy"]).toContain("'wasm-unsafe-eval'");
+    expect(local["content-security-policy"]).toContain(
+      "worker-src 'self' blob:",
+    );
+
+    expect(demo["content-security-policy"]).not.toContain("wasm-unsafe-eval");
+    expect(demo["content-security-policy"]).not.toContain("worker-src");
   });
 
   test("the app runs clean under the policy", async ({ page }) => {

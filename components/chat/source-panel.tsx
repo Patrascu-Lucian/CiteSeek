@@ -21,7 +21,12 @@ export type SourceTarget =
   | { kind: "citation"; source: ChatSource }
   | { kind: "document"; documentId: string; filename: string };
 
-type LoadState =
+/** How the panel gets a document's canonical text. Injected rather than fetched
+ * here, because local mode has no route to call — its text is in IndexedDB, and
+ * the panel is the same component either way. */
+export type LoadDocumentText = (documentId: string) => Promise<LoadState>;
+
+export type LoadState =
   | { status: "loading" }
   | { status: "loaded"; contentText: string }
   /** The document is gone, or its text was never stored. */
@@ -30,11 +35,11 @@ type LoadState =
 
 export function SourcePanel({
   target,
-  workspaceId,
+  loadText,
   onClose,
 }: {
   target: SourceTarget | null;
-  workspaceId: string;
+  loadText: LoadDocumentText;
   onClose: () => void;
 }) {
   if (!target) return null;
@@ -72,11 +77,7 @@ export function SourcePanel({
         {/* Keyed by document so a citation from another source remounts clean,
           rather than resetting state inside the fetch effect and rendering one
           frame of the previous document's text. */}
-        <SourceBody
-          key={documentId}
-          target={target}
-          workspaceId={workspaceId}
-        />
+        <SourceBody key={documentId} target={target} loadText={loadText} />
       </SheetContent>
     </Sheet>
   );
@@ -84,10 +85,10 @@ export function SourcePanel({
 
 function SourceBody({
   target,
-  workspaceId,
+  loadText,
 }: {
   target: SourceTarget;
-  workspaceId: string;
+  loadText: LoadDocumentText;
 }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const markRef = useRef<HTMLElement>(null);
@@ -103,32 +104,9 @@ function SourceBody({
 
     void (async () => {
       try {
-        const response = await fetch(
-          `/api/w/${workspaceId}/documents/${documentId}`,
-        );
+        const next = await loadText(documentId);
 
-        if (!current) return;
-
-        if (response.status === 404) {
-          setState({ status: "unavailable", reason: "deleted" });
-          return;
-        }
-        if (!response.ok) {
-          setState({ status: "error" });
-          return;
-        }
-
-        const payload = (await response.json()) as {
-          document: { contentText: string | null };
-        };
-
-        if (!current) return;
-
-        setState(
-          payload.document.contentText
-            ? { status: "loaded", contentText: payload.document.contentText }
-            : { status: "unavailable", reason: "no-text" },
-        );
+        if (current) setState(next);
       } catch {
         if (current) setState({ status: "error" });
       }
@@ -137,7 +115,7 @@ function SourceBody({
     return () => {
       current = false;
     };
-  }, [documentId, workspaceId]);
+  }, [documentId, loadText]);
 
   // Scrolls once the highlight exists, not when the panel opens: the text has to
   // be in the DOM before there is anything to scroll to.

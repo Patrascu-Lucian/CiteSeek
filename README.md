@@ -75,14 +75,17 @@ shaped the product rather than the toolchain.
 | [018](docs/decisions/018-theme-persistence-and-the-flash.md)                 | Theme in a cookie, not `localStorage`         | The server renders the right palette on the first byte, so there is no flash to correct   |
 | [020](docs/decisions/020-measuring-the-relevance-floor.md)                   | Measure the relevance floor, then lower it    | The shipped threshold refused nothing; the distributions overlap, so no value is right    |
 | [021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md)       | Build hybrid retrieval, then reject it        | Every fusion weight scored worse than vector alone, so the standard answer was wrong here |
+| [029](docs/decisions/029-a-store-the-server-cannot-see.md)                   | Local documents live in IndexedDB alone       | The privacy claim is structural: deletion cannot reach what was never sent                |
+| [034](docs/decisions/034-answering-on-the-gpu.md)                            | Name the device the capability gate checks    | The gate refused browsers a feature that ran without a GPU, because nothing asked for one |
+| [035](docs/decisions/035-where-the-worked-example-goes.md)                   | A worked example belongs in the system prompt | In the message array it is transcript, and the model answered out of it with a citation   |
 
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 64 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 70 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
-Three that show the shape of it:
+Four that show the shape of it:
 
 - [**A performance regression that did not exist**](docs/code-review-notes.md) — three wrong
   guesses deep before anything was measured, and the measurement said the change had made no
@@ -95,6 +98,14 @@ Three that show the shape of it:
 - [**A deletion promise the schema could not keep**](docs/code-review-notes.md) — the privacy page
   said account deletion removes "every usage record". No cascade reached that table, and production
   data showed a deleted account still carrying tokens. Found by looking at real data, not by a test.
+- [**The bug that needed a person**](docs/code-review-notes.md) — the local model's worked example
+  was sent as conversation turns, which a model reads as things that were said. Typing `cite`
+  returned the example's own sentence carrying a citation that **resolved**, so the chip opened a
+  real passage of the reader's document that had nothing to do with the claim — a fabricated claim
+  wearing a working citation, in one word, deterministically. The entire gate — unit suite,
+  end-to-end suite, production build — was green throughout, and a multi-agent review of the same
+  code found seven other defects without flagging this one. It took a real document and an odd
+  thing to type.
 
 The pattern is the same across all of them: a green suite is evidence about the thing it checks
 and silent about everything else, and the useful findings came from measuring rather than
@@ -116,6 +127,16 @@ reasoning.
 > first paint and no JavaScript required. A [privacy page](<app/(marketing)/privacy/page.tsx>)
 > that states what is stored, where, and who else sees it — written from the code rather than a
 > template.
+>
+> **Local mode is the second half, and it is marked experimental.** On a browser with WebGPU the
+> same documents are parsed, indexed and answered entirely on the reader's machine: nothing is
+> uploaded, no question reaches a provider, and a citation chip opens the passage out of IndexedDB
+> by the same character offsets the server path uses — proven by an end-to-end test asserting the
+> panel opens with **zero** requests to the API. The cost is stated before anything is fetched:
+> two model downloads totalling 884 MB, cached afterwards, and answers around two to three seconds
+> each. They are also visibly worse. A model small enough to run in a tab sometimes states things
+> the documents do not say, and sometimes answers citing nothing at all — the page says so before
+> you start, because a privacy guarantee is not a reason to oversell the thing delivering it.
 >
 > The shape of the work is in [`docs/strategy-plan.md`](docs/strategy-plan.md), a snapshot
 > written at the start and deliberately not maintained — where it and the built result differ,
@@ -303,6 +324,10 @@ endpoint carries no residency commitment, so "EU-hosted" is exact about storage 
 where the model runs. Closing it means a regional endpoint or a European provider, and the
 second is the more interesting version of the question ([ADR 025](docs/decisions/025-paying-for-the-model-tier.md)).
 
+**Narrowed, August 2026, not closed.** Local mode answers this outright for anyone who takes it —
+no text leaves the machine at all — but it is opt-in, experimental, and materially worse at
+answering, so it is an escape hatch rather than a fix. The gap stands for the default path.
+
 ~~The provider is on a free tier whose terms permit using submitted content for product
 improvement.~~ **Closed, August 2026.** The project runs on the paid tier now, so that content is
 not used for training or improvement. The entry stayed here for four milestones because the
@@ -345,17 +370,21 @@ in. Tracked in [`docs/backlog.md`](docs/backlog.md).
 
 ## What's next
 
-**Next is an in-browser inference mode**: the same documents and the same citation
-path, with a small model running locally through WebGPU. Nothing leaves the machine — which
-answers the residency gap in [Known gaps](#known-gaps-at-this-milestone) outright rather than
-narrowing it, and turns it into a choice the reader makes per question. Quality drops; the guarantee that a refusal
-cannot cite does not, because it is enforced before any model is reached.
+**In-browser inference shipped** — it is described in [What works
+today](#what-works-today), and it answered the residency gap by making it a choice rather than by
+narrowing it. What it leaves open is answer quality rather than plumbing, and the sharpest piece
+is this: a model that fits in a tab sometimes answers **citing nothing at all**, which the reader
+has no way to see. Counting citations is trivial; the difficulty is that an uncited answer is
+_correct_ when it is a refusal, so a flat warning would fire on the honest case as often as the
+fabricated one. Telling those apart is the next work on that path.
 
-Before that, the gap [ADR 020](docs/decisions/020-measuring-the-relevance-floor.md) measured:
-the floor cannot separate answerable questions from unanswerable ones on distance alone, so the
-next retrieval work is a **second signal** — lexical search fused with the vector scores, or a
-reranker over the top k. Both are parked in [`docs/backlog.md`](docs/backlog.md), and both now
-have a way to prove they earned their place rather than an argument that they should.
+Separately, the gap [ADR 020](docs/decisions/020-measuring-the-relevance-floor.md) measured: the
+floor cannot separate answerable questions from unanswerable ones on distance alone, so retrieval
+still wants a **second signal**. Hybrid search was the obvious candidate and
+[ADR 021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md) measured it losing, so
+what remains is a reranker over the top k — or accepting the floor as a filter and saying so.
+Both are in [`docs/backlog.md`](docs/backlog.md), and both now have a harness that would prove
+they earned their place rather than an argument that they should.
 
 The usage thresholds are still starting values. They need real traffic rather than another
 round of reasoning.
@@ -365,6 +394,11 @@ round of reasoning.
 Next.js 16 (App Router) · React 19 · TypeScript 5.9 (strict) · Tailwind v4 ·
 shadcn/ui · Postgres 18 + pgvector · Drizzle ORM · Auth.js v5 · Vitest + Testing Library ·
 Playwright · GitHub Actions · Vercel + Neon
+
+Local mode adds transformers.js over ONNX Runtime Web on WebGPU, with IndexedDB for documents,
+passages and their vectors. The runtime is served from this origin rather than a CDN, so the only
+remote host local mode reaches is the one holding the model weights
+([ADR 032](docs/decisions/032-the-only-remote-hosts-local-mode-needs.md)).
 
 ## Getting started
 

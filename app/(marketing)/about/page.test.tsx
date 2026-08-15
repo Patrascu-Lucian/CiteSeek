@@ -70,7 +70,9 @@ describe("the footer's link group", () => {
 
   it("is named for what it actually contains", () => {
     // "Policies" stopped describing this group once Contact joined it, and
-    // About would have made it plainly wrong.
+    // About would have made it plainly wrong. Local mode stayed out of it for
+    // the same reason: a route the reader can use is not a page about the
+    // project, so it sits in its own row rather than widening this name again.
     render(<SiteFooter />);
 
     const nav = screen.getByRole("navigation", { name: /about this project/i });
@@ -78,6 +80,10 @@ describe("the footer's link group", () => {
     expect(nav).toBeInTheDocument();
     expect(
       screen.queryByRole("navigation", { name: /^policies$/i }),
+    ).toBeNull();
+    expect(
+      nav.querySelector('a[href="/local"]'),
+      "local mode belongs outside this landmark",
     ).toBeNull();
   });
 });

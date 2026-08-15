@@ -13,6 +13,7 @@ import {
 import type { ChatSource } from "@/lib/ai/types";
 
 import { SourcePanel } from "./source-panel";
+import { workspaceDocumentText } from "@/lib/documents/text-loader";
 
 const CONTENT = "Before it. Expenses are reimbursed within 30 days. After it.";
 const QUOTE = "Expenses are reimbursed within 30 days.";
@@ -32,6 +33,10 @@ function source(overrides: Partial<ChatSource> = {}): ChatSource {
     ...overrides,
   };
 }
+
+/** The real workspace loader, so these keep covering it end to end — only the
+ * network under it is stubbed. */
+const loadText = workspaceDocumentText("w1");
 
 function mockFetch(response: Partial<Response> & { json?: () => unknown }) {
   vi.stubGlobal(
@@ -70,7 +75,7 @@ function renderPanel(props: Partial<Parameters<typeof SourcePanel>[0]> = {}) {
   render(
     <SourcePanel
       target={{ kind: "citation", source: source() }}
-      workspaceId="w1"
+      loadText={loadText}
       onClose={onClose}
       {...props}
     />,

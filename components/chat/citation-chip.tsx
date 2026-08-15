@@ -55,6 +55,9 @@ export function CitationLink({
           : "bg-background text-foreground ring-border hover:bg-accent ring-1",
       )}
     >
+      {/* Bare, and the pill is what distinguishes it. Brackets were tried and
+          looked wrong inside one — ADR 038 has the case that prompted them and
+          what reverting costs. */}
       {source.marker}
     </button>
   );

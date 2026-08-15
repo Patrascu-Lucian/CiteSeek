@@ -44,7 +44,9 @@ export default function PrivacyPage() {
             This deployment is on Google&rsquo;s paid tier, so that content is
             not used to train or improve their models.
           </strong>{" "}
-          Deleting your account deletes everything, immediately and for real.
+          Deleting your account deletes everything on our servers, immediately
+          and for real. Local mode is the exception, and deliberately so: those
+          documents stay in your browser, so you delete them there.
         </p>
       </Section>
 
@@ -91,6 +93,45 @@ export default function PrivacyPage() {
           The application runs in Frankfurt (Vercel <code>fra1</code>) and the
           database is a Neon Postgres instance in the same region. Both are
           pinned in configuration rather than left to a default.
+        </p>
+      </Section>
+
+      <Section title="Local mode, which stores nothing on our servers">
+        <p>
+          Documents added in{" "}
+          <a href="/local" className="underline">
+            local mode
+          </a>{" "}
+          are stored <strong>in your browser</strong>, not on our servers. They
+          are never uploaded, no processor below receives them, and none of the
+          hosting above applies to them.
+        </p>
+        <p className="mt-3">
+          One thing does leave: your browser downloads two models from{" "}
+          <strong>Hugging Face</strong>, which sees those requests the way any
+          website you visit does — about 128 MB to index a document, and about
+          756 MB more before it can answer one, each fetched once and then
+          cached. <strong>No document text is sent</strong>: they are downloads
+          of public files, in that direction only.
+        </p>
+        <p className="mt-3">
+          Two consequences worth being direct about. That storage belongs to{" "}
+          <strong>the browser profile, not to your account</strong> — signing
+          out does not clear it, and anyone else using this browser on this
+          computer can open local mode and read what is there. And{" "}
+          <strong>deleting your account does not remove it</strong>, because the
+          deletion runs on our servers and this data never reached them.
+        </p>
+        {/* A plain anchor, not <Link>: a client-side navigation reuses this
+            document's CSP, and /local needs the WASM directives its own
+            response carries (ADR 028, ADR 030). */}
+        <p className="mt-3">
+          Delete it yourself with <strong>Delete everything</strong> on the{" "}
+          <a href="/local" className="underline">
+            local mode page
+          </a>
+          . That removes the documents, their passages and their embeddings from
+          this browser, with no recovery.
         </p>
       </Section>
 
@@ -148,6 +189,11 @@ export default function PrivacyPage() {
             account page
           </Link>
           .
+        </p>
+        <p className="mt-3">
+          It does not reach documents stored in your browser by local mode,
+          which never left your machine for us to delete. Those are removed from
+          the local mode page.
         </p>
       </Section>
 

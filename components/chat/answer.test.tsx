@@ -67,7 +67,12 @@ describe("Answer — citation markers", () => {
     // to open, so nothing may look openable.
     renderAnswer({ text: "A claim [7] with no passage behind it." });
 
-    expect(await screen.findByText(/\[7\]/)).toBeInTheDocument();
+    // `findByText` on the marker alone now matches the note below the answer as
+    // well, so this asks the question it always meant: the sentence keeps its
+    // number, and nothing in the answer is pressable.
+    expect(
+      await screen.findByText(/A claim \[7\] with no passage behind it\./),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
@@ -138,5 +143,111 @@ describe("Answer — grouped markers", () => {
 
     expect(await screen.findByText(/\[1, 7\]/)).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});
+
+describe("Answer — a marker the model invented", () => {
+  it("says why the number is not a link, rather than leaving it dead", () => {
+    // The guard already refuses to link it. This is the half that was missing:
+    // an inert number reads as a broken button, and the person who reported it
+    // that way had written the rule. ADR 036.
+    renderAnswer({ text: "A claim [7] with nothing behind it." });
+
+    expect(
+      screen.getByText(/is not one of the passages found/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/treat that claim as unsupported/i)).toBeVisible();
+    // The number itself, so the reader can match the note to the sentence.
+    expect(screen.getByText("[7]")).toBeInTheDocument();
+  });
+
+  it("names every invented number when there are several", () => {
+    renderAnswer({ text: "Claims [7] and [9]." });
+
+    expect(screen.getByText("[7], [9]")).toBeInTheDocument();
+    expect(
+      screen.getByText(/are not among the passages found/i),
+    ).toBeInTheDocument();
+  });
+
+  it("stays quiet when the answer cites honestly", () => {
+    // The note is for a caught fabrication. On a well-cited answer it would be
+    // noise in front of every reader.
+    renderAnswer();
+
+    expect(screen.queryByText(/not one of the passages/i)).toBeNull();
+  });
+});
+
+describe("Answer — an answer that cites nothing", () => {
+  it("says so when passages were found and none were cited", () => {
+    // "You can upload up to 2 files" — false, specific, and carrying no marker,
+    // which left the reader no signal at all. ADR 037.
+    renderAnswer({ text: "You can upload up to 2 files." });
+
+    expect(screen.getByText(/nothing here is cited/i)).toBeInTheDocument();
+  });
+
+  it("names both readings rather than calling the answer wrong", () => {
+    // An uncited refusal is correct under rule 4; an uncited claim is invented.
+    // Nothing here can tell which, so the note states the fact and says so.
+    renderAnswer({ text: "The documents do not cover that." });
+
+    expect(
+      screen.getByText(/a refusal is expected to cite nothing/i),
+    ).toBeVisible();
+  });
+
+  it("stays quiet once the answer cites a passage", () => {
+    renderAnswer();
+
+    expect(screen.queryByText(/nothing here is cited/i)).toBeNull();
+  });
+
+  it("stays quiet while the answer is still streaming", () => {
+    // Every answer cites nothing before its first marker arrives, so without
+    // this the note flashes on all of them.
+    renderAnswer({ text: "Expenses are paid", settled: false });
+
+    expect(screen.queryByText(/nothing here is cited/i)).toBeNull();
+  });
+
+  it("stays quiet when retrieval found nothing to cite", () => {
+    // The refusal the route writes: no passages, so citing none is the only
+    // possible outcome and there is nothing to report.
+    renderAnswer({ text: "I couldn't find anything relevant.", sources: [] });
+
+    expect(screen.queryByText(/nothing here is cited/i)).toBeNull();
+  });
+
+  it("does not stack a second warning on an invented marker", () => {
+    // `[7]` already gets the note above; adding "nothing here is cited" beneath
+    // it states the same fact twice, which is how both stop being read.
+    renderAnswer({ text: "A claim [7]." });
+
+    expect(screen.getByText(/is not one of the passages found/i)).toBeVisible();
+    expect(screen.queryByText(/nothing here is cited/i)).toBeNull();
+  });
+});
+
+describe("Answer — a chip standing where a number could", () => {
+  it("is a control rather than part of the sentence", () => {
+    /*
+      Measured: the local model answered "Employees receive [1] days of annual
+      leave" about a document saying 28, so the chip lands exactly where the
+      quantity belongs. Every guard passed — the marker resolves, so nothing
+      flags it — which leaves the pill's own styling doing the work. ADR 038
+      records that brackets were tried here and reverted, and what that costs.
+    */
+    renderAnswer({ text: "Employees receive [1] days of annual leave." });
+
+    const chip = screen.getByRole("button", { name: /^Citation 1/ });
+
+    expect(chip).toHaveTextContent("1");
+    // The paragraph keeps the surrounding words only: the marker left the prose
+    // and became a control, rather than being rendered as literal text in it.
+    expect(chip.closest("p")).toHaveTextContent(
+      "Employees receive 1 days of annual leave.",
+    );
   });
 });

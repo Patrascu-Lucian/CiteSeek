@@ -7,6 +7,7 @@ import {
   UnreadableDocumentError,
   extractText,
   isSupportedMimeType,
+  mammothInput,
 } from "./extract";
 
 const FIXTURES = join(import.meta.dirname, "__fixtures__");
@@ -95,6 +96,40 @@ describe("extractText — docx", () => {
 
     expect(result.pageSpans).toBeNull();
     expect(result.pageCount).toBeNull();
+  });
+
+  describe("the options handed to mammoth", () => {
+    // Shape only: Node always resolves the Node build, so calling the real
+    // parser without `Buffer` fails for a reason production cannot have.
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+
+    it("sends the key each build understands", () => {
+      expect(Object.keys(mammothInput(bytes)).sort()).toEqual([
+        "arrayBuffer",
+        "buffer",
+      ]);
+    });
+
+    it("omits `buffer` where the global does not exist", () => {
+      const buffer = globalThis.Buffer;
+      // @ts-expect-error removing a global the Node types declare as present
+      delete globalThis.Buffer;
+
+      try {
+        expect(Object.keys(mammothInput(bytes))).toEqual(["arrayBuffer"]);
+      } finally {
+        globalThis.Buffer = buffer;
+      }
+    });
+
+    it("copies the bytes rather than exposing the whole backing buffer", () => {
+      // A `Uint8Array` can be a view into a larger buffer. Passing
+      // `bytes.buffer` would hand mammoth everything around it.
+      const view = new Uint8Array(new ArrayBuffer(16), 4, 4);
+      view.set([9, 9, 9, 9]);
+
+      expect(mammothInput(view).arrayBuffer.byteLength).toBe(4);
+    });
   });
 
   it("reports a corrupt docx as unreadable", async () => {

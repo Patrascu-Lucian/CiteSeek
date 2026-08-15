@@ -1762,3 +1762,205 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   For the grep: **write the check to find counterexamples, then confirm it can.** Searching for a
   literal you already know is present tests nothing. Had the pattern been run against the file
   before the refactor and returned fourteen, twelve would have been visibly short.
+
+## Four tested files that no user could reach
+
+- **Issue**: the plan for local mode's first slice listed "capability detection **and the mode
+  toggle**", so I built both — a `citeseek_mode` cookie, a `modeFromCookie` parser with four
+  fallback tests, and a server action to set it, all modeled on the theme cookie in ADR 018.
+  Everything passed. Nothing used it. Local inference does not exist until slice 6, so the cookie
+  recorded a preference that no code read and a toggle would have switched between one option and
+  the same option.
+
+- **Why it survived to the point of review**: every signal was green. The tests were real tests
+  of real behavior — `""`, `"LOCAL"` and `"../../etc"` all fall back to `cloud`, and they do. Type
+  checking, linting and the build have nothing to say about correct code that is never called.
+  The plan said to build it, and a plan is the one artifact that sounds like a requirement.
+
+- **The precedent that named it**: [ADR 016](decisions/016-workspace-membership-deferred.md)
+  rejected a `role` column whose only production value would be `owner` — a branch no user can
+  reach, carrying the cost of being maintained and the risk of being trusted. A preference nobody
+  honors is the same object with a different shape.
+
+- **Fix**: `lib/local/mode.ts`, its test and `lib/local/actions.ts` deleted; the cookie ships in
+  the slice that reads it. ADR 027 records the cut in its consequences, so the reasoning survives
+  the deletion rather than being rediscovered.
+
+- **Lesson**: **a plan is a hypothesis about the order of work, not a specification.** Written
+  before slice 1 existed, it grouped the cookie with detection because they are both "the toggle
+  feature" — a grouping that stops making sense the moment you notice one half has no counterpart
+  to switch to. The question that catches this is not "does it work" but **"what breaks if I
+  delete it"**, and the honest answer here was: four files, and nothing else.
+
+## A library that hangs, and two confident wrong answers, 11 August 2026
+
+- **Issue**: local ingestion was built around a Web Worker, so parsing would not block the
+  page. Word, Markdown and plain text parsed correctly. PDF did not: `unpdf` inside the
+  worker **neither resolved nor threw**. The upload sat on "Parsing…" forever.
+
+- **Every signal was green.** All worker chunks loaded 200. The browser console was empty.
+  An `unhandledrejection` listener added inside the worker never fired. There was no error
+  to read because there was no error — the promise simply never settled, and `try/catch`
+  has nothing to say about code that stops rather than fails.
+
+- **Two hypotheses, both confidently wrong.** First: the CSP. `/local` gets
+  `'wasm-unsafe-eval'` but not `'unsafe-eval'`, and PDF.js is known to use `eval` on some
+  paths — a tidy story that also explained why mammoth was unaffected. It failed identically
+  under `pnpm dev`, which _does_ carry `'unsafe-eval'`. Second: the worker itself. Also
+  wrong — Word parses in that same worker. What settled it was replacing the worker with a
+  main-thread parse: all five ingest specs passed immediately. Each test cost about a minute
+  and eliminated a whole branch, which is the argument for running the cheap one before
+  reasoning further.
+
+- **Fix**: parse on the main thread and delete the worker rather than keep it for the three
+  formats it handled — that would have been a runtime branch on file type with PDF still
+  broken. **Then measure, because "moved it to the main thread" invites the obvious
+  objection.** Upload to rendered result: ~0.40s for a 2-page PDF, ~0.43s for a 51-page one.
+  Identical, so the cost is the one-off `import("unpdf")` rather than parsing, and the worker
+  had been guarding a stall that does not exist at this size. ADR 030.
+
+- **A real defect the suite caught on its own**: the visually-hidden file input had no
+  accessible name. The `/local` axe sweep written in an earlier slice failed with "Form
+  elements must have labels", impact critical, in both themes — no new test required.
+
+- **Lesson**: **the absence of an error is not evidence of success, and an instrument can be
+  the thing that is silent.** Playwright's `page.on("console")` does not receive worker
+  output, and I read that silence as "no error occurred" for several runs. Before concluding
+  that nothing went wrong, confirm the instrument can see the place the work is happening.
+  Second: when a fix moves work somewhere slower, measure before writing the apology — the
+  number here removed the tradeoff entirely rather than quantifying it.
+
+## Comments that lost their own subject, 11 August 2026
+
+- **Issue**: four comments in the local-mode code were missing the identifiers they
+  existed to name. `content-security-policy.ts` read "the file URL on redirects to a
+  regional CDN ( here), and a redirect target is checked against in its own right" — in the
+  file that _is_ the CSP seam, naming none of the three things it was written to name.
+  `local-data-controls.tsx` read "— on a disabled button is a no-op". Two of the four were
+  already merged.
+
+- **Cause**: writing them through `node -e "...backtick..."` inside a double-quoted bash
+  string. The shell reads a backtick pair as command substitution, runs
+  `` `focus()` `` as a command, and splices the empty output in. Every affected comment
+  used backticks around an identifier, which is exactly the house style.
+
+- **Why nothing caught it**: Prettier reformats comments and does not read them; ESLint does
+  not lint prose; the tests pass either way. A comment is the one artifact in the repo with
+  no automated reader at all, so a corruption that would be obvious in code is invisible here
+  until a human reads the line.
+
+- **Fix**: all four rewritten through the editor rather than the shell. The rule going
+  forward is that anything containing backticks, `$`, or `!` is written with an editing tool,
+  never interpolated through a shell string.
+
+- **Lesson**: **the tooling that writes a file is part of its correctness.** I chose `node -e`
+  for speed on multi-line edits and it silently degraded the one thing in the diff that no
+  linter, formatter or test inspects. Worth a grep before any commit that touched comments
+  through a shell: `grep -rn "[a-z,)] \{2,\}[a-z(]"` over comment lines finds the swallowed
+  identifiers, because the removed text leaves a double space behind.
+
+## A comment that argued for the defect it was written to prevent, 12 August 2026
+
+- **Issue**: `local-workspace.tsx` passes a refresh token to `LocalDataControls` as a prop.
+  The comment above it said "Keyed so a finished ingest remounts the panel and it re-reads
+  the store." Nothing is keyed and nothing remounts — but the comment it replaced had said
+  the opposite, and said why: a `key` would recreate the `role="status"` region, and a live
+  region that is absent at the moment the count changes announces nothing. That region is
+  the only confirmation a screen reader gets that **Delete everything** worked.
+
+- **Cause**: the slice moved the chat into this file and rewrote the surrounding comment from
+  the code as it read at that moment. `refreshToken={ingested}` does look like a remount
+  trigger; the reason it is not one is invisible from this file, which is exactly why the
+  original comment existed.
+
+- **Why nothing caught it**: the same blind spot as the swallowed identifiers above, one
+  level up. Formatters and linters do not read prose, and here the tests could not help
+  either — the code was correct, so every check passed while the diff shipped an argument
+  for breaking it. The next reader "simplifying" the prop into a `key` would have been
+  following the file's own instructions.
+
+- **Fix**: the original comment restored verbatim.
+
+- **Lesson**: **a comment in the "defect this prevents" category is load-bearing, and
+  rewriting it from the current code cannot reconstruct it.** The code shows what is done;
+  only the comment holds what was tried and rejected. When a diff touches one of these,
+  the check is not "is the new sentence true" — this one nearly was — but "does it still
+  name the thing that must not happen." If the rationale is not recoverable from the diff
+  under review, the comment is not editable from the diff under review either.
+
+## A green gate that proved the mock, 12 August 2026
+
+Review of the merged local-answering branch found eight defects, seven of them in code that
+branch had just written, and the gate had passed all of it: format, lint, typecheck, 668 unit
+tests, 117 E2E and a production build, green.
+
+- **Issue**: three of the seven were the same mistake in different clothes — a test that
+  asserted our own stand-in rather than the library. `loadChatModel` passed no `device`, so
+  transformers.js used its browser default of `wasm` while `WebGpuGate` refused the feature
+  to anyone without an adapter; the progress filter kept the per-file `progress` event
+  instead of the aggregate `progress_total` the library emits alongside it, so the readout
+  hit 100% on a 4 KB config file; and `generateLocally` was covered by a mocked pipeline that
+  echoed whatever it was handed. Each test passed because it described what our code sent,
+  and nothing described what the library did with it.
+
+- **Cause**: the mock was written from our side of the boundary. `vi.mock` of
+  `@huggingface/transformers` is a fixture of _our expectations_ — and where the library
+  wraps the callback we pass (`DefaultProgressCallback`, undocumented in the published
+  types), our expectations were simply wrong. A mock cannot disagree with you.
+
+- **Fix**: assert the arguments actually handed to `pipeline` — `device`, and which status
+  the filter keeps — rather than only the shape of what comes back. The two-line check that
+  `pipeline` was called with `{ device: "webgpu" }` is worth more than the four tests around
+  it, because it is the only one that could have failed.
+
+- **A separate one worth naming**: `text` became a required field on `LocalDocument` while
+  `DATABASE_VERSION` stayed at 1. IndexedDB has no schema to reject the write, so documents
+  from the previous release keep `status: "ready"`, retrieve, get cited — and only then does
+  the panel report the passage missing. A schemaless store makes a migration look free, and
+  the tests all ran against a database created fresh at the current version, which is the one
+  case the defect cannot occur in.
+
+- **Lesson**: **the tests you write against a boundary you control test the boundary, not
+  what is past it.** Before trusting a suite over an integration, ask which assertion would
+  fail if the library changed its behavior underneath — if the answer is none, the suite is
+  measuring the mock. And for anything persisted, write the fixture at the _old_ version:
+  every test that builds its store fresh is blind to migrations by construction.
+
+## The bug that needed a person, 12 August 2026
+
+- **Issue**: the local model's worked example was sent as `user`/`assistant` turns before the
+  question. A model does not read those as an illustration; it reads them as things that were
+  said. Typing `cite` returned "The passage [1] says the office closes at six" — the example's
+  own user turn — with a marker that **resolved**, so the chip opened a real paragraph of the
+  reader's CV. A fabricated claim wearing a working citation, reachable in one word, and
+  deterministic under `do_sample: false`.
+
+- **What every layer of review missed, in order.** The gate was green throughout: format,
+  lint, typecheck, 683 unit tests, 117 E2E, production build. `/code-review` read the diff and
+  found seven other defects without flagging this one. I wrote the example, noted the leak risk
+  in my own head while writing it, judged it low because the text began with "Example.", and
+  moved on. None of that was going to catch it.
+
+- **Why the tests could not.** Two reasons, and the second is the interesting one. The suite
+  fakes the generator so CI never downloads 756 MB, so nothing in it watches a real model read a
+  real prompt. But the deeper problem is that the tests asserted the example was _present_ and
+  its marker looked right — they described what we sent. They would have passed at full green
+  no matter how badly the model answered out of it.
+
+- **Fix**: the example moves into the system prompt and is built from the retrieved passage, so
+  a parroting model quotes the reader's own document (ADR 035). The guard is an assertion about
+  **shape**: the message array holds exactly the system prompt and the question. A leak cannot
+  satisfy that.
+
+- **Lesson**: **assert the shape of what leaves your process, not just its contents.** Content
+  assertions encode what you meant; shape assertions encode what is structurally possible. Here
+  the difference was "the example is in the prompt" — true, and useless — against "nothing but
+  the system prompt and the question is in the array", which is the property that was violated.
+  When something must never be true, find the assertion a bug cannot pass.
+
+- **Second lesson, for the README rather than the code.** The same session showed three guards
+  firing on real content — an invented marker left inert, model-emitted markdown links rendered
+  anchorless, a grounded example quoting the reader — and every one of them looked like
+  breakage. The reader who reported "that citation is not clickable" was the person who wrote
+  the rule making it unclickable. A safety property that communicates nothing gets read as a
+  defect and eventually gets "fixed".

@@ -896,3 +896,413 @@ defects.
   until proven otherwise — re-run with `--workers=1` before believing it.** That is also the
   answer to the earlier worry about learning to ignore this test: it is not ignored, it is
   explained.
+
+## ~~A coverage threshold nothing runs~~, 11 August 2026
+
+**Fixed, 12 August 2026.** `lexical.ts` excluded with a written reason, which puts `lib/rag/**`
+at 90.51%, and CI's unit step now runs `test:coverage` instead of `test` — the same suite with
+the v8 provider attached, so the bar is evaluated rather than described. One correction to the
+diagnosis below: it says nothing imports the file. Nothing on the **answer path** does, which
+is the part that matters, but `scripts/eval-retrieval.mts` imports it as
+`await import("../lib/rag/lexical.ts")` — an explicit extension, which is why more than one
+grep for it has come back empty. That is the difference between deleting the file and
+excluding it, so the wrong version should not stay on the record.
+
+Found while adding `lib/local/**` to `vitest.config.ts`'s thresholds: **`pnpm test:coverage`
+has been failing, and no pipeline runs it.** CI runs `pnpm test`, `pnpm test:integration` and
+`pnpm test:e2e` — coverage is a local command nobody had a reason to type.
+
+```
+ERROR: Coverage for branches (85.83%) does not meet "lib/rag/**" threshold (90%)
+```
+
+Reproducible on `develop` at `f0e8a8b`, so it predates local mode and is not caused by it.
+
+**The cause is one file, and it is dead on purpose.** `lib/rag/lexical.ts` is at **0 of 6
+branches**. It is the hybrid-retrieval implementation [ADR
+021](decisions/021-hybrid-retrieval-measured-and-not-shipped.md) measured and rejected —
+nothing on the answer path imports it, and it is kept as the evidence behind that decision.
+The coverage glob counts it as production code anyway. Every other file in the directory is at
+or near the bar:
+
+| File                            | Branches      |
+| ------------------------------- | ------------- |
+| `lexical.ts`                    | 0/6 — **0%**  |
+| `extract.ts`                    | 10/13 — 76.9% |
+| `chunking.ts`                   | 31/35 — 88.6% |
+| `eval-metrics.ts`               | 19/21 — 90.5% |
+| `embeddings.ts`, `normalize.ts` | 11/12 — 91.7% |
+| `fusion.ts`, `vector.ts`        | 100%          |
+
+Excluding `lexical.ts` puts the directory at **90.35%**, over the line without writing a test.
+That is the honest fix: the config already excludes `ingest.ts` and `retrieve.ts` with a
+written reason, and "retained as the record of a rejected decision, on no code path" is the
+same kind of reason. The alternative is deleting the file, which ADR 021 makes safe — the
+measurement is in the ADR, not in the module.
+
+**The larger item is the gate, not the number.** A threshold no workflow evaluates is
+documentation, and this one silently stopped being true at some point nobody can name. Either
+CI runs `test:coverage` or the thresholds should stop claiming to be enforced. Running it in CI
+is cheap — it is the same unit suite with the v8 provider attached.
+
+Not fixed on the local-mode branch: unrelated to that work, and a config change that turns a
+job red belongs in a commit that is about the job.
+
+## ~~Local mode stores offsets but not the text they index into~~, 11 August 2026
+
+**Done, in the slice this entry said to do it in.** `LocalDocument.text` is written in the same
+transaction as the chunks, and `lib/local/text-loader.ts` slices it for the source panel — so a
+local citation resolves by the same offsets a cloud one does, which an E2E asserts with **zero**
+requests to `/api/w/`. The pinning question this entry asked for is answered there.
+
+Found by a review of the local-mode slices. `lib/local/ingest.ts` keeps each chunk's
+`startOffset`/`endOffset`, and discards `extracted.text`; `LocalDocument` has no field for it.
+
+That is fine for what shipped — nothing renders a local citation yet — but it is a hard
+dependency for the slice that does. `components/chat/source-panel.tsx` resolves a citation by
+slicing the **canonical document text** with those offsets, which is why the server writes
+`contentText` before the chunks. Offsets alone address a string that does not exist locally,
+and re-deriving it would mean re-parsing a file the browser also does not keep.
+
+**Do it in the slice that renders local citations, not before**: add `text` to the stored
+document, write it in the same transaction as the chunks, and the pinning question becomes
+whether a local highlight lands on the same characters a cloud one does. The offsets test in
+`lib/local/ingest.test.ts` says so in its comment rather than asserting it, deliberately —
+there is nothing yet to assert against.
+
+## Vercel Speed Insights: declined for now, 11 August 2026
+
+Vercel suggests adding `@vercel/speed-insights`. Not taken, and the reason is not technical —
+it is served same-origin, so the CSP would likely cope.
+
+`app/(marketing)/privacy/page.tsx` states "There is no analytics, advertising or third-party
+tracking." Speed Insights is analytics. Adding it makes a published privacy claim false, and
+this project's rule is that the page changes in the same commit as the thing it describes,
+never after ([ADR 025](decisions/025-paying-for-the-model-tier.md)).
+
+The trade as it stands: a clean and unusual claim, against field data there is almost no
+traffic to populate. The README's hand-measured TTFT and Lighthouse numbers already carry the
+performance story.
+
+**Revisit if the site gets real users.** Doing it properly then means one commit carrying: the
+component, the privacy page's "what is never done" list, a line in the processor list naming
+Vercel as receiving visitor metrics, and a check that the nonce reaches the injected script.
+
+## Landing and branding, raised 12 August 2026
+
+Four things noticed while reading the deployed site. The first three are design work; the
+fourth is a defect with a diagnosis.
+
+- **A logo mark, and real icons.** `app/icon.png` and `app/apple-icon.png` exist but are
+  placeholders, and the header renders the wordmark as plain text, so there is no symbol
+  anywhere. One job with the hero below rather than three: a mark that only ever appears at
+  32px is designed differently from one that has to sit on an image, and deciding them apart
+  is how you end up with two.
+
+- **A hero image behind the landing headline.** Currently type on a flat background. The
+  constraint that decides the approach: `img-src` is `'self' data:` and ADR 032 keeps remote
+  hosts to model weights, so this is a self-hosted asset, not a stock URL. It also has to
+  survive both palettes and keep the headline at WCAG AA against whatever sits behind it —
+  which is the part that usually fails, and which `paintedColorsOf` in `e2e/a11y.spec.ts`
+  can measure rather than eyeball.
+
+- **A sticky header, possibly translucent with a blur.** `components/site-header.tsx:94` is
+  `border-b` and nothing else. Two things to check if it becomes `sticky top-0`: the skip
+  link must still land correctly, and `backdrop-blur` over a hero image is exactly where
+  text contrast stops being a constant — the same measurement as above.
+
+- **The usage table's bars drift left-to-right between rows.** `usage-view.tsx:115` puts the
+  bar in the row-header cell beside the date, in a `flex items-center gap-2`. The numeric
+  `<td>`s carry `tabular-nums`; **the date `<th>` does not**, so `2026-08-11` and
+  `2026-08-09` occupy slightly different widths and every bar starts at a slightly different
+  x. Two fixes, and they are not equivalent: `tabular-nums` on the date is one class and
+  keeps the bar as an inline annotation, while giving the bar its own `<td>` aligns it by
+  construction and is arguably better semantics — a `<th scope="row">` should identify the
+  row, not carry data. The second needs a header cell for the new column, and an empty `<th>`
+  is not free for a screen reader reading the table.
+
+## Local mode, found in review of the answering slice, 12 August 2026
+
+Most of what this section listed was fixed in the follow-up; see
+[ADR 034](decisions/034-answering-on-the-gpu.md). Two things were not.
+
+- **The tokenizer is rebuilt for every question.** `generateLocally` calls
+  `AutoTokenizer.from_pretrained` per turn, re-reading and re-instantiating 6.7 MB, when the
+  pipeline returned by `loadChatModel` already carries one. Taking it from there means
+  typing the pipeline as more than a call signature, which is why it keeps being deferred.
+
+- ~~**The consent gate re-asks on every mount.**~~ **Fixed.** The question this entry said had
+  to be decided first was the whole of it: `loading !== null` means a download _started_, so a
+  two-state answer would have rendered the chat over weights still arriving. `chatModelStatus()`
+  reports `idle | loading | ready` instead, and a mount arriving mid-download rejoins the running
+  promise rather than starting a second — with no `aria-valuenow`, because the callback carrying
+  the real byte count belongs to the mount that began it and inventing a number would be worse
+  than admitting the percentage is unknown.
+
+## ~~The worked example leaks into answers~~, 12 August 2026
+
+**Fixed the same day — [ADR 035](decisions/035-where-the-worked-example-goes.md).** The example
+moved into the system prompt and is now built from the retrieved passage; `cite` no longer
+mentions an office, and real questions still carry clickable chips. The entry stays for the
+reasoning. The unrelated paragraph at the end of it is still open.
+
+Found in manual testing against a real CV, and it defeats the guarantee the project is built
+on. `MARKER_EXAMPLE` in `lib/local/generate.ts` is sent as real `user`/`assistant` messages
+between the system prompt and the question. Asked "you forgot to add the citation", the 0.5B
+model replayed the example's assistant turn verbatim — "It closes at six" — renumbering the
+marker to `[2]`, which **resolves**: the chip opens a passage of the reader's own document
+that has nothing to do with the claim.
+
+A wrong answer is survivable. A wrong answer wearing a citation that opens cleanly is the
+failure [ADR 011](decisions/011-retrieval-and-citation-strategy.md) exists to prevent, because
+the citation is what a reader checks it with.
+
+**It reproduces on one word.** Asking `cite` returns "The passage [1] says the office closes
+at six" every time — that is the example's _user_ turn, so the model is not merely echoing the
+answer, it is treating the pair as retrieved material and answering out of it. Generation is
+`do_sample: false`, so this is deterministic rather than unlucky. Whatever replaces the example
+has to be checked against `cite`, `citation` and `cite again` specifically; a normal question
+was never what exposed this.
+
+**The fix to try**: move the example inside the system prompt as delimited illustrative text
+rather than conversation turns. [ADR 033](decisions/033-answering-locally.md) measured the
+system prompt with **no example** producing no markers at all; an example _within_ the prompt
+was never tried, so this is not re-running a failed experiment. The regression probe is the
+question that triggered it — "you forgot to add the citation" — and the bar is markers still
+appearing on ordinary questions.
+
+Related and separate, because it is model capability rather than prompt construction: asked
+"do you use webgpu?", the model answered "Yes, I can run GPU code on my device" with no marker
+and no refusal. Retrieval had cleared the floor on some chunk, and the model then answered from
+its own knowledge against a system prompt that says it has none outside the documents —
+including about this app. Worth considering whether an answer containing no marker at all
+should be surfaced differently, since that is detectable where a plausible-looking leak is not.
+
+## ~~An unresolvable citation is inert, and nothing says why~~, 12 August 2026
+
+**Fixed — [ADR 036](decisions/036-saying-why-a-citation-did-not-link.md).** The invented numbers
+are named under the answer, and the note says "unsupported" rather than "error", because nothing
+failed. Its sibling — an answer citing nothing at all — took a second attempt and is
+[ADR 037](decisions/037-an-answer-that-cites-nothing.md).
+
+Found the best way possible: in production, on a real CV, by the person who wrote the rule.
+The 0.5B model answered "Lucian developed React frontend applications [2]" when one passage
+had cleared the floor, so there was no source 2. `linkCitationMarkers` did exactly what
+[ADR 011](decisions/011-retrieval-and-citation-strategy.md) requires and left the marker as
+literal text rather than linking it to nothing.
+
+Then the reader typed "that citation is not clickable" — and the reader was the author of the
+guard. **The property held and communicated nothing.** A dead number is indistinguishable from
+a broken button, so the one moment the system catches a model inventing a source is the moment
+it looks most broken.
+
+Worth being careful with the fix. Styling every unresolved marker as an error would put a
+warning in front of readers for something that is working, and on the cloud path it is rare
+enough that nobody has hit it. The options, roughly in order of how much they claim: a muted
+style with a `title`; a footnote under the answer naming how many markers did not resolve; or
+counting them and treating a high rate as a signal about the model rather than the answer.
+Any of them needs a decision about whether this is addressed to the reader or to us.
+
+## Follow-up questions retrieve nothing, 12 August 2026
+
+Same session. "Where did he use React?" answered; "where?" and "at which company?" both
+refused, because `questionFrom` embeds the last message alone and a two-word follow-up carries
+no retrievable meaning. The refusal copy is then actively misleading — it suggests rephrasing
+or that the document may still be processing, when the truth is that the question was
+understood only in a context retrieval never saw.
+
+**This is not local-only, and that is the part worth being careful about.** The chat route
+retrieves on the latest question too, so this reaches cloud mode — the default path, which
+carries no experimental label. Deferring it is a decision about priority, not something the
+`/local` badge covers, and the release notes should not imply otherwise.
+
+Two fixes, and they are not alternatives — the second is worth doing whether or not the first
+ever happens.
+
+**The full fix: rewrite the query against the recent turns before embedding.** "where?" becomes
+something carrying its own subject, and retrieval sees what the reader meant. A real feature
+with a measurable before and after: the evaluation harness already scores recall over the golden
+set, so a rewriting step can be shown to earn its place rather than argued for. It also has a
+failure mode worth measuring — a rewrite that invents a subject retrieves confidently wrong
+passages, which is worse than refusing.
+
+**The quick fix: stop the refusal blaming the document.** It currently offers "check that the
+document you have in mind has finished processing", which is false here and sends the reader to
+inspect something that is working. A refusal that misdiagnoses is worse than a blunt one. The
+wording should allow that a short follow-up may need naming its subject again — one sentence,
+no retrieval changes, and correct regardless of what happens to the full fix.
+
+## ~~An answer that cites nothing at all~~, 12 August 2026
+
+**Fixed — [ADR 037](decisions/037-an-answer-that-cites-nothing.md).** The deadlock below was
+self-inflicted: every wording tried said something about the answer's _quality_, which needs to
+know whether a sentence is a claim or a refusal. Stating only what happened — nothing here is
+cited, and a refusal is expected to cite nothing — is true in both cases and needs no such
+judgement. What remains open is the harder half, kept below the rule about resolving citations:
+a marker that resolves proves the passage was retrieved, not that it supports the sentence.
+
+The worse half of [ADR 036](decisions/036-saying-why-a-citation-did-not-link.md), split out
+because the fix is not obvious. Asked "how many files can i upload?", the local model answered
+**"you can upload up to 2 files"** — false, specific, confident, and carrying no marker. Rule 2
+of the system prompt requires a citation on every factual claim, so this is a rule violation
+with no artifact: nothing renders oddly, nothing is inert, and the reader has no signal at all.
+The inert marker ADR 036 explains is the _detectable_ case; this one is invisible.
+
+Counting resolvable markers is trivial. The difficulty is that **an uncited answer is sometimes
+correct**: rule 4 says never attach a marker to a refusal, so a model that writes "the documents
+do not cover that" is behaving exactly as told. A flat "this answer cites nothing" warning would
+fire on the honest case as often as the fabricated one, and a warning that cries wolf on correct
+behavior is worse than none — which is the same lesson the inert marker taught.
+
+What would need deciding: whether a refusal is distinguishable from a claim without asking a
+model to judge (the refusal path already emits `data-refusal`, so a _model-written_ refusal is
+the only ambiguous case), and whether the answer is to warn, to re-prompt, or to treat a high
+uncited rate as a signal about the model rather than about any one answer.
+
+Related, same session, same root: "do you use webgpu?" answered "Yes, I can run GPU code on my
+device", and "i can't see anything related to that on my pdf" produced a paragraph about code
+quality metrics opening with "I don't have access to your PDF" — which also breaks rule 7's
+"never describe your inputs". All of it is a 0.5B ignoring the prompt, none of it reachable on
+the cloud path, and all of it an argument for what `/local` is labelled as.
+
+## ~~The first demo chat after a cold start loses a race~~, 12 August 2026
+
+**Partly fixed — `e2e/global-setup.ts`.** Two wrong diagnoses before that one, kept below because
+the wrong ones are the useful part. Two consecutive cold builds then passed 122/122 where five in
+a row had failed. The stale-build note at the end is still open.
+
+↳ **13 August 2026: the warm-up was not the whole story, and "cold start" was the wrong name.**
+The same three `chat.spec.ts` tests failed twice in a row on a _warm_ build, each showing
+"Searching the documents." with a Stop button — a request in flight, not an error. They pass
+individually, and the suite passes **126/126 with `--workers=1`**.
+
+The line that explains it is in `playwright.config.ts`:
+
+```ts
+workers: process.env.CI ? 1 : undefined,
+```
+
+**CI runs serially and cannot hit this. Locally Playwright defaults to half the cores** — eight
+here — so eight browsers put concurrent chat requests through one Next server and one Postgres,
+and the slowest of them lose a 5 s expect. It got worse the day the machine had less free memory,
+which is the tell: the failures track load rather than anything in the code.
+
+So the warm-up is still worth having — it removed a real first-request cost — but the residual
+failures are a local parallelism setting, not a defect. What is left to decide is whether local
+runs should cap workers (reliable, roughly twice the wall clock) or keep the default and accept
+that a local red is sometimes about the machine. The second is what the repository does today,
+and it is the option that trains you to ignore a red suite.
+
+`chat.spec.ts:99` ("says so, and cites nothing at all") failed four times across one afternoon
+and passed on every re-run and in isolation. Treating it as noise was wrong; it has a shape.
+
+Every failure came on the first full-suite run after a fresh `pnpm build`, and none on a re-run
+against the same build. The saved snapshot shows no error state — the trailing `- alert` in it
+is Next's route announcer, which is empty on every page — only the refusal text missing after
+the 5 s `expect` timeout. So nothing failed; the first request to a just-started server did not
+answer inside five seconds.
+
+Worth confirming before fixing, because the obvious remedy is the wrong one. Raising that one
+timeout hides whatever the cold cost actually is, and this suite is the only place the number
+would ever be noticed — `webServer.timeout` already allows 120 s for the server to accept
+connections, which is not the same as being ready to serve a route that touches the database.
+
+↳ **What it actually was, after two wrong answers.** First guess: the route needed warming, so
+`/demo` was fetched before the suite. It failed again, and worse — two tests instead of one.
+Second guess: the first vector search paying for the HNSW index, since both failures were the
+refusal tests, the only ones asserting on retrieval's own reply with no streaming to wait
+behind. A warm chat POST was added, and the chat spec alone then passed on a cold build in
+15.7s — but the full suite still failed.
+
+The measurement that ended it: the warm-up reported `chat 200 in 592ms`. Retrieval was never
+slow. The cause is that `fullyParallel` starts every worker the instant a build finishes, and
+all twelve routes meet their first request simultaneously on a machine still busy from the
+build. One warm path cannot help when the others are cold. Warming the routes the suite opens,
+sequentially, fixed it.
+
+**Both wrong guesses were plausible and cheap to disprove, and neither was disproven by
+thinking harder.** The `592ms` line is what settled it — the same lesson as the unpdf worker
+in the entry above: run the cheap measurement before reasoning further.
+
+Related and separate: **`webServer.command` is `pnpm start`, so Playwright serves whatever
+`.next` already exists and never builds.** A local `pnpm test:e2e` after an edit silently tests
+the previous build — which happened repeatedly during this session and produced one confident
+"the test fails" report against a bundle from another branch. CI builds first, so its results
+stand. Either the command should build, or the docs should say `pnpm build && pnpm test:e2e` is
+the only sound local invocation.
+
+## Improving what the local model answers, 14 August 2026
+
+`Qwen2.5-0.5B-Instruct` answers badly enough that it needed a label. Recorded here because the
+transcripts that showed it will not survive this session, and because the order matters more
+than the list.
+
+Measured, on the seeded handbook, all with a passage retrieved and cited:
+
+| question                               | answer                       | document says |
+| -------------------------------------- | ---------------------------- | ------------- |
+| "How many days of annual leave…?"      | "Employees receive [1] days" | 28 days       |
+| same, pushed with "one working day?"   | "two days"                   | 28 days       |
+| "…hint: answer is 28"                  | "Annual leave is 28 days"    | 28 days       |
+| "you are wrong, document says 28 days" | one paragraph, then a loop   | —             |
+
+The last of those is fixed ([ADR 033](decisions/033-answering-locally.md)); the first three are
+the model. Note the shape: it answers correctly only when the question already contains the
+answer, which is the signature of a model doing pattern completion rather than reading.
+
+**1. Score local answers before changing anything.** `eval/golden-set.ts` and
+`scripts/eval-retrieval.mts` already measure recall and MRR over a fixture corpus, and every
+judgement about answer quality so far — including every one in this file — is a transcript and
+an impression. Extending the harness to run a question through `generateLocally` and check the
+expected quote appears in the answer would turn "it feels worse" into a number. Without that,
+swapping models is argument. [ADR 021](decisions/021-hybrid-retrieval-measured-and-not-shipped.md)
+is the precedent: a measurement killed the obvious answer, and nothing else would have.
+
+**2. Then try a newer small model.** The pin is 2024-vintage. A 2026 1B-class instruct model —
+Qwen3-0.6B, Llama-3.2-1B, Phi-4-mini — plausibly beats it at a similar download. Worth knowing
+before anyone reaches for size: the **1.5B was already tried** and did not fix marker emission
+(ADR 033), so parameters alone are not the lever. What changed that was the worked example.
+
+**3. Cheap prompt experiments, once (1) can score them.** Two candidates. `RETRIEVAL_LIMIT`
+passages plus the rules plus an example is a lot of context for a 0.5B, and fewer passages may
+read better than more. And `markerExample` demonstrates a sentence, not a quantity — "1 days"
+is exactly the failure a numeric exemplar targets.
+
+**4. Constrained decoding, last.** Forcing `{ answer, citations }` would make the marker unable
+to stand where a number belongs — the problem
+[ADR 038](decisions/038-a-citation-that-cannot-be-read-as-content.md) could only mitigate. It is
+also the most work for the least certainty: transformers.js has no real grammar support, so this
+means post-parsing a shape the model was merely asked for.
+
+**What none of this fixes.** A model that cites a real passage for a claim that passage does not
+support still produces no signal — the marker resolves, the chip opens, the answer looks sourced.
+That needs an entailment check, and it is a separate entry above.
+
+## CI never runs the real local model, 14 August 2026
+
+Raised by a review of the local-mode slice, and it is the structural reason every defect in that
+code had to be found by hand in a browser rather than by a red test. `e2e/local-chat.spec.ts`
+sets `__citeseekLocalEmbedder = "fake"`, which swaps in `fakeGenerator`, so no job ever runs
+`loadChatModel` or `generateLocally` **against the real library**. `lib/local/generate.test.ts`
+runs both against a mock of it, which is a different thing: it proves what we send, not what
+transformers.js does with it.
+
+**Most of the gap is now closed without a model.** Device selection, the `progress_total`
+filter, the message array being exactly `[system, user]`, the loop detector and the abort call
+are all asserted against the arguments handed to `pipeline` (`lib/local/generate.test.ts`), and
+`lib/local/transformers-contract.test.ts` pins the two library behaviors that were established
+by reading the bundle rather than by testing it.
+
+**What is left needs a model, and the real one will not fit.** 756 MB from Hugging Face per run,
+plus WebGPU on a runner with no GPU — the CPU path was measured at over sixty seconds for a
+single answer, against a fifteen-minute job. The E2E suite is also deliberately free of any
+network dependency on a model provider, for the reason `playwright.config.ts` already gives
+about rate limits.
+
+**The tractable version is a tiny model, node-side.** Something in the low megabytes, loaded
+through the same `loadChatModel` path, generating a few tokens of nonsense — enough to prove
+that generation actually stops when the criteria are interrupted, that `progress_total` fires
+during a real fetch, and that the options object is accepted end to end. The open question is
+whether it is downloaded (network in CI, the thing that suite avoids) or vendored (a binary in
+the repository, which `public/onnx` is deliberately not). That choice is the work; the test
+around it is small.

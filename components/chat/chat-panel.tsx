@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type ChatTransport } from "ai";
 
 import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
 import { parseRefusal } from "@/lib/usage/limits";
@@ -25,6 +25,8 @@ export function ChatPanel({
   isDemo = false,
   onOpenSource,
   openChunkId,
+  transport,
+  uploadHref,
 }: {
   workspaceId: string;
   /** Whether anything has finished processing. Nothing to search without it. */
@@ -50,13 +52,27 @@ export function ChatPanel({
   onOpenSource: (source: ChatSource) => void;
   /** Which chip reads as pressed. Owned above for the same reason. */
   openChunkId: string | null;
+  /** Local mode supplies one that never leaves the browser. Unset means the
+   * workspace route, which is what every server-backed surface uses. */
+  transport?: ChatTransport<ChatUIMessage>;
+  /** Overrides where the refusal points for uploads. Null means the upload area
+   * is on this page already, which is how local mode uses it. */
+  uploadHref?: string | null;
 }) {
+  // Memoized, or every render allocates a transport and `useChat` is handed a
+  // new object each time.
+  const routeTransport = useMemo(
+    () =>
+      new DefaultChatTransport<ChatUIMessage>({
+        api: `/api/w/${workspaceId}/chat`,
+      }),
+    [workspaceId],
+  );
+
   const { messages, sendMessage, regenerate, stop, status, error, clearError } =
     useChat<ChatUIMessage>({
       messages: initialMessages,
-      transport: new DefaultChatTransport({
-        api: `/api/w/${workspaceId}/chat`,
-      }),
+      transport: transport ?? routeTransport,
       /*
         The conversation list is server-rendered, so counts and titles sat stale
         until a reload. Unconditional — the route persists whatever was shown, a
@@ -130,13 +146,18 @@ export function ChatPanel({
           messages={messages}
           onSelectSource={onOpenSource}
           selectedChunkId={openChunkId}
-          workspaceId={workspaceId}
+          // `=== undefined`, not `??`: null is an explicit "no link, the
+          // upload area is on this page", and `??` would swallow it.
+          uploadHref={
+            uploadHref === undefined ? `/w/${workspaceId}` : uploadHref
+          }
           documents={documents}
           canUpload={canUpload}
           signedIn={signedIn}
           isDemo={isDemo}
           onAsk={ask}
           pending={status === "submitted"}
+          streaming={status === "streaming"}
         />
       </div>
 
