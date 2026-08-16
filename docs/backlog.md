@@ -1178,7 +1178,7 @@ individually, and the suite passes **126/126 with `--workers=1`**.
 
 The line that explains it is in `playwright.config.ts`:
 
-```ts
+```txt
 workers: process.env.CI ? 1 : undefined,
 ```
 
@@ -1306,3 +1306,95 @@ during a real fetch, and that the options object is accepted end to end. The ope
 whether it is downloaded (network in CI, the thing that suite avoids) or vendored (a binary in
 the repository, which `public/onnx` is deliberately not). That choice is the work; the test
 around it is small.
+
+## Limits for the default plan, and the paywalls that would replace them, 16 August 2026
+
+Raised as product thinking rather than a defect: cap the free tier now, so the paid tiers have
+something to be an upgrade _from_. Recorded with the numbers proposed and the objections worth
+answering before any of it is built.
+
+**Proposed**: 100 MB of uploads in total, 3 documents at once, 3 conversations, 100 saved
+messages per conversation, and a token ceiling.
+
+**"100 MB of uploaded files" measures something this project does not keep.** Files are
+discarded once extraction finishes ([ADR 009](decisions/009-store-extracted-text-not-files.md));
+what is stored is the extracted text and a vector per chunk. `documents.sizeBytes` is retained,
+so summing it is easy — but it is a poor proxy for what a document actually costs. A 100 MB PDF
+of scanned pages yields almost no text and almost no chunks; 100 MB of Markdown yields an
+enormous amount of both. A cap on uploaded bytes limits the wrong quantity and would let the
+expensive case through while refusing the cheap one. **Chunks, or total extracted characters, is
+the axis that tracks cost** — and it is the one a reader will not intuit, so whichever is chosen
+has to be said plainly in the interface rather than left as a surprise.
+
+**100 saved messages collides with a constant that already exists.** `MAX_MESSAGES = 100` in the
+chat route caps how long a transcript may be _in a single request_ — a different axis, a
+different reason (the limiter counts requests, so one enormous turn would slip a cap built for a
+normal one). Two limits called 100 that mean different things is a support conversation waiting
+to happen. Pick distinct numbers, or name them so the difference is visible.
+
+**A "My Documents" page needs a reason beyond the cap.** `DocumentList` already renders inside
+the workspace, and documents are workspace-scoped. A separate page earns its place only if that
+changes — a view across workspaces, say. Otherwise, it is a second route rendering the same
+component against the same data.
+
+**Every cap belongs in the query layer, not the interface.** The same rule tenant isolation
+follows: a limit enforced by hiding a button is not a limit, and an integration test should
+prove each one refuses rather than that the button is missing.
+
+**None of these belong in `lib/usage`, which holds no limit of this kind.** What is there counts
+provider calls in a rolling minute and a rolling day — a flow limit, and one that heals itself as
+the window slides, which is why "try again shortly" is a complete answer to it. Every cap proposed
+here is a stock limit: three documents stays three documents until someone deletes one. It never
+heals, so its message has to name what to delete, and a caller cannot retry its way out. Extending
+`enforceUsageLimits` to carry both is the obvious move and the wrong one — it would put two
+refusals with incompatible remedies behind one call.
+
+**The paywall and the limit are the same check.** This is the part worth designing now even if
+nothing is built: make the refusal carry a typed reason from the start. The precedent to copy is
+`decideUsage`, which returns a discriminated union — `reason: "rate_limited"` with a retry delay,
+or `reason: "capacity_reached"` with the `scope` that ran out — so the route renders a decision it
+did not have to re-derive. Then "you have used
+your 3 documents" and "upgrade for more" are two renderings of one server decision, and adding
+tiers later is a copy change rather than a re-plumb. Getting this wrong means the paywall becomes
+a second enforcement path, which is how one of them ends up wrong.
+
+**A plain dialog is the first rendering, and it is not a lesser version of the paywall — it is
+the test of it.** Say the limit was reached, what the limit is, and what to delete to continue.
+If that dialog cannot be written clearly, the limit is wrong rather than the copy: a reader who
+cannot tell which of their three documents to remove has been given a number, not a rule. It
+also has to be reachable — a cap discovered only by pressing a disabled button is the same
+mistake as an inert citation with nothing saying why.
+
+## Metadata the site has none of, 16 August 2026
+
+Neither social embedding nor search indexing is configured anywhere: no `metadataBase`, no
+`openGraph`, no `robots`, no sitemap. Every page sets a `title`; only the marketing pages add a
+`description`; nothing else exists.
+
+**Social cards need branding first, and `metadataBase` regardless.** Without it Next cannot turn a
+relative image path into the absolute URL a crawler needs, so the card silently renders bare.
+Next's `opengraph-image` file convention handles the rest. No CSP work is involved — the platforms
+fetch server-side, so `img-src` never applies. This is blocked on the logo and hero work above,
+because the card is the image.
+
+**The interesting half of SEO is not the tags — it is deciding what should be indexed at all.**
+`/demo` mints a guest session on every visit, so an indexed `/demo` means crawlers minting
+sessions on a schedule. `/w/*` calls `notFound()` for anyone without the credential, so a crawler
+already gets a real 404 there and has nothing to index. The marketing pages and `/local` are the ones worth indexing, and saying so needs a
+`robots` policy rather than a meta tag on each page. Worth doing in the same pass as a sitemap,
+since both answer the same question.
+
+## The local upload control is a bare file input, 16 August 2026
+
+`components/local/local-upload.tsx` renders `<input type="file">` behind a "Choose a file" button,
+while the only other upload in the product uses `components/documents/upload-dropzone.tsx` — drag and
+drop, a described drop target, the same validation copy.
+
+So this is reuse rather than design: the component exists. What it needs is a way to hand back the
+selected file instead of posting it to a route, which is the same seam the source panel needed for
+its loader.
+
+**This is not an accessibility fix.** The input is `sr-only` behind a real button and has carried
+`aria-label="Add a document to local mode"` since the commit that introduced it, so it was never
+a violation. Whoever picks this up should not expect axe to report one fewer finding — the gap is
+drag and drop, the described drop target, and one validation copy instead of two.
