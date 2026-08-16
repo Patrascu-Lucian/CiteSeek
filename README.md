@@ -134,7 +134,7 @@ reasoning.
 > by the same character offsets the server path uses — proven by an end-to-end test asserting the
 > panel opens with **zero** requests to the API. The cost is stated before anything is fetched:
 > two model downloads totalling 884 MB, cached afterwards, and answers around two to three seconds
-> each. They are also visibly worse. A model small enough to run in a tab sometimes states things
+> each, five at worst. They are also visibly worse. A model small enough to run in a tab sometimes states things
 > the documents do not say, and sometimes answers citing nothing at all — the page says so before
 > you start, because a privacy guarantee is not a reason to oversell the thing delivering it.
 >
@@ -421,7 +421,7 @@ pnpm dev               # dev server
 pnpm build             # production build
 pnpm test              # vitest unit tests (no database needed)
 pnpm test:integration  # vitest against a real Postgres (needs DATABASE_URL)
-pnpm test:e2e          # playwright (builds and serves automatically)
+pnpm test:e2e          # playwright (serves an existing build — run pnpm build first)
 pnpm lint              # eslint, type-aware
 pnpm typecheck         # tsc --noEmit
 pnpm format            # prettier --write
@@ -494,13 +494,13 @@ Playwright smoke suite all gate every pull request.
 
 ## Testing
 
-| Layer       | Count | What it covers                                                                                  |
-| ----------- | ----- | ----------------------------------------------------------------------------------------------- |
-| Unit        | 538   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts |
-| Integration | 150   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades       |
-| E2E         | 96    | Guest flow, route protection, ask → stream → cite → source panel, capacity states, axe          |
+| Layer       | Count | What it covers                                                                                              |
+| ----------- | ----- | ----------------------------------------------------------------------------------------------------------- |
+| Unit        | 726   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode |
+| Integration | 150   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades                   |
+| E2E         | 126   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, local mode, axe          |
 
-The pure core — `lib/rag` and `lib/ai` — is held to ≥90% coverage, enforced in CI.
+The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)
 exercise ingestion, retrieval and the whole answer path with no API key and no network, so CI
