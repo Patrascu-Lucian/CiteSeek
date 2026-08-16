@@ -20,7 +20,10 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - citeseek-pgdata:/var/lib/postgresql/data
+      # `/var/lib/postgresql`, not `/var/lib/postgresql/data`: the pg18 images
+      # store data under a major-versioned subdirectory, and mounting the old
+      # path makes the container refuse to start on a fresh volume.
+      - citeseek-pgdata:/var/lib/postgresql
     healthcheck:
       # `pnpm db:migrate` immediately after `up -d` otherwise races the server's
       # first-boot initialization and fails with a connection error.
