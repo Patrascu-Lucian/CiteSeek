@@ -1,6 +1,6 @@
 # 039 — The default plan's ceiling: stock limits, and where they are enforced
 
-**Status**: accepted · **Date**: 2026-08-16 · **Milestone**: 7.5
+**Status**: accepted · **Date**: 2026-08-17 · **Milestone**: 7.5
 
 ## Context
 
@@ -88,8 +88,11 @@ problem rather than a limit problem, and the check has already counted the statu
   suggest otherwise.
 - The refusal body carries `cap`, `limit` and `current`. A paywall renders those; it does not ask
   the server a second question.
-- `PLAN_LIMITS=off` mirrors `USAGE_LIMITS=off` for Playwright — unreachable thresholds rather than
-  a skipped check, so the count query still runs on the real admission path.
+- `PLAN_LIMITS=off` exists, on the `USAGE_LIMITS` pattern — unreachable thresholds rather than a
+  skipped check, so the count query still runs on the real admission path. **Playwright does not
+  set it**, and adding it was a mistake corrected the same day: no E2E can reach a signed-in
+  workspace, so no spec can trip these caps. The reasoning and the trigger for revisiting are in
+  `docs/backlog.md`.
 - The cap can be exceeded under concurrency, by one per race. Recorded above rather than fixed.
 - Three more caps follow this shape: conversations on `createChat` only, saved messages as a route
   admission check ahead of retrieval, and extracted characters for storage. Each adds a `CapKind`

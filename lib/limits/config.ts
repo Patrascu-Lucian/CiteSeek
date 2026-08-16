@@ -11,16 +11,26 @@
 export type PlanLimits = {
   /** Rows in `documents`, whatever their status — see `countDocuments`. */
   documents: number;
+  /**
+   * Conversations per reader in one workspace, matching `createChat`'s scope.
+   *
+   * **Must stay ≥ 1.** `getOrCreateChat` inserts when a reader has none, and it
+   * runs on the chat-turn path where a refusal would lose the question rather
+   * than decline an action. A cap of 0 is the one value that path cannot honor.
+   */
+  conversations: number;
 };
 
 export const DEFAULT_PLAN_LIMITS: PlanLimits = {
   documents: 3,
+  conversations: 3,
 };
 
 /** Unreachable thresholds rather than a flag that skips enforcement: the count
  * query still runs, so E2E exercises the real admission path. */
 export const UNLIMITED_PLAN_LIMITS: PlanLimits = {
   documents: Number.POSITIVE_INFINITY,
+  conversations: Number.POSITIVE_INFINITY,
 };
 
 /** Only the variable actually read — see `UsageLimitsEnv` for why not `ProcessEnv`. */

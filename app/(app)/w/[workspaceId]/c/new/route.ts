@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getActor } from "@/lib/auth/actor";
-import { createChat } from "@/lib/chats/queries";
+import { countChats, createChat } from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
+import { CAP_PARAM, decideCap } from "@/lib/limits/caps";
+import { resolvePlanLimits } from "@/lib/limits/config";
 
 export const runtime = "nodejs";
 
@@ -36,6 +38,27 @@ export async function POST(
     return NextResponse.redirect(new URL(`/w/${workspaceId}`, request.url), {
       status: 303,
     });
+  }
+
+  /*
+    On `createChat` only, never on `getOrCreateChat`. That one runs on the chat
+    *turn* path as a fallback for a stale id, so a refusal there would drop the
+    reader's question rather than decline an action. It is also safe from this
+    cap by construction: it inserts only when the count is zero.
+  */
+  const capped = decideCap(
+    "conversations",
+    await countChats(auth.workspaceId, actor.id),
+    resolvePlanLimits().conversations,
+  );
+
+  if (!capped.allowed) {
+    // Back where the button was, with the cap named. A 409 body would be raw
+    // JSON on screen: this POST is a form submission, not `fetch`.
+    return NextResponse.redirect(
+      new URL(`/w/${workspaceId}?${CAP_PARAM}=conversations`, request.url),
+      { status: 303 },
+    );
   }
 
   const chat = await createChat(auth.workspaceId, actor.id);

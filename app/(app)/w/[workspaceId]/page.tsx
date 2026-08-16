@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { CAP_PARAM } from "@/lib/limits/caps";
+
 import { WorkspaceView } from "./workspace-view";
 
 export const metadata: Metadata = { title: "Workspace" };
@@ -12,10 +14,20 @@ export const metadata: Metadata = { title: "Workspace" };
  */
 export default async function WorkspacePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceId: string }>;
+  /** `/c/new` redirects here with `CAP_PARAM` when the conversation cap refuses;
+   * a form POST has no other way to carry a refusal through the navigation. */
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { workspaceId } = await params;
+  const capReached = (await searchParams)[CAP_PARAM];
 
-  return <WorkspaceView workspaceId={workspaceId} />;
+  return (
+    <WorkspaceView
+      workspaceId={workspaceId}
+      capReached={typeof capReached === "string" ? capReached : null}
+    />
+  );
 }

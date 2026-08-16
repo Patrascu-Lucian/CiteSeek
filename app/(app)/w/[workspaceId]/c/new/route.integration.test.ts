@@ -1,13 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { Actor } from "@/lib/auth/actor";
-import { listChats } from "@/lib/chats/queries";
+import { listChats, resolveChatForTurn } from "@/lib/chats/queries";
 import {
   cleanupTestRows,
   createTestClient,
   createTestUser,
   createTestWorkspace,
 } from "@/lib/db/test-helpers";
+import { CAP_PARAM } from "@/lib/limits/caps";
+import { DEFAULT_PLAN_LIMITS } from "@/lib/limits/config";
 
 /**
  * Starting a conversation.
@@ -92,6 +94,49 @@ describe("POST /w/[workspaceId]/c/new", () => {
     await request();
 
     expect(await listChats(workspace.id, user.id)).toHaveLength(2);
+  });
+
+  it("refuses at the conversation cap, writing no row", async () => {
+    const { workspace, user } = await scenario("new-chat-cap");
+    const { POST } = await import("./route");
+    const request = () =>
+      POST(new Request("http://test/w/x/c/new", { method: "POST" }), {
+        params: Promise.resolve({ workspaceId: workspace.id }),
+      });
+
+    for (let index = 0; index < DEFAULT_PLAN_LIMITS.conversations; index++) {
+      expect((await request()).status).toBe(303);
+    }
+
+    const refused = await request();
+
+    // Still a 303: a form POST has nowhere to render a JSON body, so the refusal
+    // rides back on the redirect and the workspace names it.
+    expect(refused.status).toBe(303);
+    expect(refused.headers.get("location")).toContain(
+      `${CAP_PARAM}=conversations`,
+    );
+    expect(await listChats(workspace.id, user.id)).toHaveLength(
+      DEFAULT_PLAN_LIMITS.conversations,
+    );
+  });
+
+  /* The trap this cap was placed to avoid. `resolveChatForTurn` falls back to
+     `getOrCreateChat` for a stale id, so a cap enforced there would refuse a
+     chat turn rather than a create action — losing the reader's question. */
+  it("leaves the chat-turn path able to open a conversation at zero", async () => {
+    const { workspace, user } = await scenario("new-chat-implicit");
+
+    // Well-formed but unknown. A malformed id never reaches the fallback at all
+    // — Postgres rejects the uuid cast first (`docs/backlog.md`).
+    const resolved = await resolveChatForTurn(
+      workspace.id,
+      user.id,
+      "00000000-0000-4000-8000-000000000000",
+    );
+
+    expect(resolved.id).toBeTruthy();
+    expect(await listChats(workspace.id, user.id)).toHaveLength(1);
   });
 
   it("creates nothing for a guest", async () => {
