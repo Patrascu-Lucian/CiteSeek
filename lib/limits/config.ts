@@ -1,0 +1,50 @@
+/**
+ * The default plan's ceilings.
+ *
+ * **Stock limits, not flow limits.** `lib/usage` counts provider calls in a
+ * rolling window and heals as that window slides, which is why "try again
+ * shortly" is a complete answer to it. None of these heal: three documents stays
+ * three until someone deletes one. So a refusal here has to name what to delete,
+ * and no retry escapes it. ADR 039.
+ */
+
+export type PlanLimits = {
+  /** Rows in `documents`, whatever their status — see `countDocuments`. */
+  documents: number;
+};
+
+export const DEFAULT_PLAN_LIMITS: PlanLimits = {
+  documents: 3,
+};
+
+/** Unreachable thresholds rather than a flag that skips enforcement: the count
+ * query still runs, so E2E exercises the real admission path. */
+export const UNLIMITED_PLAN_LIMITS: PlanLimits = {
+  documents: Number.POSITIVE_INFINITY,
+};
+
+/** Only the variable actually read — see `UsageLimitsEnv` for why not `ProcessEnv`. */
+export type PlanLimitsEnv = {
+  PLAN_LIMITS?: string | undefined;
+  [key: string]: string | undefined;
+};
+
+/** `PLAN_LIMITS=off` is how Playwright opts out: the whole signed-in suite shares
+ * one workspace and CI retries twice, so any honest cap would fail the suite for
+ * being one. Integration tests run at the real thresholds. */
+export function resolvePlanLimits(
+  env: PlanLimitsEnv = process.env,
+): PlanLimits {
+  const configured = env.PLAN_LIMITS?.trim().toLowerCase();
+
+  if (configured === "off") return UNLIMITED_PLAN_LIMITS;
+  if (configured === "default") return DEFAULT_PLAN_LIMITS;
+
+  if (configured) {
+    throw new Error(
+      `Unknown PLAN_LIMITS "${configured}". Expected "default" or "off".`,
+    );
+  }
+
+  return DEFAULT_PLAN_LIMITS;
+}

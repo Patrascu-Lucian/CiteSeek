@@ -19,8 +19,13 @@ import {
   createTestWorkspace,
 } from "@/lib/db/test-helpers";
 import type * as DocumentQueries from "@/lib/documents/queries";
-import { listDocuments } from "@/lib/documents/queries";
+import {
+  createQueuedDocument,
+  listDocuments,
+  updateDocument,
+} from "@/lib/documents/queries";
 import { MAX_FILE_BYTES } from "@/lib/documents/validation";
+import { DEFAULT_PLAN_LIMITS } from "@/lib/limits/config";
 import type * as Sweeps from "@/lib/sweeps";
 
 /**
@@ -97,6 +102,14 @@ function multipart(file: File): FormData {
   const body = new FormData();
   body.set("file", file);
   return body;
+}
+
+/** The extension proposes a format and the leading bytes have to agree, so a
+ * cap test needs a file that would otherwise be accepted. */
+function validPdf() {
+  const bytes = new Uint8Array(1024).fill(0x20);
+  bytes.set([0x25, 0x50, 0x44, 0x46, 0x2d]);
+  return bytes;
 }
 
 describe("POST /documents — oversized uploads", () => {
@@ -177,6 +190,97 @@ describe("POST /documents — oversized uploads", () => {
 
     expect(response.status).toBe(201);
     await expect(listDocuments(workspace.id)).resolves.toHaveLength(1);
+  });
+});
+
+describe("POST /documents — the document cap", () => {
+  const CAP = DEFAULT_PLAN_LIMITS.documents;
+
+  async function fill(workspaceId: string, howMany: number) {
+    for (let index = 0; index < howMany; index++) {
+      await createQueuedDocument(workspaceId, {
+        filename: `filled-${index}.pdf`,
+        mimeType: "application/pdf",
+        sizeBytes: 1024,
+      });
+    }
+  }
+
+  it("refuses at the cap without reading the body, and inserts nothing", async () => {
+    const workspace = await signedInWorkspace();
+    await fill(workspace.id, CAP);
+
+    const request = new Request("http://test/api/documents", {
+      method: "POST",
+      body: multipart(new File([validPdf()], "one-too-many.pdf")),
+    });
+
+    // Spied rather than inferred from the status: the placement *is* the slice,
+    // and a check that ran after the buffer would pass every other assertion.
+    const formData = vi.fn(() => Promise.reject(new Error("body was read")));
+    Object.defineProperty(request, "formData", { value: formData });
+
+    const response = await send(workspace.id, request);
+
+    expect(formData).not.toHaveBeenCalled();
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "cap_reached",
+      cap: "documents",
+      limit: CAP,
+      current: CAP,
+    });
+    await expect(listDocuments(workspace.id)).resolves.toHaveLength(CAP);
+  });
+
+  it("admits the upload that fills the last slot", async () => {
+    const workspace = await signedInWorkspace();
+    await fill(workspace.id, CAP - 1);
+
+    const response = await post(workspace.id, {
+      method: "POST",
+      body: multipart(new File([validPdf()], "last-slot.pdf")),
+    });
+
+    expect(response.status).toBe(201);
+    await expect(listDocuments(workspace.id)).resolves.toHaveLength(CAP);
+  });
+
+  it("tells a reader whose documents all failed which one to delete", async () => {
+    const workspace = await signedInWorkspace();
+    await fill(workspace.id, CAP);
+
+    const [stuck] = await listDocuments(workspace.id);
+    await updateDocument(workspace.id, stuck!.id, {
+      status: "failed",
+      error: "Could not parse",
+    });
+
+    const response = await post(workspace.id, {
+      method: "POST",
+      body: multipart(new File([validPdf()], "blocked.pdf")),
+    });
+
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { error: string };
+    expect(body.error).toContain("failed to process");
+  });
+
+  /* The regression a cap counted on the wrong scope would cause, and the reason
+     `countDocuments` takes a workspace like every other helper here. */
+  it("counts only the workspace being uploaded to", async () => {
+    const neighbour = await signedInWorkspace();
+    await fill(neighbour.id, CAP);
+
+    const mine = await signedInWorkspace();
+
+    const response = await post(mine.id, {
+      method: "POST",
+      body: multipart(new File([validPdf()], "mine.pdf")),
+    });
+
+    expect(response.status).toBe(201);
+    await expect(listDocuments(mine.id)).resolves.toHaveLength(1);
   });
 });
 
