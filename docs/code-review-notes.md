@@ -1964,3 +1964,34 @@ tests, 117 E2E and a production build, green.
   breakage. The reader who reported "that citation is not clickable" was the person who wrote
   the rule making it unclickable. A safety property that communicates nothing gets read as a
   defect and eventually gets "fixed".
+
+## A guard that checked one of the two variables its code reads, 17 August 2026
+
+- **Issue found**: `assertDisposableDatabase` refuses to let the integration suite run against a
+  database it may not truncate. It checked `DATABASE_URL`. It did not check
+  `DATABASE_URL_UNPOOLED` — and `retrieve.integration.test.ts` builds its forced-plan connection
+  from `DATABASE_URL_UNPOOLED ?? DATABASE_URL`, because a pooler rejects the startup options that
+  test needs to force an HNSW-first plan. So a local `DATABASE_URL` beside a remote unpooled one
+  passed the guard and then queried the remote database anyway.
+
+- **How it surfaced**: not as a warning. The test returned `[]` and failed on an assertion about
+  retrieval, which reads exactly like a product bug in the vector search. The connection was
+  never mentioned. Only the fact that the same test had passed an hour earlier, on the same
+  commit, made the environment the suspect instead of the code.
+
+- **Fix**: the guard iterates every variable the suite can resolve a connection from, and its
+  message names _which_ one is at fault rather than only the host. A test now covers the exact
+  combination that slipped through — local pooled, remote unpooled — which is the counterexample
+  the first version could not produce.
+
+- **Lesson**: this is the repo's own note about `db:*` commands ("overriding one variable out of
+  two", `DATABASE_URL_UNPOOLED ?? DATABASE_URL`) reappearing **inside the guard written to stop
+  it**. The rule was known, written down, and applied to the commands; it was not applied to the
+  check itself. **A guard has to cover every variable the guarded code can read, not the one the
+  author was thinking about** — enumerate the fallback chain, do not name a variable.
+
+- **Second lesson**: the guard was written and shipped in the same hour as a note claiming it
+  closed this hazard class. It closed one member of it. `docs/backlog.md` already carries the
+  older version of this observation — "a guard is shaped like the bug that produced it, and the
+  next bug in the same family walks straight past it" — and this is that sentence happening to
+  the guard that quoted it.
