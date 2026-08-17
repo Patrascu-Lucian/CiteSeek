@@ -1995,3 +1995,63 @@ tests, 117 E2E and a production build, green.
   older version of this observation — "a guard is shaped like the bug that produced it, and the
   next bug in the same family walks straight past it" — and this is that sentence happening to
   the guard that quoted it.
+
+## A guard configured for a suite that does not exist, 17 August 2026
+
+- **Issue found**: the document cap shipped with `PLAN_LIMITS: "off"` added to
+  `playwright.config.ts`, carrying the comment "the signed-in suite shares one workspace, so a
+  third upload anywhere would strand every spec after it." Every clause of that is false. There is
+  no signed-in suite: GitHub OAuth cannot be driven from a browser test, so every spec runs as a
+  guest against the demo — which is read-only for everyone, and whose conversations are never
+  stored. The only upload in the whole suite is `/local`, which never reaches the server.
+
+- **How it was caught**: not by review of the setting, which reads perfectly plausibly. By trying
+  to write the next slice's E2E test and discovering there was no way to reach a signed-in
+  workspace to hit the cap from. The question "why can't I test this?" is what exposed that the
+  opt-out was protecting against nothing.
+
+- **Fix**: the setting is gone. `PLAN_LIMITS=off` still exists in `resolvePlanLimits` and is unit
+  tested; nothing sets it. The reason the caps have no E2E, and the trigger for revisiting, are in
+  `docs/backlog.md`.
+
+- **Lesson**: **the `USAGE_LIMITS` precedent was copied without checking that its premise
+  transferred.** That one is real and measured — flipping it to production thresholds fails 6 of 7
+  chat specs, and it is keyed on an IP address the whole suite shares. The stock caps are keyed on
+  a workspace no spec can write to. Same shape of setting, opposite facts. Copying a neighbouring
+  pattern is usually right and is exactly why it needs the same evidence the original had.
+
+- **Second lesson, and the one that generalizes**: an unnecessary opt-out is not harmless. It is
+  configuration that will silently swallow a real breach the day someone adds the authenticated
+  spec — and its comment would have kept explaining why that was fine. This project's own file
+  already says it: **a verification that cannot produce a counterexample is a restatement of the
+  claim.** A limiter turned off in the only environment that could exercise it produces no
+  counterexamples by construction.
+
+## A destructive test helper with an implicit target, 17 August 2026
+
+- **Issue found**: `pnpm test:integration` takes its database from `DATABASE_URL`, which
+  `vitest.integration.config.ts` reads out of `.env.local` — the file that points a laptop at
+  Neon. The suite calls `clearUsageEvents`, which is `db.delete(usageEvents)`: every row, no
+  prefix, no scope. Correct against CI's throwaway container, and against a real database it
+  empties the table behind the usage dashboard and the rate limiter.
+
+- **How it was caught**: by needing to run the suite on a machine with no Docker and checking what
+  `DATABASE_URL` actually resolved to before running it. Nothing about the command names its
+  target, which is the whole defect.
+
+- **Fix**: `assertDisposableDatabase` throws in the config, before any worker forks, unless the
+  host is loopback or `INTEGRATION_DB_IS_DISPOSABLE=yes`. CI needs no exemption — a service
+  container is port-mapped, so it is already loopback there. **The guard's first run refused a
+  real Neon host**, which is the second time in this project a guard has opened by finding the
+  failure rather than preventing it.
+
+- **Lesson**: **the danger is not the destructive helper, it is that its target is implicit.**
+  `clearUsageEvents` is right to be unscoped and its comment defends that well. What was missing
+  was any statement of which database the command was entitled to do it to. `db:seed` already had
+  this seatbelt in `SEED_HOST`; the integration harness was the one path without it, and the
+  fourth instance of this project confusing one database for another.
+
+- **Naming note**: the escape hatch is `INTEGRATION_DB_IS_DISPOSABLE`, not `ALLOW_REMOTE_DB`.
+  The variable should state the claim that has to be true, not the restriction being lifted —
+  someone setting the second is bypassing a check, someone setting the first is asserting a fact
+  they can be held to.

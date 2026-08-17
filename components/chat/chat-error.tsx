@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { AlertCircle, Clock, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import type { ParsedRefusal } from "@/lib/usage/limits";
 
 /**
@@ -29,7 +29,7 @@ export function ChatError({
     const mine = refusal.scope === "caller";
 
     return (
-      <Alert
+      <Notice
         icon={<Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}
         tone="muted"
         title={
@@ -59,7 +59,7 @@ export function ChatError({
 
   if (refusal?.code === "rate_limited") {
     return (
-      <Alert
+      <Notice
         icon={<Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}
         tone="muted"
         title="That was a bit quick."
@@ -75,7 +75,7 @@ export function ChatError({
   }
 
   return (
-    <Alert
+    <Notice
       icon={
         <AlertCircle
           aria-hidden="true"
@@ -92,39 +92,5 @@ export function ChatError({
         </Button>
       }
     />
-  );
-}
-
-/** `role="alert"` on the container: nested regions read the title and detail as
- * separate interruptions. */
-function Alert({
-  icon,
-  tone,
-  title,
-  detail,
-  action,
-}: {
-  icon: ReactNode;
-  tone: "destructive" | "muted";
-  title: string;
-  detail: string;
-  action: ReactNode;
-}) {
-  return (
-    <div
-      role="alert"
-      className={
-        tone === "destructive"
-          ? "border-destructive/40 bg-destructive/5 flex items-start gap-3 rounded-lg border p-3 text-sm"
-          : "border-border bg-muted/40 flex items-start gap-3 rounded-lg border p-3 text-sm"
-      }
-    >
-      {icon}
-      <div className="flex-1">
-        <p className="font-medium">{title}</p>
-        <p className="text-muted-foreground mt-1">{detail}</p>
-      </div>
-      {action}
-    </div>
   );
 }

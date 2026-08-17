@@ -1398,3 +1398,47 @@ its loader.
 `aria-label="Add a document to local mode"` since the commit that introduced it, so it was never
 a violation. Whoever picks this up should not expect axe to report one fewer finding — the gap is
 drag and drop, the described drop target, and one validation copy instead of two.
+
+## No E2E can reach a plan cap, 17 August 2026
+
+The stock caps bite in exactly one place — a signed-in reader's own workspace — and the Playwright
+suite never reaches one. There is no authenticated E2E at all: GitHub OAuth cannot be driven from a
+browser test, so every spec runs as a guest against the demo, which `accessToWorkspace` makes
+read-only and whose conversations are never stored (ADR 013). So the document and conversation caps
+have integration tests and no journey test, deliberately.
+
+Found by adding `PLAN_LIMITS=off` to `playwright.config.ts` on the assumption that the suite would
+otherwise trip the caps, then checking: the only upload in the suite is `/local`, which is entirely
+in-browser, and nothing presses "New conversation". The setting was removed rather than kept —
+unreachable configuration whose comment states a false reason is worse than none, and it would have
+masked a real breach the day an authenticated spec appeared. **The same mistake this project keeps
+recording: a guard written from a plausible claim rather than a measurement.**
+
+**The trigger to revisit**: the first authenticated E2E. That needs a seeded signed-in session
+(a pre-inserted user plus a signed cookie from `global-setup`, sidestepping OAuth), which is worth
+building for its own sake — the entire signed-in half of the product currently has no journey
+coverage. When it exists, `PLAN_LIMITS=off` becomes necessary for the unrelated specs and a
+cap-specific spec becomes possible; both should land together.
+
+## A malformed chat id is a 500, not the documented fallback, 17 August 2026
+
+`resolveChatForTurn` (`lib/chats/queries.ts:111`) carries the comment "a mismatch falls back to the
+most recent rather than erroring — a stale id should not lose the reader's question." That holds for
+a well-formed uuid naming a chat that does not exist. It does **not** hold for a string that is not
+a uuid: the value goes straight into the `where` clause, Postgres raises `22P02 invalid input syntax
+for type uuid`, and the query throws before the fallback is reached.
+
+`chatId` is client-supplied. `app/api/w/[workspaceId]/chat/route.ts:184` accepts any string, so
+`{"chatId": "garbage"}` produces an unhandled error where the design says it should produce an
+answer. Reachable only by a signed-in reader, against their own request, so the severity is low —
+but the failure mode is precisely the one the comment promises cannot happen.
+
+**Found by a test that meant to prove the fallback and used a malformed id to do it.** The test
+failed loudly rather than passing for the wrong reason, which is the good version of this mistake:
+the same family as the `[data-message-bubble]` selector and the `sr-only` contrast check already in
+`docs/code-review-notes.md`, where the input could not reach the branch under test.
+
+**The fix, when it is picked up**: refuse a non-uuid `chatId` at the route boundary where the body
+is already validated, rather than teaching the query helper to parse. `parseMessages` is the
+precedent — shape belongs with the other request-shape checks, and the helper stays about ownership.
+Not done here because it is unrelated to the milestone's caps.

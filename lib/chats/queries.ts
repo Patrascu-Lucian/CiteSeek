@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
@@ -130,6 +130,21 @@ export async function resolveChatForTurn(
   }
 
   return getOrCreateChat(workspaceId, userId);
+}
+
+/** Scoped by workspace *and* user, matching `createChat` — a count taken on the
+ * workspace alone would cap a shared workspace collectively. The conversation
+ * cap reads this. */
+export async function countChats(
+  workspaceId: string,
+  userId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(chats)
+    .where(and(eq(chats.workspaceId, workspaceId), eq(chats.userId, userId)));
+
+  return row?.total ?? 0;
 }
 
 /** Starts an empty conversation, so "New conversation" has something to open. */

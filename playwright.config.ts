@@ -46,9 +46,6 @@ export default defineConfig({
       // cap would fail the suite for being one. `off` does not skip the check —
       // the queries still run — and integration tests cover the 429 paths.
       USAGE_LIMITS: "off",
-      // Same bargain for the stock caps: the signed-in suite shares one
-      // workspace, so a third upload anywhere would strand every spec after it.
-      PLAN_LIMITS: "off",
     },
   },
 });

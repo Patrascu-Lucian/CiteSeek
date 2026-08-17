@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText } from "lucide-react";
+import { FileText, MessageSquareOff } from "lucide-react";
 
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { workspaceDocumentText } from "@/lib/documents/text-loader";
@@ -15,6 +15,7 @@ import { ConversationList } from "@/components/chat/conversation-list";
 import { DocumentList } from "@/components/documents/document-list";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import {
   Card,
   CardContent,
@@ -25,6 +26,7 @@ import {
 import type { ChatUIMessage } from "@/lib/ai/types";
 import type { ChatSummary } from "@/lib/chats/queries";
 import type { DocumentSummary } from "@/lib/documents/queries";
+import type { CapCopy } from "@/lib/limits/caps";
 
 /**
  * Owns `documents` and everything that mutates it. One unit rather than two
@@ -54,6 +56,7 @@ export function WorkspaceSections({
   canWrite,
   signedIn,
   isDemo,
+  conversationCap = null,
 }: {
   workspaceId: string;
   initialDocuments: DocumentSummary[];
@@ -64,6 +67,8 @@ export function WorkspaceSections({
   canWrite: boolean;
   signedIn: boolean;
   isDemo: boolean;
+  /** Set only just after `/c/new` refused, and cleared by the next navigation. */
+  conversationCap?: CapCopy | null;
 }) {
   const router = useRouter();
   const [documents, setDocuments] = useState(initialDocuments);
@@ -230,6 +235,20 @@ export function WorkspaceSections({
               </Button>
             </form>
           </div>
+
+          {conversationCap ? (
+            <Notice
+              icon={
+                <MessageSquareOff
+                  aria-hidden="true"
+                  className="mt-0.5 size-4 shrink-0"
+                />
+              }
+              tone="muted"
+              title={conversationCap.title}
+              detail={conversationCap.detail}
+            />
+          ) : null}
 
           <ConversationList
             workspaceId={workspaceId}

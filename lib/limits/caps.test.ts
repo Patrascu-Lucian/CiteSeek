@@ -8,6 +8,7 @@ import {
 import {
   type CapReached,
   capRefusalBody,
+  capRefusalCopy,
   capRefusalMessage,
   decideCap,
 } from "./caps";
@@ -89,6 +90,34 @@ describe("capRefusalMessage", () => {
     expect(capRefusalMessage(reached({ limit: 10 }))).toContain(
       "limit of 10 documents",
     );
+  });
+});
+
+describe("capRefusalCopy — conversations", () => {
+  const decision = reached({ cap: "conversations" });
+
+  it("names the limit and points at the list below it", () => {
+    expect(capRefusalCopy(decision)).toEqual({
+      title: "You have reached the limit of 3 conversations.",
+      detail: "Delete one below to start another.",
+    });
+  });
+
+  it("joins into the same sentence an HTTP body would carry", () => {
+    const { title, detail } = capRefusalCopy(decision);
+    expect(capRefusalMessage(decision)).toBe(`${title} ${detail}`);
+  });
+});
+
+/*
+  Not a style rule. `getOrCreateChat` inserts when a reader has none, and it runs
+  on the chat-*turn* path as the fallback for a stale id — so at zero it would
+  either exceed a cap of 0 or, if the cap were enforced there, swallow the
+  question. Every value ≥ 1 is safe because that path never inserts a second.
+*/
+describe("the conversations limit", () => {
+  it("is at least one, which is what makes the implicit path safe", () => {
+    expect(DEFAULT_PLAN_LIMITS.conversations).toBeGreaterThanOrEqual(1);
   });
 });
 
