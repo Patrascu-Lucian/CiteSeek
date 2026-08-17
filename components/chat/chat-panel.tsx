@@ -3,6 +3,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type ChatTransport } from "ai";
 
 import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
+import { parseCapRefusal } from "@/lib/limits/caps";
 import { parseRefusal } from "@/lib/usage/limits";
 
 import { ChatError } from "./chat-error";
@@ -164,6 +165,7 @@ export function ChatPanel({
       {error ? (
         <ChatError
           refusal={parseRefusal(error)}
+          capRefusal={parseCapRefusal(error)}
           signedIn={signedIn}
           onRetry={() => {
             clearError();

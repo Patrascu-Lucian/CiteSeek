@@ -5,12 +5,15 @@ import {
   UNLIMITED_PLAN_LIMITS,
   resolvePlanLimits,
 } from "./config";
+import { MAX_REQUEST_MESSAGES } from "@/lib/ai/request-bounds";
+
 import {
   type CapReached,
   capRefusalBody,
   capRefusalCopy,
   capRefusalMessage,
   decideCap,
+  parseCapRefusal,
 } from "./caps";
 
 /** A small round number rather than the shipped one: these tests are about the
@@ -121,12 +124,67 @@ describe("the conversations limit", () => {
   });
 });
 
+describe("capRefusalCopy — messages", () => {
+  const decision = reached({ cap: "messages", limit: 60, current: 60 });
+
+  it("offers the move that works when a conversation is still available", () => {
+    expect(capRefusalCopy(decision).detail).toContain(
+      "Start a new conversation",
+    );
+  });
+
+  it("says what to delete when conversations are exhausted too", () => {
+    const copy = capRefusalCopy(decision, { conversationsExhausted: true });
+
+    expect(copy.detail).toContain("delete one");
+    expect(copy.detail).not.toContain("Start a new conversation");
+  });
+});
+
+describe("the saved-message limit against the transcript guard", () => {
+  it("leaves room for the turn that would be added", () => {
+    expect(DEFAULT_PLAN_LIMITS.messagesPerConversation).toBeLessThan(
+      MAX_REQUEST_MESSAGES - 2,
+    );
+  });
+});
+
+describe("parseCapRefusal", () => {
+  const body = capRefusalBody(reached({ cap: "messages", limit: 60 }));
+
+  it("reads a cap refusal off the transport's error", () => {
+    expect(parseCapRefusal(new Error(JSON.stringify(body)))).toEqual(body);
+  });
+
+  it("ignores a rate-limit refusal", () => {
+    const rateLimited = JSON.stringify({
+      error: "Too many requests.",
+      code: "rate_limited",
+    });
+
+    expect(parseCapRefusal(new Error(rateLimited))).toBeNull();
+  });
+
+  it("ignores an HTML error page rather than misreporting it", () => {
+    expect(parseCapRefusal(new Error("<html>502</html>"))).toBeNull();
+  });
+
+  it("rejects a cap body with no copy in it", () => {
+    const partial = JSON.stringify({ code: "cap_reached", cap: "messages" });
+
+    expect(parseCapRefusal(new Error(partial))).toBeNull();
+  });
+});
+
 describe("capRefusalBody", () => {
   it("carries the decision the client would otherwise re-derive", () => {
     const decision = reached({ current: 4 });
     const context = { failedDocuments: 1 };
 
+    const copy = capRefusalCopy(decision, context);
+
     expect(capRefusalBody(decision, context)).toEqual({
+      ...copy,
       error: capRefusalMessage(decision, context),
       code: "cap_reached",
       cap: "documents",

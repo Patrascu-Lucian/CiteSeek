@@ -2,7 +2,7 @@
  * clock — a rule that needs a live request to exercise is a rule nobody tests at
  * its edges. */
 
-export type CapKind = "documents" | "conversations";
+export type CapKind = "documents" | "conversations" | "messages";
 
 export type CapReached = {
   allowed: false;
@@ -40,7 +40,12 @@ export function decideCap(
 export const CAP_PARAM = "limit";
 
 /** What the message needs beyond the decision, per cap. */
-export type CapMessageContext = { failedDocuments?: number };
+export type CapMessageContext = {
+  failedDocuments?: number;
+  /** Messages only: the advice is "start a new conversation", which is itself
+   * capped. Without this it is wrong for the reader who has no move left. */
+  conversationsExhausted?: boolean;
+};
 
 /** What was reached, and the move that resolves it. Split because a rendered
  * notice needs the two separately and an HTTP body needs them joined. */
@@ -80,6 +85,14 @@ export function capRefusalCopy(
         title: `You have reached the limit of ${decision.limit} conversations.`,
         detail: "Delete one below to start another.",
       };
+
+    case "messages":
+      return {
+        title: `This conversation has reached its limit of ${decision.limit} saved messages.`,
+        detail: context.conversationsExhausted
+          ? "You have used all your conversations too, so delete one before starting another."
+          : "Start a new conversation to keep going — this one stays where it is.",
+      };
   }
 }
 
@@ -94,7 +107,9 @@ export function capRefusalMessage(
 /** One wire shape, so the client parses a cap refusal the same way whichever cap
  * produced it. `current` and `limit` ride along so Milestone 9's paywall can
  * render the same decision rather than re-derive it. */
-export type CapRefusalBody = {
+export type CapRefusalBody = CapCopy & {
+  /** `title` and `detail` joined. Kept for consumers that show one line —
+   * `UploadDropzone` renders a single string per rejected file. */
   error: string;
   code: "cap_reached";
   cap: CapKind;
@@ -106,11 +121,56 @@ export function capRefusalBody(
   decision: CapReached,
   context: CapMessageContext = {},
 ): CapRefusalBody {
+  const copy = capRefusalCopy(decision, context);
+
   return {
-    error: capRefusalMessage(decision, context),
+    ...copy,
+    error: `${copy.title} ${copy.detail}`,
     code: decision.reason,
     cap: decision.cap,
     limit: decision.limit,
     current: decision.current,
   };
+}
+
+/**
+ * Separate from `parseRefusal` on purpose: that one classifies flow refusals,
+ * which offer a retry. A cap never does (ADR 039).
+ *
+ * The transport throws `new Error(response.text())`, so the status code is gone
+ * and the body is the only classification available.
+ */
+export function parseCapRefusal(error: unknown): CapRefusalBody | null {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : null;
+
+  if (!message) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(message);
+  } catch {
+    return null;
+  }
+
+  if (typeof parsed !== "object" || parsed === null) return null;
+
+  const body = parsed as Partial<CapRefusalBody>;
+
+  // Every field the renderer reads, so a merely JSON-shaped body falls through
+  // to the generic error state rather than rendering "undefined" at the reader.
+  if (
+    body.code !== "cap_reached" ||
+    typeof body.title !== "string" ||
+    typeof body.detail !== "string" ||
+    typeof body.cap !== "string"
+  ) {
+    return null;
+  }
+
+  return body as CapRefusalBody;
 }

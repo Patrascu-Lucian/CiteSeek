@@ -1,28 +1,50 @@
 import Link from "next/link";
-import { AlertCircle, Clock, RotateCcw } from "lucide-react";
+import { AlertCircle, Clock, MessageSquareOff, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
+import type { CapRefusalBody } from "@/lib/limits/caps";
 import type { ParsedRefusal } from "@/lib/usage/limits";
 
 /**
- * Three states, because the useful action differs and offering the wrong one is
+ * Four states, because the useful action differs and offering the wrong one is
  * worse than none: a retry under "daily capacity is gone" cannot work, and
  * teaches the reader the product is broken rather than busy.
  *
- * Every state is a live region with an action — a failure that only describes
- * itself is a dead end.
+ * The cap is the one state with no action at all — what resolves it is deleting
+ * something, which lives elsewhere on the page.
  */
 export function ChatError({
   refusal,
+  capRefusal,
   signedIn,
   onRetry,
 }: {
   /** Null when this is an ordinary failure rather than a limit. */
   refusal: ParsedRefusal | null;
+  /** A stock cap. Checked first: it offers no retry, and the rolling-window
+   * states below all do. */
+  capRefusal?: CapRefusalBody | null;
   signedIn: boolean;
   onRetry: () => void;
 }) {
+  if (capRefusal) {
+    return (
+      <Notice
+        icon={
+          <MessageSquareOff
+            aria-hidden="true"
+            className="mt-0.5 size-4 shrink-0"
+          />
+        }
+        tone="muted"
+        title={capRefusal.title}
+        detail={capRefusal.detail}
+        action={null}
+      />
+    );
+  }
+
   if (refusal?.code === "capacity_reached") {
     // Not a wording choice: "the demo is full" is false when only this address
     // is, and everyone else is still being served.
