@@ -15,12 +15,17 @@ export type PlanLimits = {
    * `MAX_REQUEST_MESSAGES` with room for one more turn, or the transcript guard
    * refuses as a bad body before this cap can name itself. A test holds it. */
   messagesPerConversation: number;
+  /** Extracted characters across the workspace — see `sumExtractedCharacters`. */
+  extractedCharacters: number;
 };
 
 export const DEFAULT_PLAN_LIMITS: PlanLimits = {
   documents: 3,
   conversations: 3,
   messagesPerConversation: 60,
+  /* ~325 pages at the seeded handbook's measured density (4,610 characters over
+     3 pages), and 24× tighter than the 3 × 4 MB the file-size cap alone allows. */
+  extractedCharacters: 500_000,
 };
 
 /** Unreachable thresholds rather than a flag that skips enforcement: the count
@@ -29,6 +34,7 @@ export const UNLIMITED_PLAN_LIMITS: PlanLimits = {
   documents: Number.POSITIVE_INFINITY,
   conversations: Number.POSITIVE_INFINITY,
   messagesPerConversation: Number.POSITIVE_INFINITY,
+  extractedCharacters: Number.POSITIVE_INFINITY,
 };
 
 /** Only the variable actually read — see `UsageLimitsEnv` for why not `ProcessEnv`. */

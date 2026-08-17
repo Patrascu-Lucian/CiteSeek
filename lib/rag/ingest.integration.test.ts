@@ -11,9 +11,11 @@ import {
   createTestWorkspace,
 } from "@/lib/db/test-helpers";
 import {
+  countChunks,
   createQueuedDocument,
   findDocumentInWorkspace,
   listDocuments,
+  sumExtractedCharacters,
 } from "@/lib/documents/queries";
 import { fakeEmbeddings } from "@/lib/ai/fake-embedder";
 
@@ -162,6 +164,58 @@ describe("processDocument — happy path", () => {
     expect(stored!.status).toBe("ready");
     expect(stored!.pageSpans).toBeNull();
     expect(stored!.pageCount).toBeNull();
+  });
+});
+
+describe("processDocument — the storage ceiling", () => {
+  it("fails the document instead of storing text past the ceiling", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "sample.pdf");
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      fixture("sample.pdf"),
+      "application/pdf",
+      { embedder: workingEmbedder, characterCeiling: 10 },
+    );
+
+    const after = await findDocumentInWorkspace(workspace.id, document.id);
+    expect(after!.status).toBe("failed");
+    expect(after!.error).toContain("storage limit");
+
+    // Why the check sits before chunking.
+    expect(after!.contentText).toBeNull();
+    await expect(countChunks(workspace.id, document.id)).resolves.toBe(0);
+  });
+
+  it("counts what is already stored, not just this document", async () => {
+    const workspace = await createTestWorkspace(db);
+
+    const first = await queueDocument(workspace.id, "sample.pdf");
+    await processDocument(
+      workspace.id,
+      first.id,
+      fixture("sample.pdf"),
+      "application/pdf",
+      { embedder: workingEmbedder },
+    );
+    const stored = await sumExtractedCharacters(workspace.id);
+    expect(stored).toBeGreaterThan(0);
+
+    // A ceiling the first document fits under and the second does not.
+    const second = await queueDocument(workspace.id, "sample.pdf");
+    await processDocument(
+      workspace.id,
+      second.id,
+      fixture("sample.pdf"),
+      "application/pdf",
+      { embedder: workingEmbedder, characterCeiling: stored + 1 },
+    );
+
+    const after = await findDocumentInWorkspace(workspace.id, second.id);
+    expect(after!.status).toBe("failed");
+    expect(await sumExtractedCharacters(workspace.id)).toBe(stored);
   });
 });
 

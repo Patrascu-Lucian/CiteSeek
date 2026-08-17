@@ -14,6 +14,7 @@ import {
   capRefusalMessage,
   decideCap,
   parseCapRefusal,
+  storageExceededMessage,
 } from "./caps";
 
 /** A small round number rather than the shipped one: these tests are about the
@@ -145,6 +146,26 @@ describe("the saved-message limit against the transcript guard", () => {
   it("leaves room for the turn that would be added", () => {
     expect(DEFAULT_PLAN_LIMITS.messagesPerConversation).toBeLessThan(
       MAX_REQUEST_MESSAGES - 2,
+    );
+  });
+});
+
+describe("capRefusalCopy — storage", () => {
+  const decision = reached({
+    cap: "storage",
+    limit: 500_000,
+    current: 500_000,
+  });
+
+  it("groups the number so a reader can read it", () => {
+    expect(capRefusalCopy(decision).title).toContain("500,000");
+  });
+
+  // Same rule, different moment: not over yet, but this document would cross it.
+  it("says something different at ingestion than at upload", () => {
+    expect(storageExceededMessage(500_000)).toContain("500,000");
+    expect(storageExceededMessage(500_000)).not.toBe(
+      capRefusalMessage(decision),
     );
   });
 });
