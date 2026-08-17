@@ -77,12 +77,9 @@ export async function POST(
   const refused = await enforceUsageLimits(auth, ipHash);
   if (refused) return refused;
 
-  /*
-    Also ahead of `formData()`, for the same reason as the header check: a cap
-    refusal is exactly as certain, and buffering 4 MB to produce it is the same
-    waste. 409, not 429 — nothing here is transient and no retry escapes it, so
-    a `Retry-After` would be a lie.
-  */
+  // Ahead of `formData()` like the header check above: buffering 4 MB to produce
+  // a refusal this certain is the same waste. 409, not 429 — nothing here is
+  // transient, so `Retry-After` would be a lie.
   const documentCount = await countDocuments(auth.workspaceId);
   const capped = decideCap(
     "documents",

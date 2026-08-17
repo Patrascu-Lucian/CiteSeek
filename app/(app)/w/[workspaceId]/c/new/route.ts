@@ -40,12 +40,9 @@ export async function POST(
     });
   }
 
-  /*
-    On `createChat` only, never on `getOrCreateChat`. That one runs on the chat
-    *turn* path as a fallback for a stale id, so a refusal there would drop the
-    reader's question rather than decline an action. It is also safe from this
-    cap by construction: it inserts only when the count is zero.
-  */
+  // Here and never on `getOrCreateChat`: that one runs on the chat-turn path, so
+  // a refusal there would drop the question rather than decline an action. It
+  // cannot exceed this cap anyway — it inserts only at zero.
   const capped = decideCap(
     "conversations",
     await countChats(auth.workspaceId, actor.id),

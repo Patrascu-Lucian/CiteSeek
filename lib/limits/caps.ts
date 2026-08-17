@@ -1,6 +1,4 @@
-/** The cap decision as a pure function over counts. No database, request or
- * clock — a rule that needs a live request to exercise is a rule nobody tests at
- * its edges. */
+/** The cap decision as a pure function over counts. No database, request or clock. */
 
 export type CapKind = "documents" | "conversations" | "messages";
 
@@ -14,12 +12,9 @@ export type CapReached = {
 
 export type CapDecision = { allowed: true } | CapReached;
 
-/** `>=`, not `>`: the caller is about to add one.
- *
- * Check-then-insert runs in no transaction, and `UploadDropzone` fires its
- * uploads concurrently, so two requests can both pass at `limit - 1`. The
- * overshoot is accepted rather than locked against — `>=` means the next attempt
- * refuses and the count converges. ADR 039. */
+/** `>=`, not `>`: the caller is about to add one, and check-then-insert has no
+ * transaction — `>=` makes a concurrent overshoot converge rather than persist.
+ * ADR 039. */
 export function decideCap(
   cap: CapKind,
   current: number,
@@ -30,13 +25,9 @@ export function decideCap(
     : { allowed: true };
 }
 
-/**
- * How a cap refusal survives a redirect.
- *
- * `/c/new` is a form POST, so its refusal cannot be a JSON body — the browser
- * would render it. It redirects back and the workspace names the cap through
- * this parameter instead. Read by `app/(app)/w/[workspaceId]/page.tsx`.
- */
+/** `/c/new` is a form POST, so its refusal cannot be a JSON body — the browser
+ * would render it. Carried on the redirect instead, and read by
+ * `app/(app)/w/[workspaceId]/page.tsx`. */
 export const CAP_PARAM = "limit";
 
 /** What the message needs beyond the decision, per cap. */
@@ -51,13 +42,9 @@ export type CapMessageContext = {
  * notice needs the two separately and an HTTP body needs them joined. */
 export type CapCopy = { title: string; detail: string };
 
-/**
- * Beside the decision so wording cannot drift from the rule.
- *
- * These name their number, where `lib/usage`'s deliberately do not: a rolling
- * threshold is provisional, but a stock limit *is* the number, and a reader who
- * cannot tell how many to delete was given a feeling rather than a rule.
- */
+/** Beside the decision so wording cannot drift from the rule. These name their
+ * number where `lib/usage`'s deliberately do not: a rolling threshold is
+ * provisional, a stock limit *is* the number. */
 export function capRefusalCopy(
   decision: CapReached,
   context: CapMessageContext = {},
@@ -67,9 +54,8 @@ export function capRefusalCopy(
       const title = `You have reached the limit of ${decision.limit} documents.`;
       const failed = context.failedDocuments ?? 0;
 
-      // The failed count is named because it is the actionable case: a reader at
-      // the cap with nothing usable would otherwise be told to delete a working
-      // document.
+      // Named, or a reader at the cap with nothing usable is told to delete a
+      // working document.
       const detail =
         failed === 0
           ? "Delete one to upload another."

@@ -153,9 +153,8 @@ export async function resolveChatForTurn(
   return getOrCreateChat(workspaceId, userId);
 }
 
-/** Scoped by workspace *and* user, matching `createChat` — a count taken on the
- * workspace alone would cap a shared workspace collectively. The conversation
- * cap reads this. */
+/** Scoped by workspace *and* user, matching `createChat` — on the workspace
+ * alone it would cap a shared workspace collectively. */
 export async function countChats(
   workspaceId: string,
   userId: string,

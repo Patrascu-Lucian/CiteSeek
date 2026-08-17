@@ -1,29 +1,17 @@
 /**
- * Refuses to let the integration suite run against a database it is not allowed
- * to destroy.
- *
- * `clearUsageEvents` deletes **every** row in `usage_events` — unscoped and
- * deliberately so, because the global-cap query reads every row and a leftover is
- * a wrong answer. That is correct against a throwaway database and destructive
- * against a real one, and nothing about the command says which it reached. The
- * same ambiguity has now cost this project a seed writing to the wrong database
- * twice and a redeploy aimed at the wrong connection string.
- *
- * CI needs no exemption: its service container is port-mapped, so `DATABASE_URL`
- * is already loopback there.
+ * Refuses to let the integration suite run against a database it may not destroy:
+ * `clearUsageEvents` truncates `usage_events`, and nothing about the command says
+ * which database it reached. CI needs no exemption — a service container is
+ * port-mapped, so it is already loopback there.
  */
 
-/** Names the claim rather than the mechanism — setting it asserts the database is
+/** Names the claim, not the mechanism: setting it asserts the database is
  * disposable, which is the thing that has to be true. */
 export const DISPOSABLE_OPT_IN = "INTEGRATION_DB_IS_DISPOSABLE";
 
-/**
- * **Both**, because the suite reads both. Most code takes `DATABASE_URL`, but
- * `retrieve.integration.test.ts` builds its forced-plan connection from
- * `DATABASE_URL_UNPOOLED ?? DATABASE_URL` — startup options are rejected by a
- * pooler. Checking only the first left a guard that passed while a test connected
- * somewhere else entirely.
- */
+/** Both, because the suite reads both — `retrieve.integration.test.ts` connects
+ * through `DATABASE_URL_UNPOOLED ?? DATABASE_URL`, since a pooler rejects the
+ * startup options it needs. Checking only the first let a test reach Neon. */
 const CHECKED_VARIABLES = ["DATABASE_URL", "DATABASE_URL_UNPOOLED"] as const;
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);

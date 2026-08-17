@@ -1,23 +1,15 @@
 /**
- * The default plan's ceilings.
- *
- * **Stock limits, not flow limits.** `lib/usage` counts provider calls in a
- * rolling window and heals as that window slides, which is why "try again
- * shortly" is a complete answer to it. None of these heal: three documents stays
- * three until someone deletes one. So a refusal here has to name what to delete,
- * and no retry escapes it. ADR 039.
+ * The default plan's ceilings. Stock limits, not the rolling window in
+ * `lib/usage`: these clear only when someone deletes something, so no retry
+ * escapes them and every refusal names what to delete. ADR 039.
  */
 
 export type PlanLimits = {
   /** Rows in `documents`, whatever their status — see `countDocuments`. */
   documents: number;
-  /**
-   * Conversations per reader in one workspace, matching `createChat`'s scope.
-   *
-   * **Must stay ≥ 1.** `getOrCreateChat` inserts when a reader has none, and it
-   * runs on the chat-turn path where a refusal would lose the question rather
-   * than decline an action. A cap of 0 is the one value that path cannot honor.
-   */
+  /** Per reader in one workspace, matching `createChat`'s scope. **Must stay
+   * ≥ 1**: `getOrCreateChat` inserts at zero on the chat-turn path, where a
+   * refusal would lose the question rather than decline an action. */
   conversations: number;
   /** Rows, not turns — `appendMessages` writes two. Must stay below
    * `MAX_REQUEST_MESSAGES` with room for one more turn, or the transcript guard
