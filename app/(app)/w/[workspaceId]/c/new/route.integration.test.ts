@@ -116,6 +116,9 @@ describe("POST /w/[workspaceId]/c/new", () => {
     expect(refused.headers.get("location")).toContain(
       `${CAP_PARAM}=conversations`,
     );
+    // The refusal renders below the documents, so the fragment is what puts it
+    // on screen rather than somewhere the reader has to scroll to find.
+    expect(refused.headers.get("location")).toContain("#conversations-heading");
     expect(await listChats(workspace.id, user.id)).toHaveLength(
       DEFAULT_PLAN_LIMITS.conversations,
     );
