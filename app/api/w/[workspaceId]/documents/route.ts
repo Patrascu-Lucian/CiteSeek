@@ -6,6 +6,7 @@ import {
   createQueuedDocument,
   failStaleProcessing,
   listDocuments,
+  sumExtractedCharacters,
 } from "@/lib/documents/queries";
 import { capRefusalBody, decideCap } from "@/lib/limits/caps";
 import { resolvePlanLimits } from "@/lib/limits/config";
@@ -80,18 +81,27 @@ export async function POST(
   // Ahead of `formData()` like the header check above: buffering 4 MB to produce
   // a refusal this certain is the same waste. 409, not 429 — nothing here is
   // transient, so `Retry-After` would be a lie.
+  const limits = resolvePlanLimits();
   const documentCount = await countDocuments(auth.workspaceId);
-  const capped = decideCap(
-    "documents",
-    documentCount.total,
-    resolvePlanLimits().documents,
-  );
+  const capped = decideCap("documents", documentCount.total, limits.documents);
 
   if (!capped.allowed) {
     return NextResponse.json(
       capRefusalBody(capped, { failedDocuments: documentCount.failed }),
       { status: 409 },
     );
+  }
+
+  // Only a reader already over. The document that crosses the ceiling is refused
+  // in `processDocument`, which is the first point its size is known.
+  const stored = decideCap(
+    "storage",
+    await sumExtractedCharacters(auth.workspaceId),
+    limits.extractedCharacters,
+  );
+
+  if (!stored.allowed) {
+    return NextResponse.json(capRefusalBody(stored), { status: 409 });
   }
 
   let formData: FormData;

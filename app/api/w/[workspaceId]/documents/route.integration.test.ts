@@ -284,6 +284,59 @@ describe("POST /documents — the document cap", () => {
   });
 });
 
+describe("POST /documents — the storage ceiling", () => {
+  it("refuses a reader already at the ceiling, without reading the body", async () => {
+    const workspace = await signedInWorkspace();
+    const document = await createQueuedDocument(workspace.id, {
+      filename: "big.md",
+      mimeType: "text/markdown",
+      sizeBytes: 1024,
+    });
+    await updateDocument(workspace.id, document.id, {
+      status: "ready",
+      contentText: "x".repeat(DEFAULT_PLAN_LIMITS.extractedCharacters),
+    });
+
+    const request = new Request("http://test/api/documents", {
+      method: "POST",
+      body: multipart(new File([validPdf()], "another.pdf")),
+    });
+    const formData = vi.fn(() => Promise.reject(new Error("body was read")));
+    Object.defineProperty(request, "formData", { value: formData });
+
+    const response = await send(workspace.id, request);
+
+    expect(formData).not.toHaveBeenCalled();
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ cap: "storage" });
+  });
+
+  // Documents first, so a workspace over both hears the cap it can act on.
+  it("names the document cap ahead of storage when both are reached", async () => {
+    const workspace = await signedInWorkspace();
+
+    for (let index = 0; index < DEFAULT_PLAN_LIMITS.documents; index++) {
+      const document = await createQueuedDocument(workspace.id, {
+        filename: `filled-${index}.md`,
+        mimeType: "text/markdown",
+        sizeBytes: 1024,
+      });
+      await updateDocument(workspace.id, document.id, {
+        status: "ready",
+        contentText: "x".repeat(DEFAULT_PLAN_LIMITS.extractedCharacters),
+      });
+    }
+
+    const response = await post(workspace.id, {
+      method: "POST",
+      body: multipart(new File([validPdf()], "another.pdf")),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ cap: "documents" });
+  });
+});
+
 describe("GET /documents — housekeeping on a polled path", () => {
   it("sweeps once across a run of polls rather than once per poll", async () => {
     const workspace = await signedInWorkspace();

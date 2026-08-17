@@ -1,6 +1,6 @@
 /** The cap decision as a pure function over counts. No database, request or clock. */
 
-export type CapKind = "documents" | "conversations" | "messages";
+export type CapKind = "documents" | "conversations" | "messages" | "storage";
 
 export type CapReached = {
   allowed: false;
@@ -79,7 +79,24 @@ export function capRefusalCopy(
           ? "You have used all your conversations too, so delete one before starting another."
           : "Start a new conversation to keep going — this one stays where it is.",
       };
+
+    case "storage":
+      return {
+        title: `Your documents have used all ${formatCharacters(decision.limit)} characters of storage.`,
+        detail: "Delete one to upload another.",
+      };
   }
+}
+
+/** Fixed locale, or the same limit reads differently to two readers. */
+function formatCharacters(count: number): string {
+  return count.toLocaleString("en-US");
+}
+
+/** The same rule at ingestion, where this one document crosses the ceiling
+ * rather than the reader already being over. Here so the two cannot drift. */
+export function storageExceededMessage(limit: number): string {
+  return `This document's text would take you past the ${formatCharacters(limit)}-character storage limit. Delete another document, or upload a smaller one.`;
 }
 
 export function capRefusalMessage(

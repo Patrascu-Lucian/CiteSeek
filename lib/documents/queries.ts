@@ -91,6 +91,22 @@ export async function countDocuments(
   return { total: row?.total ?? 0, failed: row?.failed ?? 0 };
 }
 
+/** Extracted text, which is what ADR 009 says the product keeps. Not chunk
+ * count — halving the chunk target in Milestone 2 would have halved every
+ * reader's allowance with it. */
+export async function sumExtractedCharacters(
+  workspaceId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<number>`coalesce(sum(length(${documents.contentText})), 0)::int`,
+    })
+    .from(documents)
+    .where(eq(documents.workspaceId, workspaceId));
+
+  return row?.total ?? 0;
+}
+
 export async function findDocumentInWorkspace(
   workspaceId: string,
   documentId: string,
