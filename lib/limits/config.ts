@@ -22,7 +22,9 @@ export type PlanLimits = {
 export const DEFAULT_PLAN_LIMITS: PlanLimits = {
   documents: 3,
   conversations: 3,
-  messagesPerConversation: 60,
+  // 20 exchanges. A reader resends the whole transcript each turn, so length
+  // costs input tokens on every later one.
+  messagesPerConversation: 40,
   /* ~325 pages at the seeded handbook's measured density (4,610 characters over
      3 pages), and 24× tighter than the 3 × 4 MB the file-size cap alone allows. */
   extractedCharacters: 500_000,

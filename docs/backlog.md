@@ -1448,3 +1448,49 @@ the same family as the `[data-message-bubble]` selector and the `sr-only` contra
 is already validated, rather than teaching the query helper to parse. `parseMessages` is the
 precedent — shape belongs with the other request-shape checks, and the helper stays about ownership.
 Not done here because it is unrelated to the milestone's caps.
+
+## The chat route is never told which conversation is open, 17 August 2026
+
+**Found by manual testing of the saved-message cap, and it is not a cap defect.** At the cap the
+refusal fires correctly; then the reader starts another conversation, returns to the full one, and
+the assistant answers there — while the turn is written somewhere else. It reads as "it responded
+but nothing saved".
+
+`components/chat/chat-panel.tsx:67` constructs `new DefaultChatTransport({ api })` and adds no
+body, so `chatId` is never sent. `app/api/w/[workspaceId]/chat/route.ts` therefore always reads
+`requestedChatId` as `null`, and `resolveChatForTurn` falls through to `getOrCreateChat` on every
+turn — which returns the **most recently updated** chat, not the one on screen.
+
+Consequences, in order of severity:
+
+- **A turn can land in a conversation the reader is not looking at**, whenever the open one is not
+  the most recent. The transcript on screen and the transcript in the database diverge silently.
+- **The saved-message cap counts the wrong conversation** for the same reason. It is a real cap on
+  a real chat, just not necessarily the open one — which is why it looked correct at exactly 60 and
+  then appeared to stop working.
+- `resolveChatForTurn`'s `requestedChatId` parameter has never been exercised by the application.
+  Every test that covers it constructs the request by hand, which is why the suite is green.
+
+**The fix** is `prepareSendMessagesRequest` on the transport, adding `{ chatId }` to the body, with
+the transport memoized on `activeChatId` as well as `workspaceId`. The server side already handles
+it: validation, ownership and the stale-id fallback are all in place and tested. Worth an E2E or
+integration test that drives the client seam rather than the route alone — the gap here was
+precisely that nothing connected the two.
+
+## "New conversation" reloads the whole page, 17 August 2026
+
+`/c/new` is a form POST answering `303`, so every press is a full document navigation: the whole
+workspace re-renders, documents are re-fetched, and the chat panel remounts. Correct, and
+deliberate — a `GET` that creates a resource is what the prefetch incident taught, and the POST is
+what fixed it (`lib/links.ts`). The cost was recorded as "no middle-click, no open-in-new-tab" and
+the reload was not, which understates it.
+
+**Options, none of which reintroduce the prefetch problem:**
+
+- A Server Action invoked from a client component, then `router.push` to the new chat. Keeps the
+  write off `GET`, and the navigation becomes a client-side transition.
+- `fetch("/c/new", { method: "POST" })` and push the returned id, which needs the route to answer
+  JSON to a fetch caller while keeping the redirect for a no-JavaScript form post.
+
+The first is the smaller change and keeps one code path. Either way the no-JavaScript case must
+keep working, since the form is what makes that true today.

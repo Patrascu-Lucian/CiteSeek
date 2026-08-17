@@ -52,8 +52,13 @@ export async function POST(
   if (!capped.allowed) {
     // Back where the button was, with the cap named. A 409 body would be raw
     // JSON on screen: this POST is a form submission, not `fetch`.
+    // The fragment, so the browser scrolls the refusal into view: it renders
+    // beside the conversation list, which sits below the documents.
     return NextResponse.redirect(
-      new URL(`/w/${workspaceId}?${CAP_PARAM}=conversations`, request.url),
+      new URL(
+        `/w/${workspaceId}?${CAP_PARAM}=conversations#conversations-heading`,
+        request.url,
+      ),
       { status: 303 },
     );
   }
