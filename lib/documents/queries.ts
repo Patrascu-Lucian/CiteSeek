@@ -74,14 +74,9 @@ export async function listDocuments(
     .orderBy(desc(documents.createdAt));
 }
 
-/**
- * Every row, whatever its status — the document cap counts these.
- *
- * Counting only usable documents was the alternative, and it is bypassable:
- * `createQueuedDocument` inserts before extraction runs, so concurrent uploads
- * would all pass a `ready`-only count at zero. `failed` comes back with the
- * total because the refusal has to say which document is worth deleting.
- */
+/** Every row, whatever its status. A `ready`-only count is bypassable —
+ * `createQueuedDocument` inserts before extraction, so concurrent uploads would
+ * all pass at zero. `failed` rides along so the refusal can name what to delete. */
 export async function countDocuments(
   workspaceId: string,
 ): Promise<{ total: number; failed: number }> {

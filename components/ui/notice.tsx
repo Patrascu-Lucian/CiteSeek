@@ -1,15 +1,11 @@
 import type { ReactNode } from "react";
 
 /**
- * A refusal the reader has to be able to act on: what happened, and the one
- * control that resolves it.
+ * A refusal the reader can act on: what happened, and the control that resolves
+ * it. Shared with `ChatError` so the ways of saying no cannot drift apart.
  *
- * `role="alert"` sits on the container. Nested regions read the title and detail
- * as two separate interruptions, which is why the parts are not each live.
- *
- * Extracted from `ChatError` when the conversation cap needed the same shape on
- * a server-rendered page — the two must not drift into different-looking ways of
- * saying no.
+ * `role="alert"` on the container, not the parts — nested regions read title and
+ * detail as two separate interruptions.
  */
 export function Notice({
   icon,

@@ -70,11 +70,8 @@ export async function WorkspaceView({
       ])
     : [[], null];
 
-  /*
-    Restating the refusal, not re-deciding it: `/c/new` already refused and wrote
-    nothing. Rendering through the same pure function is what keeps this copy
-    from drifting away from the rule that produced it.
-  */
+  // Restating the refusal, not re-deciding it — `/c/new` already refused and
+  // wrote nothing. Through the same function so the copy cannot drift.
   const conversationCap =
     capReached === "conversations" && signedIn
       ? capRefusalCopy({
