@@ -420,7 +420,7 @@ pnpm dev                     # http://localhost:3000
 pnpm dev               # dev server
 pnpm build             # production build
 pnpm test              # vitest unit tests (no database needed)
-pnpm test:integration  # vitest against a real Postgres (needs DATABASE_URL)
+pnpm test:integration  # vitest against a real, disposable Postgres (see below)
 pnpm test:e2e          # playwright (serves an existing build — run pnpm build first)
 pnpm lint              # eslint, type-aware
 pnpm typecheck         # tsc --noEmit
@@ -488,6 +488,19 @@ uses `EVAL_HOST` (it ingests documents and spends embedding quota) and `pnpm db:
 `USAGE_HOST` (it reads, but reading the wrong branch gives a confident wrong answer). The
 schema commands above need neither — `db:check` changes nothing and prints the host it reached,
 and `db:migrate` carries no data and spends no quota.
+
+`pnpm test:integration` guards itself differently, because it is the one command with no correct
+answer on a remote host: it truncates `usage_events` outright, so no naming ceremony makes that
+safe against a database anybody cares about. It refuses any host that is not loopback unless you
+claim the database is disposable with `INTEGRATION_DB_IS_DISPOSABLE=yes`. Put **both**
+`DATABASE_URL` and `DATABASE_URL_UNPOOLED` in `.env.test.local`, which is read _before_
+`.env.local` and therefore wins — so the app keeps pointing at your development branch while the
+tests stay on Docker, and neither needs overriding per run.
+
+Both, because the guard checks both, and it checks both because the suite reads both: the HNSW
+plan test connects through `DATABASE_URL_UNPOOLED ?? DATABASE_URL`, since a pooler rejects the
+startup options it needs. Setting only the first is the same one-of-two mistake the schema
+commands above warn about, and it fails as an empty result rather than an error.
 
 `format:check`, `lint`, `typecheck`, `test`, `build`, integration tests, and the
 Playwright smoke suite all gate every pull request.
