@@ -2055,3 +2055,32 @@ tests, 117 E2E and a production build, green.
   The variable should state the claim that has to be true, not the restriction being lifted —
   someone setting the second is bypassing a check, someone setting the first is asserting a fact
   they can be held to.
+
+## A parameter the server validated and the client never sent, 17 August 2026
+
+- **Issue found**: `resolveChatForTurn` takes the conversation id the client is showing, validates
+  it against workspace and user, and falls back to the most recent chat if it is stale. All of that
+  worked. `chat-panel.tsx` constructed `new DefaultChatTransport({ api })` and never sent the id, so
+  the fallback ran on every turn — and a message sent from an older conversation was written to
+  whichever one was most recent. The transcript on screen and the one in the database diverged with
+  nothing reporting it.
+
+- **How it survived**: every test covering the parameter builds the request by hand, including one
+  I wrote days earlier whose comment reads "Named explicitly: the fallback would return the most
+  recent, not the full one." I described the seam accurately and did not notice the application
+  never crossed it. The component's own tests replace `useChat` wholesale, so the transport was
+  outside both sides' coverage.
+
+- **Fix**: `prepareSendMessagesRequest` adds `{ chatId }`, and a test runs the real hook and real
+  transport against a stubbed `fetch`, asserting what left the client. Reverting the one line turns
+  two of its three cases red.
+
+- **Lesson**: **a test that supplies an argument the application never supplies proves the
+  parameter works, not that anything uses it.** Both halves were covered and the join was not, which
+  is the shape to look for — when a value crosses a process boundary, something has to assert it
+  arrived, not that each side would handle it correctly if it did.
+
+- **Second lesson**: `prepareSendMessagesRequest` _replaces_ the request body rather than extending
+  it, so adding a field is also the moment you can silently drop the transcript. The third test case
+  exists for that and passes either way — a case that cannot fail today, kept because the edit that
+  breaks it is the obvious one.

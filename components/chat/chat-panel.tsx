@@ -26,10 +26,14 @@ export function ChatPanel({
   isDemo = false,
   onOpenSource,
   openChunkId,
+  chatId = null,
   transport,
   uploadHref,
 }: {
   workspaceId: string;
+  /** Which conversation the turn belongs to. Null before one exists, where the
+   * route creating it is the intended behaviour. */
+  chatId?: string | null;
   /** Whether anything has finished processing. Nothing to search without it. */
   hasReadyDocuments: boolean;
   /** Searchable filenames. Only a refusal reads these, to say what it *can*
@@ -66,8 +70,15 @@ export function ChatPanel({
     () =>
       new DefaultChatTransport<ChatUIMessage>({
         api: `/api/w/${workspaceId}/chat`,
+        // Without this the route never learns which conversation is open and
+        // falls back to the most recent, so a turn sent from an older one lands
+        // in a different transcript. `body` replaces rather than merges, so
+        // `messages` has to be named here too.
+        prepareSendMessagesRequest: ({ messages, body }) => ({
+          body: { ...body, messages, chatId },
+        }),
       }),
-    [workspaceId],
+    [workspaceId, chatId],
   );
 
   const { messages, sendMessage, regenerate, stop, status, error, clearError } =

@@ -276,6 +276,7 @@ export function WorkspaceSections({
           */
           key={activeChatId ?? "none"}
           workspaceId={workspaceId}
+          chatId={activeChatId}
           // Derived on every render from the same state the list shows, so an
           // upload that finishes processing opens the composer without a reload.
           hasReadyDocuments={documents.some(
