@@ -86,6 +86,27 @@ export async function listChatMessages(
     .orderBy(asc(messages.position));
 }
 
+/** Rows, not turns — `appendMessages` writes two, which is why the cap is even. */
+export async function countChatMessages(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(messages)
+    .innerJoin(chats, eq(messages.chatId, chats.id))
+    .where(
+      and(
+        eq(messages.chatId, chatId),
+        eq(chats.workspaceId, workspaceId),
+        eq(chats.userId, userId),
+      ),
+    );
+
+  return row?.total ?? 0;
+}
+
 export async function loadLatestChat(
   workspaceId: string,
   userId: string,

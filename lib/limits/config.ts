@@ -19,11 +19,16 @@ export type PlanLimits = {
    * than decline an action. A cap of 0 is the one value that path cannot honor.
    */
   conversations: number;
+  /** Rows, not turns — `appendMessages` writes two. Must stay below
+   * `MAX_REQUEST_MESSAGES` with room for one more turn, or the transcript guard
+   * refuses as a bad body before this cap can name itself. A test holds it. */
+  messagesPerConversation: number;
 };
 
 export const DEFAULT_PLAN_LIMITS: PlanLimits = {
   documents: 3,
   conversations: 3,
+  messagesPerConversation: 60,
 };
 
 /** Unreachable thresholds rather than a flag that skips enforcement: the count
@@ -31,6 +36,7 @@ export const DEFAULT_PLAN_LIMITS: PlanLimits = {
 export const UNLIMITED_PLAN_LIMITS: PlanLimits = {
   documents: Number.POSITIVE_INFINITY,
   conversations: Number.POSITIVE_INFINITY,
+  messagesPerConversation: Number.POSITIVE_INFINITY,
 };
 
 /** Only the variable actually read — see `UsageLimitsEnv` for why not `ProcessEnv`. */

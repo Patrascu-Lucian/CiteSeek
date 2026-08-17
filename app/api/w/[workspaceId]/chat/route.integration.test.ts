@@ -11,7 +11,14 @@ import {
 
 import type * as Provider from "@/lib/ai/provider";
 import type { Actor } from "@/lib/auth/actor";
-import { listChatMessages, listChats } from "@/lib/chats/queries";
+import {
+  appendMessages,
+  createChat,
+  getOrCreateChat,
+  listChatMessages,
+  listChats,
+} from "@/lib/chats/queries";
+import { DEFAULT_PLAN_LIMITS } from "@/lib/limits/config";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
 import { usageEvents } from "@/lib/db/schema";
 import { PRODUCTION_USAGE_LIMITS } from "@/lib/usage/config";
@@ -513,6 +520,129 @@ describe("POST /api/w/[workspaceId]/chat", () => {
     expect(sourcesOf(chunks)).toHaveLength(1);
     expect(sourcesOf(chunks)![0]!.quote).toBe(injection);
     expect(textOf(chunks)).toBe(FAKE_ANSWER);
+  });
+});
+
+describe("the saved-message cap", () => {
+  const CAP = DEFAULT_PLAN_LIMITS.messagesPerConversation;
+
+  /** Direct inserts, so the setup costs no provider calls. */
+  async function fillConversation(
+    workspaceId: string,
+    userId: string,
+    rows: number,
+  ) {
+    const chat = await getOrCreateChat(workspaceId, userId);
+
+    for (let turn = 0; turn < rows / 2; turn++) {
+      await appendMessages(workspaceId, userId, chat.id, [
+        { role: "user", content: `question ${turn}` },
+        { role: "assistant", content: `answer ${turn}`, citations: [] },
+      ]);
+    }
+
+    return chat;
+  }
+
+  // The usage assertion, not the status: a 409 would pass just as well with the
+  // check left below retrieval, where the embedding is already paid for.
+  it("refuses before the question is embedded", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+    await fillConversation(workspace.id, user.id, CAP);
+
+    const response = await postChat(workspace.id, PASSAGE);
+
+    expect(response.status).toBe(409);
+
+    const [usage] = await db
+      .select({ total: count() })
+      .from(usageEvents)
+      .where(eq(usageEvents.actorId, user.id));
+
+    expect(usage?.total).toBe(0);
+  });
+
+  it("carries copy the client can render, not just a code", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+    await fillConversation(workspace.id, user.id, CAP);
+
+    const body = (await (await postChat(workspace.id, PASSAGE)).json()) as {
+      cap: string;
+      title: string;
+      detail: string;
+    };
+
+    expect(body.cap).toBe("messages");
+    expect(body.title).toContain(String(CAP));
+    expect(body.detail).toContain("Start a new conversation");
+  });
+
+  it("says to delete a conversation when they are all used", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+
+    const full = await fillConversation(workspace.id, user.id, CAP);
+    for (let extra = 1; extra < DEFAULT_PLAN_LIMITS.conversations; extra++) {
+      await createChat(workspace.id, user.id);
+    }
+
+    // Named explicitly: the fallback would return the most recent, not the full one.
+    const { POST } = await import("./route");
+    const response = await POST(
+      new Request("http://test/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          chatId: full.id,
+          messages: [
+            {
+              id: "m1",
+              role: "user",
+              parts: [{ type: "text", text: PASSAGE }],
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ workspaceId: workspace.id }) },
+    );
+
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { detail: string };
+    expect(body.detail).toContain("delete one");
+  });
+
+  it("still answers one turn below the cap", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+    await fillConversation(workspace.id, user.id, CAP - 2);
+
+    const chunks = await readStream(await postChat(workspace.id, PASSAGE));
+
+    expect(textOf(chunks)).toBe(FAKE_ANSWER);
+  });
+
+  // Guests store nothing (ADR 013), so `chatId` is null and the cap is skipped.
+  it("does not apply to a guest, who has no stored conversation", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+    await fillConversation(workspace.id, user.id, CAP);
+
+    currentActor.value = { type: "guest", id: "guest-cap" };
+    const response = await postChat(workspace.id, PASSAGE);
+
+    // 404 in practice — authorization runs first. What matters is the absence of 409.
+    expect(response.status).not.toBe(409);
   });
 });
 
