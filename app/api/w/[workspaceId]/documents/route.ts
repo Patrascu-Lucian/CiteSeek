@@ -2,10 +2,13 @@ import { NextResponse, after } from "next/server";
 
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import {
+  countDocuments,
   createQueuedDocument,
   failStaleProcessing,
   listDocuments,
 } from "@/lib/documents/queries";
+import { capRefusalBody, decideCap } from "@/lib/limits/caps";
+import { resolvePlanLimits } from "@/lib/limits/config";
 import {
   declaredBodyTooLarge,
   tooLargeMessage,
@@ -73,6 +76,26 @@ export async function POST(
   // a question, so limiting chat alone leaves the expensive door open.
   const refused = await enforceUsageLimits(auth, ipHash);
   if (refused) return refused;
+
+  /*
+    Also ahead of `formData()`, for the same reason as the header check: a cap
+    refusal is exactly as certain, and buffering 4 MB to produce it is the same
+    waste. 409, not 429 — nothing here is transient and no retry escapes it, so
+    a `Retry-After` would be a lie.
+  */
+  const documentCount = await countDocuments(auth.workspaceId);
+  const capped = decideCap(
+    "documents",
+    documentCount.total,
+    resolvePlanLimits().documents,
+  );
+
+  if (!capped.allowed) {
+    return NextResponse.json(
+      capRefusalBody(capped, { failedDocuments: documentCount.failed }),
+      { status: 409 },
+    );
+  }
 
   let formData: FormData;
   try {

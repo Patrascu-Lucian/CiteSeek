@@ -74,6 +74,28 @@ export async function listDocuments(
     .orderBy(desc(documents.createdAt));
 }
 
+/**
+ * Every row, whatever its status — the document cap counts these.
+ *
+ * Counting only usable documents was the alternative, and it is bypassable:
+ * `createQueuedDocument` inserts before extraction runs, so concurrent uploads
+ * would all pass a `ready`-only count at zero. `failed` comes back with the
+ * total because the refusal has to say which document is worth deleting.
+ */
+export async function countDocuments(
+  workspaceId: string,
+): Promise<{ total: number; failed: number }> {
+  const [row] = await db
+    .select({
+      total: count(),
+      failed: sql<number>`count(*) filter (where ${documents.status} = 'failed')::int`,
+    })
+    .from(documents)
+    .where(eq(documents.workspaceId, workspaceId));
+
+  return { total: row?.total ?? 0, failed: row?.failed ?? 0 };
+}
+
 export async function findDocumentInWorkspace(
   workspaceId: string,
   documentId: string,
