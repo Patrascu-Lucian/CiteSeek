@@ -438,12 +438,18 @@ each of these is reversible and therefore safe to defer.
   `invert`, stays crisp at any density, and is selectable and searchable. A real mark should be
   added _beside_ it rather than replacing it.
 
-- **The favicons are still the mark the header no longer uses.** `app/icon.png` and
-  `app/apple-icon.png` are crops of the old generated lockup — a navy "C" over a magnifier,
-  raster, on an opaque plate. The header went vector and monochrome without them, so the tab
-  and the page now show two different identities. Not urgent, because both beat the
-  create-next-app default they replaced, but it is the sort of thing a stranger sees first and
-  it should be resolved in the same pass as the real mark rather than separately.
+- ~~**The favicons are still the mark the header no longer uses.**~~ **Done, 17 August 2026.**
+  Both are now generated from `scripts/brand/mark.svg` — a geometric C in `--primary`, drawn in
+  the repository rather than commissioned, so there is no stock-art question on a public
+  all-rights-reserved repo. A unit test pins the mark's colours to the palette, since the PNGs
+  are committed and nothing rebuilds them when a token moves.
+
+  Two things the entry above got right and one it did not. Right: the old icons were a raster
+  lockup on an opaque plate, and the tab disagreed with the page. Wrong: "not urgent, because
+  both beat the create-next-app default" understated it — at 16px the magnifier, document and
+  quote marks resolved to an illegible blob, which is the size a favicon is actually seen at.
+  **The mark still does not appear in the header**, so the wordmark-only position below is
+  unchanged.
 
   Worth recording about the brief that produced the original: the commissioned research report frames
   CiteSeek as a tool for **academic researchers** and benchmarks it against Google Scholar,
@@ -993,11 +999,11 @@ Vercel as receiving visitor metrics, and a check that the nonce reaches the inje
 Four things noticed while reading the deployed site. The first three are design work; the
 fourth is a defect with a diagnosis.
 
-- **A logo mark, and real icons.** `app/icon.png` and `app/apple-icon.png` exist but are
-  placeholders, and the header renders the wordmark as plain text, so there is no symbol
-  anywhere. One job with the hero below rather than three: a mark that only ever appears at
-  32px is designed differently from one that has to sit on an image, and deciding them apart
-  is how you end up with two.
+- ~~**A logo mark, and real icons.**~~ **Icons done, 17 August 2026** — drawn as vector in
+  `scripts/brand/mark.svg` and rendered by `pnpm brand:icons`. The prediction here was that a
+  32px mark and one sitting on an image are different designs; that held, and the icon was
+  drawn for the small size alone. Whether the hero reuses it is now genuinely open rather than
+  assumed. Still no symbol in the header.
 
 - **A hero image behind the landing headline.** Currently type on a flat background. The
   constraint that decides the approach: `img-src` is `'self' data:` and ADR 032 keeps remote

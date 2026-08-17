@@ -92,3 +92,8 @@ palettes and put every filter-based approach out of reach.
 constraint above no longer binds. The reason was not the palette — the placeholder read "LOGO",
 which left the product's name absent from its own header. Text follows the theme with no second
 asset, and the tradeoff recorded here applies again the moment a real mark is introduced.
+
+↳ **A mark exists as of 17 August 2026**, and this still does not bind: it is the app icons
+only, where a single opaque file is the correct answer and no theme reaches it. The constraint
+returns if a mark is ever drawn _in the page_, which would need `currentColor` rather than
+inversion — it carries `--primary`, so there is now a hue for `invert` to distort.
