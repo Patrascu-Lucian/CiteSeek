@@ -102,3 +102,15 @@ describe("Refusal — with nothing indexed at all", () => {
     expect(screen.queryByText(/in this workspace/i)).toBeNull();
   });
 });
+
+describe("Refusal — a filename that appears twice", () => {
+  it("names it once, since a duplicate tells the reader nothing", () => {
+    renderRefusal({
+      reason: "no_relevant_passages",
+      documents: ["report.pdf", "report.pdf", "handbook.pdf"],
+    });
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getAllByText("report.pdf")).toHaveLength(1);
+  });
+});
