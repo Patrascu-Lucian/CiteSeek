@@ -1405,7 +1405,7 @@ its loader.
 a violation. Whoever picks this up should not expect axe to report one fewer finding — the gap is
 drag and drop, the described drop target, and one validation copy instead of two.
 
-## No E2E can reach a plan cap, 17 August 2026
+## ~~No E2E can reach a plan cap~~, 17 August 2026
 
 The stock caps bite in exactly one place — a signed-in reader's own workspace — and the Playwright
 suite never reaches one. There is no authenticated E2E at all: GitHub OAuth cannot be driven from a
@@ -1425,6 +1425,19 @@ recording: a guard written from a plausible claim rather than a measurement.**
 building for its own sake — the entire signed-in half of the product currently has no journey
 coverage. When it exists, `PLAN_LIMITS=off` becomes necessary for the unrelated specs and a
 cap-specific spec becomes possible; both should land together.
+
+**Done**, 19 August 2026: `e2e/signed-in.ts` and `e2e/plan-caps.spec.ts`. Two claims above were
+wrong, both from reasoning rather than looking.
+
+_The cookie is not signed._ Sessions are database rows, so it carries the `session_token` primary
+key and nothing else. Inserting the row and setting the cookie is the whole handshake; none of
+Auth.js's signing had to be reproduced.
+
+_`PLAN_LIMITS=off` was not needed._ That followed from assuming one shared account. The fixture
+creates a user and a workspace per test instead, so every count starts at zero and no spec can
+approach a cap it did not set up — which also keeps the cap spec able to test caps, something a
+global `off` would have made impossible. Isolation removed the configuration rather than requiring
+it. Verified both ways: the two specs pass with limits on and fail with `PLAN_LIMITS=off`.
 
 ## A malformed chat id is a 500, not the documented fallback, 17 August 2026
 
