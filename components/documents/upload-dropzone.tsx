@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
-import Link from "next/link";
 import { AlertCircle, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import type { SendFile } from "@/lib/documents/upload";
 import { ACCEPT_ATTRIBUTE, validateUpload } from "@/lib/documents/validation";
 
 /**
@@ -22,10 +22,12 @@ type QueuedFile = {
 };
 
 export function UploadDropzone({
-  workspaceId,
+  send,
   onUploaded,
 }: {
-  workspaceId: string;
+  /** What happens to a file once it validates. Taken rather than built here,
+   * so local mode can keep it in the browser. */
+  send: SendFile;
   /** Awaited before the local row clears, so there is no gap where an uploaded
    * file appears nowhere. */
   onUploaded: () => Promise<void>;
@@ -35,58 +37,29 @@ export function UploadDropzone({
   const [files, setFiles] = useState<QueuedFile[]>([]);
 
   async function upload(file: File, id: string) {
-    const body = new FormData();
-    body.append("file", file);
+    const result = await send(file);
 
-    try {
-      const response = await fetch(`/api/w/${workspaceId}/documents`, {
-        method: "POST",
-        body,
-      });
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        setFiles((current) =>
-          current.map((entry) =>
-            entry.id === id
-              ? {
-                  ...entry,
-                  state: "rejected",
-                  message: payload?.error ?? "Upload failed.",
-                }
-              : entry,
-          ),
-        );
-        return;
-      }
-
-      setFiles((current) =>
-        current.map((entry) =>
-          entry.id === id ? { ...entry, state: "queued" } : entry,
-        ),
-      );
-
-      // Wait for the list to pick the document up, then stop showing it here.
-      // Clearing first would leave a moment where the file appears nowhere.
-      await onUploaded();
-      setFiles((current) => current.filter((entry) => entry.id !== id));
-    } catch {
+    if (!result.ok) {
       setFiles((current) =>
         current.map((entry) =>
           entry.id === id
-            ? {
-                ...entry,
-                state: "rejected",
-                message: "Upload failed. Check your connection and try again.",
-              }
+            ? { ...entry, state: "rejected", message: result.message }
             : entry,
         ),
       );
+      return;
     }
-  }
 
+    setFiles((current) =>
+      current.map((entry) =>
+        entry.id === id ? { ...entry, state: "queued" } : entry,
+      ),
+    );
+
+    // Clearing before the list adopts it leaves the file showing nowhere.
+    await onUploaded();
+    setFiles((current) => current.filter((entry) => entry.id !== id));
+  }
   async function handleFiles(selected: FileList | null) {
     if (!selected || selected.length === 0) return;
 
@@ -146,18 +119,6 @@ export function UploadDropzone({
           PDF, Word (.docx), Markdown or text — up to 4&nbsp;MB each
         </span>
       </button>
-
-      {/* Someone deciding what to upload decides it *at this control*, so the
-          fact that the text leaves the app belongs here and not only on the
-          privacy page. Changed with the tier, never after it — ADR 025. */}
-      <p className="text-muted-foreground mt-2 text-xs">
-        You are uploading to a deployment on Google&rsquo;s{" "}
-        <strong>paid Gemini tier</strong> — your document text is sent there to
-        answer questions, and is not used to train their models.{" "}
-        <Link href="/privacy" className="underline">
-          What is stored
-        </Link>
-      </p>
 
       <input
         ref={inputRef}

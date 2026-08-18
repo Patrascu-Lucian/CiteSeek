@@ -14,6 +14,7 @@ import { SourcePanel, type SourceTarget } from "@/components/chat/source-panel";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { DocumentList } from "@/components/documents/document-list";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
+import { uploadToWorkspace } from "@/lib/documents/upload";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import {
@@ -159,7 +160,24 @@ export function WorkspaceSections({
 
         <div className="space-y-4">
           {canWrite ? (
-            <UploadDropzone workspaceId={workspaceId} onUploaded={refresh} />
+            <div>
+              <UploadDropzone
+                send={uploadToWorkspace(workspaceId)}
+                onUploaded={refresh}
+              />
+
+              {/* Here, not in the dropzone: local mode shares that control and
+                  sends nothing. */}
+              <p className="text-muted-foreground mt-2 text-xs">
+                You are uploading to a deployment on Google&rsquo;s{" "}
+                <strong>paid Gemini tier</strong> — your document text is sent
+                there to answer questions, and is not used to train their
+                models.{" "}
+                <Link href="/privacy" className="underline">
+                  What is stored
+                </Link>
+              </p>
+            </div>
           ) : null}
 
           <DocumentList

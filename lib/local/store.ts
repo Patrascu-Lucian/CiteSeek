@@ -280,10 +280,10 @@ export async function deleteEverythingLocal(): Promise<void> {
 export type LocalStoreSummary = {
   documents: number;
   chunks: number;
-  /** Names, not just a count: nothing else in local mode says *which* documents
-   * are stored, so after a reload the reader had a number and no way to tell
-   * what it counted. */
-  filenames: string[];
+  /** Named, not just counted: nothing else in local mode says *which* documents
+   * are stored. Carries the id because the same file uploaded twice is two
+   * documents with one name. */
+  files: { id: string; filename: string }[];
 };
 
 export async function summarizeLocalStore(): Promise<LocalStoreSummary> {
@@ -298,7 +298,7 @@ export async function summarizeLocalStore(): Promise<LocalStoreSummary> {
     return {
       documents: stored.length,
       chunks,
-      filenames: stored.map((document) => document.filename),
+      files: stored.map(({ id, filename }) => ({ id, filename })),
     };
   });
 }
