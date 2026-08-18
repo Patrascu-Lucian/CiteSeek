@@ -32,7 +32,7 @@ export function ChatPanel({
 }: {
   workspaceId: string;
   /** Which conversation the turn belongs to. Null before one exists, where the
-   * route creating it is the intended behaviour. */
+   * route creating it is the intended behavior. */
   chatId?: string | null;
   /** Whether anything has finished processing. Nothing to search without it. */
   hasReadyDocuments: boolean;

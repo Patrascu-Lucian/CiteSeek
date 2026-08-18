@@ -40,7 +40,7 @@ export function HeroGraphic({ className }: { className?: string }) {
       ))}
 
       {/* The cited passage. Tinted *and* underlined, like the real one — the
-          tint alone would carry the whole claim in colour. */}
+          tint alone would carry the whole claim in color. */}
       <rect
         x="44"
         y={CITED_Y - 8}

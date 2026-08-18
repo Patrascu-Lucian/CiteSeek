@@ -26,12 +26,12 @@ describe("the brand mark against the palette", () => {
     expect(MARK).toContain(`fill: ${lightToken("--primary")}`);
   });
 
-  it("draws the glyph in the colour that primary is legible against", () => {
+  it("draws the glyph in the color that primary is legible against", () => {
     expect(MARK).toContain(`stroke: ${lightToken("--primary-foreground")}`);
   });
 
   // One file cannot follow a theme, and a tab strip is as often light as dark.
-  it("names no dark-mode colour it could not honour", () => {
+  it("names no dark-mode color it could not honor", () => {
     expect(MARK).not.toContain("prefers-color-scheme");
   });
 
