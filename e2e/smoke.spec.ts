@@ -494,3 +494,26 @@ test.describe("the social card", () => {
     );
   });
 });
+
+test.describe("what crawlers are given", () => {
+  test("serves a robots policy that names the sitemap", async ({ request }) => {
+    const response = await request.get("/robots.txt");
+    expect(response.status()).toBe(200);
+
+    const body = await response.text();
+    expect(body).toContain("Disallow: /demo");
+    expect(body).toContain("Disallow: /w");
+    expect(body).toMatch(/Sitemap: https?:\/\/.+\/sitemap\.xml/);
+  });
+
+  test("serves a sitemap listing the public pages", async ({ request }) => {
+    const response = await request.get("/sitemap.xml");
+    expect(response.status()).toBe(200);
+
+    const body = await response.text();
+    expect(body).toContain("/about");
+    expect(body).toContain("/local");
+    // The one a crawl would otherwise turn into a session per visit.
+    expect(body).not.toContain("/demo");
+  });
+});
