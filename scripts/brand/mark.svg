@@ -10,6 +10,6 @@
   <rect class="ground" width="512" height="512" />
 
   <!-- 270°: a wider aperture closes up at 16px and reads as an O. Nudged right
-       because the ink spans x 85–386, which looks 20px left of centre. -->
+       because the ink spans x 85–386, which looks 20px left of center. -->
   <path class="mark" transform="translate(16 0)" d="M 355 157 A 140 140 0 1 0 355 355" />
 </svg>

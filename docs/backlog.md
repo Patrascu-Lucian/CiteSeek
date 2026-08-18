@@ -441,7 +441,7 @@ each of these is reversible and therefore safe to defer.
 - ~~**The favicons are still the mark the header no longer uses.**~~ **Done, 17 August 2026.**
   Both are now generated from `scripts/brand/mark.svg` — a geometric C in `--primary`, drawn in
   the repository rather than commissioned, so there is no stock-art question on a public
-  all-rights-reserved repo. A unit test pins the mark's colours to the palette, since the PNGs
+  all-rights-reserved repo. A unit test pins the mark's colors to the palette, since the PNGs
   are committed and nothing rebuilds them when a token moves.
 
   Two things the entry above got right and one it did not. Right: the old icons were a raster

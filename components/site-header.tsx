@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { LogOut } from "lucide-react";
 
 import { HEADER_CONTROL_HEIGHT } from "@/components/header-control-height";
+import { BrandMark } from "@/components/brand-mark";
 import { HomeLink } from "@/components/home-link";
 import { MainNav } from "@/components/main-nav";
 import { SignInLink } from "@/components/sign-in-link";
@@ -102,9 +103,10 @@ export async function SiteHeader() {
           Full header height like the nav links, so the space around the wordmark
           is clickable. No fill: a logo is a destination, not a tab.
         */}
-        <HomeLink className="focus-visible:ring-ring -my-4 inline-flex shrink-0 items-center gap-1 self-stretch focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset">
-          {/* Text, so it follows the theme with no second asset — and because the
-            placeholder image read "LOGO", leaving the product unnamed here. */}
+        <HomeLink className="focus-visible:ring-ring -my-4 inline-flex shrink-0 items-center gap-2 self-stretch focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset">
+          {/* Beside, not instead: the image this replaced read "LOGO" and left
+            the product unnamed in its own header (ADR 018). */}
+          <BrandMark className="size-6 shrink-0" />
           <span className="text-primary font-wordmark text-lg tracking-wide">
             CiteSeek
           </span>

@@ -269,8 +269,8 @@ describe("POST /documents — the document cap", () => {
   /* The regression a cap counted on the wrong scope would cause, and the reason
      `countDocuments` takes a workspace like every other helper here. */
   it("counts only the workspace being uploaded to", async () => {
-    const neighbour = await signedInWorkspace();
-    await fill(neighbour.id, CAP);
+    const neighbor = await signedInWorkspace();
+    await fill(neighbor.id, CAP);
 
     const mine = await signedInWorkspace();
 
