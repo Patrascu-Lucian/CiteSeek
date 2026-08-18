@@ -467,3 +467,30 @@ test.describe("the footer", () => {
     expect(await footerRows(page)).toBe(2);
   });
 });
+
+test.describe("the social card", () => {
+  // Silent when it breaks: a bare card, with every page still looking right.
+  test("points crawlers at an absolute image", async ({ page }) => {
+    await page.goto("/");
+
+    const image = page.locator('meta[property="og:image"]');
+    await expect(image).toHaveAttribute("content", /^https?:\/\//);
+
+    // The dimensions platforms crop from. Wrong ones are cropped, not refused.
+    await expect(
+      page.locator('meta[property="og:image:width"]'),
+    ).toHaveAttribute("content", "1200");
+    await expect(
+      page.locator('meta[property="og:image:height"]'),
+    ).toHaveAttribute("content", "630");
+  });
+
+  test("asks for the large card rather than a thumbnail", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+      "content",
+      "summary_large_image",
+    );
+  });
+});
