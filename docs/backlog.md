@@ -1495,7 +1495,7 @@ the reload was not, which understates it.
 The first is the smaller change and keeps one code path. Either way the no-JavaScript case must
 keep working, since the form is what makes that true today.
 
-## Model weights cached inside `node_modules` break the build, 18 August 2026
+## ~~Model weights cached inside `node_modules` break the build~~, 18 August 2026
 
 `pnpm build` failed with a Turbopack panic — `reading file … Qwen2.5-0.5B-Instruct/onnx/model_q4f16.onnx`,
 `Insufficient system resources exist to complete the requested service (os error 1450)`. It
@@ -1517,6 +1517,12 @@ library is configured for Node, so weights live beside the repository rather tha
 dependency tree. Deleting the directory clears it today and it returns the next time a model is
 pulled. Worth doing before anyone else clones this and runs the local model, since the symptom
 names a file nobody chose to create and a build that failed for no visible reason.
+
+**Done**, 18 August 2026: `lib/local/model-cache.ts` sends it to `~/.cache/citeseek-transformers`,
+overridable with `CITESEEK_MODEL_CACHE`. Applied on both model-loading paths — the two places that
+call `pipeline()` — because nothing else in Node pulls a model, and a helper nobody calls would not
+survive the next reader. The library's own `cacheDir` is the runtime check: it is null wherever
+there is no filesystem, so the browser never reaches `process`.
 
 ## A sticky header can obscure a control, and axe no longer sees it, 18 August 2026
 
@@ -1540,3 +1546,21 @@ reader who simply stops mid-page.
 header band and asserts what remains reachable, rather than discovering it by accident. That is a
 different test from "does this page pass axe", which is why folding it into the existing scans was
 the wrong place for it.
+
+## A full conversation looks writable until you send, 18 August 2026
+
+Reading the copy at every cap turned this up. At 40 of 40 saved messages the composer is enabled,
+the Send button is live, and nothing on the page says the conversation is finished. The refusal is
+correct once it arrives — the route returns 409, no answer is streamed, and the notice reads "This
+conversation has reached its limit of 40 saved messages. Start a new conversation to keep going —
+this one stays where it is." But it arrives **after** the reader has written the question, and the
+question stays on screen unsaved beside a composer that still invites another.
+
+The other three caps do better. The conversations cap renders its notice above the list on load,
+before "New conversation" is pressed. The documents cap refuses at the file row and names the
+failed upload to delete.
+
+The fix is the same shape as the conversations cap: the page already loads the message count for
+this conversation, so the notice can render on arrival and the composer can be disabled with it.
+Worth checking whether the composer should be disabled at all, or only labelled — a disabled
+control with no explanation is worse than an enabled one that refuses clearly.
