@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getActor } from "@/lib/auth/actor";
 import { accessToWorkspace, canWrite } from "@/lib/auth/authorization";
 import { findWorkspaceById } from "@/lib/auth/demo";
+import { planUsage } from "@/lib/limits/usage";
 import { workspaceUsage } from "@/lib/usage/dashboard";
 
 import { UsageView } from "./usage-view";
@@ -35,11 +36,20 @@ export default async function UsagePage({
     notFound();
   }
 
+  const canUpload = canWrite(actor, workspace);
+
   return (
     <UsageView
       workspaceId={workspace.id}
       usage={await workspaceUsage(workspace.id)}
-      canUpload={canWrite(actor, workspace)}
+      canUpload={canUpload}
+      // Only where a cap can bite. The demo is read-only for everyone, so a
+      // ceiling shown there would describe a limit nobody can reach.
+      plan={
+        canUpload && actor?.type === "user"
+          ? await planUsage(workspace.id, actor.id)
+          : null
+      }
     />
   );
 }
