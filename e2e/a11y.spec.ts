@@ -21,6 +21,13 @@ const WCAG_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 /** Reduced to the rule id, impact and markup: a raw `toEqual([])` prints hundreds
  * of lines and buries the one sentence saying what is wrong. */
+/** Scanned from the top: the offset otherwise depends on where streaming
+ * stopped, and the sticky header obscures whatever lands under it. */
+async function violationsFromTop(page: Page) {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  return violationsOn(page);
+}
+
 async function violationsOn(page: Page, selector?: string) {
   const builder = new AxeBuilder({ page }).withTags(WCAG_AA);
   const results = await (
@@ -149,6 +156,57 @@ for (const theme of THEMES) {
       else expect(classes).toContain("light");
     });
 
+    /* axe only sees the background that happened to be there; this bounds it
+       at both extremes any content can reach. */
+    test("the sticky header stays AA over anything that scrolls under it", async ({
+      page,
+    }) => {
+      await page.goto("/");
+
+      const samples = await page
+        .locator("header")
+        .evaluate((header: HTMLElement) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = canvas.height = 1;
+          const ctx = canvas.getContext("2d")!;
+
+          const over = (color: string, under: string) => {
+            ctx.fillStyle = under;
+            ctx.fillRect(0, 0, 1, 1);
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, 1, 1);
+            return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+          };
+
+          const headerBg = getComputedStyle(header).backgroundColor;
+          const labelled = [
+            ...header.querySelectorAll<HTMLElement>("a, button, span"),
+          ].filter((node) => (node.textContent ?? "").trim().length > 0);
+
+          return labelled.flatMap((node) => {
+            const color = getComputedStyle(node).color;
+            return ["rgb(0,0,0)", "rgb(255,255,255)"].map((behind) => {
+              const background = over(headerBg, behind);
+              return {
+                label: (node.textContent ?? "").trim().slice(0, 24),
+                behind,
+                text: over(color, `rgb(${background.join(",")})`),
+                background,
+              };
+            });
+          });
+        });
+
+      expect(samples.length).toBeGreaterThan(0);
+
+      for (const { label, behind, text, background } of samples) {
+        expect(
+          contrastRatio(text, background),
+          `"${label}" over ${behind}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
     test.describe("automated accessibility", () => {
       test("the landing page", async ({ page }) => {
         await page.goto("/");
@@ -180,10 +238,8 @@ for (const theme of THEMES) {
           page.getByRole("button", { name: /citation 1/i }),
         ).toBeVisible();
 
-        // Scanned after the answer lands, not before: the chips, the live region and
-        // the message list only exist once there is a conversation, and an empty
-        // panel is not the state anyone reads.
-        expect(await violationsOn(page)).toEqual([]);
+        // After the answer lands: the chips and live region only exist then.
+        expect(await violationsFromTop(page)).toEqual([]);
       });
 
       test("the source panel, open", async ({ page }) => {
@@ -197,8 +253,7 @@ for (const theme of THEMES) {
           .first()
           .click();
         await expect(page.getByRole("dialog")).toBeVisible();
-
-        expect(await violationsOn(page)).toEqual([]);
+        expect(await violationsFromTop(page)).toEqual([]);
       });
 
       test("the about, privacy and terms pages", async ({ page }) => {
