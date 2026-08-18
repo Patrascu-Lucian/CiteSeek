@@ -1517,3 +1517,26 @@ library is configured for Node, so weights live beside the repository rather tha
 dependency tree. Deleting the directory clears it today and it returns the next time a model is
 pulled. Worth doing before anyone else clones this and runs the local model, since the symptom
 names a file nobody chose to create and a build that failed for no visible reason.
+
+## A sticky header can obscure a control, and axe no longer sees it, 18 August 2026
+
+Making the header `sticky` turned four a11y scans red on `target-size` — "all touch targets must
+be 24px large, or leave sufficient space" — against the workspace's "Sign in to upload" button. The
+button is 34px tall and passes on its own. axe counts only the _unobscured_ area, and a sticky
+header covers whatever scrolls beneath it.
+
+The scans were reached by `toBeVisible()` on a citation chip, whose scroll-into-view lands wherever
+the answer happened to finish streaming. So the same commit passed with two tests on one worker and
+failed with the full suite on eight: the gate's result depended on stream timing, not on markup.
+Those two scans now run from `scrollTo(0, 0)`.
+
+**What that stops catching**: a control partially covered by the header at some scroll offset. It is
+a real WCAG 2.5.8 concern and it is not specific to this app — any sticky header has it, at some
+offset, for some control. `scroll-padding-top: 4.5rem` in `globals.css` handles the cases the
+browser scrolls itself (anchors, focus); it does nothing for a synthetic scroll, and nothing for a
+reader who simply stops mid-page.
+
+**Worth doing if it is ever picked up**: a deliberate test that scrolls a known control into the
+header band and asserts what remains reachable, rather than discovering it by accident. That is a
+different test from "does this page pass axe", which is why folding it into the existing scans was
+the wrong place for it.

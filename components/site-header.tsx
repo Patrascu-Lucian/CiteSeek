@@ -90,8 +90,10 @@ export async function SiteHeader() {
       <SignInLink />
     );
 
+  /* Bounded bleed-through, so contrast is checkable against black and white
+     rather than whatever scrolls under. z-40 keeps the skip link's z-50 above. */
   return (
-    <header className="border-border/60 border-b">
+    <header className="border-border/60 bg-background/85 sticky top-0 z-40 border-b backdrop-blur-sm">
       <nav
         aria-label="Main"
         className={pageShell("5xl", "flex items-center gap-4 py-4")}
