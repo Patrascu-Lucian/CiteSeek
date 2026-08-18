@@ -1,6 +1,8 @@
 import { buildSystemPrompt } from "@/lib/ai/prompt";
 import type { ChatSource } from "@/lib/ai/types";
 
+import { useNodeModelCache } from "./model-cache";
+
 /** Pinned like the embedder: an answer's quality is a property of this exact
  * model, and the download is the reader's to consent to. */
 export const LOCAL_CHAT_MODEL = "onnx-community/Qwen2.5-0.5B-Instruct";
@@ -94,6 +96,7 @@ export function loadChatModel(
   loading ??= import("@huggingface/transformers")
     .then(({ env, pipeline }) => {
       env.backends.onnx.wasm!.wasmPaths = "/onnx/";
+      useNodeModelCache(env);
 
       return pipeline("text-generation", LOCAL_CHAT_MODEL, {
         dtype: "q4",
