@@ -46,3 +46,20 @@ describe("Landing", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("the hero graphic", () => {
+  // It restates the heading. Announced, a screen reader hears the claim twice.
+  it("is decorative rather than described", () => {
+    const { container } = render(
+      <Landing
+        primary={{ href: "/sign-in", label: "Get started" }}
+        secondary={{ href: "/demo", label: "Try the demo" }}
+      />,
+    );
+
+    const svg = container.querySelector("svg[role='presentation']");
+    expect(svg).not.toBeNull();
+    expect(svg).toHaveAttribute("aria-hidden", "true");
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+});
