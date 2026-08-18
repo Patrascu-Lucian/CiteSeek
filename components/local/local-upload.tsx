@@ -2,29 +2,43 @@
 
 import { useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { ACCEPT_ATTRIBUTE } from "@/lib/documents/validation";
+import { UploadDropzone } from "@/components/documents/upload-dropzone";
 import { embedLocalDocument, ingestLocalFile } from "@/lib/local/ingest";
 
 type State =
   | { status: "idle" }
   | { status: "parsing"; filename: string }
   | { status: "embedding"; filename: string; done: number; total: number }
-  | { status: "done"; filename: string; passages: number }
+  | { status: "done"; passages: number }
   | { status: "failed"; message: string };
 
 export function LocalUpload({ onIngested }: { onIngested: () => void }) {
-  const input = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<State>({ status: "idle" });
 
+  /* A ref, not `state`: the dropzone hands files to `ingest` in a loop without
+     awaiting, so a second call reads this before any re-render. */
+  const working = useRef(false);
+
+  /** The dropzone's `send`. Nothing leaves the browser (ADR 029), so a refusal
+   * here is a parse failure rather than a response. */
   async function ingest(file: File) {
+    // One status region, one document. Two at once would flip between them.
+    if (working.current) {
+      return {
+        ok: false as const,
+        message: "One document at a time in local mode.",
+      };
+    }
+
+    working.current = true;
     setState({ status: "parsing", filename: file.name });
 
     const result = await ingestLocalFile(file);
 
     if (!result.ok) {
       setState({ status: "failed", message: result.message });
-      return;
+      working.current = false;
+      return { ok: false as const, message: result.message };
     }
 
     setState({
@@ -43,18 +57,16 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
 
     if (!embedded.ok) {
       setState({ status: "failed", message: embedded.message });
-      return;
+      working.current = false;
+      return { ok: false as const, message: embedded.message };
     }
 
-    setState({
-      status: "done",
-      filename: file.name,
-      passages: result.document.chunkCount,
-    });
+    setState({ status: "done", passages: result.document.chunkCount });
     onIngested();
-  }
+    working.current = false;
 
-  const busy = state.status === "parsing" || state.status === "embedding";
+    return { ok: true as const };
+  }
 
   return (
     <section
@@ -69,30 +81,9 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
         uploaded.
       </p>
 
-      <input
-        ref={input}
-        type="file"
-        accept={ACCEPT_ATTRIBUTE}
-        aria-label="Add a document to local mode"
-        disabled={busy}
-        className="sr-only"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          // Cleared so choosing the same file twice fires `change` again.
-          event.target.value = "";
-          if (file) void ingest(file);
-        }}
-      />
-
-      <Button
-        type="button"
-        variant="outline"
-        className="mt-3"
-        disabled={busy}
-        onClick={() => input.current?.click()}
-      >
-        {busy ? "Working…" : "Choose a file"}
-      </Button>
+      <div className="mt-3">
+        <UploadDropzone send={ingest} onUploaded={() => Promise.resolve()} />
+      </div>
 
       <p role="status" className="text-muted-foreground mt-3 text-sm">
         {state.status === "parsing"
@@ -100,7 +91,7 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
           : state.status === "embedding"
             ? `Indexing ${state.filename} — ${String(state.done)} of ${String(state.total)} passages. The model downloads once, then stays on this machine.`
             : state.status === "done"
-              ? `${state.filename} — ${state.passages} passage${state.passages === 1 ? "" : "s"} indexed on this machine. Ask about it below.`
+              ? `Indexed ${String(state.passages)} passage${state.passages === 1 ? "" : "s"} on this machine. Ask about it below.`
               : null}
       </p>
 

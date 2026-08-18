@@ -2,6 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { uploadToWorkspace } from "@/lib/documents/upload";
+
 import { UploadDropzone } from "./upload-dropzone";
 
 vi.mock("next/navigation", () => ({
@@ -28,7 +30,9 @@ describe("UploadDropzone — affordances", () => {
   it("is a button, so it works without a mouse", async () => {
     // A div with drag handlers is invisible to keyboard and screen-reader
     // users, and "upload a document" cannot be a mouse-only capability.
-    render(<UploadDropzone workspaceId="ws" onUploaded={onUploaded} />);
+    render(
+      <UploadDropzone send={uploadToWorkspace("ws")} onUploaded={onUploaded} />,
+    );
 
     const dropzone = screen.getByRole("button", { name: /drop files here/i });
     await userEvent.tab();
@@ -37,7 +41,9 @@ describe("UploadDropzone — affordances", () => {
   });
 
   it("labels the file input for assistive technology", () => {
-    render(<UploadDropzone workspaceId="ws" onUploaded={onUploaded} />);
+    render(
+      <UploadDropzone send={uploadToWorkspace("ws")} onUploaded={onUploaded} />,
+    );
 
     expect(
       screen.getByLabelText(/choose documents to upload/i),
@@ -45,7 +51,9 @@ describe("UploadDropzone — affordances", () => {
   });
 
   it("states the accepted formats and size limit up front", () => {
-    render(<UploadDropzone workspaceId="ws" onUploaded={onUploaded} />);
+    render(
+      <UploadDropzone send={uploadToWorkspace("ws")} onUploaded={onUploaded} />,
+    );
 
     expect(screen.getByText(/PDF, Word/i)).toBeInTheDocument();
     expect(screen.getByText(/4/)).toBeInTheDocument();
@@ -58,7 +66,9 @@ describe("UploadDropzone — client-side rejection", () => {
     // picker, or dropping the file. The `accept` attribute filters the picker
     // by default — which is why userEvent honors it — but it is a convenience,
     // not a control, and both of those paths get past it.
-    render(<UploadDropzone workspaceId="ws" onUploaded={onUploaded} />);
+    render(
+      <UploadDropzone send={uploadToWorkspace("ws")} onUploaded={onUploaded} />,
+    );
 
     const input = screen.getByLabelText(/choose documents to upload/i);
     await userEvent.upload(input, new File(["x"], "photo.png"), {
@@ -72,7 +82,9 @@ describe("UploadDropzone — client-side rejection", () => {
   });
 
   it("rejects a file whose bytes do not match its extension", async () => {
-    render(<UploadDropzone workspaceId="ws" onUploaded={onUploaded} />);
+    render(
+      <UploadDropzone send={uploadToWorkspace("ws")} onUploaded={onUploaded} />,
+    );
 
     const input = screen.getByLabelText(/choose documents to upload/i);
     await userEvent.upload(input, new File(["not a pdf"], "fake.pdf"));
@@ -82,7 +94,9 @@ describe("UploadDropzone — client-side rejection", () => {
   });
 
   it("lets a rejected file be dismissed", async () => {
-    render(<UploadDropzone workspaceId="ws" onUploaded={onUploaded} />);
+    render(
+      <UploadDropzone send={uploadToWorkspace("ws")} onUploaded={onUploaded} />,
+    );
 
     const input = screen.getByLabelText(/choose documents to upload/i);
     await userEvent.upload(input, new File(["x"], "photo.png"), {
@@ -110,7 +124,12 @@ describe("UploadDropzone — accepted files", () => {
     });
     const slowOnUploaded = vi.fn().mockReturnValue(pending);
 
-    render(<UploadDropzone workspaceId="ws" onUploaded={slowOnUploaded} />);
+    render(
+      <UploadDropzone
+        send={uploadToWorkspace("ws")}
+        onUploaded={slowOnUploaded}
+      />,
+    );
 
     const input = screen.getByLabelText(/choose documents to upload/i);
     await userEvent.upload(input, pdfFile());
@@ -127,7 +146,12 @@ describe("UploadDropzone — accepted files", () => {
   it("waits for the list before clearing, so the file is never nowhere", async () => {
     const slowOnUploaded = vi.fn().mockReturnValue(new Promise<void>(() => {}));
 
-    render(<UploadDropzone workspaceId="ws" onUploaded={slowOnUploaded} />);
+    render(
+      <UploadDropzone
+        send={uploadToWorkspace("ws")}
+        onUploaded={slowOnUploaded}
+      />,
+    );
 
     const input = screen.getByLabelText(/choose documents to upload/i);
     await userEvent.upload(input, pdfFile());
@@ -138,7 +162,12 @@ describe("UploadDropzone — accepted files", () => {
   });
 
   it("posts to the workspace-scoped route", async () => {
-    render(<UploadDropzone workspaceId="ws-42" onUploaded={onUploaded} />);
+    render(
+      <UploadDropzone
+        send={uploadToWorkspace("ws-42")}
+        onUploaded={onUploaded}
+      />,
+    );
 
     const input = screen.getByLabelText(/choose documents to upload/i);
     await userEvent.upload(input, pdfFile());
@@ -158,7 +187,9 @@ describe("UploadDropzone — accepted files", () => {
       }),
     );
 
-    render(<UploadDropzone workspaceId="ws" onUploaded={onUploaded} />);
+    render(
+      <UploadDropzone send={uploadToWorkspace("ws")} onUploaded={onUploaded} />,
+    );
     const input = screen.getByLabelText(/choose documents to upload/i);
     await userEvent.upload(input, pdfFile());
 
@@ -170,7 +201,9 @@ describe("UploadDropzone — accepted files", () => {
   it("survives a network failure with an actionable message", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
 
-    render(<UploadDropzone workspaceId="ws" onUploaded={onUploaded} />);
+    render(
+      <UploadDropzone send={uploadToWorkspace("ws")} onUploaded={onUploaded} />,
+    );
     const input = screen.getByLabelText(/choose documents to upload/i);
     await userEvent.upload(input, pdfFile());
 
@@ -182,7 +215,10 @@ describe("UploadDropzone — accepted files", () => {
   it("announces upload progress politely", async () => {
     const slowOnUploaded = vi.fn().mockReturnValue(new Promise<void>(() => {}));
     const { container } = render(
-      <UploadDropzone workspaceId="ws" onUploaded={slowOnUploaded} />,
+      <UploadDropzone
+        send={uploadToWorkspace("ws")}
+        onUploaded={slowOnUploaded}
+      />,
     );
 
     const input = screen.getByLabelText(/choose documents to upload/i);
@@ -191,30 +227,5 @@ describe("UploadDropzone — accepted files", () => {
     await waitFor(() =>
       expect(container.querySelector('[aria-live="polite"]')).not.toBeNull(),
     );
-  });
-});
-
-describe("UploadDropzone — what happens to the file", () => {
-  it("warns about the provider at the control, not only in the policy", () => {
-    /*
-      The decision about what to upload is made *here*, so what happens to the
-      text has to be readable here — a caveat someone has to go looking for is a
-      caveat written for the author.
-
-      Tested here rather than end-to-end because the dropzone renders only for a
-      reader who can write, and the E2E suite runs as a guest against the
-      read-only demo, where this control does not exist at all.
-    */
-    render(<UploadDropzone workspaceId="w1" onUploaded={vi.fn()} />);
-
-    expect(
-      // The whole phrase inside one <strong>: an emphasis that ends mid-clause
-      // loses the space after it in JSX, which is how "extractedfrom" shipped
-      // once on the privacy page.
-      screen.getByText("paid Gemini tier"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /what is stored/i }),
-    ).toHaveAttribute("href", "/privacy");
   });
 });

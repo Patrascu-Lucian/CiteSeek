@@ -32,7 +32,10 @@ describe("LocalDataControls", () => {
     summarize.mockResolvedValue({
       documents: 2,
       chunks: 59,
-      filenames: ["handbook.pdf", "policies.docx"],
+      files: [
+        { id: "d1", filename: "handbook.pdf" },
+        { id: "d2", filename: "policies.docx" },
+      ],
     });
 
     render(<LocalDataControls />);
@@ -46,7 +49,7 @@ describe("LocalDataControls", () => {
     summarize.mockResolvedValue({
       documents: 1,
       chunks: 1,
-      filenames: ["handbook.pdf"],
+      files: [{ id: "d1", filename: "handbook.pdf" }],
     });
 
     render(<LocalDataControls />);
@@ -57,7 +60,7 @@ describe("LocalDataControls", () => {
   });
 
   it("offers nothing to delete when the store is empty", async () => {
-    summarize.mockResolvedValue({ documents: 0, chunks: 0, filenames: [] });
+    summarize.mockResolvedValue({ documents: 0, chunks: 0, files: [] });
 
     render(<LocalDataControls />);
 
@@ -72,7 +75,10 @@ describe("LocalDataControls", () => {
     summarize.mockResolvedValue({
       documents: 2,
       chunks: 59,
-      filenames: ["handbook.pdf", "policies.docx"],
+      files: [
+        { id: "d1", filename: "handbook.pdf" },
+        { id: "d2", filename: "policies.docx" },
+      ],
     });
 
     render(<LocalDataControls />);
@@ -87,9 +93,12 @@ describe("LocalDataControls", () => {
       .mockResolvedValueOnce({
         documents: 2,
         chunks: 59,
-        filenames: ["handbook.pdf", "policies.docx"],
+        files: [
+          { id: "d1", filename: "handbook.pdf" },
+          { id: "d2", filename: "policies.docx" },
+        ],
       })
-      .mockResolvedValue({ documents: 0, chunks: 0, filenames: [] });
+      .mockResolvedValue({ documents: 0, chunks: 0, files: [] });
     deleteEverything.mockResolvedValue(undefined);
 
     render(<LocalDataControls />);
@@ -116,9 +125,12 @@ describe("LocalDataControls", () => {
       .mockResolvedValueOnce({
         documents: 2,
         chunks: 59,
-        filenames: ["handbook.pdf", "policies.docx"],
+        files: [
+          { id: "d1", filename: "handbook.pdf" },
+          { id: "d2", filename: "policies.docx" },
+        ],
       })
-      .mockResolvedValue({ documents: 0, chunks: 0, filenames: [] });
+      .mockResolvedValue({ documents: 0, chunks: 0, files: [] });
     deleteEverything.mockResolvedValue(undefined);
 
     render(<LocalDataControls />);
@@ -136,7 +148,10 @@ describe("LocalDataControls", () => {
     summarize.mockResolvedValue({
       documents: 2,
       chunks: 59,
-      filenames: ["handbook.pdf", "policies.docx"],
+      files: [
+        { id: "d1", filename: "handbook.pdf" },
+        { id: "d2", filename: "policies.docx" },
+      ],
     });
     deleteEverything.mockRejectedValue(new Error("blocked"));
 
@@ -155,7 +170,10 @@ describe("LocalDataControls", () => {
     summarize.mockResolvedValue({
       documents: 2,
       chunks: 59,
-      filenames: ["handbook.pdf", "policies.docx"],
+      files: [
+        { id: "d1", filename: "handbook.pdf" },
+        { id: "d2", filename: "policies.docx" },
+      ],
     });
     deleteEverything.mockRejectedValue(new Error("blocked"));
 
@@ -175,7 +193,7 @@ describe("LocalDataControls", () => {
 
   it("offers a retry when the store cannot be read at all", async () => {
     summarize.mockRejectedValueOnce(new Error("no idb"));
-    summarize.mockResolvedValue({ documents: 0, chunks: 0, filenames: [] });
+    summarize.mockResolvedValue({ documents: 0, chunks: 0, files: [] });
 
     render(<LocalDataControls />);
     await userEvent.click(
@@ -195,7 +213,10 @@ describe("telling the rest of the page the corpus is gone", () => {
     summarize.mockResolvedValue({
       documents: 2,
       chunks: 59,
-      filenames: ["handbook.pdf", "policies.docx"],
+      files: [
+        { id: "d1", filename: "handbook.pdf" },
+        { id: "d2", filename: "policies.docx" },
+      ],
     });
     deleteEverything.mockResolvedValue(undefined);
     const onCleared = vi.fn();
@@ -213,7 +234,10 @@ describe("telling the rest of the page the corpus is gone", () => {
     summarize.mockResolvedValue({
       documents: 2,
       chunks: 59,
-      filenames: ["handbook.pdf", "policies.docx"],
+      files: [
+        { id: "d1", filename: "handbook.pdf" },
+        { id: "d2", filename: "policies.docx" },
+      ],
     });
     deleteEverything.mockRejectedValue(new Error("blocked"));
     const onCleared = vi.fn();
@@ -236,7 +260,10 @@ describe("naming what is stored, not only counting it", () => {
     summarize.mockResolvedValue({
       documents: 2,
       chunks: 59,
-      filenames: ["handbook.pdf", "policies.docx"],
+      files: [
+        { id: "d1", filename: "handbook.pdf" },
+        { id: "d2", filename: "policies.docx" },
+      ],
     });
 
     render(<LocalDataControls />);
@@ -247,8 +274,33 @@ describe("naming what is stored, not only counting it", () => {
     });
   });
 
+  it("lists the same name twice when it was stored twice", async () => {
+    // Nothing stops the same file being added again, and it is genuinely two
+    // documents. Keyed on the name, React warns and reserves the right to drop
+    // one — so the console is the assertion; both rows render either way.
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    summarize.mockResolvedValue({
+      documents: 2,
+      chunks: 28,
+      files: [
+        { id: "d1", filename: "cv.pdf" },
+        { id: "d2", filename: "cv.pdf" },
+      ],
+    });
+
+    render(<LocalDataControls />);
+
+    await waitFor(() => expect(screen.getAllByText("cv.pdf")).toHaveLength(2));
+    const warned = errors.mock.calls.some((args) =>
+      args.some((arg) => String(arg).includes("same key")),
+    );
+    errors.mockRestore();
+
+    expect(warned).toBe(false);
+  });
+
   it("names nothing once the store is empty", async () => {
-    summarize.mockResolvedValue({ documents: 0, chunks: 0, filenames: [] });
+    summarize.mockResolvedValue({ documents: 0, chunks: 0, files: [] });
 
     render(<LocalDataControls />);
 
