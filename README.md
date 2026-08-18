@@ -434,6 +434,7 @@ pnpm eval:retrieval    # retrieval quality against eval/golden-set.ts (needs a r
 pnpm demo:shots        # the README screenshots, against a running instance
 pnpm demo:pdf          # regenerates the demo fixture from its HTML source
 pnpm brand:icons       # the app icons, from scripts/brand/mark.svg
+pnpm brand:card        # the social card, against a running instance
 ```
 
 Database:

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
+
+import { siteUrl } from "@/lib/site-url";
 import { cookies } from "next/headers";
 import { Audiowide, Geist, Geist_Mono } from "next/font/google";
 
@@ -36,12 +38,29 @@ const audiowide = Audiowide({
 });
 
 export const metadata: Metadata = {
+  /* Without this a relative `opengraph-image` stays relative, the crawler
+     resolves nothing, and the card renders bare with nothing failing. */
+  metadataBase: siteUrl(),
   title: {
     default: "CiteSeek — ask your documents, get cited answers",
     template: "%s · CiteSeek",
   },
   description:
     "Upload documents and ask questions. Answers stream back with clickable citations that open the exact source passage.",
+  openGraph: {
+    title: "CiteSeek — ask your documents, get cited answers",
+    description:
+      "Upload documents and ask questions. Answers stream back with clickable citations that open the exact source passage.",
+    siteName: "CiteSeek",
+    type: "website",
+    locale: "en",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CiteSeek — ask your documents, get cited answers",
+    description:
+      "Upload documents and ask questions. Answers stream back with clickable citations that open the exact source passage.",
+  },
 };
 
 /**
