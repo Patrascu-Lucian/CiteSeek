@@ -39,21 +39,28 @@ export function HeaderNavLink({
       onClick={onNavigate}
       aria-current={isCurrent ? "page" : undefined}
       className={cn(
-        // Padding inside the link, so the filled block is the target. No fixed
-        // height: it fills whatever the container gives it. `ring-inset` because
-        // the link now touches the header's edges.
+        // Padding inside the link, so the filled block is the target;
+        // `ring-inset` because it touches the header's edges.
         "focus-visible:ring-ring inline-flex items-center px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset",
-        // Background, contrast and weight together. Weight and color alone were
-        // too quiet to pick out of a row of four, and an underline competes with
-        // the one that means "link" elsewhere. The hover fill matters as much:
-        // without it the background only ever appears where you already are.
+        // Weight and color alone were too quiet in a row of four, and an
+        // underline competes with the one that means "link". The hover fill
+        // matters as much, or the background only appears where you already are.
         isCurrent
           ? "bg-muted text-foreground font-semibold"
           : "text-muted-foreground hover:bg-muted/50 hover:text-foreground font-medium",
         className,
       )}
     >
-      {children}
+      {/* The bold copy reserves the width, or becoming current shoves the row. */}
+      <span className="grid grid-cols-1 grid-rows-1 place-items-center">
+        <span
+          aria-hidden="true"
+          className="invisible col-start-1 row-start-1 font-semibold"
+        >
+          {children}
+        </span>
+        <span className="col-start-1 row-start-1">{children}</span>
+      </span>
     </Link>
   );
 }
