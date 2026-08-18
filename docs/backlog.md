@@ -1494,3 +1494,26 @@ the reload was not, which understates it.
 
 The first is the smaller change and keeps one code path. Either way the no-JavaScript case must
 keep working, since the form is what makes that true today.
+
+## Model weights cached inside `node_modules` break the build, 18 August 2026
+
+`pnpm build` failed with a Turbopack panic — `reading file … Qwen2.5-0.5B-Instruct/onnx/model_q4f16.onnx`,
+`Insufficient system resources exist to complete the requested service (os error 1450)`. It
+succeeded on retry, which is the shape of the problem: intermittent, and nothing to do with the
+change being built.
+
+`@huggingface/transformers` defaults its cache to `.cache/` **inside its own package directory**, so
+running the real local model in Node writes weights into `node_modules`. On this machine that is
+**3.1 GB**, including a 1.7 GB file. Turbopack traces the dependency graph for the middleware
+entrypoint and reads what it finds there, and Windows runs out of resources on files that size.
+
+The tests that touch it (`lib/local/embedder.test.ts`, `generate.test.ts`,
+`transformers-contract.test.ts`) mostly stub the library; whatever downloaded these did so in
+August during Milestone 7's model comparison. CI never hits it — a fresh runner has no cache, which
+is why this only ever appears locally.
+
+**The fix is one setting**: point `env.cacheDir` at a path outside `node_modules` wherever the
+library is configured for Node, so weights live beside the repository rather than inside its
+dependency tree. Deleting the directory clears it today and it returns the next time a model is
+pulled. Worth doing before anyone else clones this and runs the local model, since the symptom
+names a file nobody chose to create and a build that failed for no visible reason.
