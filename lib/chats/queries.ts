@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { isUuid } from "@/lib/db/uuid";
 import {
   type MessageCitation,
   type RefusalReason,
@@ -65,6 +66,8 @@ export async function listChatMessages(
   userId: string,
   chatId: string,
 ): Promise<ChatMessage[]> {
+  if (!isUuid(chatId)) return [];
+
   return db
     .select({
       id: messages.id,
@@ -135,7 +138,8 @@ export async function resolveChatForTurn(
   userId: string,
   requestedChatId: string | null,
 ): Promise<{ id: string }> {
-  if (requestedChatId) {
+  // Keeps the fallback promised above reachable for an id Postgres cannot cast.
+  if (requestedChatId && isUuid(requestedChatId)) {
     const [owned] = await db
       .select({ id: chats.id })
       .from(chats)
@@ -260,6 +264,8 @@ export async function renameChat(
   chatId: string,
   title: string,
 ): Promise<boolean> {
+  if (!isUuid(chatId)) return false;
+
   const trimmed = title.replace(/\s+/g, " ").trim();
 
   const updated = await db
@@ -286,6 +292,8 @@ export async function deleteChat(
   userId: string,
   chatId: string,
 ): Promise<boolean> {
+  if (!isUuid(chatId)) return false;
+
   const deleted = await db
     .delete(chats)
     .where(

@@ -31,6 +31,7 @@ import {
   countChats,
   resolveChatForTurn,
 } from "@/lib/chats/queries";
+import { isUuid } from "@/lib/db/uuid";
 import { capRefusalBody, decideCap } from "@/lib/limits/caps";
 import { resolvePlanLimits } from "@/lib/limits/config";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
@@ -153,6 +154,12 @@ export async function POST(
     typeof (body as { chatId?: unknown }).chatId === "string"
       ? (body as { chatId: string }).chatId
       : null;
+
+  // Refused rather than ignored: silently falling back would write the turn into
+  // a different conversation than the caller named.
+  if (requestedChatId !== null && !isUuid(requestedChatId)) {
+    return badRequest("Expected chatId to be a uuid.");
+  }
 
   // Destructured before the closure: TypeScript drops narrowing at a function
   // boundary, so reading through `auth` inside it would widen these back.
