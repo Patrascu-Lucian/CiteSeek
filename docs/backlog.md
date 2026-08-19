@@ -1005,19 +1005,25 @@ fourth is a defect with a diagnosis.
   drawn for the small size alone. Whether the hero reuses it is now genuinely open rather than
   assumed. Still no symbol in the header.
 
-- **A hero image behind the landing headline.** Currently type on a flat background. The
+- ~~**A hero image behind the landing headline.**~~ Currently type on a flat background. The
   constraint that decides the approach: `img-src` is `'self' data:` and ADR 032 keeps remote
   hosts to model weights, so this is a self-hosted asset, not a stock URL. It also has to
   survive both palettes and keep the headline at WCAG AA against whatever sits behind it —
   which is the part that usually fails, and which `paintedColorsOf` in `e2e/a11y.spec.ts`
   can measure rather than eyeball.
+  **Done, 18 August 2026** — drawn rather than photographic, and placed beside the headline
+  rather than behind it, which sidesteps the contrast problem entirely instead of measuring
+  its way through.
 
-- **A sticky header, possibly translucent with a blur.** `components/site-header.tsx:94` is
+- ~~**A sticky header, possibly translucent with a blur.**~~ `components/site-header.tsx:94` is
   `border-b` and nothing else. Two things to check if it becomes `sticky top-0`: the skip
   link must still land correctly, and `backdrop-blur` over a hero image is exactly where
   text contrast stops being a constant — the same measurement as above.
+  **Done, 18 August 2026** at 85% opacity, contrast measured rather than eyeballed. Both
+  concerns were real: the skip link needed `scroll-padding-top`, and the sticky band cost four
+  `target-size` failures — each has its own entry below.
 
-- **The usage table's bars drift left-to-right between rows.** `usage-view.tsx:115` puts the
+- **Still open. The usage table's bars drift left-to-right between rows.** `usage-view.tsx:115` puts the
   bar in the row-header cell beside the date, in a `flex items-center gap-2`. The numeric
   `<td>`s carry `tabular-nums`; **the date `<th>` does not**, so `2026-08-11` and
   `2026-08-09` occupy slightly different widths and every bar starts at a slightly different
@@ -1313,7 +1319,7 @@ whether it is downloaded (network in CI, the thing that suite avoids) or vendore
 the repository, which `public/onnx` is deliberately not). That choice is the work; the test
 around it is small.
 
-## Limits for the default plan, and the paywalls that would replace them, 16 August 2026
+## ~~Limits for the default plan, and the paywalls that would replace them~~, 16 August 2026
 
 Raised as product thinking rather than a defect: cap the free tier now, so the paid tiers have
 something to be an upgrade _from_. Recorded with the numbers proposed and the objections worth
@@ -1371,7 +1377,13 @@ cannot tell which of their three documents to remove has been given a number, no
 also has to be reachable — a cap discovered only by pressing a disabled button is the same
 mistake as an inert citation with nothing saying why.
 
-## Metadata the site has none of, 16 August 2026
+**Done**, 17–19 August 2026, as ADR 039 and the four caps. Two of the proposed numbers did not
+survive the objections recorded above: storage counts extracted characters rather than uploaded
+megabytes, since the files are discarded, and the saved-message cap is 40 rather than 100, which
+was unreachable — the client resends the whole transcript, so at 100 saved the next request is
+101 and the transcript guard refuses it as a bad body before any cap can name itself.
+
+## ~~Metadata the site has none of~~, 16 August 2026
 
 Neither social embedding nor search indexing is configured anywhere: no `metadataBase`, no
 `openGraph`, no `robots`, no sitemap. Every page sets a `title`; only the marketing pages add a
@@ -1390,7 +1402,11 @@ already gets a real 404 there and has nothing to index. The marketing pages and 
 `robots` policy rather than a meta tag on each page. Worth doing in the same pass as a sitemap,
 since both answer the same question.
 
-## The local upload control is a bare file input, 16 August 2026
+**Done**, 18 August 2026: `metadataBase`, `app/opengraph-image.png`, `app/robots.ts` and
+`app/sitemap.ts`. Robots disallows the side-effect routes, `/api/` and `/account`; the sitemap
+lists the five pages worth indexing.
+
+## ~~The local upload control is a bare file input~~, 16 August 2026
 
 `components/local/local-upload.tsx` renders `<input type="file">` behind a "Choose a file" button,
 while the only other upload in the product uses `components/documents/upload-dropzone.tsx` — drag and
@@ -1404,6 +1420,12 @@ its loader.
 `aria-label="Add a document to local mode"` since the commit that introduced it, so it was never
 a violation. Whoever picks this up should not expect axe to report one fewer finding — the gap is
 drag and drop, the described drop target, and one validation copy instead of two.
+
+**Done**, 18 August 2026. The seam is a `send` prop replacing the upload, not an `onFile`
+callback: the dropzone owns `uploading | queued | rejected` and local mode owns
+`parsing | embedding`, so two state machines meet at one function. The reuse also exposed a
+false claim — the dropzone carried a notice about the paid Gemini tier, which on `/local`
+contradicted that page saying nothing is uploaded. That copy now lives with the caller.
 
 ## ~~No E2E can reach a plan cap~~, 17 August 2026
 
@@ -1477,7 +1499,7 @@ id that is absent. Verified side by side against `00000000-…-000000000000`.
 `countChatMessages` and `appendMessages` are deliberately unguarded: their id comes from
 `resolveChatForTurn`, which returns a row, never a client string.
 
-## The chat route is never told which conversation is open, 17 August 2026
+## ~~The chat route is never told which conversation is open~~, 17 August 2026
 
 **Found by manual testing of the saved-message cap, and it is not a cap defect.** At the cap the
 refusal fires correctly; then the reader starts another conversation, returns to the full one, and
@@ -1633,3 +1655,16 @@ Not chased here because it is unrelated to the ids, it predates that work, and i
 measurement: whether a browser navigation and an RSC request differ, and whether `generateMetadata`
 can decide early enough to set the status. **Check before trusting the comment** — either the
 comment is stale or the behavior regressed, and both are worth knowing.
+
+## The README screenshots predate the branding, 19 August 2026
+
+`docs/images/*.png` were taken on 10 August. Since then the header gained the mark and became
+sticky and translucent, so every thumbnail shows a header the live site no longer has — and the
+screenshots are the first thing a reader looks at.
+
+`pnpm demo:shots` regenerates them, but it defaults to `https://citeseek.app` and Milestone 7.5 is
+not deployed yet, so running it today would recapture the old header faithfully. Pointing
+`SHOTS_BASE_URL` at localhost is worse rather than better: the script needs the real providers,
+because the fake embedder retrieves the wrong passage and the picture is _of_ a citation.
+
+**Do it right after the v1.3.0 deploy**, against production, which is what the script is built for.
