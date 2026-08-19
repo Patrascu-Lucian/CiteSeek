@@ -1560,7 +1560,7 @@ header band and asserts what remains reachable, rather than discovering it by ac
 different test from "does this page pass axe", which is why folding it into the existing scans was
 the wrong place for it.
 
-## A full conversation looks writable until you send, 18 August 2026
+## ~~A full conversation looks writable until you send~~, 18 August 2026
 
 Reading the copy at every cap turned this up. At 40 of 40 saved messages the composer is enabled,
 the Send button is live, and nothing on the page says the conversation is finished. The refusal is
@@ -1577,3 +1577,12 @@ The fix is the same shape as the conversations cap: the page already loads the m
 this conversation, so the notice can render on arrival and the composer can be disabled with it.
 Worth checking whether the composer should be disabled at all, or only labelled — a disabled
 control with no explanation is worse than an enabled one that refuses clearly.
+
+**Done**, 19 August 2026: `messageCap` is computed in `workspace-view.tsx` and threaded to
+`ChatPanel`, which renders the notice **above** the composer it disables — so the reason is reached
+before the dead control, which answers the question this entry left open.
+
+No extra query: `toUIMessages` maps rows one to one, so the transcript the page already loads _is_
+the count the cap uses. Nor does it go stale — `onTurnComplete` already calls `router.refresh()`
+for a signed-in reader, so the turn that reaches the cap re-renders the server component and closes
+the composer behind itself.

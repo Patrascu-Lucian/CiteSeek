@@ -77,3 +77,31 @@ test("refuses a fourth conversation and says to delete one", async ({
     select count(*) from chats where workspace_id = ${workspaceId}`;
   expect(Number(rows[0]!.count)).toBe(3);
 });
+
+test("closes the composer on a full conversation, before a question is typed", async ({
+  page,
+  signedIn,
+}) => {
+  const { sql, workspaceId, userId } = signedIn;
+
+  await sql`
+    insert into documents (workspace_id, filename, mime_type, size_bytes, status, content_text, chunk_count)
+    values (${workspaceId}, 'report.pdf', 'application/pdf', 2048, 'ready', repeat('x', 200), 3)`;
+  const chat = await sql<{ id: string }[]>`
+    insert into chats (workspace_id, user_id, title) values (${workspaceId}, ${userId}, 'Full')
+    returning id`;
+  await sql`
+    insert into messages (chat_id, position, role, content)
+    select ${chat[0]!.id}, g, (case when g % 2 = 1 then 'user' else 'assistant' end)::message_role,
+      'Message ' || g
+    from generate_series(1, 40) g`;
+
+  await page.goto(`/w/${workspaceId}/c/${chat[0]!.id}`);
+
+  await expect(
+    page.getByText(/reached its limit of 40 saved messages/i),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: /ask a question/i }),
+  ).toBeDisabled();
+});

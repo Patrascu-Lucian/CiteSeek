@@ -1,10 +1,12 @@
 import { useEffect, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type ChatTransport } from "ai";
+import { MessageSquareOff } from "lucide-react";
 
 import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
-import { parseCapRefusal } from "@/lib/limits/caps";
+import { type CapCopy, parseCapRefusal } from "@/lib/limits/caps";
 import { parseRefusal } from "@/lib/usage/limits";
+import { Notice } from "@/components/ui/notice";
 
 import { ChatError } from "./chat-error";
 import { Composer } from "./composer";
@@ -27,6 +29,7 @@ export function ChatPanel({
   onOpenSource,
   openChunkId,
   chatId = null,
+  messageCap = null,
   transport,
   uploadHref,
 }: {
@@ -36,6 +39,8 @@ export function ChatPanel({
   chatId?: string | null;
   /** Whether anything has finished processing. Nothing to search without it. */
   hasReadyDocuments: boolean;
+  /** Set while this conversation is full, which closes the composer. */
+  messageCap?: CapCopy | null;
   /** Searchable filenames. Only a refusal reads these, to say what it *can*
    * answer from. */
   documents?: readonly string[];
@@ -185,6 +190,21 @@ export function ChatPanel({
         />
       ) : null}
 
+      {messageCap ? (
+        // Above the composer it disables, so the reason is reached first.
+        <Notice
+          icon={
+            <MessageSquareOff
+              aria-hidden="true"
+              className="mt-0.5 size-4 shrink-0"
+            />
+          }
+          tone="muted"
+          title={messageCap.title}
+          detail={messageCap.detail}
+        />
+      ) : null}
+
       <Composer
         isDemo={isDemo}
         onSubmit={ask}
@@ -192,7 +212,7 @@ export function ChatPanel({
         // rejections.
         onStop={() => void stop()}
         isStreaming={isStreaming}
-        disabled={false}
+        disabled={messageCap !== null}
       />
     </div>
   );
