@@ -6,6 +6,7 @@ import {
   type RefusalReason,
   chats,
   messages,
+  workspaces,
 } from "@/lib/db/schema";
 
 import { MAX_TITLE_LENGTH, titleFromQuestion } from "./titles";
@@ -165,6 +166,41 @@ export async function countChats(
     .where(and(eq(chats.workspaceId, workspaceId), eq(chats.userId, userId)));
 
   return row?.total ?? 0;
+}
+
+/**
+ * Counted and inserted together — two submissions of the form at 2 of 3 both
+ * read 2 and both write. The lock is the workspace row, as in
+ * `createQueuedDocumentUnless`, though this cap is per reader.
+ */
+export async function createChatUnless<Refusal>(
+  workspaceId: string,
+  userId: string,
+  refuse: (existing: number) => Refusal | null,
+): Promise<
+  | { admitted: true; chat: { id: string } }
+  | { admitted: false; refusal: Refusal }
+> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select 1 from ${workspaces} where ${workspaces.id} = ${workspaceId} for update`,
+    );
+
+    const [row] = await tx
+      .select({ total: count() })
+      .from(chats)
+      .where(and(eq(chats.workspaceId, workspaceId), eq(chats.userId, userId)));
+
+    const refusal = refuse(row?.total ?? 0);
+    if (refusal !== null) return { admitted: false, refusal };
+
+    const [created] = await tx
+      .insert(chats)
+      .values({ workspaceId, userId })
+      .returning({ id: chats.id });
+
+    return { admitted: true, chat: created! };
+  });
 }
 
 /** Starts an empty conversation, so "New conversation" has something to open. */
