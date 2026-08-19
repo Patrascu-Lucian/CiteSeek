@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getActor } from "@/lib/auth/actor";
-import { countChats, createChat } from "@/lib/chats/queries";
+import { createChatUnless } from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { CAP_PARAM, decideCap } from "@/lib/limits/caps";
 import { resolvePlanLimits } from "@/lib/limits/config";
@@ -43,13 +43,17 @@ export async function POST(
   // Here and never on `getOrCreateChat`: that one runs on the chat-turn path, so
   // a refusal there would drop the question rather than decline an action. It
   // cannot exceed this cap anyway — it inserts only at zero.
-  const capped = decideCap(
-    "conversations",
-    await countChats(auth.workspaceId, actor.id),
-    resolvePlanLimits().conversations,
+  const limit = resolvePlanLimits().conversations;
+  const admission = await createChatUnless(
+    auth.workspaceId,
+    actor.id,
+    (existing) =>
+      // The redirect names the cap from the query string, so only the fact of
+      // refusal crosses back.
+      decideCap("conversations", existing, limit).allowed ? null : "capped",
   );
 
-  if (!capped.allowed) {
+  if (!admission.admitted) {
     // Back where the button was, with the cap named. A 409 body would be raw
     // JSON on screen: this POST is a form submission, not `fetch`.
     // The fragment, so the browser scrolls the refusal into view: it renders
@@ -63,8 +67,6 @@ export async function POST(
     );
   }
 
-  const chat = await createChat(auth.workspaceId, actor.id);
-
   /*
     303, not the default 307. A 307 preserves the method, so the browser would
     follow this redirect with another POST — at a page that does not accept one.
@@ -72,7 +74,7 @@ export async function POST(
     is the whole post/redirect/get pattern.
   */
   return NextResponse.redirect(
-    new URL(`/w/${workspaceId}/c/${chat.id}`, request.url),
+    new URL(`/w/${workspaceId}/c/${admission.chat.id}`, request.url),
     { status: 303 },
   );
 }
