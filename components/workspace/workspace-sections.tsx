@@ -58,6 +58,7 @@ export function WorkspaceSections({
   signedIn,
   isDemo,
   conversationCap = null,
+  messageCap = null,
 }: {
   workspaceId: string;
   initialDocuments: DocumentSummary[];
@@ -70,6 +71,8 @@ export function WorkspaceSections({
   isDemo: boolean;
   /** Set only just after `/c/new` refused, and cleared by the next navigation. */
   conversationCap?: CapCopy | null;
+  /** Set while the open conversation is full. */
+  messageCap?: CapCopy | null;
 }) {
   const router = useRouter();
   const [documents, setDocuments] = useState(initialDocuments);
@@ -309,6 +312,7 @@ export function WorkspaceSections({
             source?.kind === "citation" ? source.source.chunkId : null
           }
           initialMessages={initialMessages}
+          messageCap={messageCap}
           canUpload={canWrite}
           // Only what is actually searchable. A document still processing is
           // not something a refusal may claim to be able to answer from.
