@@ -1439,7 +1439,7 @@ approach a cap it did not set up — which also keeps the cap spec able to test 
 global `off` would have made impossible. Isolation removed the configuration rather than requiring
 it. Verified both ways: the two specs pass with limits on and fail with `PLAN_LIMITS=off`.
 
-## A malformed chat id is a 500, not the documented fallback, 17 August 2026
+## ~~A malformed chat id is a 500, not the documented fallback~~, 17 August 2026
 
 `resolveChatForTurn` (`lib/chats/queries.ts:111`) carries the comment "a mismatch falls back to the
 most recent rather than erroring — a stale id should not lose the reader's question." That holds for
@@ -1461,6 +1461,21 @@ the same family as the `[data-message-bubble]` selector and the `sr-only` contra
 is already validated, rather than teaching the query helper to parse. `parseMessages` is the
 precedent — shape belongs with the other request-shape checks, and the helper stays about ownership.
 Not done here because it is unrelated to the milestone's caps.
+
+**Done**, 19 August 2026, and it was **five paths, not one**. Probing the others before writing the
+fix found the same `22P02` behind `/w/<not-a-uuid>`, `/w/<id>/c/<not-a-uuid>`, and both document
+routes — three bare 500s and two error pages served under a 200. The entry described the one place
+a test happened to reach.
+
+The body field is refused at the route as prescribed, since silently falling back would write the
+turn into a conversation the caller did not name. The **path** ids are not: an id that cannot parse
+names nothing, which is what an unknown id already means, so `isUuid` guards the lookup helpers
+(`findWorkspaceById`, `listChatMessages`, `findDocumentInWorkspace`, `deleteDocumentInWorkspace`,
+`renameChat`, `deleteChat`) and every one of them now answers exactly as it does for a well-formed
+id that is absent. Verified side by side against `00000000-…-000000000000`.
+
+`countChatMessages` and `appendMessages` are deliberately unguarded: their id comes from
+`resolveChatForTurn`, which returns a row, never a client string.
 
 ## The chat route is never told which conversation is open, 17 August 2026
 
@@ -1586,3 +1601,19 @@ No extra query: `toUIMessages` maps rows one to one, so the transcript the page 
 the count the cap uses. Nor does it go stale — `onTurnComplete` already calls `router.refresh()`
 for a signed-in reader, so the turn that reaches the cap re-renders the server component and closes
 the composer behind itself.
+
+## A missing workspace page is a soft 404, 19 August 2026
+
+Found while checking that malformed ids behave like absent ones — they do, but the baseline itself
+looks wrong. A GET to `/w/<well-formed-uuid-that-does-not-exist>` with a valid session returns
+**200** with the streamed shell (`<title>Workspace · CiteSeek</title>`, no `h1`), not 404.
+
+`workspace-view.tsx` carries the comment "`not-found.tsx` _with a 404 status_. Returning the body
+directly gave the right words under a 200 — a soft 404 tells crawlers the URL is fine." So the
+status was deliberately fixed once and is not what a plain request sees now. The likely cause is
+that `notFound()` is reached during the streamed render, after headers have already gone.
+
+Not chased here because it is unrelated to the ids, it predates that work, and it needs its own
+measurement: whether a browser navigation and an RSC request differ, and whether `generateMetadata`
+can decide early enough to set the status. **Check before trusting the comment** — either the
+comment is stale or the behavior regressed, and both are worth knowing.

@@ -699,3 +699,36 @@ describe("a reader who closes the tab mid-answer", () => {
     );
   });
 });
+
+describe("a chatId that is not a uuid", () => {
+  // The fallback `resolveChatForTurn` promises was unreachable for an id
+  // Postgres cannot cast — it threw before the fallback ran.
+  it("is a bad request, not a 500", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+
+    const { POST } = await import("./route");
+    const response = await POST(
+      new Request("http://test/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          chatId: "garbage",
+          messages: [
+            {
+              id: "m1",
+              role: "user",
+              parts: [{ type: "text", text: PASSAGE }],
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ workspaceId: workspace.id }) },
+    );
+
+    expect(response.status).toBe(400);
+    // A fallback would have created one.
+    expect(await listChats(workspace.id, user.id)).toHaveLength(0);
+  });
+});

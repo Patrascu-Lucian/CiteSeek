@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { isUuid } from "@/lib/db/uuid";
 import {
   type DocumentPageSpan,
   type DocumentStatus,
@@ -112,6 +113,8 @@ export async function findDocumentInWorkspace(
   workspaceId: string,
   documentId: string,
 ) {
+  if (!isUuid(documentId)) return null;
+
   const [document] = await db
     .select()
     .from(documents)
@@ -247,6 +250,8 @@ export async function deleteDocumentInWorkspace(
   workspaceId: string,
   documentId: string,
 ): Promise<boolean> {
+  if (!isUuid(documentId)) return false;
+
   const deleted = await db
     .delete(documents)
     .where(
