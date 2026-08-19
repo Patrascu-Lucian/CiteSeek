@@ -2,10 +2,14 @@ import { NextResponse, after } from "next/server";
 
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import {
-  createQueuedDocument,
+  countDocuments,
+  createQueuedDocumentUnless,
   failStaleProcessing,
   listDocuments,
+  sumExtractedCharacters,
 } from "@/lib/documents/queries";
+import { capRefusalBody, decideCap } from "@/lib/limits/caps";
+import { resolvePlanLimits } from "@/lib/limits/config";
 import {
   declaredBodyTooLarge,
   tooLargeMessage,
@@ -74,6 +78,32 @@ export async function POST(
   const refused = await enforceUsageLimits(auth, ipHash);
   if (refused) return refused;
 
+  // Ahead of `formData()` like the header check above: buffering 4 MB to produce
+  // a refusal this certain is the same waste. 409, not 429 — nothing here is
+  // transient, so `Retry-After` would be a lie.
+  const limits = resolvePlanLimits();
+  const documentCount = await countDocuments(auth.workspaceId);
+  const capped = decideCap("documents", documentCount.total, limits.documents);
+
+  if (!capped.allowed) {
+    return NextResponse.json(
+      capRefusalBody(capped, { failedDocuments: documentCount.failed }),
+      { status: 409 },
+    );
+  }
+
+  // Only a reader already over. The document that crosses the ceiling is refused
+  // in `processDocument`, which is the first point its size is known.
+  const stored = decideCap(
+    "storage",
+    await sumExtractedCharacters(auth.workspaceId),
+    limits.extractedCharacters,
+  );
+
+  if (!stored.allowed) {
+    return NextResponse.json(capRefusalBody(stored), { status: 409 });
+  }
+
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -106,11 +136,42 @@ export async function POST(
     );
   }
 
-  const document = await createQueuedDocument(auth.workspaceId, {
-    filename: file.name,
-    mimeType: validation.mimeType,
-    sizeBytes: bytes.length,
-  });
+  // The authoritative one: the checks above are a separate statement from the
+  // insert, so a multi-file selection can put two uploads through at 2 of 3.
+  const admission = await createQueuedDocumentUnless(
+    auth.workspaceId,
+    {
+      filename: file.name,
+      mimeType: validation.mimeType,
+      sizeBytes: bytes.length,
+    },
+    (holdings) => {
+      const byCount = decideCap(
+        "documents",
+        holdings.documents,
+        limits.documents,
+      );
+      if (!byCount.allowed) return byCount;
+
+      const byStorage = decideCap(
+        "storage",
+        holdings.characters,
+        limits.extractedCharacters,
+      );
+      return byStorage.allowed ? null : byStorage;
+    },
+  );
+
+  if (!admission.admitted) {
+    return NextResponse.json(
+      capRefusalBody(admission.refusal, {
+        failedDocuments: admission.holdings.failedDocuments,
+      }),
+      { status: 409 },
+    );
+  }
+
+  const { document } = admission;
 
   after(async () => {
     const { embeddingTokens } = await processDocument(

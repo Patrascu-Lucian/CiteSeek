@@ -3,8 +3,11 @@ import {
   insertChunks,
   listUnembeddedChunks,
   setChunkEmbeddings,
+  sumExtractedCharacters,
   updateDocument,
 } from "@/lib/documents/queries";
+import { storageExceededMessage } from "@/lib/limits/caps";
+import { resolvePlanLimits } from "@/lib/limits/config";
 
 import { MAX_CHUNKS_PER_DOCUMENT, chunkText } from "./chunking";
 import { type Embedder, embedPassages, getEmbedder } from "./embeddings";
@@ -31,6 +34,8 @@ export type IngestOptions = {
   /** Injectable so tests run without a provider. Defaults to the configured one. */
   embedder?: Embedder;
   signal?: AbortSignal;
+  /** Injectable so a test can cross it without a megabyte of fixture. */
+  characterCeiling?: number;
 };
 
 /** No `cause` chains or stack traces: a parser error can quote the bytes it choked
@@ -136,6 +141,17 @@ export async function processDocument(
     });
 
     const extracted = await extractText(bytes, mimeType);
+
+    // Before chunking, so a refused document spends no embedding quota. A plain
+    // Error, not `UnreadableDocumentError` — the file is readable.
+    const ceiling =
+      options.characterCeiling ?? resolvePlanLimits().extractedCharacters;
+    const stored = await sumExtractedCharacters(workspaceId);
+
+    if (stored + extracted.text.length > ceiling) {
+      throw new Error(storageExceededMessage(ceiling));
+    }
+
     const chunks = chunkText(extracted.text, extracted.pageSpans);
 
     if (chunks.length === 0) {

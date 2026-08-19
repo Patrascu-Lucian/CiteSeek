@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FileText, MessageSquareQuote, ShieldCheck } from "lucide-react";
 
+import { HeroGraphic } from "@/components/marketing/hero-graphic";
 import { Button } from "@/components/ui/button";
 import { prefetchFor } from "@/lib/links";
 import {
@@ -48,35 +49,53 @@ export function Landing({ primary, secondary }: LandingCallsToAction) {
     <main id="main" className="flex flex-1 flex-col">
       <section
         className={pageShell(
-          "3xl",
-          "flex flex-1 flex-col justify-center py-20",
+          "5xl",
+          "relative isolate z-10 flex flex-1 flex-col justify-center py-14 md:grid md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:items-center md:gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,22rem)] lg:gap-16 lg:py-20",
         )}
       >
-        <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
-          Document intelligence
-        </p>
-        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-          Ask your documents. Get answers you can verify.
-        </h1>
-        <p className="text-muted-foreground mt-6 max-w-2xl text-lg text-pretty">
-          CiteSeek streams answers grounded in the files you upload — and every
-          sentence links back to the passage it came from, so you never have to
-          take the model&apos;s word for it.
-        </p>
+        {/* Negative margin because the shell constrains the content width, not
+            the background. */}
+        <div
+          aria-hidden="true"
+          className="from-primary/15 absolute inset-0 -z-10 -mx-[calc(50vw-50%)] bg-linear-to-br via-transparent to-transparent"
+        />
 
-        <div className="mt-10 flex flex-wrap items-center gap-3">
-          {/* Both hrefs vary by actor, and two of the four write. */}
-          <Button asChild size="lg">
-            <Link href={primary.href} prefetch={prefetchFor(primary.href)}>
-              {primary.label}
-            </Link>
-          </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link href={secondary.href} prefetch={prefetchFor(secondary.href)}>
-              {secondary.label}
-            </Link>
-          </Button>
+        {/* In the sm band the graphic is out of flow beside this, and full-width
+            copy would run underneath it. */}
+        <div className="sm:max-w-[75%] md:max-w-none">
+          <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
+            Document intelligence
+          </p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-balance lg:text-5xl">
+            Ask your documents. Get answers you can verify.
+          </h1>
+          <p className="text-muted-foreground mt-6 max-w-2xl text-lg text-pretty">
+            CiteSeek streams answers grounded in the files you upload — and
+            every sentence links back to the passage it came from, so you never
+            have to take the model&apos;s word for it.
+          </p>
+
+          <div className="mt-10 flex flex-wrap items-center gap-3">
+            {/* Both hrefs vary by actor, and two of the four write. */}
+            <Button asChild size="lg">
+              <Link href={primary.href} prefetch={prefetchFor(primary.href)}>
+                {primary.label}
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link
+                href={secondary.href}
+                prefetch={prefetchFor(secondary.href)}
+              >
+                {secondary.label}
+              </Link>
+            </Button>
+          </div>
         </div>
+
+        {/* Out of flow in the sm band, beside the buttons: stacked it cost 288px
+            of height there. A grid column from md. */}
+        <HeroGraphic className="pointer-events-none absolute right-0 -bottom-12 hidden h-auto w-64 sm:block md:static md:w-full" />
       </section>
 
       <section

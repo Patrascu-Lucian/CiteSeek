@@ -1,6 +1,8 @@
 import type { EmbeddingsProviderName } from "@/lib/ai/provider";
 import type { Embedder, EmbeddingResult } from "@/lib/rag/embeddings";
 
+import { useNodeModelCache } from "./model-cache";
+
 /**
  * Pinned, not a range: the stored vectors are only comparable to each other, so
  * a model change invalidates every embedding in the browser.
@@ -33,6 +35,7 @@ function load(): Promise<FeatureExtraction> {
     .then(({ env, pipeline }) => {
       // From this origin, not the CDN default — ADR 032.
       env.backends.onnx.wasm!.wasmPaths = "/onnx/";
+      useNodeModelCache(env);
 
       return pipeline("feature-extraction", LOCAL_EMBEDDING_MODEL, {
         dtype: "fp32",

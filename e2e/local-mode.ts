@@ -42,7 +42,9 @@ export async function uploadAndAsk(page: Page, question: string) {
     .setInputFiles(join(FIXTURES, "sample.md"));
   await expect(
     page.getByRole("region", { name: /add a document/i }).getByRole("status"),
-  ).toContainText(/indexed on this machine/i, { timeout: 30_000 });
+  ).toContainText(/indexed \d+ passages? on this machine/i, {
+    timeout: 30_000,
+  });
 
   await page.getByRole("textbox", { name: /ask a question/i }).fill(question);
   await page.getByRole("button", { name: /send/i }).click();

@@ -378,3 +378,25 @@ test.describe("sign-in page", () => {
     await expect(page).toHaveURL(/\/sign-in/);
   });
 });
+
+test.describe("the navigation row", () => {
+  /* The current item is bold and the rest are not, so without a reserved width
+     every route change nudged the whole row sideways. */
+  test("does not shift when the current destination changes", async ({
+    page,
+  }) => {
+    await page.goto("/demo");
+
+    const account = page.getByRole("link", { name: "Account" });
+    const before = await account.boundingBox();
+
+    await page.getByRole("link", { name: "Usage" }).click();
+    await expect(page).toHaveURL(/\/usage$/);
+
+    const after = await account.boundingBox();
+
+    expect(before).not.toBeNull();
+    expect(Math.round(after!.x)).toBe(Math.round(before!.x));
+    expect(Math.round(after!.width)).toBe(Math.round(before!.width));
+  });
+});

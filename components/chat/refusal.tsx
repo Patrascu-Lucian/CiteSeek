@@ -59,8 +59,11 @@ export function Refusal({
           </p>
           {/* A list, not a sentence: it is a list, and a screen reader
               announces how many there are. */}
+          {/* Deduplicated: nothing stops the same file being uploaded twice, and
+              naming it twice tells the reader nothing — as well as producing two
+              children under one key. */}
           <ul className="space-y-1 text-sm">
-            {documents.map((filename) => (
+            {[...new Set(documents)].map((filename) => (
               <li key={filename} className="flex items-center gap-2">
                 <span aria-hidden="true" className="text-muted-foreground">
                   •

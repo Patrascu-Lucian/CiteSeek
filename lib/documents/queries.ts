@@ -11,11 +11,13 @@ import {
 } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { isUuid } from "@/lib/db/uuid";
 import {
   type DocumentPageSpan,
   type DocumentStatus,
   chunks,
   documents,
+  workspaces,
 } from "@/lib/db/schema";
 
 /**
@@ -74,10 +76,45 @@ export async function listDocuments(
     .orderBy(desc(documents.createdAt));
 }
 
+/** Every row, whatever its status. A `ready`-only count is bypassable —
+ * `createQueuedDocument` inserts before extraction, so concurrent uploads would
+ * all pass at zero. `failed` rides along so the refusal can name what to delete. */
+export async function countDocuments(
+  workspaceId: string,
+): Promise<{ total: number; failed: number }> {
+  const [row] = await db
+    .select({
+      total: count(),
+      failed: sql<number>`count(*) filter (where ${documents.status} = 'failed')::int`,
+    })
+    .from(documents)
+    .where(eq(documents.workspaceId, workspaceId));
+
+  return { total: row?.total ?? 0, failed: row?.failed ?? 0 };
+}
+
+/** Extracted text, which is what ADR 009 says the product keeps. Not chunk
+ * count — halving the chunk target in Milestone 2 would have halved every
+ * reader's allowance with it. */
+export async function sumExtractedCharacters(
+  workspaceId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<number>`coalesce(sum(length(${documents.contentText})), 0)::int`,
+    })
+    .from(documents)
+    .where(eq(documents.workspaceId, workspaceId));
+
+  return row?.total ?? 0;
+}
+
 export async function findDocumentInWorkspace(
   workspaceId: string,
   documentId: string,
 ) {
+  if (!isUuid(documentId)) return null;
+
   const [document] = await db
     .select()
     .from(documents)
@@ -89,9 +126,79 @@ export async function findDocumentInWorkspace(
   return document ?? null;
 }
 
-/** Explicit columns, not a bare `.returning()`, which asks for every column the
- * *schema* declares — that failed in production against a database missing
- * migration 0001, while the list kept working because it selects explicitly. */
+/** What the caps count, read under the lock rather than before it. */
+export type WorkspaceHoldings = {
+  documents: number;
+  failedDocuments: number;
+  characters: number;
+};
+
+/**
+ * The insert, admitted against a count nothing can change underneath it: two
+ * uploads at 2 of 3 otherwise both read 2 and both write, which is exactly what
+ * the dropzone's multi-file selection does. `for update` on the workspace row
+ * serializes one workspace and leaves the rest alone.
+ *
+ * `refuse` returns the reason rather than a boolean, keeping policy in the route
+ * beside the copy that explains it.
+ */
+export async function createQueuedDocumentUnless<Refusal>(
+  workspaceId: string,
+  input: { filename: string; mimeType: string; sizeBytes: number },
+  refuse: (holdings: WorkspaceHoldings) => Refusal | null,
+): Promise<
+  | {
+      admitted: true;
+      document: Awaited<ReturnType<typeof createQueuedDocument>>;
+    }
+  | { admitted: false; refusal: Refusal; holdings: WorkspaceHoldings }
+> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select 1 from ${workspaces} where ${workspaces.id} = ${workspaceId} for update`,
+    );
+
+    const [row] = await tx
+      .select({
+        documents: count(),
+        failedDocuments: sql<number>`count(*) filter (where ${documents.status} = 'failed')::int`,
+        characters: sql<number>`coalesce(sum(length(${documents.contentText})), 0)::int`,
+      })
+      .from(documents)
+      .where(eq(documents.workspaceId, workspaceId));
+
+    const holdings: WorkspaceHoldings = {
+      documents: row?.documents ?? 0,
+      failedDocuments: row?.failedDocuments ?? 0,
+      characters: row?.characters ?? 0,
+    };
+
+    const refusal = refuse(holdings);
+    if (refusal !== null) return { admitted: false, refusal, holdings };
+
+    const [document] = await tx
+      .insert(documents)
+      .values({ ...input, workspaceId, status: "queued" })
+      .returning({
+        id: documents.id,
+        workspaceId: documents.workspaceId,
+        filename: documents.filename,
+        mimeType: documents.mimeType,
+        sizeBytes: documents.sizeBytes,
+        status: documents.status,
+        createdAt: documents.createdAt,
+        updatedAt: documents.updatedAt,
+      });
+
+    return { admitted: true, document: document! };
+  });
+}
+
+/** **Fixtures only** — production admits through `createQueuedDocumentUnless`,
+ * so a call added here would insert past the plan cap.
+ *
+ * Explicit columns in both `.returning()`s: a bare one asks for every column the
+ * *schema* declares, which failed against a database missing migration 0001. */
 export async function createQueuedDocument(
   workspaceId: string,
   input: { filename: string; mimeType: string; sizeBytes: number },
@@ -144,6 +251,8 @@ export async function deleteDocumentInWorkspace(
   workspaceId: string,
   documentId: string,
 ): Promise<boolean> {
+  if (!isUuid(documentId)) return false;
+
   const deleted = await db
     .delete(documents)
     .where(

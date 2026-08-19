@@ -11,6 +11,8 @@ import {
 } from "@/lib/chats/queries";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
 import { listDocuments } from "@/lib/documents/queries";
+import { capRefusalCopy } from "@/lib/limits/caps";
+import { resolvePlanLimits } from "@/lib/limits/config";
 import { pageShell } from "@/components/ui/page-shell";
 
 /**
@@ -22,10 +24,13 @@ import { pageShell } from "@/components/ui/page-shell";
 export async function WorkspaceView({
   workspaceId,
   chatId,
+  capReached = null,
 }: {
   workspaceId: string;
   /** Absent on `/w/<id>`, which opens the most recent conversation. */
   chatId?: string;
+  /** The cap `/c/new` refused with, carried back through its redirect. */
+  capReached?: string | null;
 }) {
   const actor = await getActor();
   const workspace = await findWorkspaceById(workspaceId);
@@ -64,6 +69,40 @@ export async function WorkspaceView({
           : loadLatestChat(workspace.id, actor.id),
       ])
     : [[], null];
+
+  // Once: each call re-validates `PLAN_LIMITS` and throws on an unknown value.
+  const limits = resolvePlanLimits();
+
+  // Before the reader types, not after: the route refuses with the question
+  // already written, and loses it. `onTurnComplete` refreshes to keep it current.
+  const messageCap =
+    openChat && openChat.messages.length >= limits.messagesPerConversation
+      ? capRefusalCopy(
+          {
+            allowed: false,
+            reason: "cap_reached",
+            cap: "messages",
+            limit: limits.messagesPerConversation,
+            current: openChat.messages.length,
+          },
+          {
+            conversationsExhausted: chats.length >= limits.conversations,
+          },
+        )
+      : null;
+
+  // Restating the refusal, not re-deciding it — `/c/new` already refused and
+  // wrote nothing. Through the same function so the copy cannot drift.
+  const conversationCap =
+    capReached === "conversations" && signedIn
+      ? capRefusalCopy({
+          allowed: false,
+          reason: "cap_reached",
+          cap: "conversations",
+          limit: limits.conversations,
+          current: chats.length,
+        })
+      : null;
 
   if (chatId && signedIn && !openChat) {
     // An empty conversation is legitimate — "New conversation" creates one — so
@@ -111,6 +150,8 @@ export async function WorkspaceView({
         canWrite={writable}
         signedIn={signedIn}
         isDemo={workspace.isDemo}
+        conversationCap={conversationCap}
+        messageCap={messageCap}
       />
     </main>
   );

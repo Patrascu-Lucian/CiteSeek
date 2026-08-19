@@ -1,11 +1,13 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { isUuid } from "@/lib/db/uuid";
 import {
   type MessageCitation,
   type RefusalReason,
   chats,
   messages,
+  workspaces,
 } from "@/lib/db/schema";
 
 import { MAX_TITLE_LENGTH, titleFromQuestion } from "./titles";
@@ -64,6 +66,8 @@ export async function listChatMessages(
   userId: string,
   chatId: string,
 ): Promise<ChatMessage[]> {
+  if (!isUuid(chatId)) return [];
+
   return db
     .select({
       id: messages.id,
@@ -84,6 +88,27 @@ export async function listChatMessages(
       ),
     )
     .orderBy(asc(messages.position));
+}
+
+/** Rows, not turns — `appendMessages` writes two, which is why the cap is even. */
+export async function countChatMessages(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(messages)
+    .innerJoin(chats, eq(messages.chatId, chats.id))
+    .where(
+      and(
+        eq(messages.chatId, chatId),
+        eq(chats.workspaceId, workspaceId),
+        eq(chats.userId, userId),
+      ),
+    );
+
+  return row?.total ?? 0;
 }
 
 export async function loadLatestChat(
@@ -113,7 +138,8 @@ export async function resolveChatForTurn(
   userId: string,
   requestedChatId: string | null,
 ): Promise<{ id: string }> {
-  if (requestedChatId) {
+  // Keeps the fallback promised above reachable for an id Postgres cannot cast.
+  if (requestedChatId && isUuid(requestedChatId)) {
     const [owned] = await db
       .select({ id: chats.id })
       .from(chats)
@@ -132,7 +158,57 @@ export async function resolveChatForTurn(
   return getOrCreateChat(workspaceId, userId);
 }
 
-/** Starts an empty conversation, so "New conversation" has something to open. */
+/** Scoped by workspace *and* user, matching `createChat` — on the workspace
+ * alone it would cap a shared workspace collectively. */
+export async function countChats(
+  workspaceId: string,
+  userId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(chats)
+    .where(and(eq(chats.workspaceId, workspaceId), eq(chats.userId, userId)));
+
+  return row?.total ?? 0;
+}
+
+/**
+ * Counted and inserted together — two submissions of the form at 2 of 3 both
+ * read 2 and both write. The lock is the workspace row, as in
+ * `createQueuedDocumentUnless`, though this cap is per reader.
+ */
+export async function createChatUnless<Refusal>(
+  workspaceId: string,
+  userId: string,
+  refuse: (existing: number) => Refusal | null,
+): Promise<
+  | { admitted: true; chat: { id: string } }
+  | { admitted: false; refusal: Refusal }
+> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select 1 from ${workspaces} where ${workspaces.id} = ${workspaceId} for update`,
+    );
+
+    const [row] = await tx
+      .select({ total: count() })
+      .from(chats)
+      .where(and(eq(chats.workspaceId, workspaceId), eq(chats.userId, userId)));
+
+    const refusal = refuse(row?.total ?? 0);
+    if (refusal !== null) return { admitted: false, refusal };
+
+    const [created] = await tx
+      .insert(chats)
+      .values({ workspaceId, userId })
+      .returning({ id: chats.id });
+
+    return { admitted: true, chat: created! };
+  });
+}
+
+/** **Fixtures only.** Production admits through `createChatUnless`, so a call
+ * added here would insert past the plan cap. */
 export async function createChat(
   workspaceId: string,
   userId: string,
@@ -189,6 +265,8 @@ export async function renameChat(
   chatId: string,
   title: string,
 ): Promise<boolean> {
+  if (!isUuid(chatId)) return false;
+
   const trimmed = title.replace(/\s+/g, " ").trim();
 
   const updated = await db
@@ -215,6 +293,8 @@ export async function deleteChat(
   userId: string,
   chatId: string,
 ): Promise<boolean> {
+  if (!isUuid(chatId)) return false;
+
   const deleted = await db
     .delete(chats)
     .where(

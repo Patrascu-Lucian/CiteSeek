@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText } from "lucide-react";
+import { FileText, MessageSquareOff } from "lucide-react";
 
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { workspaceDocumentText } from "@/lib/documents/text-loader";
@@ -14,7 +14,9 @@ import { SourcePanel, type SourceTarget } from "@/components/chat/source-panel";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { DocumentList } from "@/components/documents/document-list";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
+import { uploadToWorkspace } from "@/lib/documents/upload";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import {
   Card,
   CardContent,
@@ -25,6 +27,7 @@ import {
 import type { ChatUIMessage } from "@/lib/ai/types";
 import type { ChatSummary } from "@/lib/chats/queries";
 import type { DocumentSummary } from "@/lib/documents/queries";
+import type { CapCopy } from "@/lib/limits/caps";
 
 /**
  * Owns `documents` and everything that mutates it. One unit rather than two
@@ -54,6 +57,8 @@ export function WorkspaceSections({
   canWrite,
   signedIn,
   isDemo,
+  conversationCap = null,
+  messageCap = null,
 }: {
   workspaceId: string;
   initialDocuments: DocumentSummary[];
@@ -64,6 +69,10 @@ export function WorkspaceSections({
   canWrite: boolean;
   signedIn: boolean;
   isDemo: boolean;
+  /** Set only just after `/c/new` refused, and cleared by the next navigation. */
+  conversationCap?: CapCopy | null;
+  /** Set while the open conversation is full. */
+  messageCap?: CapCopy | null;
 }) {
   const router = useRouter();
   const [documents, setDocuments] = useState(initialDocuments);
@@ -154,7 +163,24 @@ export function WorkspaceSections({
 
         <div className="space-y-4">
           {canWrite ? (
-            <UploadDropzone workspaceId={workspaceId} onUploaded={refresh} />
+            <div>
+              <UploadDropzone
+                send={uploadToWorkspace(workspaceId)}
+                onUploaded={refresh}
+              />
+
+              {/* Here, not in the dropzone: local mode shares that control and
+                  sends nothing. */}
+              <p className="text-muted-foreground mt-2 text-xs">
+                You are uploading to a deployment on Google&rsquo;s{" "}
+                <strong>paid Gemini tier</strong> — your document text is sent
+                there to answer questions, and is not used to train their
+                models.{" "}
+                <Link href="/privacy" className="underline">
+                  What is stored
+                </Link>
+              </p>
+            </div>
           ) : null}
 
           <DocumentList
@@ -231,6 +257,20 @@ export function WorkspaceSections({
             </form>
           </div>
 
+          {conversationCap ? (
+            <Notice
+              icon={
+                <MessageSquareOff
+                  aria-hidden="true"
+                  className="mt-0.5 size-4 shrink-0"
+                />
+              }
+              tone="muted"
+              title={conversationCap.title}
+              detail={conversationCap.detail}
+            />
+          ) : null}
+
           <ConversationList
             workspaceId={workspaceId}
             chats={chats}
@@ -257,6 +297,7 @@ export function WorkspaceSections({
           */
           key={activeChatId ?? "none"}
           workspaceId={workspaceId}
+          chatId={activeChatId}
           // Derived on every render from the same state the list shows, so an
           // upload that finishes processing opens the composer without a reload.
           hasReadyDocuments={documents.some(
@@ -271,6 +312,7 @@ export function WorkspaceSections({
             source?.kind === "citation" ? source.source.chunkId : null
           }
           initialMessages={initialMessages}
+          messageCap={messageCap}
           canUpload={canWrite}
           // Only what is actually searchable. A document still processing is
           // not something a refusal may claim to be able to answer from.

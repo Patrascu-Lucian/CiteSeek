@@ -129,7 +129,7 @@ describe("the local store", () => {
       expect(await summarizeLocalStore()).toEqual({
         documents: 0,
         chunks: 0,
-        filenames: [],
+        files: [],
       });
     });
 
@@ -144,7 +144,7 @@ describe("the local store", () => {
       expect(await summarizeLocalStore()).toEqual({
         documents: 1,
         chunks: 1,
-        filenames: ["handbook.pdf"],
+        files: [{ id: "b", filename: "handbook.pdf" }],
       });
       expect((await listLocalChunks("b")).map((c) => c.id)).toEqual(["b1"]);
     });
@@ -167,7 +167,7 @@ describe("the local store", () => {
       expect(await summarizeLocalStore()).toEqual({
         documents: 0,
         chunks: 0,
-        filenames: [],
+        files: [],
       });
     });
 
@@ -241,7 +241,7 @@ describe("the local store", () => {
     expect(await summarizeLocalStore()).toEqual({
       documents: 1,
       chunks: 0,
-      filenames: ["handbook.pdf"],
+      files: [{ id: "doc-1", filename: "handbook.pdf" }],
     });
     expect(await getLocalDocument("doc-1")).toBeDefined();
   });

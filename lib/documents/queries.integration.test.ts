@@ -12,6 +12,7 @@ import {
 import {
   countChunks,
   createQueuedDocument,
+  createQueuedDocumentUnless,
   deleteDocumentInWorkspace,
   failStaleProcessing,
   findDocumentInWorkspace,
@@ -431,5 +432,51 @@ describe("account erasure", () => {
     expect(
       await deleteUserAccount("00000000-0000-0000-0000-000000000000"),
     ).toBe(false);
+  });
+});
+
+describe("admitting an upload against the cap", () => {
+  it("lets exactly the cap through when uploads arrive together", async () => {
+    // The dropzone posts a multi-file selection without awaiting, so this is the
+    // ordinary path. Counting outside the insert admitted all six.
+    const workspace = await createTestWorkspace(db, { label: "cap-race" });
+    const limit = 3;
+
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, index) =>
+        createQueuedDocumentUnless(
+          workspace.id,
+          {
+            filename: `file-${String(index)}.pdf`,
+            mimeType: "application/pdf",
+            sizeBytes: 2048,
+          },
+          (holdings) => (holdings.documents >= limit ? "full" : null),
+        ),
+      ),
+    );
+
+    expect(results.filter((result) => result.admitted)).toHaveLength(limit);
+
+    const stored = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.workspaceId, workspace.id));
+    expect(stored).toHaveLength(limit);
+  });
+
+  it("reports the holdings it refused on, so the caller can name them", async () => {
+    const workspace = await createTestWorkspace(db, { label: "cap-holdings" });
+    await seedDocument(workspace.id, "already-here.pdf");
+
+    const result = await createQueuedDocumentUnless(
+      workspace.id,
+      { filename: "next.pdf", mimeType: "application/pdf", sizeBytes: 2048 },
+      (holdings) => (holdings.documents >= 1 ? "full" : null),
+    );
+
+    expect(result.admitted).toBe(false);
+    if (result.admitted) return;
+    expect(result.holdings.documents).toBe(1);
   });
 });

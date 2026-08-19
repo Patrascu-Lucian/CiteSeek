@@ -1,9 +1,12 @@
 import { useEffect, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type ChatTransport } from "ai";
+import { MessageSquareOff } from "lucide-react";
 
 import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
+import { type CapCopy, parseCapRefusal } from "@/lib/limits/caps";
 import { parseRefusal } from "@/lib/usage/limits";
+import { Notice } from "@/components/ui/notice";
 
 import { ChatError } from "./chat-error";
 import { Composer } from "./composer";
@@ -25,12 +28,19 @@ export function ChatPanel({
   isDemo = false,
   onOpenSource,
   openChunkId,
+  chatId = null,
+  messageCap = null,
   transport,
   uploadHref,
 }: {
   workspaceId: string;
+  /** Which conversation the turn belongs to. Null before one exists, where the
+   * route creating it is the intended behavior. */
+  chatId?: string | null;
   /** Whether anything has finished processing. Nothing to search without it. */
   hasReadyDocuments: boolean;
+  /** Set while this conversation is full, which closes the composer. */
+  messageCap?: CapCopy | null;
   /** Searchable filenames. Only a refusal reads these, to say what it *can*
    * answer from. */
   documents?: readonly string[];
@@ -65,8 +75,15 @@ export function ChatPanel({
     () =>
       new DefaultChatTransport<ChatUIMessage>({
         api: `/api/w/${workspaceId}/chat`,
+        // Without this the route never learns which conversation is open and
+        // falls back to the most recent, so a turn sent from an older one lands
+        // in a different transcript. `body` replaces rather than merges, so
+        // `messages` has to be named here too.
+        prepareSendMessagesRequest: ({ messages, body }) => ({
+          body: { ...body, messages, chatId },
+        }),
       }),
-    [workspaceId],
+    [workspaceId, chatId],
   );
 
   const { messages, sendMessage, regenerate, stop, status, error, clearError } =
@@ -164,11 +181,27 @@ export function ChatPanel({
       {error ? (
         <ChatError
           refusal={parseRefusal(error)}
+          capRefusal={parseCapRefusal(error)}
           signedIn={signedIn}
           onRetry={() => {
             clearError();
             void regenerate();
           }}
+        />
+      ) : null}
+
+      {messageCap ? (
+        // Above the composer it disables, so the reason is reached first.
+        <Notice
+          icon={
+            <MessageSquareOff
+              aria-hidden="true"
+              className="mt-0.5 size-4 shrink-0"
+            />
+          }
+          tone="muted"
+          title={messageCap.title}
+          detail={messageCap.detail}
         />
       ) : null}
 
@@ -179,7 +212,7 @@ export function ChatPanel({
         // rejections.
         onStop={() => void stop()}
         isStreaming={isStreaming}
-        disabled={false}
+        disabled={messageCap !== null}
       />
     </div>
   );

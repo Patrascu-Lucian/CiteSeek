@@ -280,3 +280,39 @@ describe("ChatPanel — citations", () => {
     ).toHaveAttribute("aria-pressed", "false");
   });
 });
+
+describe("ChatPanel — a conversation that is full", () => {
+  const full = {
+    title: "This conversation has reached its limit of 40 saved messages.",
+    detail:
+      "Start a new conversation to keep going — this one stays where it is.",
+  };
+
+  it("says so before the reader types, not after they send", () => {
+    // The route refuses correctly, but only once the question is written, and
+    // the question is then lost beside a composer still inviting another.
+    render(
+      <ChatPanel
+        workspaceId="w1"
+        hasReadyDocuments
+        onOpenSource={() => undefined}
+        openChunkId={null}
+        messageCap={full}
+      />,
+    );
+
+    expect(screen.getByText(full.title)).toBeInTheDocument();
+    expect(screen.getByText(full.detail)).toBeInTheDocument();
+    expect(
+      screen.getByRole("textbox", { name: /ask a question/i }),
+    ).toBeDisabled();
+  });
+
+  it("leaves the composer open while there is room", () => {
+    renderPanel();
+
+    expect(
+      screen.getByRole("textbox", { name: /ask a question/i }),
+    ).toBeEnabled();
+  });
+});

@@ -1,11 +1,22 @@
 import { defineConfig } from "vitest/config";
 
+import { assertDisposableDatabase } from "./lib/env/disposable-database.ts";
 import { loadLocalEnv } from "./lib/env/load-local-env.ts";
 
 // Loaded here rather than inside the test file: the config is evaluated before
 // worker processes fork, so DATABASE_URL is on process.env by the time any test
 // module is imported.
+//
+// `.env.test.local` first, and that ordering is the whole mechanism: `loadEnvFile`
+// never overwrites a variable that is already set, so the first file loaded wins.
+// It is what lets a disposable database URL live beside the `.env.local` pointing
+// the app at Neon, instead of being retyped as two overrides before every run.
+loadLocalEnv(".env.test.local");
 loadLocalEnv();
+
+// Immediately after, and before any worker exists: `.env.local` is what points a
+// laptop at Neon, and these tests truncate a table.
+assertDisposableDatabase(process.env);
 
 /**
  * Integration tests run against a real Postgres with pgvector -- they exist to

@@ -1964,3 +1964,185 @@ tests, 117 E2E and a production build, green.
   breakage. The reader who reported "that citation is not clickable" was the person who wrote
   the rule making it unclickable. A safety property that communicates nothing gets read as a
   defect and eventually gets "fixed".
+
+## A guard that checked one of the two variables its code reads, 17 August 2026
+
+- **Issue found**: `assertDisposableDatabase` refuses to let the integration suite run against a
+  database it may not truncate. It checked `DATABASE_URL`. It did not check
+  `DATABASE_URL_UNPOOLED` — and `retrieve.integration.test.ts` builds its forced-plan connection
+  from `DATABASE_URL_UNPOOLED ?? DATABASE_URL`, because a pooler rejects the startup options that
+  test needs to force an HNSW-first plan. So a local `DATABASE_URL` beside a remote unpooled one
+  passed the guard and then queried the remote database anyway.
+
+- **How it surfaced**: not as a warning. The test returned `[]` and failed on an assertion about
+  retrieval, which reads exactly like a product bug in the vector search. The connection was
+  never mentioned. Only the fact that the same test had passed an hour earlier, on the same
+  commit, made the environment the suspect instead of the code.
+
+- **Fix**: the guard iterates every variable the suite can resolve a connection from, and its
+  message names _which_ one is at fault rather than only the host. A test now covers the exact
+  combination that slipped through — local pooled, remote unpooled — which is the counterexample
+  the first version could not produce.
+
+- **Lesson**: this is the repo's own note about `db:*` commands ("overriding one variable out of
+  two", `DATABASE_URL_UNPOOLED ?? DATABASE_URL`) reappearing **inside the guard written to stop
+  it**. The rule was known, written down, and applied to the commands; it was not applied to the
+  check itself. **A guard has to cover every variable the guarded code can read, not the one the
+  author was thinking about** — enumerate the fallback chain, do not name a variable.
+
+- **Second lesson**: the guard was written and shipped in the same hour as a note claiming it
+  closed this hazard class. It closed one member of it. `docs/backlog.md` already carries the
+  older version of this observation — "a guard is shaped like the bug that produced it, and the
+  next bug in the same family walks straight past it" — and this is that sentence happening to
+  the guard that quoted it.
+
+## A guard configured for a suite that does not exist, 17 August 2026
+
+- **Issue found**: the document cap shipped with `PLAN_LIMITS: "off"` added to
+  `playwright.config.ts`, carrying the comment "the signed-in suite shares one workspace, so a
+  third upload anywhere would strand every spec after it." Every clause of that is false. There is
+  no signed-in suite: GitHub OAuth cannot be driven from a browser test, so every spec runs as a
+  guest against the demo — which is read-only for everyone, and whose conversations are never
+  stored. The only upload in the whole suite is `/local`, which never reaches the server.
+
+- **How it was caught**: not by review of the setting, which reads perfectly plausibly. By trying
+  to write the next slice's E2E test and discovering there was no way to reach a signed-in
+  workspace to hit the cap from. The question "why can't I test this?" is what exposed that the
+  opt-out was protecting against nothing.
+
+- **Fix**: the setting is gone. `PLAN_LIMITS=off` still exists in `resolvePlanLimits` and is unit
+  tested; nothing sets it. The reason the caps have no E2E, and the trigger for revisiting, are in
+  `docs/backlog.md`.
+
+- **Lesson**: **the `USAGE_LIMITS` precedent was copied without checking that its premise
+  transferred.** That one is real and measured — flipping it to production thresholds fails 6 of 7
+  chat specs, and it is keyed on an IP address the whole suite shares. The stock caps are keyed on
+  a workspace no spec can write to. Same shape of setting, opposite facts. Copying a neighbouring
+  pattern is usually right and is exactly why it needs the same evidence the original had.
+
+- **Second lesson, and the one that generalizes**: an unnecessary opt-out is not harmless. It is
+  configuration that will silently swallow a real breach the day someone adds the authenticated
+  spec — and its comment would have kept explaining why that was fine. This project's own file
+  already says it: **a verification that cannot produce a counterexample is a restatement of the
+  claim.** A limiter turned off in the only environment that could exercise it produces no
+  counterexamples by construction.
+
+## A destructive test helper with an implicit target, 17 August 2026
+
+- **Issue found**: `pnpm test:integration` takes its database from `DATABASE_URL`, which
+  `vitest.integration.config.ts` reads out of `.env.local` — the file that points a laptop at
+  Neon. The suite calls `clearUsageEvents`, which is `db.delete(usageEvents)`: every row, no
+  prefix, no scope. Correct against CI's throwaway container, and against a real database it
+  empties the table behind the usage dashboard and the rate limiter.
+
+- **How it was caught**: by needing to run the suite on a machine with no Docker and checking what
+  `DATABASE_URL` actually resolved to before running it. Nothing about the command names its
+  target, which is the whole defect.
+
+- **Fix**: `assertDisposableDatabase` throws in the config, before any worker forks, unless the
+  host is loopback or `INTEGRATION_DB_IS_DISPOSABLE=yes`. CI needs no exemption — a service
+  container is port-mapped, so it is already loopback there. **The guard's first run refused a
+  real Neon host**, which is the second time in this project a guard has opened by finding the
+  failure rather than preventing it.
+
+- **Lesson**: **the danger is not the destructive helper, it is that its target is implicit.**
+  `clearUsageEvents` is right to be unscoped and its comment defends that well. What was missing
+  was any statement of which database the command was entitled to do it to. `db:seed` already had
+  this seatbelt in `SEED_HOST`; the integration harness was the one path without it, and the
+  fourth instance of this project confusing one database for another.
+
+- **Naming note**: the escape hatch is `INTEGRATION_DB_IS_DISPOSABLE`, not `ALLOW_REMOTE_DB`.
+  The variable should state the claim that has to be true, not the restriction being lifted —
+  someone setting the second is bypassing a check, someone setting the first is asserting a fact
+  they can be held to.
+
+## A parameter the server validated and the client never sent, 17 August 2026
+
+- **Issue found**: `resolveChatForTurn` takes the conversation id the client is showing, validates
+  it against workspace and user, and falls back to the most recent chat if it is stale. All of that
+  worked. `chat-panel.tsx` constructed `new DefaultChatTransport({ api })` and never sent the id, so
+  the fallback ran on every turn — and a message sent from an older conversation was written to
+  whichever one was most recent. The transcript on screen and the one in the database diverged with
+  nothing reporting it.
+
+- **How it survived**: every test covering the parameter builds the request by hand, including one
+  I wrote days earlier whose comment reads "Named explicitly: the fallback would return the most
+  recent, not the full one." I described the seam accurately and did not notice the application
+  never crossed it. The component's own tests replace `useChat` wholesale, so the transport was
+  outside both sides' coverage.
+
+- **Fix**: `prepareSendMessagesRequest` adds `{ chatId }`, and a test runs the real hook and real
+  transport against a stubbed `fetch`, asserting what left the client. Reverting the one line turns
+  two of its three cases red.
+
+- **Lesson**: **a test that supplies an argument the application never supplies proves the
+  parameter works, not that anything uses it.** Both halves were covered and the join was not, which
+  is the shape to look for — when a value crosses a process boundary, something has to assert it
+  arrived, not that each side would handle it correctly if it did.
+
+- **Second lesson**: `prepareSendMessagesRequest` _replaces_ the request body rather than extending
+  it, so adding a field is also the moment you can silently drop the transcript. The third test case
+  exists for that and passes either way — a case that cannot fail today, kept because the edit that
+  breaks it is the obvious one.
+
+## Two statements where the cap needed one, 19 August 2026
+
+- **Issue found**: the upload route counted documents, then inserted one — two statements with a
+  4 MB body buffered in between and no transaction. Two uploads at 2 of 3 both read 2 and both
+  write. Not a narrow window either: `UploadDropzone` hands a multi-file selection to `fetch` in a
+  loop without awaiting, so selecting four files at once is the ordinary way to exceed the cap, not
+  a contrived one.
+
+- **How it survived**: the cap has integration tests and they all upload one document at a time,
+  which is the only shape in which check-then-insert is correct. The early check is also genuinely
+  useful — it refuses before 4 MB is buffered — and being useful made it look sufficient.
+
+- **Fix**: `createQueuedDocumentUnless` counts and inserts inside one transaction, behind
+  `select … from workspaces … for update`, so uploads to one workspace serialize and other
+  workspaces are untouched. The early checks stay as an optimization; this one is the rule. The
+  callback returns the refusal rather than a boolean, so the decision is made once under the lock
+  and policy stays in the route beside the copy that explains it.
+
+- **Measured**: the new test fires six concurrent uploads at a limit of three. With the lock, three
+  are admitted and the table holds three. With the lock removed, **all six** are admitted — the
+  race does not merely sometimes lose, it loses every time, because the six counts all resolve
+  before any insert commits.
+
+- **Lesson**: **a limit enforced by reading and then writing is not enforced.** The question to ask
+  of any count-then-act is not "is the window small" but "what does the client do when it has three
+  things to send" — here the answer was "sends them at once", which turns a theoretical race into
+  the default path.
+
+## Four bugs in one seam, 19 August 2026
+
+- **Issue found**: an external review of `develop` against `main` before the 1.3.0 release found
+  four bugs, and every one sat in a seam a refactor had just created. Moving the upload's `fetch`
+  out of `UploadDropzone` and into `uploadToWorkspace` took the `try/catch` with it, so the
+  component now called a stranger's function with no guard: a `send` that _rejected_ left a row on
+  "Uploading…" forever, and Dismiss only renders once a row is rejected. The same refactor gave
+  local mode the shared control, which advertises `multiple` — so dropping three files on `/local`
+  produced one success and two refusals, for doing what the control invited. `LocalUpload`'s
+  one-at-a-time flag was cleared at three exits and none of them a `finally`, so one throw jammed
+  every later upload for the life of the tab. And the disposable-database guard called
+  `new URL(url)` a second time _inside the message it was building_, so an unparseable
+  `DATABASE_URL` died with `TypeError: Invalid URL` instead of the paragraph explaining the way
+  out — taking the integration suite and the signed-in Playwright fixture with it.
+
+- **How they survived**: each half was tested and the join was not. `disposable-database.test.ts`
+  covered `isLoopbackDatabase("not-a-url")` and stopped exactly one function short of the caller
+  that crashes. `upload-dropzone.test.tsx` passed a `send` that resolved `{ ok: false }` and never
+  one that rejected. `local-ingest.spec.ts` uploads one file, so the multi-file path had no
+  coverage at all. The reviewer's phrase for it is the right one: the bugs are in _the two places
+  error handling moved between modules_.
+
+- **Fix**: hostname parsed once and `continue` on failure; `try/finally` around the local ingest
+  with the reset in the `finally`; `.catch()` on both the `send` call and the per-file head read,
+  so one unreadable file no longer drops the rest of a selection; and a `multiple` prop that local
+  mode sets to `false`, with the copy changing to "Drop a file here" alongside. Each fix has a test
+  that fails without it — verified by reverting.
+
+- **Lesson**: **moving code moves its error handling, and the seam is where nobody looks.** A
+  refactor that "just relocates" a `try/catch` changes which side owns failure, and a component
+  that starts taking a function as a prop has acquired a new failure mode it did not have when it
+  called `fetch` itself. Worth asking of any extracted seam: what happens when the thing I now
+  accept from a caller _rejects_ rather than returning the failure shape it expects?

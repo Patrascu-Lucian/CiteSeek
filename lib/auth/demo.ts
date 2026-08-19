@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { isUuid } from "@/lib/db/uuid";
 import { workspaces } from "@/lib/db/schema";
 
 /**
@@ -34,6 +35,8 @@ export async function findDemoWorkspace() {
  * filters on it in SQL; those arrive in Milestone 1.
  */
 export async function findWorkspaceById(id: string) {
+  if (!isUuid(id)) return null;
+
   const [workspace] = await db
     .select({
       id: workspaces.id,

@@ -119,7 +119,7 @@ export function LocalDataControls({
     );
   }
 
-  const { documents, chunks, filenames } = state.summary;
+  const { documents, chunks, files } = state.summary;
   const isEmpty = documents === 0;
 
   return (
@@ -150,10 +150,12 @@ export function LocalDataControls({
           and reading the whole list aloud after every delete is not. */}
       {isEmpty ? null : (
         <ul className="text-muted-foreground mt-2 space-y-1 text-sm">
-          {filenames.map((filename) => (
-            <li key={filename} className="flex items-center gap-2">
+          {/* Keyed by id: the same file added twice is two stored documents,
+              and its name is not an identity. */}
+          {files.map((file) => (
+            <li key={file.id} className="flex items-center gap-2">
               <span aria-hidden="true">•</span>
-              <span className="truncate">{filename}</span>
+              <span className="truncate">{file.filename}</span>
             </li>
           ))}
         </ul>

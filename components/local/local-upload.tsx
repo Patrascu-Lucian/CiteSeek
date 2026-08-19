@@ -2,59 +2,83 @@
 
 import { useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { ACCEPT_ATTRIBUTE } from "@/lib/documents/validation";
-import { embedLocalDocument, ingestLocalFile } from "@/lib/local/ingest";
+import { UploadDropzone } from "@/components/documents/upload-dropzone";
+import {
+  FILE_UNREADABLE,
+  embedLocalDocument,
+  ingestLocalFile,
+} from "@/lib/local/ingest";
 
 type State =
   | { status: "idle" }
   | { status: "parsing"; filename: string }
   | { status: "embedding"; filename: string; done: number; total: number }
-  | { status: "done"; filename: string; passages: number }
+  | { status: "done"; passages: number }
   | { status: "failed"; message: string };
 
 export function LocalUpload({ onIngested }: { onIngested: () => void }) {
-  const input = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<State>({ status: "idle" });
 
+  /* A ref, not `state`: the dropzone hands files to `ingest` in a loop without
+     awaiting, so a second call reads this before any re-render. */
+  const working = useRef(false);
+
+  /** The dropzone's `send`. Nothing leaves the browser (ADR 029), so a refusal
+   * here is a parse failure rather than a response. */
   async function ingest(file: File) {
-    setState({ status: "parsing", filename: file.name });
-
-    const result = await ingestLocalFile(file);
-
-    if (!result.ok) {
-      setState({ status: "failed", message: result.message });
-      return;
+    // One status region, one document. Two at once would flip between them.
+    if (working.current) {
+      return {
+        ok: false as const,
+        message: "One document at a time in local mode.",
+      };
     }
 
-    setState({
-      status: "embedding",
-      filename: file.name,
-      done: 0,
-      total: result.document.chunkCount,
-    });
-    onIngested();
+    working.current = true;
 
-    const embedded = await embedLocalDocument(
-      result.document.id,
-      (done, total) =>
-        setState({ status: "embedding", filename: file.name, done, total }),
-    );
+    // `finally`, not a reset per exit: a throw escaped all three and left the
+    // flag set, so every later upload answered "one at a time" for the life of
+    // the tab, with no way back but a reload.
+    try {
+      setState({ status: "parsing", filename: file.name });
 
-    if (!embedded.ok) {
-      setState({ status: "failed", message: embedded.message });
-      return;
+      const result = await ingestLocalFile(file);
+
+      if (!result.ok) {
+        setState({ status: "failed", message: result.message });
+        return { ok: false as const, message: result.message };
+      }
+
+      setState({
+        status: "embedding",
+        filename: file.name,
+        done: 0,
+        total: result.document.chunkCount,
+      });
+      onIngested();
+
+      const embedded = await embedLocalDocument(
+        result.document.id,
+        (done, total) =>
+          setState({ status: "embedding", filename: file.name, done, total }),
+      );
+
+      if (!embedded.ok) {
+        setState({ status: "failed", message: embedded.message });
+        return { ok: false as const, message: embedded.message };
+      }
+
+      setState({ status: "done", passages: result.document.chunkCount });
+      onIngested();
+
+      return { ok: true as const };
+    } catch {
+      setState({ status: "failed", message: FILE_UNREADABLE });
+      return { ok: false as const, message: FILE_UNREADABLE };
+    } finally {
+      working.current = false;
     }
-
-    setState({
-      status: "done",
-      filename: file.name,
-      passages: result.document.chunkCount,
-    });
-    onIngested();
   }
-
-  const busy = state.status === "parsing" || state.status === "embedding";
 
   return (
     <section
@@ -69,30 +93,13 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
         uploaded.
       </p>
 
-      <input
-        ref={input}
-        type="file"
-        accept={ACCEPT_ATTRIBUTE}
-        aria-label="Add a document to local mode"
-        disabled={busy}
-        className="sr-only"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          // Cleared so choosing the same file twice fires `change` again.
-          event.target.value = "";
-          if (file) void ingest(file);
-        }}
-      />
-
-      <Button
-        type="button"
-        variant="outline"
-        className="mt-3"
-        disabled={busy}
-        onClick={() => input.current?.click()}
-      >
-        {busy ? "Working…" : "Choose a file"}
-      </Button>
+      <div className="mt-3">
+        <UploadDropzone
+          send={ingest}
+          onUploaded={() => Promise.resolve()}
+          multiple={false}
+        />
+      </div>
 
       <p role="status" className="text-muted-foreground mt-3 text-sm">
         {state.status === "parsing"
@@ -100,7 +107,7 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
           : state.status === "embedding"
             ? `Indexing ${state.filename} — ${String(state.done)} of ${String(state.total)} passages. The model downloads once, then stays on this machine.`
             : state.status === "done"
-              ? `${state.filename} — ${state.passages} passage${state.passages === 1 ? "" : "s"} indexed on this machine. Ask about it below.`
+              ? `Indexed ${String(state.passages)} passage${state.passages === 1 ? "" : "s"} on this machine. Ask about it below.`
               : null}
       </p>
 

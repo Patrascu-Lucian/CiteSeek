@@ -39,8 +39,11 @@ test.describe("local ingestion", () => {
     await upload(page, "sample.pdf");
 
     await expect(uploadPanel(page).getByRole("status")).toContainText(
-      /sample\.pdf — \d+ passages?/,
+      /indexed \d+ passages?/i,
     );
+    // The name is the storage list's to give: saying it here too put the same
+    // file on screen twice.
+    await expect(storagePanel(page).getByText("sample.pdf")).toBeVisible();
     await expect(storagePanel(page).getByRole("status")).toContainText(
       /1 document and \d+ passages?/,
     );
@@ -54,15 +57,16 @@ test.describe("local ingestion", () => {
     await upload(page, "sample.docx");
 
     await expect(uploadPanel(page).getByRole("status")).toContainText(
-      /sample\.docx — \d+ passages?/,
+      /indexed \d+ passages?/i,
     );
+    await expect(storagePanel(page).getByText("sample.docx")).toBeVisible();
   });
 
   test("indexes the passages, not only the text", async ({ page }) => {
     await upload(page, "sample.md");
 
     await expect(uploadPanel(page).getByRole("status")).toContainText(
-      /indexed on this machine/i,
+      /indexed \d+ passages? on this machine/i,
     );
   });
 
@@ -73,7 +77,7 @@ test.describe("local ingestion", () => {
     // the state a half-embedded document must not leave.
     await upload(page, "sample.pdf");
     await expect(uploadPanel(page).getByRole("status")).toContainText(
-      /indexed on this machine/i,
+      /indexed \d+ passages? on this machine/i,
     );
 
     const stored = await page.evaluate(
@@ -164,4 +168,18 @@ test.describe("the vendored ONNX runtime", () => {
     // The body, not `content-length`: the response is chunked and carries none.
     expect((await response.body()).byteLength).toBeGreaterThan(1_000_000);
   });
+});
+
+test("says nothing about a model provider, because nothing reaches one", async ({
+  page,
+}) => {
+  await stubEmbedder(page);
+  await page.goto("/local");
+
+  // Singular here, plural in the workspace: local mode takes one at a time, so
+  // the shared control stops inviting a drop it would refuse.
+  await expect(
+    page.getByRole("button", { name: /drop a file here/i }),
+  ).toBeVisible();
+  await expect(page.getByText(/gemini/i)).toHaveCount(0);
 });

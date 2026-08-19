@@ -438,12 +438,18 @@ each of these is reversible and therefore safe to defer.
   `invert`, stays crisp at any density, and is selectable and searchable. A real mark should be
   added _beside_ it rather than replacing it.
 
-- **The favicons are still the mark the header no longer uses.** `app/icon.png` and
-  `app/apple-icon.png` are crops of the old generated lockup — a navy "C" over a magnifier,
-  raster, on an opaque plate. The header went vector and monochrome without them, so the tab
-  and the page now show two different identities. Not urgent, because both beat the
-  create-next-app default they replaced, but it is the sort of thing a stranger sees first and
-  it should be resolved in the same pass as the real mark rather than separately.
+- ~~**The favicons are still the mark the header no longer uses.**~~ **Done, 17 August 2026.**
+  Both are now generated from `scripts/brand/mark.svg` — a geometric C in `--primary`, drawn in
+  the repository rather than commissioned, so there is no stock-art question on a public
+  all-rights-reserved repo. A unit test pins the mark's colors to the palette, since the PNGs
+  are committed and nothing rebuilds them when a token moves.
+
+  Two things the entry above got right and one it did not. Right: the old icons were a raster
+  lockup on an opaque plate, and the tab disagreed with the page. Wrong: "not urgent, because
+  both beat the create-next-app default" understated it — at 16px the magnifier, document and
+  quote marks resolved to an illegible blob, which is the size a favicon is actually seen at.
+  **The mark still does not appear in the header**, so the wordmark-only position below is
+  unchanged.
 
   Worth recording about the brief that produced the original: the commissioned research report frames
   CiteSeek as a tool for **academic researchers** and benchmarks it against Google Scholar,
@@ -993,25 +999,31 @@ Vercel as receiving visitor metrics, and a check that the nonce reaches the inje
 Four things noticed while reading the deployed site. The first three are design work; the
 fourth is a defect with a diagnosis.
 
-- **A logo mark, and real icons.** `app/icon.png` and `app/apple-icon.png` exist but are
-  placeholders, and the header renders the wordmark as plain text, so there is no symbol
-  anywhere. One job with the hero below rather than three: a mark that only ever appears at
-  32px is designed differently from one that has to sit on an image, and deciding them apart
-  is how you end up with two.
+- ~~**A logo mark, and real icons.**~~ **Icons done, 17 August 2026** — drawn as vector in
+  `scripts/brand/mark.svg` and rendered by `pnpm brand:icons`. The prediction here was that a
+  32px mark and one sitting on an image are different designs; that held, and the icon was
+  drawn for the small size alone. Whether the hero reuses it is now genuinely open rather than
+  assumed. Still no symbol in the header.
 
-- **A hero image behind the landing headline.** Currently type on a flat background. The
+- ~~**A hero image behind the landing headline.**~~ Currently type on a flat background. The
   constraint that decides the approach: `img-src` is `'self' data:` and ADR 032 keeps remote
   hosts to model weights, so this is a self-hosted asset, not a stock URL. It also has to
   survive both palettes and keep the headline at WCAG AA against whatever sits behind it —
   which is the part that usually fails, and which `paintedColorsOf` in `e2e/a11y.spec.ts`
   can measure rather than eyeball.
+  **Done, 18 August 2026** — drawn rather than photographic, and placed beside the headline
+  rather than behind it, which sidesteps the contrast problem entirely instead of measuring
+  its way through.
 
-- **A sticky header, possibly translucent with a blur.** `components/site-header.tsx:94` is
+- ~~**A sticky header, possibly translucent with a blur.**~~ `components/site-header.tsx:94` is
   `border-b` and nothing else. Two things to check if it becomes `sticky top-0`: the skip
   link must still land correctly, and `backdrop-blur` over a hero image is exactly where
   text contrast stops being a constant — the same measurement as above.
+  **Done, 18 August 2026** at 85% opacity, contrast measured rather than eyeballed. Both
+  concerns were real: the skip link needed `scroll-padding-top`, and the sticky band cost four
+  `target-size` failures — each has its own entry below.
 
-- **The usage table's bars drift left-to-right between rows.** `usage-view.tsx:115` puts the
+- **Still open. The usage table's bars drift left-to-right between rows.** `usage-view.tsx:115` puts the
   bar in the row-header cell beside the date, in a `flex items-center gap-2`. The numeric
   `<td>`s carry `tabular-nums`; **the date `<th>` does not**, so `2026-08-11` and
   `2026-08-09` occupy slightly different widths and every bar starts at a slightly different
@@ -1307,7 +1319,7 @@ whether it is downloaded (network in CI, the thing that suite avoids) or vendore
 the repository, which `public/onnx` is deliberately not). That choice is the work; the test
 around it is small.
 
-## Limits for the default plan, and the paywalls that would replace them, 16 August 2026
+## ~~Limits for the default plan, and the paywalls that would replace them~~, 16 August 2026
 
 Raised as product thinking rather than a defect: cap the free tier now, so the paid tiers have
 something to be an upgrade _from_. Recorded with the numbers proposed and the objections worth
@@ -1365,7 +1377,13 @@ cannot tell which of their three documents to remove has been given a number, no
 also has to be reachable — a cap discovered only by pressing a disabled button is the same
 mistake as an inert citation with nothing saying why.
 
-## Metadata the site has none of, 16 August 2026
+**Done**, 17–19 August 2026, as ADR 039 and the four caps. Two of the proposed numbers did not
+survive the objections recorded above: storage counts extracted characters rather than uploaded
+megabytes, since the files are discarded, and the saved-message cap is 40 rather than 100, which
+was unreachable — the client resends the whole transcript, so at 100 saved the next request is
+101 and the transcript guard refuses it as a bad body before any cap can name itself.
+
+## ~~Metadata the site has none of~~, 16 August 2026
 
 Neither social embedding nor search indexing is configured anywhere: no `metadataBase`, no
 `openGraph`, no `robots`, no sitemap. Every page sets a `title`; only the marketing pages add a
@@ -1384,7 +1402,11 @@ already gets a real 404 there and has nothing to index. The marketing pages and 
 `robots` policy rather than a meta tag on each page. Worth doing in the same pass as a sitemap,
 since both answer the same question.
 
-## The local upload control is a bare file input, 16 August 2026
+**Done**, 18 August 2026: `metadataBase`, `app/opengraph-image.png`, `app/robots.ts` and
+`app/sitemap.ts`. Robots disallows the side-effect routes, `/api/` and `/account`; the sitemap
+lists the five pages worth indexing.
+
+## ~~The local upload control is a bare file input~~, 16 August 2026
 
 `components/local/local-upload.tsx` renders `<input type="file">` behind a "Choose a file" button,
 while the only other upload in the product uses `components/documents/upload-dropzone.tsx` — drag and
@@ -1398,3 +1420,251 @@ its loader.
 `aria-label="Add a document to local mode"` since the commit that introduced it, so it was never
 a violation. Whoever picks this up should not expect axe to report one fewer finding — the gap is
 drag and drop, the described drop target, and one validation copy instead of two.
+
+**Done**, 18 August 2026. The seam is a `send` prop replacing the upload, not an `onFile`
+callback: the dropzone owns `uploading | queued | rejected` and local mode owns
+`parsing | embedding`, so two state machines meet at one function. The reuse also exposed a
+false claim — the dropzone carried a notice about the paid Gemini tier, which on `/local`
+contradicted that page saying nothing is uploaded. That copy now lives with the caller.
+
+## ~~No E2E can reach a plan cap~~, 17 August 2026
+
+The stock caps bite in exactly one place — a signed-in reader's own workspace — and the Playwright
+suite never reaches one. There is no authenticated E2E at all: GitHub OAuth cannot be driven from a
+browser test, so every spec runs as a guest against the demo, which `accessToWorkspace` makes
+read-only and whose conversations are never stored (ADR 013). So the document and conversation caps
+have integration tests and no journey test, deliberately.
+
+Found by adding `PLAN_LIMITS=off` to `playwright.config.ts` on the assumption that the suite would
+otherwise trip the caps, then checking: the only upload in the suite is `/local`, which is entirely
+in-browser, and nothing presses "New conversation". The setting was removed rather than kept —
+unreachable configuration whose comment states a false reason is worse than none, and it would have
+masked a real breach the day an authenticated spec appeared. **The same mistake this project keeps
+recording: a guard written from a plausible claim rather than a measurement.**
+
+**The trigger to revisit**: the first authenticated E2E. That needs a seeded signed-in session
+(a pre-inserted user plus a signed cookie from `global-setup`, sidestepping OAuth), which is worth
+building for its own sake — the entire signed-in half of the product currently has no journey
+coverage. When it exists, `PLAN_LIMITS=off` becomes necessary for the unrelated specs and a
+cap-specific spec becomes possible; both should land together.
+
+**Done**, 19 August 2026: `e2e/signed-in.ts` and `e2e/plan-caps.spec.ts`. Two claims above were
+wrong, both from reasoning rather than looking.
+
+_The cookie is not signed._ Sessions are database rows, so it carries the `session_token` primary
+key and nothing else. Inserting the row and setting the cookie is the whole handshake; none of
+Auth.js's signing had to be reproduced.
+
+_`PLAN_LIMITS=off` was not needed._ That followed from assuming one shared account. The fixture
+creates a user and a workspace per test instead, so every count starts at zero and no spec can
+approach a cap it did not set up — which also keeps the cap spec able to test caps, something a
+global `off` would have made impossible. Isolation removed the configuration rather than requiring
+it. Verified both ways: the two specs pass with limits on and fail with `PLAN_LIMITS=off`.
+
+## ~~A malformed chat id is a 500, not the documented fallback~~, 17 August 2026
+
+`resolveChatForTurn` (`lib/chats/queries.ts:111`) carries the comment "a mismatch falls back to the
+most recent rather than erroring — a stale id should not lose the reader's question." That holds for
+a well-formed uuid naming a chat that does not exist. It does **not** hold for a string that is not
+a uuid: the value goes straight into the `where` clause, Postgres raises `22P02 invalid input syntax
+for type uuid`, and the query throws before the fallback is reached.
+
+`chatId` is client-supplied. `app/api/w/[workspaceId]/chat/route.ts:184` accepts any string, so
+`{"chatId": "garbage"}` produces an unhandled error where the design says it should produce an
+answer. Reachable only by a signed-in reader, against their own request, so the severity is low —
+but the failure mode is precisely the one the comment promises cannot happen.
+
+**Found by a test that meant to prove the fallback and used a malformed id to do it.** The test
+failed loudly rather than passing for the wrong reason, which is the good version of this mistake:
+the same family as the `[data-message-bubble]` selector and the `sr-only` contrast check already in
+`docs/code-review-notes.md`, where the input could not reach the branch under test.
+
+**The fix, when it is picked up**: refuse a non-uuid `chatId` at the route boundary where the body
+is already validated, rather than teaching the query helper to parse. `parseMessages` is the
+precedent — shape belongs with the other request-shape checks, and the helper stays about ownership.
+Not done here because it is unrelated to the milestone's caps.
+
+**Done**, 19 August 2026, and it was **five paths, not one**. Probing the others before writing the
+fix found the same `22P02` behind `/w/<not-a-uuid>`, `/w/<id>/c/<not-a-uuid>`, and both document
+routes — three bare 500s and two error pages served under a 200. The entry described the one place
+a test happened to reach.
+
+The body field is refused at the route as prescribed, since silently falling back would write the
+turn into a conversation the caller did not name. The **path** ids are not: an id that cannot parse
+names nothing, which is what an unknown id already means, so `isUuid` guards the lookup helpers
+(`findWorkspaceById`, `listChatMessages`, `findDocumentInWorkspace`, `deleteDocumentInWorkspace`,
+`renameChat`, `deleteChat`) and every one of them now answers exactly as it does for a well-formed
+id that is absent. Verified side by side against `00000000-…-000000000000`.
+
+`countChatMessages` and `appendMessages` are deliberately unguarded: their id comes from
+`resolveChatForTurn`, which returns a row, never a client string.
+
+## ~~The chat route is never told which conversation is open~~, 17 August 2026
+
+**Found by manual testing of the saved-message cap, and it is not a cap defect.** At the cap the
+refusal fires correctly; then the reader starts another conversation, returns to the full one, and
+the assistant answers there — while the turn is written somewhere else. It reads as "it responded
+but nothing saved".
+
+`components/chat/chat-panel.tsx:67` constructs `new DefaultChatTransport({ api })` and adds no
+body, so `chatId` is never sent. `app/api/w/[workspaceId]/chat/route.ts` therefore always reads
+`requestedChatId` as `null`, and `resolveChatForTurn` falls through to `getOrCreateChat` on every
+turn — which returns the **most recently updated** chat, not the one on screen.
+
+Consequences, in order of severity:
+
+- **A turn can land in a conversation the reader is not looking at**, whenever the open one is not
+  the most recent. The transcript on screen and the transcript in the database diverge silently.
+- **The saved-message cap counts the wrong conversation** for the same reason. It is a real cap on
+  a real chat, just not necessarily the open one — which is why it looked correct at exactly 60 and
+  then appeared to stop working.
+- `resolveChatForTurn`'s `requestedChatId` parameter has never been exercised by the application.
+  Every test that covers it constructs the request by hand, which is why the suite is green.
+
+**The fix** is `prepareSendMessagesRequest` on the transport, adding `{ chatId }` to the body, with
+the transport memoized on `activeChatId` as well as `workspaceId`. The server side already handles
+it: validation, ownership and the stale-id fallback are all in place and tested. Worth an E2E or
+integration test that drives the client seam rather than the route alone — the gap here was
+precisely that nothing connected the two.
+
+## "New conversation" reloads the whole page, 17 August 2026
+
+`/c/new` is a form POST answering `303`, so every press is a full document navigation: the whole
+workspace re-renders, documents are re-fetched, and the chat panel remounts. Correct, and
+deliberate — a `GET` that creates a resource is what the prefetch incident taught, and the POST is
+what fixed it (`lib/links.ts`). The cost was recorded as "no middle-click, no open-in-new-tab" and
+the reload was not, which understates it.
+
+**Options, none of which reintroduce the prefetch problem:**
+
+- A Server Action invoked from a client component, then `router.push` to the new chat. Keeps the
+  write off `GET`, and the navigation becomes a client-side transition.
+- `fetch("/c/new", { method: "POST" })` and push the returned id, which needs the route to answer
+  JSON to a fetch caller while keeping the redirect for a no-JavaScript form post.
+
+The first is the smaller change and keeps one code path. Either way the no-JavaScript case must
+keep working, since the form is what makes that true today.
+
+## ~~Model weights cached inside `node_modules` break the build~~, 18 August 2026
+
+`pnpm build` failed with a Turbopack panic — `reading file … Qwen2.5-0.5B-Instruct/onnx/model_q4f16.onnx`,
+`Insufficient system resources exist to complete the requested service (os error 1450)`. It
+succeeded on retry, which is the shape of the problem: intermittent, and nothing to do with the
+change being built.
+
+`@huggingface/transformers` defaults its cache to `.cache/` **inside its own package directory**, so
+running the real local model in Node writes weights into `node_modules`. On this machine that is
+**3.1 GB**, including a 1.7 GB file. Turbopack traces the dependency graph for the middleware
+entrypoint and reads what it finds there, and Windows runs out of resources on files that size.
+
+The tests that touch it (`lib/local/embedder.test.ts`, `generate.test.ts`,
+`transformers-contract.test.ts`) mostly stub the library; whatever downloaded these did so in
+August during Milestone 7's model comparison. CI never hits it — a fresh runner has no cache, which
+is why this only ever appears locally.
+
+**The fix is one setting**: point `env.cacheDir` at a path outside `node_modules` wherever the
+library is configured for Node, so weights live beside the repository rather than inside its
+dependency tree. Deleting the directory clears it today and it returns the next time a model is
+pulled. Worth doing before anyone else clones this and runs the local model, since the symptom
+names a file nobody chose to create and a build that failed for no visible reason.
+
+**Done**, 18 August 2026: `lib/local/model-cache.ts` sends it to `~/.cache/citeseek-transformers`,
+overridable with `CITESEEK_MODEL_CACHE`. Applied on both model-loading paths — the two places that
+call `pipeline()` — because nothing else in Node pulls a model, and a helper nobody calls would not
+survive the next reader. The library's own `cacheDir` is the runtime check: it is null wherever
+there is no filesystem, so the browser never reaches `process`.
+
+## ~~A sticky header can obscure a control, and axe no longer sees it~~, 18 August 2026
+
+Making the header `sticky` turned four a11y scans red on `target-size` — "all touch targets must
+be 24px large, or leave sufficient space" — against the workspace's "Sign in to upload" button. The
+button is 34px tall and passes on its own. axe counts only the _unobscured_ area, and a sticky
+header covers whatever scrolls beneath it.
+
+The scans were reached by `toBeVisible()` on a citation chip, whose scroll-into-view lands wherever
+the answer happened to finish streaming. So the same commit passed with two tests on one worker and
+failed with the full suite on eight: the gate's result depended on stream timing, not on markup.
+Those two scans now run from `scrollTo(0, 0)`.
+
+**What that stops catching**: a control partially covered by the header at some scroll offset. It is
+a real WCAG 2.5.8 concern and it is not specific to this app — any sticky header has it, at some
+offset, for some control. `scroll-padding-top: 4.5rem` in `globals.css` handles the cases the
+browser scrolls itself (anchors, focus); it does nothing for a synthetic scroll, and nothing for a
+reader who simply stops mid-page.
+
+**Worth doing if it is ever picked up**: a deliberate test that scrolls a known control into the
+header band and asserts what remains reachable, rather than discovering it by accident. That is a
+different test from "does this page pass axe", which is why folding it into the existing scans was
+the wrong place for it.
+
+**Done**, 19 August 2026: `e2e/focus-not-obscured.spec.ts`, and the measuring changed the target.
+
+The first attempt tabbed through a page asserting focus never enters the band. It passed with
+`scroll-padding-top` **deleted**, so it was testing Chromium rather than this app: forward tabbing
+scrolls an element to the _bottom_ edge, and even `Shift+Tab` backwards landed controls at top 88
+against a header ending at 67. A test that cannot fail is worse than the gap it claims to close.
+
+What does fail is **fragment navigation**, which scrolls its target to the very top — and every page
+has one: "Skip to main content" put `#main` at top 0 under a 67px header, so the affordance whose
+only users are keyboard users dropped them behind the nav. The second test covers the in-product
+case, the `#conversations-heading` anchor the cap refusal redirects to, asserted on a heading a
+guest can reach. Both fail with the line removed and pass with it.
+
+Still not covered, and now known to be unfixable in CSS: a reader who simply scrolls so a control
+sits half under the header. No author rule reaches a manual scroll.
+
+## ~~A full conversation looks writable until you send~~, 18 August 2026
+
+Reading the copy at every cap turned this up. At 40 of 40 saved messages the composer is enabled,
+the Send button is live, and nothing on the page says the conversation is finished. The refusal is
+correct once it arrives — the route returns 409, no answer is streamed, and the notice reads "This
+conversation has reached its limit of 40 saved messages. Start a new conversation to keep going —
+this one stays where it is." But it arrives **after** the reader has written the question, and the
+question stays on screen unsaved beside a composer that still invites another.
+
+The other three caps do better. The conversations cap renders its notice above the list on load,
+before "New conversation" is pressed. The documents cap refuses at the file row and names the
+failed upload to delete.
+
+The fix is the same shape as the conversations cap: the page already loads the message count for
+this conversation, so the notice can render on arrival and the composer can be disabled with it.
+Worth checking whether the composer should be disabled at all, or only labelled — a disabled
+control with no explanation is worse than an enabled one that refuses clearly.
+
+**Done**, 19 August 2026: `messageCap` is computed in `workspace-view.tsx` and threaded to
+`ChatPanel`, which renders the notice **above** the composer it disables — so the reason is reached
+before the dead control, which answers the question this entry left open.
+
+No extra query: `toUIMessages` maps rows one to one, so the transcript the page already loads _is_
+the count the cap uses. Nor does it go stale — `onTurnComplete` already calls `router.refresh()`
+for a signed-in reader, so the turn that reaches the cap re-renders the server component and closes
+the composer behind itself.
+
+## A missing workspace page is a soft 404, 19 August 2026
+
+Found while checking that malformed ids behave like absent ones — they do, but the baseline itself
+looks wrong. A GET to `/w/<well-formed-uuid-that-does-not-exist>` with a valid session returns
+**200** with the streamed shell (`<title>Workspace · CiteSeek</title>`, no `h1`), not 404.
+
+`workspace-view.tsx` carries the comment "`not-found.tsx` _with a 404 status_. Returning the body
+directly gave the right words under a 200 — a soft 404 tells crawlers the URL is fine." So the
+status was deliberately fixed once and is not what a plain request sees now. The likely cause is
+that `notFound()` is reached during the streamed render, after headers have already gone.
+
+Not chased here because it is unrelated to the ids, it predates that work, and it needs its own
+measurement: whether a browser navigation and an RSC request differ, and whether `generateMetadata`
+can decide early enough to set the status. **Check before trusting the comment** — either the
+comment is stale or the behavior regressed, and both are worth knowing.
+
+## The README screenshots predate the branding, 19 August 2026
+
+`docs/images/*.png` were taken on 10 August. Since then the header gained the mark and became
+sticky and translucent, so every thumbnail shows a header the live site no longer has — and the
+screenshots are the first thing a reader looks at.
+
+`pnpm demo:shots` regenerates them, but it defaults to `https://citeseek.app` and Milestone 7.5 is
+not deployed yet, so running it today would recapture the old header faithfully. Pointing
+`SHOTS_BASE_URL` at localhost is worse rather than better: the script needs the real providers,
+because the fake embedder retrieves the wrong passage and the picture is _of_ a citation.
+
+**Do it right after the v1.3.0 deploy**, against production, which is what the script is built for.

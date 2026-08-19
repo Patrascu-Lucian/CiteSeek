@@ -308,3 +308,18 @@ describe("WorkspaceSections — when the open conversation goes away", () => {
     expect(screen.queryByText("A question")).not.toBeInTheDocument();
   });
 });
+
+describe("WorkspaceSections — what happens to an uploaded file", () => {
+  it("warns about the provider at the control, not only in the policy", () => {
+    // Here, not on the dropzone: local mode shares that control, and there the
+    // notice claimed a provider on a page that reaches none.
+    renderSections([doc(READY)]);
+
+    // The whole phrase inside one <strong>: an emphasis ending mid-clause loses
+    // the space after it in JSX, which is how "extractedfrom" shipped once.
+    expect(screen.getByText("paid Gemini tier")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /what is stored/i }),
+    ).toHaveAttribute("href", "/privacy");
+  });
+});

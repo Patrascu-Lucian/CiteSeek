@@ -13,6 +13,7 @@ import { deleteUserAccount } from "@/lib/users/deletion";
 import {
   MAX_TITLE_LENGTH,
   appendMessages,
+  createChatUnless,
   deleteChat,
   getOrCreateChat,
   listChatMessages,
@@ -454,5 +455,50 @@ describe("deleteChat", () => {
         "00000000-0000-4000-8000-00000000dead",
       ),
     ).toBe(false);
+  });
+});
+
+describe("admitting a conversation against the cap", () => {
+  it("lets exactly the cap through when the form is submitted twice", async () => {
+    const user = await createTestUser(db, "chat-race");
+    const workspace = await createTestWorkspace(db, {
+      ownerId: user.id,
+      label: "chat-race-ws",
+    });
+    const limit = 3;
+
+    const results = await Promise.all(
+      Array.from({ length: 6 }, () =>
+        createChatUnless(workspace.id, user.id, (existing) =>
+          existing >= limit ? "capped" : null,
+        ),
+      ),
+    );
+
+    expect(results.filter((result) => result.admitted)).toHaveLength(limit);
+
+    const stored = await db
+      .select()
+      .from(chats)
+      .where(eq(chats.workspaceId, workspace.id));
+    expect(stored).toHaveLength(limit);
+  });
+
+  it("counts this reader's conversations, not the workspace's", async () => {
+    // The lock is on the workspace row, which two readers share. The count it
+    // guards must still be per reader, or one would cap the other.
+    const owner = await createTestUser(db, "chat-scope-owner");
+    const workspace = await createTestWorkspace(db, { ownerId: owner.id });
+    const other = await createTestUser(db, "chat-scope-other");
+
+    await createChatUnless(workspace.id, owner.id, () => null);
+
+    const forOther = await createChatUnless(
+      workspace.id,
+      other.id,
+      (existing) => (existing >= 1 ? "capped" : null),
+    );
+
+    expect(forOther.admitted).toBe(true);
   });
 });

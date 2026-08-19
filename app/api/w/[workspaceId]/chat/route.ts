@@ -18,9 +18,22 @@ import {
 } from "@/lib/ai/prompt";
 import { getChatModel } from "@/lib/ai/provider";
 import { questionFrom } from "@/lib/ai/question";
+import {
+  MAX_QUESTION_CHARS,
+  MAX_REQUEST_MESSAGES,
+  MAX_TOTAL_CHARS,
+} from "@/lib/ai/request-bounds";
 import type { ChatSource, ChatUIMessage, RefusalReason } from "@/lib/ai/types";
 import { REFUSAL_PART_ID, SOURCES_PART_ID } from "@/lib/ai/types";
-import { appendMessages, resolveChatForTurn } from "@/lib/chats/queries";
+import {
+  appendMessages,
+  countChatMessages,
+  countChats,
+  resolveChatForTurn,
+} from "@/lib/chats/queries";
+import { isUuid } from "@/lib/db/uuid";
+import { capRefusalBody, decideCap } from "@/lib/limits/caps";
+import { resolvePlanLimits } from "@/lib/limits/config";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
@@ -43,18 +56,6 @@ function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
 }
 
-/*
-  The limiter counts requests, not size, so without these one enormous turn passes
-  a cap built for a normal one. A transcript is client-supplied on every request —
-  `useChat` sends the whole thing back — so its length is an input, not a fact.
-
-  Generous against real use: the composer caps a question well under 8k, and a
-  conversation reaching 100 turns has other problems.
-*/
-const MAX_MESSAGES = 100;
-const MAX_TOTAL_CHARS = 200_000;
-const MAX_QUESTION_CHARS = 8_000;
-
 function textOf(message: ChatUIMessage): string {
   return message.parts
     .filter((part) => part.type === "text")
@@ -67,7 +68,8 @@ function parseMessages(body: unknown): ChatUIMessage[] | null {
 
   const { messages } = body as { messages?: unknown };
   if (!Array.isArray(messages)) return null;
-  if (messages.length === 0 || messages.length > MAX_MESSAGES) return null;
+  if (messages.length === 0 || messages.length > MAX_REQUEST_MESSAGES)
+    return null;
 
   const valid = messages.every(
     (message: unknown) =>
@@ -153,15 +155,54 @@ export async function POST(
       ? (body as { chatId: string }).chatId
       : null;
 
-  const { chunks: retrieved, tokens: retrievalTokens } = await retrieveChunks(
-    auth.workspaceId,
-    question,
-  );
+  // Refused rather than ignored: silently falling back would write the turn into
+  // a different conversation than the caller named.
+  if (requestedChatId !== null && !isUuid(requestedChatId)) {
+    return badRequest("Expected chatId to be a uuid.");
+  }
 
   // Destructured before the closure: TypeScript drops narrowing at a function
   // boundary, so reading through `auth` inside it would widen these back.
   const { workspaceId: scope, actorType, actorId } = auth;
   const asked: string = question;
+
+  // Signed-in only: persisting guest turns would put an unbounded write path
+  // behind a public URL (ADR 005). `resolveChatForTurn` validates the id the
+  // client sends, so a guess cannot append to someone else's transcript.
+  //
+  // Ahead of retrieval so the cap below refuses before the query is embedded.
+  // Safe to create a chat here: the fallback only inserts at zero chats, and a
+  // reader with zero chats has no messages to be capped on.
+  const chatId =
+    actorType === "user"
+      ? (await resolveChatForTurn(scope, actorId, requestedChatId)).id
+      : null;
+
+  if (chatId) {
+    const limits = resolvePlanLimits();
+    const capped = decideCap(
+      "messages",
+      await countChatMessages(scope, actorId, chatId),
+      limits.messagesPerConversation,
+    );
+
+    if (!capped.allowed) {
+      // Refusal path only: "start a new conversation" is wrong advice for a
+      // reader who has also used all of theirs.
+      const conversationsExhausted =
+        (await countChats(scope, actorId)) >= limits.conversations;
+
+      return NextResponse.json(
+        capRefusalBody(capped, { conversationsExhausted }),
+        { status: 409 },
+      );
+    }
+  }
+
+  const { chunks: retrieved, tokens: retrievalTokens } = await retrieveChunks(
+    auth.workspaceId,
+    question,
+  );
 
   /** Before either branch: the query is embedded *before* the floor applies, so a
    * question that matched nothing was still paid for. Metering only the answered
@@ -174,14 +215,6 @@ export async function POST(
     kind: "embedding",
     inputTokens: retrievalTokens,
   });
-
-  // Signed-in only: persisting guest turns would put an unbounded write path
-  // behind a public URL (ADR 005). `resolveChatForTurn` validates the id the
-  // client sends, so a guess cannot append to someone else's transcript.
-  const chatId =
-    actorType === "user"
-      ? (await resolveChatForTurn(scope, actorId, requestedChatId)).id
-      : null;
 
   async function persist(
     answer: string,

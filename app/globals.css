@@ -182,6 +182,11 @@
        past the fold. */
     scrollbar-gutter: stable;
     scrollbar-color: var(--scrollbar-thumb) transparent;
+
+    /* The sticky header would otherwise cover whatever is scrolled to — a cited
+       passage, or a focused control reached by keyboard. 34px control, py-4
+       either side, plus the border. */
+    scroll-padding-top: 4.5rem;
   }
 
   /*
