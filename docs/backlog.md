@@ -1668,3 +1668,35 @@ not deployed yet, so running it today would recapture the old header faithfully.
 because the fake embedder retrieves the wrong passage and the picture is _of_ a citation.
 
 **Do it right after the v1.3.0 deploy**, against production, which is what the script is built for.
+
+## The storage ceiling cannot be reached by one document, 20 August 2026
+
+Found while testing the caps on the live URL. The plan allows 500,000 extracted characters, but
+`MAX_CHUNKS_PER_DOCUMENT` is 600 and the measured density is ~455 characters per chunk — so a
+single document tops out around **273,000 characters**. A 300,000-character upload never reaches
+the storage check; it fails at chunking with "This document produces 659 chunks, above the limit
+of 600. Split it into smaller documents."
+
+Nothing is wrong here, and the chunk message gives advice that works: two 250,000-character files
+ingest and land exactly on the ceiling. But "500,000 characters of storage" reads as something one
+document could use, and it is not — the two limits are set independently and their interaction is
+written down nowhere.
+
+Worth deciding rather than leaving implicit: either say the per-document ceiling beside the plan
+limit on the usage page, or raise `MAX_CHUNKS_PER_DOCUMENT` so one document can in principle fill
+the plan. The first is a copy change; the second is a cost decision, since the constant is one
+embedding call per chunk and exists to bound exactly that.
+
+## A navigation test that only fails in the full suite, 20 August 2026
+
+`e2e/navigation.spec.ts` — "stays down for a navigation that resolves quickly" — failed twice on
+19 and 20 August, both times in a full `pnpm test:e2e` run and never in isolation. It passes 3/3
+and 4/4 when run alone, on a clean tree and on a working one, so the trigger is contention across
+the eight parallel workers rather than anything in the diff that happened to be open. The
+assertion is `expect(received).toBe(false)` receiving `true`, which reads as an indicator staying
+visible past the point the test expects it gone.
+
+**Both traces were discarded rather than read.** `trace: "retain-on-failure"` is configured
+locally, so `test-results/` held exactly what this needs — and it was deleted while tidying before
+staging, twice. That is the specific mistake this file already records under the E2E flake entry:
+capture the trace first, then re-run. Nothing here should be guessed at until one is kept.

@@ -74,7 +74,9 @@ export function capRefusalCopy(
       return {
         title: `This conversation has reached its limit of ${decision.limit} saved messages.`,
         detail: context.conversationsExhausted
-          ? "You have used all your conversations too, so delete one before starting another."
+          ? // Cheapest first: exhausted counts conversations, not their
+            // messages, so another usually still has room.
+            "Continue one of your other conversations, or delete one to start a new one."
           : "Start a new conversation to keep going — this one stays where it is.",
       };
 

@@ -2146,3 +2146,34 @@ tests, 117 E2E and a production build, green.
   that starts taking a function as a prop has acquired a new failure mode it did not have when it
   called `fetch` itself. Worth asking of any extracted seam: what happens when the thing I now
   accept from a caller _rejects_ rather than returning the failure shape it expects?
+
+## A test that pinned the ambiguity it should have caught, 20 August 2026
+
+- **Issue found**: at the saved-message cap with three conversations, the refusal read "This
+  conversation has reached its limit of 40 saved messages. You have used all your conversations
+  too, so delete one before starting another." Two problems, and manual testing on the live URL
+  found both. "Delete one" attaches to the nearest noun, which is _messages_ — and nothing deletes
+  a message, so a reader goes looking for a control that does not exist. Worse, deleting was the
+  wrong advice: `conversationsExhausted` counts conversations, not their messages, so the other
+  two are usually still writable. The reader was being told to destroy something to reach an
+  option they already had.
+
+- **How it survived**: the unit test asserted `copy.detail` contains **"delete one"** — the exact
+  phrase that was ambiguous. It passed for the whole life of the defect, and it would have failed
+  if anyone had corrected the wording. A test written from the implementation rather than the
+  requirement locks the implementation in place.
+
+- **Fix**: "Continue one of your other conversations, or delete one to start a new one." The
+  cheap action first, the destructive one second, and "conversations" is now the nearest noun so
+  "delete one" cannot be read as a message. The test asserts both options are offered.
+
+- **First correction**: the first attempt at this named the noun — "Delete a conversation in the
+  list above" — and kept deletion as the only advice, which fixed the grammar and left the worse
+  half in place. It took Lucian pointing out that the other conversations were not full to see
+  that the sentence was wrong about what the reader had to do, not merely about what it called it.
+
+- **Lesson**: **assert the requirement, not the string.** `toContain("delete one")` looks like
+  coverage and is really a snapshot of one phrasing; the question it should have been asking is
+  "does this tell a reader something they can act on, and is it the cheapest thing that works?"
+  A copy test that cannot fail when the copy is wrong is worse than no copy test, because it
+  reports the wording as reviewed.
