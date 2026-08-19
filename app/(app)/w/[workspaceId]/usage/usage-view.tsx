@@ -245,8 +245,8 @@ function PlanAxis({
         </dd>
       </div>
 
-      {/* Decoration over the figure it repeats, like the by-day bars. Clamped:
-          a cap can be exceeded by a concurrent pair (ADR 039). */}
+      {/* Decoration over the figure it repeats, like the by-day bars. Clamped
+          because this count is a snapshot and the meter must not exceed 100%. */}
       {capped ? (
         <div
           aria-hidden="true"

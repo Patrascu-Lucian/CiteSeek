@@ -107,7 +107,9 @@ problem rather than a limit problem, and the check has already counted the statu
   set it**, and adding it was a mistake corrected the same day: no E2E can reach a signed-in
   workspace, so no spec can trip these caps. The reasoning and the trigger for revisiting are in
   `docs/backlog.md`.
-- The cap can be exceeded under concurrency, by one per race. Recorded above rather than fixed.
+- The cap holds under concurrency. Counting and inserting share one transaction behind a
+  `for update` on the workspace row — see the amended section above, including what the first
+  version of this bullet got wrong.
 - Three more caps follow this shape: conversations on `createChat` only, saved messages as a route
   admission check ahead of retrieval, and extracted characters for storage. Each adds a `CapKind`
   and a call site, not a new mechanism.

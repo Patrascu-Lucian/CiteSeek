@@ -194,10 +194,11 @@ export async function createQueuedDocumentUnless<Refusal>(
   });
 }
 
-/** Explicit columns in both `.returning()`s above and below, not a bare one,
- * which asks for every column the *schema* declares — that failed in production
- * against a database missing migration 0001, while the list kept working because
- * it selects explicitly. */
+/** **Fixtures only** — production admits through `createQueuedDocumentUnless`,
+ * so a call added here would insert past the plan cap.
+ *
+ * Explicit columns in both `.returning()`s: a bare one asks for every column the
+ * *schema* declares, which failed against a database missing migration 0001. */
 export async function createQueuedDocument(
   workspaceId: string,
   input: { filename: string; mimeType: string; sizeBytes: number },

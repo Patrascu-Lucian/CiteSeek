@@ -229,3 +229,60 @@ describe("UploadDropzone — accepted files", () => {
     );
   });
 });
+
+describe("UploadDropzone — a caller that takes one at a time", () => {
+  it("stops inviting a multi-file drop", () => {
+    // Local mode serializes on one status region, so a second file comes
+    // straight back refused — for doing what the control asked.
+    render(
+      <UploadDropzone
+        send={uploadToWorkspace("ws")}
+        onUploaded={onUploaded}
+        multiple={false}
+      />,
+    );
+
+    expect(
+      screen.getByLabelText(/choose documents to upload/i),
+    ).not.toHaveAttribute("multiple");
+    expect(screen.getByText(/drop a file here/i)).toBeInTheDocument();
+  });
+
+  it("takes only the first of a multi-file selection", async () => {
+    render(
+      <UploadDropzone
+        send={uploadToWorkspace("ws")}
+        onUploaded={onUploaded}
+        multiple={false}
+      />,
+    );
+
+    // Cleared here, not relied on from `beforeEach`: the suite re-stubs `fetch`
+    // without resetting its calls, so a count is otherwise cumulative.
+    vi.mocked(globalThis.fetch).mockClear();
+
+    const input = screen.getByLabelText(/choose documents to upload/i);
+    await userEvent.upload(input, [pdfFile("one.pdf"), pdfFile("two.pdf")]);
+
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("UploadDropzone — a send that rejects", () => {
+  it("marks the row rejected so it can be dismissed", async () => {
+    // Dismiss only renders for a rejected row, so an unhandled rejection left
+    // the file on "Uploading…" with no way to clear it.
+    const rejecting = () => Promise.reject(new Error("boom"));
+
+    render(<UploadDropzone send={rejecting} onUploaded={onUploaded} />);
+    await userEvent.upload(
+      screen.getByLabelText(/choose documents to upload/i),
+      pdfFile(),
+    );
+
+    expect(
+      await screen.findByRole("button", { name: /dismiss/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/uploading/i)).not.toBeInTheDocument();
+  });
+});

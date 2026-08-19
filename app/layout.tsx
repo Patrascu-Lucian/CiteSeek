@@ -53,7 +53,9 @@ export const metadata: Metadata = {
       "Upload documents and ask questions. Answers stream back with clickable citations that open the exact source passage.",
     siteName: "CiteSeek",
     type: "website",
-    locale: "en",
+    // `language_TERRITORY`, which is the format Open Graph specifies; a bare
+    // `en` is flagged by Facebook's sharing debugger.
+    locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",

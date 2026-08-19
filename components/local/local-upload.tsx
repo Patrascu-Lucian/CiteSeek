@@ -3,7 +3,11 @@
 import { useRef, useState } from "react";
 
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
-import { embedLocalDocument, ingestLocalFile } from "@/lib/local/ingest";
+import {
+  FILE_UNREADABLE,
+  embedLocalDocument,
+  ingestLocalFile,
+} from "@/lib/local/ingest";
 
 type State =
   | { status: "idle" }
@@ -31,41 +35,49 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
     }
 
     working.current = true;
-    setState({ status: "parsing", filename: file.name });
 
-    const result = await ingestLocalFile(file);
+    // `finally`, not a reset per exit: a throw escaped all three and left the
+    // flag set, so every later upload answered "one at a time" for the life of
+    // the tab, with no way back but a reload.
+    try {
+      setState({ status: "parsing", filename: file.name });
 
-    if (!result.ok) {
-      setState({ status: "failed", message: result.message });
+      const result = await ingestLocalFile(file);
+
+      if (!result.ok) {
+        setState({ status: "failed", message: result.message });
+        return { ok: false as const, message: result.message };
+      }
+
+      setState({
+        status: "embedding",
+        filename: file.name,
+        done: 0,
+        total: result.document.chunkCount,
+      });
+      onIngested();
+
+      const embedded = await embedLocalDocument(
+        result.document.id,
+        (done, total) =>
+          setState({ status: "embedding", filename: file.name, done, total }),
+      );
+
+      if (!embedded.ok) {
+        setState({ status: "failed", message: embedded.message });
+        return { ok: false as const, message: embedded.message };
+      }
+
+      setState({ status: "done", passages: result.document.chunkCount });
+      onIngested();
+
+      return { ok: true as const };
+    } catch {
+      setState({ status: "failed", message: FILE_UNREADABLE });
+      return { ok: false as const, message: FILE_UNREADABLE };
+    } finally {
       working.current = false;
-      return { ok: false as const, message: result.message };
     }
-
-    setState({
-      status: "embedding",
-      filename: file.name,
-      done: 0,
-      total: result.document.chunkCount,
-    });
-    onIngested();
-
-    const embedded = await embedLocalDocument(
-      result.document.id,
-      (done, total) =>
-        setState({ status: "embedding", filename: file.name, done, total }),
-    );
-
-    if (!embedded.ok) {
-      setState({ status: "failed", message: embedded.message });
-      working.current = false;
-      return { ok: false as const, message: embedded.message };
-    }
-
-    setState({ status: "done", passages: result.document.chunkCount });
-    onIngested();
-    working.current = false;
-
-    return { ok: true as const };
   }
 
   return (
@@ -82,7 +94,11 @@ export function LocalUpload({ onIngested }: { onIngested: () => void }) {
       </p>
 
       <div className="mt-3">
-        <UploadDropzone send={ingest} onUploaded={() => Promise.resolve()} />
+        <UploadDropzone
+          send={ingest}
+          onUploaded={() => Promise.resolve()}
+          multiple={false}
+        />
       </div>
 
       <p role="status" className="text-muted-foreground mt-3 text-sm">

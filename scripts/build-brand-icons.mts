@@ -1,5 +1,5 @@
 /**
- * Regenerates the app icons from `brand/mark.svg`. Run by hand, never in CI —
+ * Regenerates the app icons from `scripts/brand/mark.svg`. Run by hand, never in CI —
  * same trade as `demo:pdf`, which explains it.
  *
  * A favicon is drawn as-is, so its corners are rounded and transparent. iOS masks

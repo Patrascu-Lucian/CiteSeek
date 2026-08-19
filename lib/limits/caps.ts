@@ -12,9 +12,7 @@ export type CapReached = {
 
 export type CapDecision = { allowed: true } | CapReached;
 
-/** `>=`, not `>`: the caller is about to add one, and check-then-insert has no
- * transaction — `>=` makes a concurrent overshoot converge rather than persist.
- * ADR 039. */
+/** `>=`, not `>`: the caller is about to add one. */
 export function decideCap(
   cap: CapKind,
   current: number,

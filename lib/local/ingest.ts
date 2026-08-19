@@ -27,6 +27,11 @@ export type IngestFailure = { ok: false; message: string };
 
 export type IngestResult = IngestSuccess | IngestFailure;
 
+/** The file the picker handed over is no longer readable — moved, renamed or
+ * deleted since. Shared so the browser and the reader are told the same thing. */
+export const FILE_UNREADABLE =
+  "Could not read that file. It may have been moved or renamed since you chose it.";
+
 type Parser = (file: File, mimeType: string) => Promise<IngestResult>;
 
 /**
@@ -78,10 +83,19 @@ export async function ingestLocalFile(
   file: File,
   parse: Parser = parseFile,
 ): Promise<{ ok: true; document: LocalDocument } | IngestFailure> {
+  // Guarded, because a file moved or renamed between the picker and this read
+  // rejects with `NotReadableError` — ordinary on a laptop, and it used to
+  // escape the "never rejects" promise above.
+  let head: Uint8Array;
+  try {
+    head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  } catch {
+    return { ok: false, message: FILE_UNREADABLE };
+  }
+
   // The same check the upload route runs, and for the same reason: `File.type`
   // is derived from the extension, so it is a claim rather than a fact. This
   // also brings the 4 MB ceiling, which the main thread now parses under.
-  const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
   const validated = validateUpload(file.name, head, file.size);
 
   if (!validated.ok) return { ok: false, message: validated.message };

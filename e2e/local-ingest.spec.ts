@@ -176,9 +176,10 @@ test("says nothing about a model provider, because nothing reaches one", async (
   await stubEmbedder(page);
   await page.goto("/local");
 
-  // The dropzone is shared with the workspace, which does send files onward.
+  // Singular here, plural in the workspace: local mode takes one at a time, so
+  // the shared control stops inviting a drop it would refuse.
   await expect(
-    page.getByRole("button", { name: /drop files here/i }),
+    page.getByRole("button", { name: /drop a file here/i }),
   ).toBeVisible();
   await expect(page.getByText(/gemini/i)).toHaveCount(0);
 });
