@@ -54,7 +54,7 @@ side effects**, with the counts coming from workspace-scoped query helpers and t
 pure function. Caps are policy. Tenant scoping is isolation. Conflating them is what pushes the
 check into the wrong layer.
 
-## The race, and why it is accepted
+## The race, why it was accepted — and why that did not survive contact
 
 `decideCap` is check-then-insert with no transaction, and `UploadDropzone` uploads concurrently —
 it loops over the selection calling `upload()` without awaiting. So two requests can both read
@@ -70,12 +70,26 @@ The correct fix is a `SELECT … FOR UPDATE` on the workspace row, serializing t
 concurrent inserts. It is in `docs/backlog.md` with its trigger: an observed overshoot that
 matters, or the first cap where the overshoot costs money.
 
+**Closed on 19 August 2026, and the reasoning above was wrong in its load-bearing part.** Not the
+mechanism — that was right — but "the state converges". Measured with six concurrent uploads at a
+limit of three: **all six were admitted.** Every count resolves before any insert commits, so the
+race does not merely sometimes lose, it loses every time, and convergence only begins after the
+overshoot has already happened. "Somebody got a fourth document" was the optimistic reading of a
+path that grants as many as are sent at once.
+
+`createQueuedDocumentUnless` and `createChatUnless` now count, decide and insert inside one
+transaction behind that `for update`. The lock is on the **parent** row because the rows being
+counted do not exist yet — the workspace is what two concurrent requests have in common — and both
+helpers take the same row so their lock order cannot differ. The early checks in the upload route
+stay, refusing before 4 MB is buffered; they are an optimization now rather than the rule.
+
 ## What the document cap counts
 
 **Every row, whatever its status.** The alternative — counting only documents that reached a
 usable status — reads better and is bypassable: `createQueuedDocument` inserts before extraction
-runs, so N concurrent uploads all pass a `ready`-only count at zero. Combined with the race above,
-"count only what works" is not a weaker cap so much as no cap.
+runs, so N concurrent uploads all pass a `ready`-only count at zero. That held even before the
+race was closed: a `ready`-only count is not a weaker cap so much as no cap, since the rows it
+declines to count are exactly the ones a burst creates.
 
 The objection to counting rows is real: three failed parses sit at the ceiling with nothing
 usable, and "delete one to upload another" would point at a working document. That is a copy

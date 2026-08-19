@@ -78,11 +78,12 @@ shaped the product rather than the toolchain.
 | [029](docs/decisions/029-a-store-the-server-cannot-see.md)                   | Local documents live in IndexedDB alone       | The privacy claim is structural: deletion cannot reach what was never sent                |
 | [034](docs/decisions/034-answering-on-the-gpu.md)                            | Name the device the capability gate checks    | The gate refused browsers a feature that ran without a GPU, because nothing asked for one |
 | [035](docs/decisions/035-where-the-worked-example-goes.md)                   | A worked example belongs in the system prompt | In the message array it is transcript, and the model answered out of it with a citation   |
+| [039](docs/decisions/039-the-default-plan-s-ceiling.md)                      | Stock limits are not the rate limiter         | A limit that never heals has to name what to delete; one that heals only has to wait      |
 
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 70 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 75 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -127,6 +128,14 @@ reasoning.
 > first paint and no JavaScript required. A [privacy page](<app/(marketing)/privacy/page.tsx>)
 > that states what is stored, where, and who else sees it — written from the code rather than a
 > template.
+>
+> **The free plan has a ceiling, and refusing well is the feature.** Three documents, three
+> conversations, forty saved messages each and 500,000 characters of extracted text. Every
+> refusal names what to delete rather than quoting a number — at the document cap it points at
+> the upload that _failed_, since telling someone at their limit to delete a working document is
+> the version of this that reads as broken. The ceiling is shown before it bites, on the usage
+> page and beside the control it will stop
+> ([ADR 039](docs/decisions/039-the-default-plan-s-ceiling.md)).
 >
 > **Local mode is the second half, and it is marked experimental.** On a browser with WebGPU the
 > same documents are parsed, indexed and answered entirely on the reader's machine: nothing is
@@ -362,7 +371,12 @@ second retrieval signal rather than a better constant.
 Usage limits are enforced but their thresholds are provisional — they need real traffic to
 calibrate against, and are deliberately generous because shared addresses
 (office networks, mobile carriers) put many visitors in one bucket
-([ADR 014](docs/decisions/014-usage-limiting.md)).
+([ADR 014](docs/decisions/014-usage-limiting.md)). Those are a _flow_ limit, counting provider
+calls in a rolling window, and they heal as the window slides. The plan caps above are a _stock_
+limit and never heal — which is why they are a separate system rather than a second threshold on
+the same one, and why only they have to name what to delete
+([ADR 039](docs/decisions/039-the-default-plan-s-ceiling.md)). Both sets of numbers are guesses
+until there is traffic.
 
 Email magic-link sign-in is deferred until an email sender is configured — GitHub OAuth and
 guest mode both work. The demo workspace is read-only by design, so uploading requires signing
@@ -509,11 +523,11 @@ Playwright smoke suite all gate every pull request.
 
 ## Testing
 
-| Layer       | Count | What it covers                                                                                              |
-| ----------- | ----- | ----------------------------------------------------------------------------------------------------------- |
-| Unit        | 726   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode |
-| Integration | 150   | Real Postgres: ingestion, retrieval, chat, usage limits, conversation ownership, cascades                   |
-| E2E         | 126   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, local mode, axe          |
+| Layer       | Count | What it covers                                                                                                |
+| ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
+| Unit        | 814   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Integration | 174   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
+| E2E         | 139   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
 
