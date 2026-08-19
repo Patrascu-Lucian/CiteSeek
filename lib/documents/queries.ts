@@ -16,6 +16,7 @@ import {
   type DocumentStatus,
   chunks,
   documents,
+  workspaces,
 } from "@/lib/db/schema";
 
 /**
@@ -122,9 +123,78 @@ export async function findDocumentInWorkspace(
   return document ?? null;
 }
 
-/** Explicit columns, not a bare `.returning()`, which asks for every column the
- * *schema* declares — that failed in production against a database missing
- * migration 0001, while the list kept working because it selects explicitly. */
+/** What the caps count, read under the lock rather than before it. */
+export type WorkspaceHoldings = {
+  documents: number;
+  failedDocuments: number;
+  characters: number;
+};
+
+/**
+ * The insert, admitted against a count nothing can change underneath it: two
+ * uploads at 2 of 3 otherwise both read 2 and both write, which is exactly what
+ * the dropzone's multi-file selection does. `for update` on the workspace row
+ * serializes one workspace and leaves the rest alone.
+ *
+ * `refuse` returns the reason rather than a boolean, keeping policy in the route
+ * beside the copy that explains it.
+ */
+export async function createQueuedDocumentUnless<Refusal>(
+  workspaceId: string,
+  input: { filename: string; mimeType: string; sizeBytes: number },
+  refuse: (holdings: WorkspaceHoldings) => Refusal | null,
+): Promise<
+  | {
+      admitted: true;
+      document: Awaited<ReturnType<typeof createQueuedDocument>>;
+    }
+  | { admitted: false; refusal: Refusal; holdings: WorkspaceHoldings }
+> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select 1 from ${workspaces} where ${workspaces.id} = ${workspaceId} for update`,
+    );
+
+    const [row] = await tx
+      .select({
+        documents: count(),
+        failedDocuments: sql<number>`count(*) filter (where ${documents.status} = 'failed')::int`,
+        characters: sql<number>`coalesce(sum(length(${documents.contentText})), 0)::int`,
+      })
+      .from(documents)
+      .where(eq(documents.workspaceId, workspaceId));
+
+    const holdings: WorkspaceHoldings = {
+      documents: row?.documents ?? 0,
+      failedDocuments: row?.failedDocuments ?? 0,
+      characters: row?.characters ?? 0,
+    };
+
+    const refusal = refuse(holdings);
+    if (refusal !== null) return { admitted: false, refusal, holdings };
+
+    const [document] = await tx
+      .insert(documents)
+      .values({ ...input, workspaceId, status: "queued" })
+      .returning({
+        id: documents.id,
+        workspaceId: documents.workspaceId,
+        filename: documents.filename,
+        mimeType: documents.mimeType,
+        sizeBytes: documents.sizeBytes,
+        status: documents.status,
+        createdAt: documents.createdAt,
+        updatedAt: documents.updatedAt,
+      });
+
+    return { admitted: true, document: document! };
+  });
+}
+
+/** Explicit columns in both `.returning()`s above and below, not a bare one,
+ * which asks for every column the *schema* declares — that failed in production
+ * against a database missing migration 0001, while the list kept working because
+ * it selects explicitly. */
 export async function createQueuedDocument(
   workspaceId: string,
   input: { filename: string; mimeType: string; sizeBytes: number },

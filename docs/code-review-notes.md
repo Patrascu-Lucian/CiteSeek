@@ -2084,3 +2084,31 @@ tests, 117 E2E and a production build, green.
   it, so adding a field is also the moment you can silently drop the transcript. The third test case
   exists for that and passes either way — a case that cannot fail today, kept because the edit that
   breaks it is the obvious one.
+
+## Two statements where the cap needed one, 19 August 2026
+
+- **Issue found**: the upload route counted documents, then inserted one — two statements with a
+  4 MB body buffered in between and no transaction. Two uploads at 2 of 3 both read 2 and both
+  write. Not a narrow window either: `UploadDropzone` hands a multi-file selection to `fetch` in a
+  loop without awaiting, so selecting four files at once is the ordinary way to exceed the cap, not
+  a contrived one.
+
+- **How it survived**: the cap has integration tests and they all upload one document at a time,
+  which is the only shape in which check-then-insert is correct. The early check is also genuinely
+  useful — it refuses before 4 MB is buffered — and being useful made it look sufficient.
+
+- **Fix**: `createQueuedDocumentUnless` counts and inserts inside one transaction, behind
+  `select … from workspaces … for update`, so uploads to one workspace serialize and other
+  workspaces are untouched. The early checks stay as an optimization; this one is the rule. The
+  callback returns the refusal rather than a boolean, so the decision is made once under the lock
+  and policy stays in the route beside the copy that explains it.
+
+- **Measured**: the new test fires six concurrent uploads at a limit of three. With the lock, three
+  are admitted and the table holds three. With the lock removed, **all six** are admitted — the
+  race does not merely sometimes lose, it loses every time, because the six counts all resolve
+  before any insert commits.
+
+- **Lesson**: **a limit enforced by reading and then writing is not enforced.** The question to ask
+  of any count-then-act is not "is the window small" but "what does the client do when it has three
+  things to send" — here the answer was "sends them at once", which turns a theoretical race into
+  the default path.

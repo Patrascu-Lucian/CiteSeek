@@ -3,7 +3,7 @@ import { NextResponse, after } from "next/server";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import {
   countDocuments,
-  createQueuedDocument,
+  createQueuedDocumentUnless,
   failStaleProcessing,
   listDocuments,
   sumExtractedCharacters,
@@ -136,11 +136,42 @@ export async function POST(
     );
   }
 
-  const document = await createQueuedDocument(auth.workspaceId, {
-    filename: file.name,
-    mimeType: validation.mimeType,
-    sizeBytes: bytes.length,
-  });
+  // The authoritative one: the checks above are a separate statement from the
+  // insert, so a multi-file selection can put two uploads through at 2 of 3.
+  const admission = await createQueuedDocumentUnless(
+    auth.workspaceId,
+    {
+      filename: file.name,
+      mimeType: validation.mimeType,
+      sizeBytes: bytes.length,
+    },
+    (holdings) => {
+      const byCount = decideCap(
+        "documents",
+        holdings.documents,
+        limits.documents,
+      );
+      if (!byCount.allowed) return byCount;
+
+      const byStorage = decideCap(
+        "storage",
+        holdings.characters,
+        limits.extractedCharacters,
+      );
+      return byStorage.allowed ? null : byStorage;
+    },
+  );
+
+  if (!admission.admitted) {
+    return NextResponse.json(
+      capRefusalBody(admission.refusal, {
+        failedDocuments: admission.holdings.failedDocuments,
+      }),
+      { status: 409 },
+    );
+  }
+
+  const { document } = admission;
 
   after(async () => {
     const { embeddingTokens } = await processDocument(
