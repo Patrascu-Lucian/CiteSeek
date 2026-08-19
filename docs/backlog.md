@@ -1552,7 +1552,7 @@ call `pipeline()` — because nothing else in Node pulls a model, and a helper n
 survive the next reader. The library's own `cacheDir` is the runtime check: it is null wherever
 there is no filesystem, so the browser never reaches `process`.
 
-## A sticky header can obscure a control, and axe no longer sees it, 18 August 2026
+## ~~A sticky header can obscure a control, and axe no longer sees it~~, 18 August 2026
 
 Making the header `sticky` turned four a11y scans red on `target-size` — "all touch targets must
 be 24px large, or leave sufficient space" — against the workspace's "Sign in to upload" button. The
@@ -1574,6 +1574,22 @@ reader who simply stops mid-page.
 header band and asserts what remains reachable, rather than discovering it by accident. That is a
 different test from "does this page pass axe", which is why folding it into the existing scans was
 the wrong place for it.
+
+**Done**, 19 August 2026: `e2e/focus-not-obscured.spec.ts`, and the measuring changed the target.
+
+The first attempt tabbed through a page asserting focus never enters the band. It passed with
+`scroll-padding-top` **deleted**, so it was testing Chromium rather than this app: forward tabbing
+scrolls an element to the _bottom_ edge, and even `Shift+Tab` backwards landed controls at top 88
+against a header ending at 67. A test that cannot fail is worse than the gap it claims to close.
+
+What does fail is **fragment navigation**, which scrolls its target to the very top — and every page
+has one: "Skip to main content" put `#main` at top 0 under a 67px header, so the affordance whose
+only users are keyboard users dropped them behind the nav. The second test covers the in-product
+case, the `#conversations-heading` anchor the cap refusal redirects to, asserted on a heading a
+guest can reach. Both fail with the line removed and pass with it.
+
+Still not covered, and now known to be unfixable in CSS: a reader who simply scrolls so a control
+sits half under the header. No author rule reaches a manual scroll.
 
 ## ~~A full conversation looks writable until you send~~, 18 August 2026
 
