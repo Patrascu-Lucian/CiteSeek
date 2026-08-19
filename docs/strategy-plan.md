@@ -18,6 +18,19 @@ What each milestone covers, and the constraints that hold across all of them.
 > | Work considered and not scheduled  | [`backlog.md`](backlog.md)                     |
 >
 > Snapshot taken July 2026.
+>
+> **The numbers below are the snapshot's, and they moved.** An unplanned milestone of hardening
+> was inserted after Milestone 5, which pushed everything after it along, and a half-milestone
+> was added before the optional work. Release tags use the current scheme, so a tag naming
+> "Milestone 7" means in-browser inference rather than sign-in. This is a key, not a status:
+>
+> | Here                               | Since                             | Shipped as |
+> | ---------------------------------- | --------------------------------- | ---------- |
+> | —                                  | 6 — Hardening and reader feedback | `v1.1.0`   |
+> | 6 — In-browser inference (stretch) | 7 — In-browser local mode         | `v1.2.0`   |
+> | —                                  | 7.5 — Ready for strangers         | `v1.3.0`   |
+> | 7 — Email and password sign-in     | 8 — the same, still optional      | —          |
+> | 8 — Billing                        | 9 — the same, plus the writing    | —          |
 
 ## Rules that hold across every milestone
 
