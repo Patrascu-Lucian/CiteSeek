@@ -70,25 +70,23 @@ export async function WorkspaceView({
       ])
     : [[], null];
 
-  /*
-    Before the reader types, not after they send: the route's refusal arrives
-    with the question already written, and then loses it. `onTurnComplete`
-    refreshes, so the turn that reaches the cap closes the composer behind it.
-  */
-  const messageLimit = resolvePlanLimits().messagesPerConversation;
+  // Once: each call re-validates `PLAN_LIMITS` and throws on an unknown value.
+  const limits = resolvePlanLimits();
+
+  // Before the reader types, not after: the route refuses with the question
+  // already written, and loses it. `onTurnComplete` refreshes to keep it current.
   const messageCap =
-    openChat && openChat.messages.length >= messageLimit
+    openChat && openChat.messages.length >= limits.messagesPerConversation
       ? capRefusalCopy(
           {
             allowed: false,
             reason: "cap_reached",
             cap: "messages",
-            limit: messageLimit,
+            limit: limits.messagesPerConversation,
             current: openChat.messages.length,
           },
           {
-            conversationsExhausted:
-              chats.length >= resolvePlanLimits().conversations,
+            conversationsExhausted: chats.length >= limits.conversations,
           },
         )
       : null;
@@ -101,7 +99,7 @@ export async function WorkspaceView({
           allowed: false,
           reason: "cap_reached",
           cap: "conversations",
-          limit: resolvePlanLimits().conversations,
+          limit: limits.conversations,
           current: chats.length,
         })
       : null;

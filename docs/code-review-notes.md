@@ -2112,3 +2112,37 @@ tests, 117 E2E and a production build, green.
   of any count-then-act is not "is the window small" but "what does the client do when it has three
   things to send" — here the answer was "sends them at once", which turns a theoretical race into
   the default path.
+
+## Four bugs in one seam, 19 August 2026
+
+- **Issue found**: an external review of `develop` against `main` before the 1.3.0 release found
+  four bugs, and every one sat in a seam a refactor had just created. Moving the upload's `fetch`
+  out of `UploadDropzone` and into `uploadToWorkspace` took the `try/catch` with it, so the
+  component now called a stranger's function with no guard: a `send` that _rejected_ left a row on
+  "Uploading…" forever, and Dismiss only renders once a row is rejected. The same refactor gave
+  local mode the shared control, which advertises `multiple` — so dropping three files on `/local`
+  produced one success and two refusals, for doing what the control invited. `LocalUpload`'s
+  one-at-a-time flag was cleared at three exits and none of them a `finally`, so one throw jammed
+  every later upload for the life of the tab. And the disposable-database guard called
+  `new URL(url)` a second time _inside the message it was building_, so an unparseable
+  `DATABASE_URL` died with `TypeError: Invalid URL` instead of the paragraph explaining the way
+  out — taking the integration suite and the signed-in Playwright fixture with it.
+
+- **How they survived**: each half was tested and the join was not. `disposable-database.test.ts`
+  covered `isLoopbackDatabase("not-a-url")` and stopped exactly one function short of the caller
+  that crashes. `upload-dropzone.test.tsx` passed a `send` that resolved `{ ok: false }` and never
+  one that rejected. `local-ingest.spec.ts` uploads one file, so the multi-file path had no
+  coverage at all. The reviewer's phrase for it is the right one: the bugs are in _the two places
+  error handling moved between modules_.
+
+- **Fix**: hostname parsed once and `continue` on failure; `try/finally` around the local ingest
+  with the reset in the `finally`; `.catch()` on both the `send` call and the per-file head read,
+  so one unreadable file no longer drops the rest of a selection; and a `multiple` prop that local
+  mode sets to `false`, with the copy changing to "Drop a file here" alongside. Each fix has a test
+  that fails without it — verified by reverting.
+
+- **Lesson**: **moving code moves its error handling, and the seam is where nobody looks.** A
+  refactor that "just relocates" a `try/catch` changes which side owns failure, and a component
+  that starts taking a function as a prop has acquired a new failure mode it did not have when it
+  called `fetch` itself. Worth asking of any extracted seam: what happens when the thing I now
+  accept from a caller _rejects_ rather than returning the failure shape it expects?

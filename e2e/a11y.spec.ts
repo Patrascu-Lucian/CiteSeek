@@ -19,8 +19,6 @@ import { stubWebGpu, uploadAndAsk } from "./local-mode";
  */
 const WCAG_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
-/** Reduced to the rule id, impact and markup: a raw `toEqual([])` prints hundreds
- * of lines and buries the one sentence saying what is wrong. */
 /** Scanned from the top: the offset otherwise depends on where streaming
  * stopped, and the sticky header obscures whatever lands under it. */
 async function violationsFromTop(page: Page) {
@@ -28,6 +26,8 @@ async function violationsFromTop(page: Page) {
   return violationsOn(page);
 }
 
+/** Reduced to the rule id, impact and markup: a raw `toEqual([])` prints hundreds
+ * of lines and buries the one sentence saying what is wrong. */
 async function violationsOn(page: Page, selector?: string) {
   const builder = new AxeBuilder({ page }).withTags(WCAG_AA);
   const results = await (

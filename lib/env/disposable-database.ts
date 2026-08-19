@@ -16,14 +16,17 @@ const CHECKED_VARIABLES = ["DATABASE_URL", "DATABASE_URL_UNPOOLED"] as const;
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
-export function isLoopbackDatabase(url: string): boolean {
+function hostnameOf(url: string): string | null {
   try {
-    return LOOPBACK_HOSTS.has(new URL(url).hostname);
+    return new URL(url).hostname;
   } catch {
-    // An unparseable URL is not a loopback one. The connection will fail with a
-    // better message than this guard could write.
-    return false;
+    return null;
   }
+}
+
+export function isLoopbackDatabase(url: string): boolean {
+  const hostname = hostnameOf(url);
+  return hostname !== null && LOOPBACK_HOSTS.has(hostname);
 }
 
 /**
@@ -40,11 +43,14 @@ export function assertDisposableDatabase(env: {
   if (env[DISPOSABLE_OPT_IN]?.trim().toLowerCase() === "yes") return;
 
   for (const name of CHECKED_VARIABLES) {
-    const url = env[name];
-    if (!url || isLoopbackDatabase(url)) continue;
+    const hostname = env[name] ? hostnameOf(env[name]) : null;
+
+    // Unparseable names no host to refuse, and the connection reports it better.
+    // `isLoopbackDatabase` here instead threw `Invalid URL` from the message below.
+    if (!hostname || LOOPBACK_HOSTS.has(hostname)) continue;
 
     throw new Error(
-      `Refusing to run integration tests: ${name} points at "${new URL(url).hostname}".\n\n` +
+      `Refusing to run integration tests: ${name} points at "${hostname}".\n\n` +
         `They delete every row in usage_events, so they must only ever reach a\n` +
         `disposable database. Start the local one:\n\n` +
         `  docker compose up -d && pnpm db:migrate\n\n` +

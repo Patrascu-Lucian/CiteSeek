@@ -37,6 +37,15 @@ describe("assertDisposableDatabase", () => {
     ).not.toThrow();
   });
 
+  it("lets an unparseable url through to the connection", () => {
+    // It threw `Invalid URL` from inside the refusal message, so a typo in
+    // `DATABASE_URL` took out the suite with an error naming neither the
+    // variable nor the way out. The unit below it passed throughout.
+    expect(() =>
+      assertDisposableDatabase({ DATABASE_URL: "not-a-url" }),
+    ).not.toThrow();
+  });
+
   it("refuses a remote one, naming the host and the way out", () => {
     expect(() => assertDisposableDatabase({ DATABASE_URL: NEON })).toThrow(
       /neon\.tech/,

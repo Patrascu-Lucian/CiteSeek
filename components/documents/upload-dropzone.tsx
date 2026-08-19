@@ -24,6 +24,7 @@ type QueuedFile = {
 export function UploadDropzone({
   send,
   onUploaded,
+  multiple = true,
 }: {
   /** What happens to a file once it validates. Taken rather than built here,
    * so local mode can keep it in the browser. */
@@ -31,13 +32,21 @@ export function UploadDropzone({
   /** Awaited before the local row clears, so there is no gap where an uploaded
    * file appears nowhere. */
   onUploaded: () => Promise<void>;
+  /** False where the caller takes one at a time — local mode refused everything
+   * after the first, for a drop this control had invited. */
+  multiple?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<QueuedFile[]>([]);
 
   async function upload(file: File, id: string) {
-    const result = await send(file);
+    // A rejecting `send` left the row on "Uploading…", and Dismiss only renders
+    // once a row is rejected.
+    const result = await send(file).catch(() => ({
+      ok: false as const,
+      message: "That upload could not be completed. Try again.",
+    }));
 
     if (!result.ok) {
       setFiles((current) =>
@@ -60,16 +69,28 @@ export function UploadDropzone({
     await onUploaded();
     setFiles((current) => current.filter((entry) => entry.id !== id));
   }
+
   async function handleFiles(selected: FileList | null) {
     if (!selected || selected.length === 0) return;
 
-    for (const file of Array.from(selected)) {
+    const chosen = Array.from(selected).slice(0, multiple ? Infinity : 1);
+
+    for (const file of chosen) {
       const id = crypto.randomUUID();
 
-      // First bytes only, for the signature — reading 4 MB to reject a
-      // mislabelled file is wasted work. Size comes from `File.size`.
-      const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
-      const validation = validateUpload(file.name, head, file.size);
+      // First bytes only: reading 4 MB to reject a mislabeled file is wasted
+      // work. Guarded per file, or one moved since the picker opened throws out
+      // of the loop and silently drops the rest.
+      const validation = await file
+        .slice(0, 8)
+        .arrayBuffer()
+        .then((head) =>
+          validateUpload(file.name, new Uint8Array(head), file.size),
+        )
+        .catch(() => ({
+          ok: false as const,
+          message: "That file could not be read. It may have been moved.",
+        }));
 
       if (!validation.ok) {
         setFiles((current) => [
@@ -113,17 +134,19 @@ export function UploadDropzone({
       >
         <Upload aria-hidden="true" className="text-muted-foreground size-6" />
         <span className="text-sm font-medium">
-          Drop files here, or click to browse
+          {multiple ? "Drop files here" : "Drop a file here"}, or click to
+          browse
         </span>
         <span className="text-muted-foreground text-xs">
-          PDF, Word (.docx), Markdown or text — up to 4&nbsp;MB each
+          PDF, Word (.docx), Markdown or text — up to 4&nbsp;MB
+          {multiple ? " each" : ""}
         </span>
       </button>
 
       <input
         ref={inputRef}
         type="file"
-        multiple
+        multiple={multiple}
         accept={ACCEPT_ATTRIBUTE}
         className="sr-only"
         // Exists only to open the picker. `sr-only` rather than `hidden`, so

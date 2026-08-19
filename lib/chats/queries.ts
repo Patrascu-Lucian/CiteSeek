@@ -207,7 +207,8 @@ export async function createChatUnless<Refusal>(
   });
 }
 
-/** Starts an empty conversation, so "New conversation" has something to open. */
+/** **Fixtures only.** Production admits through `createChatUnless`, so a call
+ * added here would insert past the plan cap. */
 export async function createChat(
   workspaceId: string,
   userId: string,
