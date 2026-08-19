@@ -8,7 +8,8 @@ no account needed.
 
 <a href="docs/images/answer.png"><img src="docs/images/answer.png" width="560" alt="A cited answer in the demo workspace, with numbered citation chips"></a>
 
-<sub>Screenshots are thumbnails — click for full size. Regenerate with `pnpm demo:shots`.</sub>
+<sub>Screenshots are thumbnails — click for full size. Regenerate with `pnpm demo:shots`, which
+shoots production and so runs after a deploy rather than before.</sub>
 
 ## The problem this solves
 
@@ -562,6 +563,17 @@ This is a local guard rather than a security control — `--no-verify` bypasses 
 to catch an absent-minded `git push origin main`, which is the realistic failure mode on a
 solo repository. Server-side enforcement needs GitHub branch protection, which is free on
 public repositories but requires a paid plan for private ones.
+
+**Releases.** `develop` integrates; `main` is the released line and carries the tags. A release
+is a pull request from `develop` to `main`, the version in `package.json` bumped to match, then
+an annotated tag whose subject names the milestone — a minor bump per milestone, a patch for
+work that is not one (`v1.1.1`). Vercel deploys `main`.
+
+The version does not follow the tag by itself, and has been corrected after the fact more than
+once. Nor does `main` always sit on a tag: a hotfix goes straight there and is merged back down,
+so being a few commits ahead of the last release is expected rather than a mistake. Afterward,
+`pnpm demo:shots` if anything visible changed — it photographs production, so it cannot run
+before the deploy.
 
 ## Project conventions
 
