@@ -2207,3 +2207,26 @@ tests, 117 E2E and a production build, green.
   When a cost is recorded incompletely, the record starts defending the decision instead of
   describing it. A repeated report is evidence the price was wrong, not evidence the reporter
   forgot the reason.
+
+## A reload removed, and the feedback removed with it, 20 August 2026
+
+- **Issue found**: replacing the "New conversation" route handler with a Server Action deleted the
+  page reload — measured, 1 document load against 0 — and deleted every indication that anything
+  was happening. `NavigationProgress` counts a request only when its URL contains `_rsc=`, and a
+  Server Action posts to the _current_ URL with a `Next-Action` header instead. While the control
+  was a form POST, the browser's own loading indicator covered the wait; removing the document
+  navigation removed that too. Measured with the action slowed to 1.2 s: the bar never appeared.
+
+- **How it survived**: the change was verified against the thing it set out to fix. The probe
+  counted `page.on("load")` and checked that a value on `window` survived — both of which
+  improved — and neither could have noticed that the replacement was silent. Two Playwright tests
+  cover the bar, and both drive `<Link>` navigations, so the new path had no coverage at all.
+
+- **Fix**: read `Next-Action` alongside `_rsc=`, with a unit test that fails when the header check
+  is removed. ADR 024 claimed "counting the requests covers all of them"; that was true until this
+  change made it nearly true, and it is true again now.
+
+- **Lesson**: **when a change removes a mechanism, ask what else was riding on it.** The document
+  navigation was the defect; it was also, incidentally, the loading indicator. A measurement aimed
+  at the defect confirms the defect is gone and says nothing about the passengers. The reviewer
+  found it by reading what `NavigationProgress` matches on — not by running anything.

@@ -1778,3 +1778,23 @@ while it is one. Icon only, no label.
 
 **Sequence it after the workspace-shell layout work**, not before. Both touch this surface, and
 doing the composer first means doing it twice.
+
+## A signed-in reader can start conversations in the read-only demo, 20 August 2026
+
+Found in review of 1.3.1, and **not a regression** — the route this replaced behaved identically,
+which is why it is recorded rather than fixed in a patch.
+
+`accessToWorkspace` returns `"read"` on the demo for every identified actor, including signed-in
+users. `createConversation` authorizes with `"read"` and only special-cases a guest, so a signed-in
+reader passes. `workspace-view.tsx` gates the Conversations section on `signedIn` alone rather than
+`signedIn && !isDemo`, so the button renders on a workspace badged "Read-only demo".
+
+Bounded, not harmless. `createChatUnless` counts `workspaceId` **and** `userId`, so the cap is per
+reader and one person cannot exhaust the demo for everyone. What lands is rows in the demo
+workspace that nobody expects to be writable, and a badge that reads as a promise the code does not
+keep.
+
+Two candidate fixes, and they answer different questions. Gating the section on `!isDemo` hides a
+control that would work — the honest version if conversations in the demo are simply unwanted.
+Authorizing with `"write"` refuses it at the boundary, which is where the badge's claim actually
+belongs, and would need checking against the guest path that currently relies on `"read"`.

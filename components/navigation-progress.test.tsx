@@ -77,6 +77,19 @@ describe("NavigationProgress", () => {
     expect(bar()).not.toBeNull();
   });
 
+  it("counts a Server Action, which carries no `_rsc=`", () => {
+    render(<NavigationProgress />);
+    act(() => {
+      void window.fetch("/w/abc", {
+        method: "POST",
+        headers: { "Next-Action": "7f3a" },
+      });
+    });
+    advance(APPEAR_AFTER_MS + 1);
+
+    expect(bar()).not.toBeNull();
+  });
+
   it("ignores a prefetch, which every page makes on arrival", () => {
     render(<NavigationProgress />);
     act(() => {

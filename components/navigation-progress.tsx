@@ -7,13 +7,25 @@ import { useEffect, useState } from "react";
  * for the first 340ms of a navigation. ADR 024 has the timings and the rejected
  * alternatives.
  */
-function isPrefetch(init: RequestInit | undefined, input: RequestInfo | URL) {
-  const fromInit = new Headers(init?.headers ?? {}).get("Next-Router-Prefetch");
-  if (fromInit) return true;
-  return input instanceof Request
-    ? input.headers.get("Next-Router-Prefetch") !== null
-    : false;
+function header(
+  name: string,
+  init: RequestInit | undefined,
+  input: RequestInfo | URL,
+) {
+  const fromInit = new Headers(init?.headers ?? {}).get(name);
+  if (fromInit) return fromInit;
+  return input instanceof Request ? input.headers.get(name) : null;
 }
+
+const isPrefetch = (init: RequestInit | undefined, input: RequestInfo | URL) =>
+  header("Next-Router-Prefetch", init, input) !== null;
+
+/** Posts to the current URL with no `_rsc=`, so matching on that alone left "New
+ * conversation" silent once it stopped being a document navigation. */
+const isServerAction = (
+  init: RequestInit | undefined,
+  input: RequestInfo | URL,
+) => header("Next-Action", init, input) !== null;
 
 /** Under this, a navigation is quick enough that a bar reads as a flicker.
  * Exported so the test asserts the shipped threshold rather than a copy. */
@@ -38,8 +50,8 @@ export function NavigationProgress() {
             ? input.href
             : input.url;
 
-      if (!url.includes("_rsc=") || isPrefetch(init, input))
-        return original(input, init);
+      const navigating = url.includes("_rsc=") || isServerAction(init, input);
+      if (!navigating || isPrefetch(init, input)) return original(input, init);
 
       setInFlight((n) => n + 1);
       try {

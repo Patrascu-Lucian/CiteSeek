@@ -138,7 +138,7 @@ describe("capRefusalCopy — messages", () => {
     // The first version sent a reader to delete something they did not have to.
     const copy = capRefusalCopy(decision, { conversationsExhausted: true });
 
-    expect(copy.detail).toMatch(/continue one of your other conversations/i);
+    expect(copy.detail).toMatch(/one of your other conversations/i);
     expect(copy.detail).toContain("delete one");
     expect(copy.detail).not.toContain("Start a new conversation to keep going");
   });

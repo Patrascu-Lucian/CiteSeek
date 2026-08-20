@@ -1,10 +1,8 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
-/** ADR 024: the bar counts in-flight `?_rsc=` requests, and only appears once one
- * has been running longer than `APPEAR_AFTER_MS`. Three things are worth pinning —
- * it stays down for the prefetch burst, it stays down for a quick navigation, and
- * it rises for a slow one. */
+/** ADR 024. Only what needs a real browser is here — the threshold itself is a
+ * unit test. */
 const BAR = "[data-navigation-progress]";
 
 declare global {
