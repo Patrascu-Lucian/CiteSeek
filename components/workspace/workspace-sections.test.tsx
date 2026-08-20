@@ -14,6 +14,10 @@ import { WorkspaceSections } from "./workspace-sections";
 const router = vi.hoisted(() => ({ refresh: vi.fn(), push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
+/** The action reaches Auth.js through `authorizeWorkspace`, which has no server
+ * to run in here. Its own behaviour is covered in `actions.integration.test.ts`. */
+vi.mock("@/lib/chats/actions", () => ({ createConversation: vi.fn() }));
+
 /**
  * `useChat` owns a network connection. The stub keeps `onFinish` so a test can
  * end a turn — the connection ending is the event this component reacts to.

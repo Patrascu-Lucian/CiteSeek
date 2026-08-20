@@ -1527,13 +1527,18 @@ it: validation, ownership and the stale-id fallback are all in place and tested.
 integration test that drives the client seam rather than the route alone — the gap here was
 precisely that nothing connected the two.
 
-## "New conversation" reloads the whole page, 17 August 2026
+## ~~"New conversation" reloads the whole page~~, 17 August 2026
 
 `/c/new` is a form POST answering `303`, so every press is a full document navigation: the whole
 workspace re-renders, documents are re-fetched, and the chat panel remounts. Correct, and
 deliberate — a `GET` that creates a resource is what the prefetch incident taught, and the POST is
 what fixed it (`lib/links.ts`). The cost was recorded as "no middle-click, no open-in-new-tab" and
 the reload was not, which understates it.
+
+**Done**, 20 August 2026. A Server Action replaces the route: still a POST, so the prefetch guard
+holds, but `redirect()` inside one navigates client-side and the form still works without
+JavaScript. Measured 1 document load before and 0 after. Nothing was traded back — the reload was
+never part of the trade, only the shape of the tool it was implemented with.
 
 **Options, none of which reintroduce the prefetch problem:**
 
@@ -1700,3 +1705,25 @@ visible past the point the test expects it gone.
 locally, so `test-results/` held exactly what this needs — and it was deleted while tidying before
 staging, twice. That is the specific mistake this file already records under the E2E flake entry:
 capture the trace first, then re-run. Nothing here should be guessed at until one is kept.
+
+## Switching conversations rebuilds the workspace shell, 20 August 2026
+
+The document reload is gone — a Server Action navigates client-side now — but the React tree below
+`main` is still torn down and rebuilt on every conversation change. Measured by tagging live DOM
+nodes and reading them back after the navigation: `header` is **the same node**, while `main`, the
+documents section and the conversations section are all **rebuilt**. Click to a usable tree takes a
+median of **410 ms** across five runs (143, 394, 410, 892, 906).
+
+The cause is the route shape rather than anything anyone chose. `/w/[workspaceId]/page.tsx` and
+`/w/[workspaceId]/c/[chatId]/page.tsx` are sibling segments that each render `WorkspaceView`
+independently, and there is no `layout.tsx` between them — so React unmounts one page and mounts
+the other. The header survives for exactly the reason the rest does not: it lives in a layout.
+
+**The fix is a layout, and it collides with a deliberate coupling.** Moving the shell into
+`app/(app)/w/[workspaceId]/layout.tsx` would preserve documents and conversations across the
+navigation, leaving only the chat per-route. But `workspace-view.tsx` renders documents and chat as
+one client unit on purpose: `hasReadyDocuments` has to track uploads as they finish, and a value
+computed in the layout would be frozen. Splitting them needs the shared document state to move into
+a client context provider in the layout, which the page then consumes.
+
+Not a patch-release change. Worth doing before the composer work, since both touch the same surface.

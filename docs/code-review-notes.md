@@ -2177,3 +2177,33 @@ tests, 117 E2E and a production build, green.
   "does this tell a reader something they can act on, and is it the cheapest thing that works?"
   A copy test that cannot fail when the copy is wrong is worse than no copy test, because it
   reports the wording as reviewed.
+
+## A cost recorded as deliberate that was never priced, 20 August 2026
+
+- **Issue found**: pressing "New conversation" reloaded the whole workspace — documents refetched,
+  chat panel remounted, scroll lost. Reported three times. Each time the answer was that it is
+  deliberate, and the backlog entry says so: `/c/new` is a form POST answering `303`, because the
+  first version was a `GET` and Next prefetches `<Link>` targets in the viewport, so merely
+  rendering the page created conversations. That reasoning is correct and the conclusion did not
+  follow from it.
+
+- **How it survived**: the entry recorded the cost as "no middle-click, no open-in-new-tab" and
+  admitted, in its own last line, that the reload "was not recorded, which understates it". So the
+  trade was written down with one side missing, and every later reading confirmed the decision
+  against the incomplete version. A defect described as intentional stops being re-examined —
+  which is the failure mode of a good decision log rather than a bad one.
+
+- **Fix**: a Server Action. It is still a POST, so prefetchers, crawlers and tab-restore still
+  cannot create anything; `redirect()` inside one navigates client-side; and the form still works
+  without JavaScript, because Next posts it to the action endpoint. Nothing was traded away — the
+  reload was never load-bearing, it was the shape of the tool. The route and its integration tests
+  moved to `lib/chats/actions.ts`, keeping the guest, cap and at-zero cases.
+
+- **Measured**, before and after, by counting `page.on("load")` and checking whether a value set
+  on `window` survived the press: **1 document load and a wiped context, against 0 and a surviving
+  one.**
+
+- **Lesson**: **"deliberate" is a claim about a trade, and a trade needs both sides written down.**
+  When a cost is recorded incompletely, the record starts defending the decision instead of
+  describing it. A repeated report is evidence the price was wrong, not evidence the reporter
+  forgot the reason.
