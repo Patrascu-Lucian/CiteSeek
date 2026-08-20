@@ -23,9 +23,8 @@ export function decideCap(
     : { allowed: true };
 }
 
-/** `createConversation` is a form POST, so its refusal cannot be a JSON body —
- * would render it. Carried on the redirect instead, and read by
- * `app/(app)/w/[workspaceId]/page.tsx`. */
+/** Read by `app/(app)/w/[workspaceId]/page.tsx`. A choice, not a constraint: an
+ * action could return the refusal, where the route handler could only redirect. */
 export const CAP_PARAM = "limit";
 
 /** What the message needs beyond the decision, per cap. */
@@ -76,7 +75,7 @@ export function capRefusalCopy(
         detail: context.conversationsExhausted
           ? // Cheapest first: exhausted counts conversations, not their
             // messages, so another usually still has room.
-            "Continue one of your other conversations, or delete one to start a new one."
+            "Try one of your other conversations, or delete one to start a new one."
           : "Start a new conversation to keep going — this one stays where it is.",
       };
 

@@ -1,5 +1,8 @@
 "use server";
 
+// Every export here is a callable endpoint, so each one authorizes itself. An
+// action is POST-only by construction — what it is not is private.
+
 import { notFound, redirect } from "next/navigation";
 
 import { getActor } from "@/lib/auth/actor";

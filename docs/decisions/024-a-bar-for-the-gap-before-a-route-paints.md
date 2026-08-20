@@ -47,6 +47,12 @@ Watching clicks was the first attempt and was wrong. It covered anchors and ther
 write — "New conversation" is a form. Counting the requests covers all of them, because the
 router fetches every route the same way.
 
+**Amended, 20 August 2026.** That held while every navigation carried `?_rsc=`. "New
+conversation" became a Server Action, which posts to the _current_ URL with a `Next-Action`
+header and no `_rsc=` anywhere — so for one release the press was silent, having also stopped
+being a document navigation and lost the browser's own indicator with it. Both headers are read
+now, and the sentence above is true again rather than nearly true.
+
 **Prefetches are excluded by header, and that is the part that makes this workable.** Arriving
 anywhere fires a burst of `?_rsc=` requests for links in the viewport — eight on the workspace —
 and a bar reacting to those would flash constantly for work nobody is waiting on. Next marks a
@@ -107,7 +113,11 @@ Excluding prefetches by header couples this to a Next implementation detail. If 
 renamed, the bar starts flashing on every arrival rather than failing silently, which is the
 right way round: the regression is visible.
 
-Three Playwright tests hold it: the bar rises during a slow navigation, stays down through the
-prefetch burst on arrival, and stays down for a navigation that resolves quickly. The slow case
-is forced by delaying the RSC request rather than hoping for a slow route — a threshold that only
-shows on slow navigations cannot be observed reliably by waiting for a fast one.
+Two Playwright tests hold what only they can: the bar rises during a slow navigation, and stays
+down through the prefetch burst on arrival. The slow case is forced by delaying the RSC request
+rather than hoping for a slow route — a threshold that only shows on slow navigations cannot be
+observed reliably by waiting for a fast one.
+
+The threshold itself is a unit test with a controllable clock. A third Playwright test asserted
+that a real navigation _finished_ inside it, which is a claim about the machine: a trace caught it
+at 848 ms against a 200 ms threshold, so the bar appeared and the assertion reported it correctly.

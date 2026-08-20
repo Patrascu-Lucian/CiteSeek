@@ -91,6 +91,8 @@ describe("createConversation", () => {
     const destination = await destinationOf(createConversation(workspace.id));
 
     expect(destination).toContain(`${CAP_PARAM}=conversations`);
+    // The fragment is what scrolls the notice into view — #171 exists for it.
+    expect(destination).toContain("#conversations-heading");
     expect(await listChats(workspace.id, user.id)).toHaveLength(cap);
   });
 
@@ -99,9 +101,16 @@ describe("createConversation", () => {
   it("leaves the chat-turn path able to open a conversation at zero", async () => {
     const { user, workspace } = await scenario("action-turn");
 
-    const chat = await resolveChatForTurn(workspace.id, user.id, null);
+    // A stale id, not an absent one: that path falls through to
+    // `getOrCreateChat`, where a cap would refuse a turn rather than an action.
+    const chat = await resolveChatForTurn(
+      workspace.id,
+      user.id,
+      "00000000-0000-4000-8000-000000000000",
+    );
 
     expect(chat.id).toBeTruthy();
+    expect(await listChats(workspace.id, user.id)).toHaveLength(1);
   });
 
   it("creates nothing for a guest", async () => {

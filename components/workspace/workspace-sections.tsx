@@ -14,8 +14,8 @@ import { SourcePanel, type SourceTarget } from "@/components/chat/source-panel";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { DocumentList } from "@/components/documents/document-list";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
-import { uploadToWorkspace } from "@/lib/documents/upload";
 import { createConversation } from "@/lib/chats/actions";
+import { uploadToWorkspace } from "@/lib/documents/upload";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import {
