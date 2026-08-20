@@ -1032,6 +1032,10 @@ fourth is a defect with a diagnosis.
   construction and is arguably better semantics — a `<th scope="row">` should identify the
   row, not carry data. The second needs a header cell for the new column, and an empty `<th>`
   is not free for a screen reader reading the table.
+  **Done**, 20 August 2026, with the first: one class on the date. Measured by reading the bars'
+  left edges — `171 171 170 171 171 171 171 171 167`, three distinct positions across 4px, against
+  a single 172 after. The second was not taken: the bar is `aria-hidden` decoration of the Calls
+  figure, so a column of its own would claim it is a datum the table reports.
 
 ## Local mode, found in review of the answering slice, 12 August 2026
 
@@ -1705,6 +1709,19 @@ visible past the point the test expects it gone.
 locally, so `test-results/` held exactly what this needs — and it was deleted while tidying before
 staging, twice. That is the specific mistake this file already records under the E2E flake entry:
 capture the trace first, then re-run. Nothing here should be guessed at until one is kept.
+
+**Third sighting, 20 August 2026, and this time the trace was read.** It is not random. The
+navigation took **848 ms** — `expect(page).toHaveURL(/\/privacy$/)` in the trace — while the bar
+is suppressed for only the first **340 ms** (ADR 024). So the bar appeared and `__sawBar` reported
+it correctly. The test asserts that `/about` → `/privacy` _completes inside 340 ms_, which is a
+property of the machine rather than of the code, and eight parallel workers on one laptop do not
+honor it.
+
+**The fix is to assert the behavior instead of the speed**: after the click, wait out the
+suppression window and check no bar appeared _within it_, however long the navigation then takes.
+That keeps what ADR 024 actually promises and drops the part that only holds on an idle machine.
+What it stops covering is the original intent — that a genuinely fast navigation shows no bar at
+all — which cannot be tested where the navigation's speed is not controlled.
 
 ## Switching conversations rebuilds the workspace shell, 20 August 2026
 
