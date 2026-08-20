@@ -15,6 +15,7 @@ import { ConversationList } from "@/components/chat/conversation-list";
 import { DocumentList } from "@/components/documents/document-list";
 import { UploadDropzone } from "@/components/documents/upload-dropzone";
 import { uploadToWorkspace } from "@/lib/documents/upload";
+import { createConversation } from "@/lib/chats/actions";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import {
@@ -69,7 +70,8 @@ export function WorkspaceSections({
   canWrite: boolean;
   signedIn: boolean;
   isDemo: boolean;
-  /** Set only just after `/c/new` refused, and cleared by the next navigation. */
+  /** Set only just after `createConversation` refused, and cleared by the next
+   * navigation. */
   conversationCap?: CapCopy | null;
   /** Set while the open conversation is full. */
   messageCap?: CapCopy | null;
@@ -243,14 +245,8 @@ export function WorkspaceSections({
             <h2 id="conversations-heading" className="text-lg font-medium">
               Conversations
             </h2>
-            {/*
-              A form POST, not a link — and this was a link, which was the bug:
-              Next prefetches `<Link>` targets in the viewport, so conversations
-              appeared on every page load. Creating a resource is not something a
-              GET may do; prefetchers, crawlers and tab-restore all issue GETs
-              nobody clicked. The cost is middle-click and open-in-new-tab.
-            */}
-            <form action={`/w/${workspaceId}/c/new`} method="post">
+            {/* A form, never a link — see `createConversation`. */}
+            <form action={createConversation.bind(null, workspaceId)}>
               <Button type="submit" variant="outline" size="sm">
                 New conversation
               </Button>

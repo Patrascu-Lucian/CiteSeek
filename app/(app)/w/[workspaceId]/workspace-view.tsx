@@ -29,7 +29,7 @@ export async function WorkspaceView({
   workspaceId: string;
   /** Absent on `/w/<id>`, which opens the most recent conversation. */
   chatId?: string;
-  /** The cap `/c/new` refused with, carried back through its redirect. */
+  /** The cap `createConversation` refused with, carried on its redirect. */
   capReached?: string | null;
 }) {
   const actor = await getActor();
@@ -91,7 +91,7 @@ export async function WorkspaceView({
         )
       : null;
 
-  // Restating the refusal, not re-deciding it — `/c/new` already refused and
+  // Restating the refusal, not re-deciding it — the action already refused and
   // wrote nothing. Through the same function so the copy cannot drift.
   const conversationCap =
     capReached === "conversations" && signedIn

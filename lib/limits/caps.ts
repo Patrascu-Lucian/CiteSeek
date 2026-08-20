@@ -23,7 +23,7 @@ export function decideCap(
     : { allowed: true };
 }
 
-/** `/c/new` is a form POST, so its refusal cannot be a JSON body — the browser
+/** `createConversation` is a form POST, so its refusal cannot be a JSON body —
  * would render it. Carried on the redirect instead, and read by
  * `app/(app)/w/[workspaceId]/page.tsx`. */
 export const CAP_PARAM = "limit";
