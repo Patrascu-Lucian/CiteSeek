@@ -21,7 +21,9 @@ const isPrefetch = (init: RequestInit | undefined, input: RequestInfo | URL) =>
   header("Next-Router-Prefetch", init, input) !== null;
 
 /** Posts to the current URL with no `_rsc=`, so matching on that alone left "New
- * conversation" silent once it stopped being a document navigation. */
+ * conversation" silent once it stopped being a document navigation. Every action
+ * counts, which is right while every action navigates — a `useActionState` form
+ * would raise the bar for work that goes nowhere. */
 const isServerAction = (
   init: RequestInit | undefined,
   input: RequestInfo | URL,
