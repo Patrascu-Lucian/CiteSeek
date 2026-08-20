@@ -24,3 +24,8 @@ minimumReleaseAgeExclude:
 overrides:
   postcss: ^8.5.25
   esbuild: ^0.28.1
+  # Both reach us through @huggingface/transformers, and neither runs on the
+  # path local mode ships: sharp decodes images we never process, and adm-zip
+  # arrives via onnxruntime-node, whose build is already denied above.
+  sharp: ^0.35.3
+  adm-zip: ^0.6.0
