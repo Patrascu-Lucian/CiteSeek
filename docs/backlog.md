@@ -1753,9 +1753,11 @@ Not a patch-release change. Worth doing before the composer work, since both tou
 
 ## The composer: one row, and the send control inside it, 20 August 2026
 
-Raised as a change request during the 1.3.1 testing pass, and deferred out of it because a patch
-release that redesigns the chat input on three surfaces makes the version number mean nothing.
-Applies to the workspace, the demo and local mode, which share `components/chat/composer.tsx`.
+Raised as a change request during the 1.3.1 testing pass, and deferred only because that release
+was already cut. **A patch, not a minor**: nothing new works afterward that did not before, and
+the version reflects capability rather than how visible a change is — the same reading that made
+`v1.1.1` a patch while carrying accessibility work. One component, shared by the workspace, the
+demo and local mode: `components/chat/composer.tsx`.
 
 **Two changes.** The textarea opens at `rows={2}` and should open at one, growing from there — the
 autogrow and its `max-h-40` ceiling already exist, so this is the starting height only. And the
