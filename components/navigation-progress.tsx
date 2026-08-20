@@ -15,8 +15,9 @@ function isPrefetch(init: RequestInit | undefined, input: RequestInfo | URL) {
     : false;
 }
 
-/** Under this, a navigation is quick enough that a bar reads as a flicker. */
-const APPEAR_AFTER_MS = 200;
+/** Under this, a navigation is quick enough that a bar reads as a flicker.
+ * Exported so the test asserts the shipped threshold rather than a copy. */
+export const APPEAR_AFTER_MS = 200;
 
 /** Long enough for the fill to reach the end and be seen doing it. */
 const FINISH_MS = 220;

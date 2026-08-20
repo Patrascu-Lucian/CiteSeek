@@ -1696,7 +1696,7 @@ limit on the usage page, or raise `MAX_CHUNKS_PER_DOCUMENT` so one document can 
 the plan. The first is a copy change; the second is a cost decision, since the constant is one
 embedding call per chunk and exists to bound exactly that.
 
-## A navigation test that only fails in the full suite, 20 August 2026
+## ~~A navigation test that only fails in the full suite~~, 20 August 2026
 
 `e2e/navigation.spec.ts` — "stays down for a navigation that resolves quickly" — failed twice on
 19 and 20 August, both times in a full `pnpm test:e2e` run and never in isolation. It passes 3/3
@@ -1712,8 +1712,8 @@ capture the trace first, then re-run. Nothing here should be guessed at until on
 
 **Third sighting, 20 August 2026, and this time the trace was read.** It is not random. The
 navigation took **848 ms** — `expect(page).toHaveURL(/\/privacy$/)` in the trace — while the bar
-is suppressed for only the first **340 ms** (ADR 024). So the bar appeared and `__sawBar` reported
-it correctly. The test asserts that `/about` → `/privacy` _completes inside 340 ms_, which is a
+is suppressed for only the first **200 ms** (`APPEAR_AFTER_MS`). So the bar appeared and `__sawBar` reported
+it correctly. The test asserts that `/about` → `/privacy` _completes inside 200 ms_, which is a
 property of the machine rather than of the code, and eight parallel workers on one laptop do not
 honor it.
 
@@ -1722,6 +1722,12 @@ suppression window and check no bar appeared _within it_, however long the navig
 That keeps what ADR 024 actually promises and drops the part that only holds on an idle machine.
 What it stops covering is the original intent — that a genuinely fast navigation shows no bar at
 all — which cannot be tested where the navigation's speed is not controlled.
+
+**Done**, 20 August 2026, by moving the threshold to a unit test rather than rewriting the
+journey one. `components/navigation-progress.test.tsx` holds a controllable clock, so it asserts
+the shipped `APPEAR_AFTER_MS` instead of hoping a real page renders inside it. The two end-to-end
+tests that remain cover what only end-to-end can: that a real prefetch does not raise the bar, and
+that a genuinely slow navigation raises and clears it.
 
 ## Switching conversations rebuilds the workspace shell, 20 August 2026
 
