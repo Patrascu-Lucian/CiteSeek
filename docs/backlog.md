@@ -1750,3 +1750,29 @@ computed in the layout would be frozen. Splitting them needs the shared document
 a client context provider in the layout, which the page then consumes.
 
 Not a patch-release change. Worth doing before the composer work, since both touch the same surface.
+
+## The composer: one row, and the send control inside it, 20 August 2026
+
+Raised as a change request during the 1.3.1 testing pass, and deferred out of it because a patch
+release that redesigns the chat input on three surfaces makes the version number mean nothing.
+Applies to the workspace, the demo and local mode, which share `components/chat/composer.tsx`.
+
+**Two changes.** The textarea opens at `rows={2}` and should open at one, growing from there — the
+autogrow and its `max-h-40` ceiling already exist, so this is the starting height only. And the
+send control, currently a `<Button>` beside the field carrying `lucide-send` plus the word "Send",
+should sit **inside** the field: bottom-right while the question is multi-line, right-hand side
+while it is one. Icon only, no label.
+
+**Three constraints, all of them from work already done here.**
+
+- **The icon needs an accessible name.** Dropping the visible "Send" makes `aria-label` the only
+  name the control has, and the Stop button that replaces it while streaming has the same problem.
+- **WCAG 2.5.8 target size.** A small icon button in a corner is the shape that fails it, and the
+  sticky header already cost four `target-size` failures once. `lucide-arrow-up` in a filled circle
+  is both the common pattern and an easier target than a bare paper plane.
+- **Focus order.** Inside the field means it sits between the textarea and whatever follows in the
+  DOM; the keyboard path has to stay Tab-reachable and obvious, since Enter-to-send already exists
+  and the button is the discoverable alternative to it.
+
+**Sequence it after the workspace-shell layout work**, not before. Both touch this surface, and
+doing the composer first means doing it twice.
