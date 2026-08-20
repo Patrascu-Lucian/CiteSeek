@@ -119,7 +119,10 @@ export function UsageView({
                     <tr key={day.day} className="border-border/60 border-b">
                       <th
                         scope="row"
-                        className="py-2 font-normal whitespace-nowrap"
+                        // `tabular-nums` so every date is the same width: the
+                        // bar beside it starts wherever the text ends, and
+                        // proportional digits made each row start at its own x.
+                        className="py-2 font-normal whitespace-nowrap tabular-nums"
                       >
                         <span className="flex items-center gap-2">
                           {day.day}
