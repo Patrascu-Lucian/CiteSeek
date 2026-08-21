@@ -75,8 +75,8 @@ export function capRefusalCopy(
         detail: context.conversationsExhausted
           ? // Cheapest first: exhausted counts conversations, not their
             // messages, so another usually still has room.
-            "Try one of your other conversations, or delete one to start a new one."
-          : "Start a new conversation to keep going — this one stays where it is.",
+            "Try one of your other conversations, or delete an exchange above to make room here."
+          : "Delete an exchange above to make room, or start a new conversation — this one stays where it is.",
       };
 
     case "storage":
@@ -135,13 +135,9 @@ export function capRefusalBody(
   };
 }
 
-/**
- * Separate from `parseRefusal` on purpose: that one classifies flow refusals,
- * which offer a retry. A cap never does (ADR 039).
- *
- * The transport throws `new Error(response.text())`, so the status code is gone
- * and the body is the only classification available.
- */
+/** Separate from `parseRefusal`: that one classifies flow refusals, which offer a
+ * retry. A cap never does (ADR 039). The transport throws
+ * `new Error(response.text())`, so the body is the only signal left. */
 export function parseCapRefusal(error: unknown): CapRefusalBody | null {
   const message =
     error instanceof Error

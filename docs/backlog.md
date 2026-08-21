@@ -245,7 +245,16 @@ each of these is reversible and therefore safe to defer.
 - Bundle-size budget enforced in CI for the chat route.
 - Lighthouse CI as a PR gate rather than a manual measurement.
 
-- **One rule for confirming a destructive action.** There are three now and they do not agree:
+- ~~**One rule for confirming a destructive action.**~~ **Done**, 21 August 2026 —
+  [ADR 042](decisions/042-one-rule-for-destroying-something.md). The rule is written down, the two
+  false claims are deleted, and deleting an exchange joined the middle tier rather than earning a
+  lighter one. **Undo was designed and rejected**: restoring after the fact needs an endpoint
+  taking message content from the client, which is ADR 035's failure self-inflicted, and deferring
+  the delete holds the cap shut at the moment a reader is deleting to make room. The frequency
+  premise was also weak — 40 saved messages is 20 exchanges, not a daily habit. Revisit if the
+  server ever holds deleted rows itself, which would make restore safe. The original entry follows.
+
+  There are three now and they do not agree:
   deleting an account requires typing a word, deleting a conversation opens a dialog naming it,
   deleting a document happens on the first click. The graduation is defensible — account, then
   conversation, then a document that can be uploaded again — but it was arrived at one report at
@@ -1882,3 +1891,30 @@ that silently connects somewhere unintended is a category of confusion, not one 
 
 **Not fixed here** — it predates this branch and belongs in a commit about the harness, not one
 about a layout.
+
+## Roving tabindex over the transcript — considered and rejected, 21 August 2026
+
+Raised while adding a delete control to each question in Milestone 8: one control per exchange adds
+a tab stop per exchange, between the transcript and the composer. Recorded so it is not re-raised as
+new.
+
+**It is the wrong pattern here.** Roving tabindex belongs to composite widgets — toolbars,
+listboxes, grids, menus — where the container owns arrow-key movement between its items. A chat
+transcript is content with embedded interactive elements, and the citation chip is the whole point
+of the product.
+
+**It would not help the readers it looks like it helps.** Screen readers in browse mode intercept
+arrow keys for reading and never pass them to the page, so the handler would be inert for exactly
+those users. It buys arrow navigation for sighted keyboard users only.
+
+**It would not fix the stated problem.** Citation chips are already the majority of the tab stops:
+a 20-exchange conversation carries roughly 60 of them before any delete control exists, so 20 more
+is a 33% increase rather than a new category.
+
+**What shipped instead**: a "Skip to the question box" link at the top of the transcript, matching
+`app/layout.tsx`'s existing skip link — whose own comment already named this surface, saying "the
+chat surface will be a long, streaming region, so a keyboard user must be able to jump past the
+nav."
+
+**Revisit if** the transcript ever becomes a genuine widget — a selection mode, or bulk actions
+across exchanges — where a container owning arrow keys would stop competing with reading.
