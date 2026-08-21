@@ -1799,7 +1799,7 @@ cause without instrumenting it is the error this file keeps recording.
 state: the document list keeps polling across a conversation change, the source panel stays open,
 and scroll position survives. Speed was the wrong argument for the right change.
 
-## The composer: one row, and the send control inside it, 20 August 2026
+## ~~The composer: one row, and the send control inside it~~, 20 August 2026
 
 Raised as a change request during the 1.3.1 testing pass, and deferred only because that release
 was already cut. **A patch, not a minor**, by the policy the README already states — a minor bump per
@@ -1826,6 +1826,20 @@ while it is one. Icon only, no label.
 
 **Sequence it after the workspace-shell layout work**, not before. Both touch this surface, and
 doing the composer first means doing it twice.
+
+**Done**, 21 August 2026. Measured on the demo: the field opens at **28px** where two rows was
+about 48, and grows to 68 at three. The control is `size="icon"` — **32×32**, square, above WCAG
+2.5.8's floor — beside a one-line question and bottom-aligned under a grown one.
+
+**The fourth constraint was not in this entry.** Send and Stop were two `<Button>`s chosen by a
+branch, so opening a stream unmounted whichever one had focus and dropped it to the body. They are
+now **one** element whose type, label, handler and icon swap, which keeps the node — and the focus
+— across the change. A test forces a remount with a `key` and goes red, so the property cannot be
+lost silently.
+
+`lucide-arrow-up` in a filled circle rather than a paper plane, as the entry predicted: a bigger
+target and the more common pattern. `aria-label` is the only name either state has now, and axe
+over the form is clean.
 
 ## ~~A signed-in reader can start conversations in the read-only demo~~, 20 August 2026
 
