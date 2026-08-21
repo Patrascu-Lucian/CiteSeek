@@ -246,7 +246,7 @@ describe("ChatPanel — citations", () => {
   */
   const CHIP_TIMEOUT = { timeout: 5_000 };
 
-  // The panel moved up to `WorkspaceSections`, so what this component owes is
+  // The panel moved up to `WorkspaceShell`, so what this component owes is
   // the citation, not the panel.
   it("reports the citation when a chip is activated", async () => {
     chat.messages = [ANSWER];

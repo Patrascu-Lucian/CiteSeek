@@ -4,24 +4,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatUIMessage } from "@/lib/ai/types";
 import type { DocumentSummary } from "@/lib/documents/queries";
 
-import { WorkspaceSections } from "./workspace-sections";
+import { ChatSection } from "./chat-section";
+import { WorkspaceShell } from "./workspace-shell";
 
-/**
- * `useRouter` throws "expected app router to be mounted" outside Next's runtime.
- * `refresh` is what re-renders the server data behind the conversation list, so
- * it is observed rather than merely stubbed.
- */
+/** `refresh` is observed rather than merely stubbed: it is what re-renders the
+ * server data behind the conversation list. */
 const router = vi.hoisted(() => ({ refresh: vi.fn(), push: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+const nav = vi.hoisted(() => ({ pathname: "/w/w1", search: "" }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => router,
+  usePathname: () => nav.pathname,
+  useSearchParams: () => new URLSearchParams(nav.search),
+}));
 
 /** The action reaches Auth.js through `authorizeWorkspace`, which has no server
  * to run in here. Its own behaviour is covered in `actions.integration.test.ts`. */
 vi.mock("@/lib/chats/actions", () => ({ createConversation: vi.fn() }));
 
-/**
- * `useChat` owns a network connection. The stub keeps `onFinish` so a test can
- * end a turn — the connection ending is the event this component reacts to.
- */
+/** The stub keeps `onFinish` so a test can end a turn — the event this reacts to. */
 const chat = vi.hoisted(() => ({
   onFinish: undefined as (() => void) | undefined,
 }));
@@ -36,15 +36,9 @@ vi.mock("@ai-sdk/react", async () => {
     }) => {
       chat.onFinish = options.onFinish;
 
-      /*
-        `useState`, not `options.messages` returned directly.
-
-        The real `useChat` seeds from the prop **once per mount** and then owns
-        its state, or a streaming answer would be wiped by every re-render. A
-        mock that echoed the prop back would follow it on every render — and a
-        test written against that mock would pass whether or not the transcript
-        actually follows the conversation, which is the exact bug below.
-      */
+      // `useState`, not the prop returned directly: the real `useChat` seeds
+      // once per mount, and a mock that echoed the prop would pass the tests
+      // below whether or not the transcript follows the conversation.
       const [messages] = useState(options.messages ?? []);
 
       return {
@@ -93,6 +87,8 @@ function pollReturns(documents: DocumentSummary[]) {
 beforeEach(() => {
   vi.clearAllMocks();
   chat.onFinish = undefined;
+  nav.pathname = "/w/w1";
+  nav.search = "";
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
@@ -101,19 +97,49 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderSections(initialDocuments: DocumentSummary[], signedIn = true) {
-  render(
-    <WorkspaceSections
+/** Together, the way the layout composes them: rendering either alone would test
+ * a seam the app does not have. */
+function workspace({
+  documents = [doc()],
+  signedIn = true,
+  canWrite = true,
+  isDemo = false,
+  activeChatId = null,
+  initialMessages = [],
+  chats = [],
+}: {
+  documents?: DocumentSummary[];
+  signedIn?: boolean;
+  canWrite?: boolean;
+  isDemo?: boolean;
+  activeChatId?: string | null;
+  initialMessages?: ChatUIMessage[];
+  chats?: React.ComponentProps<typeof WorkspaceShell>["chats"];
+} = {}) {
+  return (
+    <WorkspaceShell
       workspaceId="w1"
-      initialDocuments={initialDocuments}
-      initialMessages={[]}
-      chats={[]}
-      activeChatId={null}
-      canWrite
+      initialDocuments={documents}
+      chats={chats}
+      canWrite={canWrite}
       signedIn={signedIn}
-      isDemo={false}
-    />,
+      conversationCap={null}
+    >
+      <ChatSection
+        workspaceId="w1"
+        activeChatId={activeChatId}
+        initialMessages={initialMessages}
+        signedIn={signedIn}
+        isDemo={isDemo}
+        canWrite={canWrite}
+        messageCap={null}
+      />
+    </WorkspaceShell>
   );
+}
+
+function renderWorkspace(options: Parameters<typeof workspace>[0] = {}) {
+  return render(workspace(options));
 }
 
 const READY = {
@@ -122,15 +148,11 @@ const READY = {
   embeddedChunkCount: 3,
 } as const;
 
-describe("WorkspaceSections — the conversation list after a turn", () => {
+describe("the conversation list after a turn", () => {
   it("refetches the server data once an answer has finished", () => {
-    /*
-      The regression this exists for. Titles and message counts are rendered on
-      the server from the database, and nothing told them a turn had happened:
-      the count beside a conversation stayed at its old value until the reader
-      reloaded, and the title generated from a first question never appeared.
-    */
-    renderSections([doc(READY)]);
+    // The regression: titles and counts are server-rendered, and nothing told
+    // them a turn had happened.
+    renderWorkspace({ documents: [doc(READY)] });
 
     expect(router.refresh).not.toHaveBeenCalled();
 
@@ -142,7 +164,7 @@ describe("WorkspaceSections — the conversation list after a turn", () => {
   it("does not refetch for a guest, who has no stored conversation", () => {
     // Guest turns are never written down, so a refetch would re-render the same
     // markup and spend a request saying nothing changed.
-    renderSections([doc(READY)], false);
+    renderWorkspace({ documents: [doc(READY)], signedIn: false });
 
     chat.onFinish?.();
 
@@ -150,16 +172,15 @@ describe("WorkspaceSections — the conversation list after a turn", () => {
   });
 });
 
-describe("WorkspaceSections — chat follows the document list", () => {
+describe("chat follows the document list", () => {
   it("opens the composer when a processing document becomes ready", async () => {
-    // The regression this exists for. `hasReadyDocuments` used to be computed
-    // during the server render and passed down, so an upload updated the
-    // document list by polling while chat kept the value it was born with and
-    // stayed on "Nothing to search yet" until a manual reload.
+    // The regression, and why `hasReadyDocuments` crosses a context rather than
+    // being server-rendered: computed there, chat kept the value it was born
+    // with and stayed on "Nothing to search yet" until a reload.
     pollReturns([
       doc({ status: "ready", chunkCount: 3, embeddedChunkCount: 3 }),
     ]);
-    renderSections([doc({ status: "processing" })]);
+    renderWorkspace({ documents: [doc({ status: "processing" })] });
 
     expect(screen.getByText(/nothing to search yet/i)).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
@@ -178,7 +199,7 @@ describe("WorkspaceSections — chat follows the document list", () => {
   });
 
   it("says there is nothing to search while a document is still processing", () => {
-    renderSections([doc({ status: "processing" })]);
+    renderWorkspace({ documents: [doc({ status: "processing" })] });
 
     // Every question here would retrieve nothing and get the same refusal,
     // which reads like a broken feature rather than an unfinished upload.
@@ -186,7 +207,7 @@ describe("WorkspaceSections — chat follows the document list", () => {
   });
 
   it("offers the composer immediately when a document is already ready", () => {
-    renderSections([doc({ status: "ready", chunkCount: 3 })]);
+    renderWorkspace({ documents: [doc({ status: "ready", chunkCount: 3 })] });
 
     expect(
       screen.getByRole("textbox", { name: /ask a question/i }),
@@ -194,7 +215,7 @@ describe("WorkspaceSections — chat follows the document list", () => {
   });
 
   it("renders both sections under their own headings", () => {
-    renderSections([doc({ status: "ready" })]);
+    renderWorkspace({ documents: [doc({ status: "ready" })] });
 
     expect(
       screen.getByRole("heading", { level: 2, name: /documents/i }),
@@ -205,20 +226,11 @@ describe("WorkspaceSections — chat follows the document list", () => {
   });
 
   it("hides the upload control from a read-only visitor and explains why", () => {
-    render(
-      <WorkspaceSections
-        workspaceId="w1"
-        initialDocuments={[doc({ status: "ready" })]}
-        initialMessages={[]}
-        chats={[]}
-
-        activeChatId={null}
-
-        canWrite={false}
-        signedIn={false}
-        isDemo={false}
-      />,
-    );
+    renderWorkspace({
+      documents: [doc({ status: "ready" })],
+      canWrite: false,
+      signedIn: false,
+    });
 
     expect(
       screen.queryByRole("button", { name: /drop files here/i }),
@@ -234,18 +246,11 @@ describe("WorkspaceSections — chat follows the document list", () => {
   /* Signed in *and* unable to write — the demo's combination, and the one no
      test covered. ADR 040. */
   it("offers no conversations on a workspace the signed-in reader cannot write", () => {
-    render(
-      <WorkspaceSections
-        workspaceId="w1"
-        initialDocuments={[doc({ status: "ready" })]}
-        initialMessages={[]}
-        chats={[]}
-        activeChatId={null}
-        canWrite={false}
-        signedIn
-        isDemo
-      />,
-    );
+    renderWorkspace({
+      documents: [doc({ status: "ready" })],
+      canWrite: false,
+      isDemo: true,
+    });
 
     expect(
       screen.queryByRole("heading", { level: 2, name: /conversations/i }),
@@ -256,18 +261,7 @@ describe("WorkspaceSections — chat follows the document list", () => {
   });
 
   it("still offers conversations on a workspace the reader can write", () => {
-    render(
-      <WorkspaceSections
-        workspaceId="w1"
-        initialDocuments={[doc({ status: "ready" })]}
-        initialMessages={[]}
-        chats={[]}
-        activeChatId={null}
-        canWrite
-        signedIn
-        isDemo={false}
-      />,
-    );
+    renderWorkspace({ documents: [doc({ status: "ready" })] });
 
     expect(
       screen.getByRole("button", { name: /new conversation/i }),
@@ -275,98 +269,109 @@ describe("WorkspaceSections — chat follows the document list", () => {
   });
 });
 
-describe("WorkspaceSections — when the open conversation goes away", () => {
-  function renderWith(
-    activeChatId: string | null,
-    initialMessages: ChatUIMessage[],
-  ) {
-    return render(
-      <WorkspaceSections
-        workspaceId="w1"
-        initialDocuments={[doc(READY)]}
-        initialMessages={initialMessages}
-        chats={[]}
-        activeChatId={activeChatId}
-        canWrite
-        signedIn
-        isDemo={false}
-      />,
-    );
-  }
-
+describe("when the open conversation goes away", () => {
   const answered: ChatUIMessage[] = [
     { id: "m1", role: "user", parts: [{ type: "text", text: "A question" }] },
   ];
 
   it("clears the transcript when the last conversation is deleted", () => {
-    /*
-      The regression this exists for. `useChat` seeds from `initialMessages`
-      once and then owns its state, so a refreshed page handing it an empty
-      list changed nothing: the deleted conversation's messages stayed on
-      screen with no conversation behind them.
-    */
-    const { rerender } = renderWith("chat-1", answered);
+    // The regression: `useChat` seeds once, so handing it an empty list left
+    // the deleted conversation's messages on screen.
+    const { rerender } = renderWorkspace({
+      documents: [doc(READY)],
+      activeChatId: "chat-1",
+      initialMessages: answered,
+    });
     expect(screen.getByText("A question")).toBeInTheDocument();
 
-    rerender(
-      <WorkspaceSections
-        workspaceId="w1"
-        initialDocuments={[doc(READY)]}
-        initialMessages={[]}
-        chats={[]}
-        activeChatId={null}
-        canWrite
-        signedIn
-        isDemo={false}
-      />,
-    );
+    rerender(workspace({ documents: [doc(READY)] }));
 
     expect(screen.queryByText("A question")).not.toBeInTheDocument();
-    // The empty state's own line — "Ask a question about your documents" also
-    // labels the composer, so it cannot tell the two apart.
+    // The empty state's own line: "Ask a question…" also labels the composer.
     expect(screen.getByText(/answers cite the passages/i)).toBeInTheDocument();
   });
 
   it("shows the newly opened conversation when switching between them", () => {
-    // The same defect seen from the other side, and the more damaging one: a
-    // transcript that does not follow the conversation shows another one's.
-    const { rerender } = renderWith("chat-1", answered);
+    // The same defect from the other side, and the worse one: another
+    // conversation's transcript.
+    const { rerender } = renderWorkspace({
+      documents: [doc(READY)],
+      activeChatId: "chat-1",
+      initialMessages: answered,
+    });
 
     rerender(
-      <WorkspaceSections
-        workspaceId="w1"
-        initialDocuments={[doc(READY)]}
-        initialMessages={[
+      workspace({
+        documents: [doc(READY)],
+        activeChatId: "chat-2",
+        initialMessages: [
           {
             id: "m2",
             role: "user",
-            parts: [{ type: "text", text: "A different question" }],
+            parts: [{ type: "text", text: "Another question" }],
           },
-        ]}
-        chats={[]}
-        activeChatId="chat-2"
-        canWrite
-        signedIn
-        isDemo={false}
-      />,
+        ],
+      }),
     );
 
-    expect(screen.getByText("A different question")).toBeInTheDocument();
     expect(screen.queryByText("A question")).not.toBeInTheDocument();
+    expect(screen.getByText("Another question")).toBeInTheDocument();
   });
 });
 
-describe("WorkspaceSections — what happens to an uploaded file", () => {
-  it("warns about the provider at the control, not only in the policy", () => {
-    // Here, not on the dropzone: local mode shares that control, and there the
-    // notice claimed a provider on a page that reaches none.
-    renderSections([doc(READY)]);
+describe("the conversation the list marks as open", () => {
+  // A layout is never given the `chatId` segment, so this comes from the URL.
+  it("takes the one the URL names", () => {
+    nav.pathname = "/w/w1/c/chat-2";
 
-    // The whole phrase inside one <strong>: an emphasis ending mid-clause loses
-    // the space after it in JSX, which is how "extractedfrom" shipped once.
-    expect(screen.getByText("paid Gemini tier")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /what is stored/i }),
-    ).toHaveAttribute("href", "/privacy");
+    renderWorkspace({
+      documents: [doc(READY)],
+      chats: [
+        {
+          id: "chat-1",
+          title: "First",
+          updatedAt: new Date(),
+          messageCount: 2,
+        },
+        {
+          id: "chat-2",
+          title: "Second",
+          updatedAt: new Date(),
+          messageCount: 4,
+        },
+      ],
+    });
+
+    expect(screen.getByRole("link", { name: /Second/ })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("falls back to the most recent when the URL names none", () => {
+    // `/w/<id>` opens the last-used conversation, and `listChats` is ordered by
+    // `updatedAt` descending — so the first row is the one the page opened.
+    renderWorkspace({
+      documents: [doc(READY)],
+      chats: [
+        {
+          id: "chat-1",
+          title: "First",
+          updatedAt: new Date(),
+          messageCount: 2,
+        },
+        {
+          id: "chat-2",
+          title: "Second",
+          updatedAt: new Date(),
+          messageCount: 4,
+        },
+      ],
+    });
+
+    expect(screen.getByRole("link", { name: /First/ })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 });

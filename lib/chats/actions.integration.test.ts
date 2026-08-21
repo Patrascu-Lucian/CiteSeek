@@ -23,6 +23,10 @@ vi.mock("@/lib/auth/actor", () => ({
   getActor: () => Promise.resolve(currentActor.value),
 }));
 
+/** `revalidatePath` needs a request scope and calling the action directly has
+ * none. What it invalidates is covered by `e2e/workspace-shell.spec.ts`. */
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+
 const { client, db } = createTestClient();
 
 beforeAll(() => cleanupTestRows(db));

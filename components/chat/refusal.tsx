@@ -89,7 +89,7 @@ export function Refusal({
 }
 
 /**
- * What to do next, mirroring the read-only card in `WorkspaceSections`: a reader
+ * What to do next, mirroring the read-only card in `WorkspaceShell`: a reader
  * who cannot upload is never told to. A writer needs no link either — the
  * dropzone is already above the conversation.
  */
