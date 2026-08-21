@@ -1,7 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { Actor } from "@/lib/auth/actor";
-import { listChats, resolveChatForTurn } from "@/lib/chats/queries";
+import {
+  appendMessages,
+  getOrCreateChat,
+  listChatMessages,
+  listChats,
+  resolveChatForTurn,
+} from "@/lib/chats/queries";
 import {
   cleanupTestRows,
   createTestClient,
@@ -12,7 +18,7 @@ import {
 import { CAP_PARAM } from "@/lib/limits/caps";
 import { DEFAULT_PLAN_LIMITS } from "@/lib/limits/config";
 
-import { createConversation } from "./actions";
+import { createConversation, deleteConversationTurn } from "./actions";
 
 /**
  * Starting a conversation. These exist because the first version was a `GET`,
@@ -143,5 +149,58 @@ describe("createConversation", () => {
     await expect(createConversation(demo.id)).rejects.toThrow(/404/);
 
     expect(await listChats(demo.id, user.id)).toEqual([]);
+  });
+});
+
+describe("deleteConversationTurn", () => {
+  async function conversation(label: string) {
+    const { user, workspace } = await scenario(label);
+    const chat = await getOrCreateChat(workspace.id, user.id);
+
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "A question" },
+      { role: "assistant", content: "An answer" },
+    ]);
+
+    const stored = await listChatMessages(workspace.id, user.id, chat.id);
+    return { user, workspace, chat, stored };
+  }
+
+  it("removes the exchange and says so", async () => {
+    const { user, workspace, chat, stored } = await conversation("turn-delete");
+
+    expect(
+      await deleteConversationTurn(workspace.id, chat.id, stored[0]!.id),
+    ).toEqual({ deleted: true });
+
+    expect(await listChatMessages(workspace.id, user.id, chat.id)).toEqual([]);
+  });
+
+  /* The caller hides the turn before asking, so a refusal it cannot see would
+     leave a message off screen that is still in the database. */
+  it("reports the miss rather than throwing", async () => {
+    const { workspace, chat } = await conversation("turn-miss");
+
+    expect(
+      await deleteConversationTurn(
+        workspace.id,
+        chat.id,
+        "00000000-0000-4000-8000-000000000000",
+      ),
+    ).toEqual({ deleted: false });
+  });
+
+  it("refuses on the demo, where nothing is writable", async () => {
+    const { workspace, chat, stored } = await conversation("turn-demo");
+    const demo = await findOrCreateDemoWorkspace(db);
+
+    // ADR 040: `"write"` is refused there, so the id never reaches the query.
+    await expect(
+      deleteConversationTurn(demo.id, chat.id, stored[0]!.id),
+    ).rejects.toThrow(/404/);
+
+    expect(
+      await listChatMessages(workspace.id, currentActor.value!.id, chat.id),
+    ).toHaveLength(2);
   });
 });

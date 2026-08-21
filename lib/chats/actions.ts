@@ -6,7 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 
-import { createChatUnless } from "@/lib/chats/queries";
+import { createChatUnless, deleteTurn } from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { CAP_PARAM, decideCap } from "@/lib/limits/caps";
 import { resolvePlanLimits } from "@/lib/limits/config";
@@ -46,4 +46,32 @@ export async function createConversation(workspaceId: string): Promise<void> {
       ? `/w/${workspaceId}/c/${admission.chat.id}`
       : `/w/${workspaceId}?${CAP_PARAM}=conversations#conversations-heading`,
   );
+}
+
+/**
+ * Removes one exchange from a stored conversation.
+ *
+ * Returns whether anything went, so the caller can restore what it hid rather
+ * than leaving a turn off screen that is still in the database. Not-yours and
+ * not-there are the same answer, as everywhere else here.
+ */
+export async function deleteConversationTurn(
+  workspaceId: string,
+  chatId: string,
+  messageId: string,
+): Promise<{ deleted: boolean }> {
+  const auth = await authorizeWorkspace(workspaceId, "write");
+  if (isDenied(auth)) notFound();
+
+  const removed = await deleteTurn(
+    auth.workspaceId,
+    auth.actorId,
+    chatId,
+    messageId,
+  );
+
+  // Frees a message the cap was counting, and the cap is computed in a layout.
+  if (removed > 0) revalidatePath(`/w/${workspaceId}`, "layout");
+
+  return { deleted: removed > 0 };
 }

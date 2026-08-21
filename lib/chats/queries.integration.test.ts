@@ -15,6 +15,7 @@ import {
   appendMessages,
   createChatUnless,
   deleteChat,
+  deleteTurn,
   getOrCreateChat,
   listChatMessages,
   listChats,
@@ -500,5 +501,106 @@ describe("admitting a conversation against the cap", () => {
     );
 
     expect(forOther.admitted).toBe(true);
+  });
+});
+
+describe("deleteTurn", () => {
+  /** Two exchanges, oldest first, returned with the ids the caller would name. */
+  async function twoTurns() {
+    const { user, workspace, chat } = await scenario("turns");
+
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "First question" },
+      { role: "assistant", content: "First answer", citations: [CITATION] },
+    ]);
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "Second question" },
+      { role: "assistant", content: "Second answer" },
+    ]);
+
+    const stored = await listChatMessages(workspace.id, user.id, chat.id);
+    return { user, workspace, chat, stored };
+  }
+
+  it("takes the answer with the question", async () => {
+    const { user, workspace, chat, stored } = await twoTurns();
+
+    expect(
+      await deleteTurn(workspace.id, user.id, chat.id, stored[0]!.id),
+    ).toBe(2);
+
+    expect(
+      (await listChatMessages(workspace.id, user.id, chat.id)).map(
+        (message) => message.content,
+      ),
+    ).toEqual(["Second question", "Second answer"]);
+  });
+
+  it("stops at the next question rather than truncating the rest", async () => {
+    // A middle turn goes on its own. Deleting to the end would be a different
+    // feature, and the one editing needs.
+    const { user, workspace, chat, stored } = await twoTurns();
+
+    await deleteTurn(workspace.id, user.id, chat.id, stored[0]!.id);
+    const left = await listChatMessages(workspace.id, user.id, chat.id);
+
+    expect(left).toHaveLength(2);
+    expect(left[0]!.position).toBe(2);
+  });
+
+  it("refuses an answer's id, since a turn is named by its question", async () => {
+    const { user, workspace, chat, stored } = await twoTurns();
+
+    expect(
+      await deleteTurn(workspace.id, user.id, chat.id, stored[1]!.id),
+    ).toBe(0);
+    expect(await listChatMessages(workspace.id, user.id, chat.id)).toHaveLength(
+      4,
+    );
+  });
+
+  it("leaves the gap rather than renumbering what follows", async () => {
+    // `appendMessages` takes the maximum, so a gap costs nothing — and
+    // renumbering would race the unique index on (chat_id, position).
+    const { user, workspace, chat, stored } = await twoTurns();
+
+    await deleteTurn(workspace.id, user.id, chat.id, stored[0]!.id);
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "Third question" },
+    ]);
+
+    const left = await listChatMessages(workspace.id, user.id, chat.id);
+    expect(left.map((message) => message.position)).toEqual([2, 3, 4]);
+  });
+
+  it("cannot reach another workspace's conversation", async () => {
+    const { chat, stored } = await twoTurns();
+    const other = await scenario("turns-other");
+
+    expect(
+      await deleteTurn(
+        other.workspace.id,
+        other.user.id,
+        chat.id,
+        stored[0]!.id,
+      ),
+    ).toBe(0);
+  });
+
+  it("cannot reach another user's conversation in a workspace they share", async () => {
+    const { workspace, chat, stored } = await twoTurns();
+    const stranger = await createTestUser(db, "turns-stranger");
+
+    expect(
+      await deleteTurn(workspace.id, stranger.id, chat.id, stored[0]!.id),
+    ).toBe(0);
+  });
+
+  it("answers zero for a malformed id rather than throwing", async () => {
+    const { user, workspace, chat } = await twoTurns();
+
+    expect(await deleteTurn(workspace.id, user.id, chat.id, "not-a-uuid")).toBe(
+      0,
+    );
   });
 });
