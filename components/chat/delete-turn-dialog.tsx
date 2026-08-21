@@ -45,11 +45,11 @@ export function DeleteTurnDialog({
         <Button
           type="button"
           variant="ghost-destructive"
-          size="sm"
+          size="icon-xs"
           aria-label={`Delete the exchange starting “${label}”`}
           disabled={busy}
         >
-          <Trash2 aria-hidden="true" className="size-4" />
+          <Trash2 aria-hidden="true" className="size-3.5" />
         </Button>
       </AlertDialogTrigger>
 

@@ -154,7 +154,7 @@ export function ConversationList({
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
                     aria-label={`Rename ${label}`}
                     disabled={busyId === chat.id}
                     onClick={() => setRenaming(chat.id)}
@@ -199,7 +199,7 @@ function DeleteConversation({
         <Button
           type="button"
           variant="ghost-destructive"
-          size="sm"
+          size="icon-sm"
           aria-label={`Delete ${label}`}
           disabled={busy}
         >
