@@ -253,6 +253,23 @@ each of these is reversible and therefore safe to defer.
   alternative to confirmation: a delete that can be taken back for a few seconds interrupts
   nobody and protects the same mistake.
 
+  ↳ **"Deleting a document happens on the first click" is false**, found 21 August 2026 while
+  sizing this for Milestone 8. `components/documents/document-list.tsx` opens an `AlertDialog`
+  naming the file and exactly what goes with it — "the document, its extracted text and every
+  passage indexed from it". A comment in `components/chat/conversation-list.tsx` repeats the same
+  false claim and points here, so the two have been agreeing with each other rather than with the
+  code.
+
+  So this is **not three rules that disagree**. It is one rule already implemented twice — a dialog
+  naming the object and its cost — plus one deliberate escalation for the account, and two written
+  claims that outlived the code. The work is writing the rule down and deleting the two statements,
+  not a retrofit.
+
+  What is still genuinely open is the tier below: a per-turn delete is frequent and small, and the
+  conversation dialog's own comment already makes the argument one level up — "a typed confirmation
+  on every row trains the reader to type through it". A dialog on every turn trains the reader to
+  click through it. That is the case for undo, and it is Milestone 8's to settle.
+
 ## Measured, for the bundle budget
 
 - **Workspace page initial JS: 694 KB uncompressed** (11 chunks), measured against the
@@ -1779,7 +1796,7 @@ while it is one. Icon only, no label.
 **Sequence it after the workspace-shell layout work**, not before. Both touch this surface, and
 doing the composer first means doing it twice.
 
-## A signed-in reader can start conversations in the read-only demo, 20 August 2026
+## ~~A signed-in reader can start conversations in the read-only demo~~, 20 August 2026
 
 Found in review of 1.3.1, and **not a regression** — the route this replaced behaved identically,
 which is why it is recorded rather than fixed in a patch.
@@ -1798,3 +1815,22 @@ Two candidate fixes, and they answer different questions. Gating the section on 
 control that would work — the honest version if conversations in the demo are simply unwanted.
 Authorizing with `"write"` refuses it at the boundary, which is where the badge's claim actually
 belongs, and would need checking against the guest path that currently relies on `"read"`.
+
+**Done**, 21 August 2026 — [ADR 040](decisions/040-read-is-the-right-to-ask.md), and both fixes in
+that order: the boundary first, the interface second.
+
+**This entry described the smaller half.** The button was not the leak. The chat route authorizes
+`"read"` — correctly, since answering is a read a guest must be able to do — and then persisted on
+`actorType === "user"`, where `resolveChatForTurn` falls back to `getOrCreateChat`. So a signed-in
+visitor asking the demo **any question at all** created a conversation and stored both messages.
+Hiding the button would have fixed nothing and closed the entry.
+
+The rule that replaced both checks is one sentence: `"read"` is the right to ask, `"write"` is the
+right to leave something behind. `canWrite` became a type guard on the way, which let two write
+paths delete their guest branches rather than assert the same fact locally.
+
+The guest path the entry said to check turned out to need no check and no branch: a guest cannot
+reach `"write"` on any workspace, so the chats route's 403 was unreachable and is gone.
+
+Not done here: rows that predate the rule still sit in the demo, unlisted and unreachable. The ADR
+carries the query to count them before anyone decides whether to delete them.

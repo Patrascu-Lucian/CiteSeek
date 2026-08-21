@@ -49,26 +49,26 @@ export async function WorkspaceView({
   const documents = await listDocuments(workspace.id);
 
   /*
-    Only signed-in conversations are stored, so only they can be restored or
-    listed (ADR 013). A guest reloading the demo starts fresh, which is the
-    visible consequence of not writing rows for anonymous visitors.
+    Signed-in and writable only: nothing is stored for a guest (ADR 013), nor for
+    a reader of a workspace nobody may write (ADR 040).
 
-    An unrecognized `chatId` is a 404 rather than a silent fallback to the latest
-    conversation: the URL names a specific thing, and quietly showing a different
-    one would make a deleted conversation look like it still existed. The helper
-    filters on workspace *and* user, so someone else's chat id is
-    indistinguishable from a missing one — which is the intended answer to both.
+    An unrecognized `chatId` 404s rather than falling back to the latest, or a
+    deleted conversation would look like it still existed. The helper filters on
+    workspace *and* user, so someone else's id is indistinguishable from a
+    missing one.
   */
-  const [chats, openChat] = signedIn
-    ? await Promise.all([
-        listChats(workspace.id, actor.id),
-        chatId
-          ? listChatMessages(workspace.id, actor.id, chatId).then((messages) =>
-              messages.length > 0 ? { chatId, messages } : null,
-            )
-          : loadLatestChat(workspace.id, actor.id),
-      ])
-    : [[], null];
+  const [chats, openChat] =
+    signedIn && writable
+      ? await Promise.all([
+          listChats(workspace.id, actor.id),
+          chatId
+            ? listChatMessages(workspace.id, actor.id, chatId).then(
+                (messages) =>
+                  messages.length > 0 ? { chatId, messages } : null,
+              )
+            : loadLatestChat(workspace.id, actor.id),
+        ])
+      : [[], null];
 
   // Once: each call re-validates `PLAN_LIMITS` and throws on an unknown value.
   const limits = resolvePlanLimits();

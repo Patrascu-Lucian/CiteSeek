@@ -29,7 +29,8 @@ What each milestone covers, and the constraints that hold across all of them.
 > | —                                  | 6 — Hardening and reader feedback | `v1.1.0`   |
 > | 6 — In-browser inference (stretch) | 7 — In-browser local mode         | `v1.2.0`   |
 > | —                                  | 7.5 — Ready for strangers         | `v1.3.0`   |
-> | 7 — Email and password sign-in     | 8 — the same, still optional      | —          |
+> | —                                  | 8 — Editing and deleting a turn   | —          |
+> | 7 — Email and password sign-in     | 8.5 — the same, still optional    | —          |
 > | 8 — Billing                        | 9 — the same, plus the writing    | —          |
 
 ## Rules that hold across every milestone

@@ -20,7 +20,7 @@ import {
 } from "@/lib/chats/queries";
 import { DEFAULT_PLAN_LIMITS } from "@/lib/limits/config";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
-import { usageEvents } from "@/lib/db/schema";
+import { documents, usageEvents } from "@/lib/db/schema";
 import { PRODUCTION_USAGE_LIMITS } from "@/lib/usage/config";
 import { FAKE_ANSWER } from "@/lib/ai/fake-chat-model";
 import { NO_RELEVANT_PASSAGES_REPLY } from "@/lib/ai/prompt";
@@ -31,6 +31,7 @@ import {
   createTestClient,
   createTestUser,
   createTestWorkspace,
+  findOrCreateDemoWorkspace,
 } from "@/lib/db/test-helpers";
 import {
   createQueuedDocument,
@@ -730,5 +731,28 @@ describe("a chatId that is not a uuid", () => {
     expect(response.status).toBe(400);
     // A fallback would have created one.
     expect(await listChats(workspace.id, user.id)).toHaveLength(0);
+  });
+});
+
+describe("a signed-in reader of the read-only demo", () => {
+  /* The backlog filed this as a button that should not render. It was the whole
+     route: `resolveChatForTurn` creates, so *asking anything* left a conversation
+     in a workspace badged read-only. ADR 040. */
+  it("gets an answer, and leaves nothing behind", async () => {
+    const user = await createTestUser(db, "demo-reader");
+    const demo = await findOrCreateDemoWorkspace(db);
+    const { documentId } = await seedPassage(demo.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+
+    try {
+      const chunks = await readStream(await postChat(demo.id, PASSAGE));
+
+      expect(textOf(chunks)).toBe(FAKE_ANSWER);
+      expect(await listChats(demo.id, user.id)).toEqual([]);
+    } finally {
+      // The demo may be a real seeded workspace rather than a prefixed one, and
+      // documents cascade from it rather than from the test user.
+      await db.delete(documents).where(eq(documents.id, documentId));
+    }
   });
 });

@@ -233,10 +233,11 @@ export function WorkspaceSections({
       </section>
 
       {/*
-        Only for a signed-in reader: guest conversations are never written down
-        (ADR 013), so a guest has no history and an empty list would promise one.
+        No history exists for a guest (ADR 013) or on the demo (ADR 040).
+        `canWrite` rather than `!isDemo`, so the control disappears for the same
+        reason the server refuses it.
       */}
-      {signedIn ? (
+      {signedIn && canWrite ? (
         <section
           aria-labelledby="conversations-heading"
           className="mt-12 space-y-4"

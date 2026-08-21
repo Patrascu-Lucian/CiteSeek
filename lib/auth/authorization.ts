@@ -59,10 +59,12 @@ export function canRead(
   return accessToWorkspace(actor, workspace) !== "none";
 }
 
+/** A guard, not a boolean: `"write"` implies a signed-in owner, so write paths
+ * need no guest branch. */
 export function canWrite(
   actor: Actor,
   workspace: WorkspaceAccessSubject,
-): boolean {
+): actor is Extract<Actor, { type: "user" }> {
   return accessToWorkspace(actor, workspace) === "write";
 }
 
