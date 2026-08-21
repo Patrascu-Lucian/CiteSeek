@@ -7,6 +7,7 @@ import {
   createTestClient,
   createTestUser,
   createTestWorkspace,
+  findOrCreateDemoWorkspace,
 } from "@/lib/db/test-helpers";
 import { CAP_PARAM } from "@/lib/limits/caps";
 import { DEFAULT_PLAN_LIMITS } from "@/lib/limits/config";
@@ -117,10 +118,26 @@ describe("createConversation", () => {
     const { workspace, user } = await scenario("action-guest");
     currentActor.value = { type: "guest", id: "guest-1" };
 
-    // Not the guest redirect: access is checked first, and a guest has none to
-    // a private workspace. That branch is for the demo.
     await expect(createConversation(workspace.id)).rejects.toThrow(/404/);
 
     expect(await listChats(workspace.id, user.id)).toEqual([]);
+  });
+
+  /* The demo badges itself read-only, and until ADR 040 a signed-in reader could
+     still start conversations in it. */
+  it("creates nothing in the demo, for a signed-in reader", async () => {
+    const user = await createTestUser(db, "action-demo");
+    const demo = await findOrCreateDemoWorkspace(db);
+    currentActor.value = {
+      type: "user",
+      id: user.id,
+      name: null,
+      email: null,
+      image: null,
+    };
+
+    await expect(createConversation(demo.id)).rejects.toThrow(/404/);
+
+    expect(await listChats(demo.id, user.id)).toEqual([]);
   });
 });

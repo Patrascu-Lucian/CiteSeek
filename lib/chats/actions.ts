@@ -5,37 +5,28 @@
 
 import { notFound, redirect } from "next/navigation";
 
-import { getActor } from "@/lib/auth/actor";
 import { createChatUnless } from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { CAP_PARAM, decideCap } from "@/lib/limits/caps";
 import { resolvePlanLimits } from "@/lib/limits/config";
 
 /**
- * Creates a conversation, then navigates to it.
+ * A POST, not a link: a prefetch executes a handler, and a GET created one per
+ * page load.
  *
- * **Still a POST**, because a prefetch executes a handler and a link created one
- * per page load. `redirect` inside an action navigates client-side, so this
- * costs no document reload, and the form still works without JavaScript.
+ * A **write** (ADR 040): guests need no branch, since they cannot reach `"write"`.
  */
 export async function createConversation(workspaceId: string): Promise<void> {
-  const auth = await authorizeWorkspace(workspaceId, "read");
+  const auth = await authorizeWorkspace(workspaceId, "write");
 
   // An action has no response to return, and a workspace the reader cannot see
   // should not be distinguishable from one that is not there.
   if (isDenied(auth)) notFound();
 
-  const actor = await getActor();
-  if (actor?.type !== "user") {
-    // Guest conversations are never stored (ADR 013), so there is nothing to
-    // create. Send them back rather than failing at them.
-    redirect(`/w/${workspaceId}`);
-  }
-
   const limit = resolvePlanLimits().conversations;
   const admission = await createChatUnless(
     auth.workspaceId,
-    actor.id,
+    auth.actorId,
     (existing) =>
       // The redirect names the cap from the query string, so only the fact of
       // refusal crosses back.

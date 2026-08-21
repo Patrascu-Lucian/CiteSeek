@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/postgres-js";
-import { like } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import postgres from "postgres";
 
 import * as schema from "./schema";
@@ -85,15 +85,29 @@ export async function createTestUser(db: TestDatabase, label = "user") {
 
 export async function createTestWorkspace(
   db: TestDatabase,
-  options: { ownerId?: string; label?: string } = {},
+  options: { ownerId?: string; label?: string; isDemo?: boolean } = {},
 ) {
   const [workspace] = await db
     .insert(workspaces)
     .values({
       name: `${TEST_PREFIX}${options.label ?? "workspace"}`,
       ownerId: options.ownerId ?? null,
+      isDemo: options.isDemo ?? false,
     })
     .returning();
 
   return workspace!;
+}
+
+/** Takes whichever demo is already there rather than inserting a second:
+ * `workspaces_single_demo_idx` permits exactly one. Chats and documents cascade
+ * from the test *user*, so a borrowed demo is left as it was found. */
+export async function findOrCreateDemoWorkspace(db: TestDatabase) {
+  const [existing] = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.isDemo, true))
+    .limit(1);
+
+  return existing ?? createTestWorkspace(db, { label: "demo", isDemo: true });
 }

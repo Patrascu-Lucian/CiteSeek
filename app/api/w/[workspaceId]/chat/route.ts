@@ -163,20 +163,17 @@ export async function POST(
 
   // Destructured before the closure: TypeScript drops narrowing at a function
   // boundary, so reading through `auth` inside it would widen these back.
-  const { workspaceId: scope, actorType, actorId } = auth;
+  const { workspaceId: scope, actorType, actorId, canWrite } = auth;
   const asked: string = question;
 
-  // Signed-in only: persisting guest turns would put an unbounded write path
-  // behind a public URL (ADR 005). `resolveChatForTurn` validates the id the
-  // client sends, so a guess cannot append to someone else's transcript.
+  // Writers, not signed-in: `actorType` created a demo conversation for every
+  // question a signed-in visitor asked (ADR 040).
   //
-  // Ahead of retrieval so the cap below refuses before the query is embedded.
-  // Safe to create a chat here: the fallback only inserts at zero chats, and a
-  // reader with zero chats has no messages to be capped on.
-  const chatId =
-    actorType === "user"
-      ? (await resolveChatForTurn(scope, actorId, requestedChatId)).id
-      : null;
+  // Ahead of retrieval, so the cap below refuses before the query is embedded.
+  // Creating here is safe: the fallback only inserts at zero chats.
+  const chatId = canWrite
+    ? (await resolveChatForTurn(scope, actorId, requestedChatId)).id
+    : null;
 
   if (chatId) {
     const limits = resolvePlanLimits();

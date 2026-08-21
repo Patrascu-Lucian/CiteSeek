@@ -1,47 +1,26 @@
 import { NextResponse } from "next/server";
 
-import { getActor } from "@/lib/auth/actor";
 import { deleteChat, renameChat } from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 
 export const runtime = "nodejs";
 
-/**
- * Two checks, and not the same check. `authorizeWorkspace` authorizes **read** —
- * a conversation is not a mutation of the workspace, and the demo is read-only
- * for everyone. Ownership of the *chat* is enforced in SQL, filtering on user as
- * well as workspace.
- *
- * Read access to a shared workspace must not imply write access to a conversation
- * inside it. Authorizing `write` would fail the other way, refusing a signed-in
- * user renaming their own conversation in the demo.
- *
- * Guests are refused outright: their conversations are never persisted (ADR 013),
- * so there is no row to address.
- */
-const GUEST_REFUSAL = {
-  error: "Guest conversations are not saved, so there is nothing to change.",
-} as const;
-
-/** Tagged rather than an `in` check: without the discriminant TypeScript widens
- * the union and `response` reads as possibly undefined. */
+/** Tagged, not an `in` check: without the discriminant TypeScript widens the union. */
 type Authorized =
   | { ok: false; response: NextResponse }
   | { ok: true; workspaceId: string; userId: string };
 
+/**
+ * Two checks, not one: this authorizes the *workspace*; `renameChat` and
+ * `deleteChat` enforce chat ownership in SQL.
+ *
+ * Was `"read"` until ADR 040, on reasoning that turned out circular.
+ */
 async function authorize(workspaceId: string): Promise<Authorized> {
-  const auth = await authorizeWorkspace(workspaceId, "read");
+  const auth = await authorizeWorkspace(workspaceId, "write");
   if (isDenied(auth)) return { ok: false, response: auth };
 
-  const actor = await getActor();
-  if (actor?.type !== "user") {
-    return {
-      ok: false,
-      response: NextResponse.json(GUEST_REFUSAL, { status: 403 }),
-    };
-  }
-
-  return { ok: true, workspaceId: auth.workspaceId, userId: actor.id };
+  return { ok: true, workspaceId: auth.workspaceId, userId: auth.actorId };
 }
 
 export async function PATCH(

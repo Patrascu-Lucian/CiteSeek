@@ -230,6 +230,49 @@ describe("WorkspaceSections — chat follows the document list", () => {
       screen.getByRole("link", { name: /sign in to upload/i }),
     ).toBeInTheDocument();
   });
+
+  /* Signed in *and* unable to write — the demo's combination, and the one no
+     test covered. ADR 040. */
+  it("offers no conversations on a workspace the signed-in reader cannot write", () => {
+    render(
+      <WorkspaceSections
+        workspaceId="w1"
+        initialDocuments={[doc({ status: "ready" })]}
+        initialMessages={[]}
+        chats={[]}
+        activeChatId={null}
+        canWrite={false}
+        signedIn
+        isDemo
+      />,
+    );
+
+    expect(
+      screen.queryByRole("heading", { level: 2, name: /conversations/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /new conversation/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("still offers conversations on a workspace the reader can write", () => {
+    render(
+      <WorkspaceSections
+        workspaceId="w1"
+        initialDocuments={[doc({ status: "ready" })]}
+        initialMessages={[]}
+        chats={[]}
+        activeChatId={null}
+        canWrite
+        signedIn
+        isDemo={false}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /new conversation/i }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("WorkspaceSections — when the open conversation goes away", () => {
