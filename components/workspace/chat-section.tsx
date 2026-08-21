@@ -55,6 +55,7 @@ export function ChatSection({
         initialMessages={initialMessages}
         messageCap={messageCap}
         canUpload={canWrite}
+        canDelete={canWrite && signedIn}
         documents={readyFilenames}
         // A guest's turns are never written down, so nothing goes stale.
         onTurnComplete={signedIn ? refreshFromServer : undefined}

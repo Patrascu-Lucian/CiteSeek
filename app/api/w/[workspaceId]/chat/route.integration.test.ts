@@ -41,14 +41,9 @@ import {
 import { fakeEmbedding } from "@/lib/ai/fake-embedder";
 import { l2Normalize } from "@/lib/rag/vector";
 
-/**
- * The chat route, end to end against a real database.
- *
- * Only two things are faked: the caller's identity, because there is no browser
- * to carry a session cookie, and the two providers, via `CHAT_PROVIDER=fake` and
- * `EMBEDDINGS_PROVIDER=fake` in the integration config. Authorization, retrieval,
- * scoping and stream assembly all run for real.
- */
+/** The chat route end to end against a real database. Only the caller identity
+ * and the two providers are faked; authorization, retrieval, scoping and stream
+ * assembly all run for real. */
 
 const currentActor = vi.hoisted(() => ({ value: null as Actor | null }));
 
@@ -93,13 +88,9 @@ afterAll(async () => {
   await client.end();
 });
 
-/**
- * The fake embedder counts words into hashed dimensions, so identical text
- * yields an identical vector and a cosine distance of exactly 0. Asking a
- * question that *is* the passage is the sharpest way to make retrieval succeed
- * without a real model; a question sharing no vocabulary lands near 1, well
- * beyond the floor. That gives deterministic control over both branches.
- */
+/** The fake embedder hashes words, so identical text yields a cosine distance of
+ * exactly 0 and unrelated text lands near 1 — which is what gives deterministic
+ * control over both the answering and the refusing branch. */
 async function seedPassage(workspaceId: string, content: string) {
   const document = await createQueuedDocument(workspaceId, {
     filename: "handbook.pdf",
@@ -189,15 +180,9 @@ function refusalOf(chunks: { type: string }[]) {
   return part?.data ?? null;
 }
 
-/**
- * A realistically sized passage, not a single sentence.
- *
- * Cosine distance depends heavily on length, so a 50-character chunk sits much
- * closer to an arbitrary question than a real one ever would — and a refusal
- * test built on it would pass for the wrong reason, or stop passing the moment
- * the floor was calibrated against realistic input. Chunking targets 600
- * characters; this is in that neighborhood.
- */
+/** Realistically sized, because cosine distance depends heavily on length: a
+ * 50-character chunk sits closer to an arbitrary question than a real one would,
+ * so a refusal test built on one passes for the wrong reason. */
 const PASSAGE = [
   "Employees may claim reimbursement for equipment, software licenses and",
   "co-working space. Claims must be submitted within 60 days of purchase, and",
@@ -240,15 +225,9 @@ describe("POST /api/w/[workspaceId]/chat", () => {
     expect(textOf(chunks)).toBe(FAKE_ANSWER);
   });
 
-  /**
-   * The question behind making the conversation list refresh itself: is the
-   * turn already written down by the time the client's stream ends?
-   *
-   * The route persists inside `streamText`'s own `onFinish`, so if the response
-   * body could close before that transaction commits, a client refreshing on
-   * completion would read a count one turn behind — which is the stale count it
-   * is meant to fix, arriving a moment later instead of on the next reload.
-   */
+  /** Is the turn written down by the time the stream ends? The route persists
+   * inside `streamText`.s `onFinish`; if the body could close first, a client
+   * refreshing on completion would read a count one turn behind. */
   it("has persisted the turn by the time the stream closes", async () => {
     const user = await createTestUser(db);
     const workspace = await createTestWorkspace(db, { ownerId: user.id });
@@ -465,12 +444,8 @@ describe("POST /api/w/[workspaceId]/chat", () => {
     expect(response.status).toBe(400);
   });
 
-  /**
-   * The wiring, not the policy — `lib/usage/enforce.integration.test.ts` covers
-   * the thresholds. What matters here is *where* the check sits: a caller over
-   * their cap must be refused before retrieval embeds their question, since the
-   * whole point is to not spend the call being limited.
-   */
+  /** The wiring, not the policy. What matters is *where* the check sits: over
+   * their cap, a caller is refused before retrieval embeds the question. */
   it("refuses a caller over their cap before spending anything", async () => {
     const user = await createTestUser(db);
     const workspace = await createTestWorkspace(db, { ownerId: user.id });
@@ -581,7 +556,9 @@ describe("the saved-message cap", () => {
 
     expect(body.cap).toBe("messages");
     expect(body.title).toContain(String(CAP));
-    expect(body.detail).toContain("Start a new conversation");
+    // Both moves, since ADR 042 made deleting an exchange one of them.
+    expect(body.detail).toContain("Delete an exchange");
+    expect(body.detail).toContain("start a new conversation");
   });
 
   it("says to delete a conversation when they are all used", async () => {
@@ -616,7 +593,9 @@ describe("the saved-message cap", () => {
 
     expect(response.status).toBe(409);
     const body = (await response.json()) as { detail: string };
-    expect(body.detail).toContain("delete one");
+    // The cheaper move first, then the one inside this conversation.
+    expect(body.detail).toMatch(/one of your other conversations/i);
+    expect(body.detail).toContain("delete an exchange");
   });
 
   it("still answers one turn below the cap", async () => {

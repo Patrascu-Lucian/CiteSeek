@@ -6,6 +6,10 @@ import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
 
 import { ChatPanel } from "./chat-panel";
 
+/** A Server Action module: importing it for real pulls the database into a jsdom
+ * test. Its behavior is covered in `actions.integration.test.ts`. */
+vi.mock("@/lib/chats/actions", () => ({ deleteConversationTurn: vi.fn() }));
+
 /**
  * `useChat` owns a network connection, so it is replaced here. Everything else —
  * the states, the wiring, the accessible names — is the component's own and runs
@@ -82,15 +86,9 @@ function renderPanel(
   );
 }
 
-/**
- * What the transport actually hands the client for a refusal.
- *
- * Both the pre-flight 429 and a mid-stream provider error arrive as an `Error`
- * whose *message is the JSON body* — the SDK throws `new Error(response.text())`
- * and turns a stream error part into `new Error(errorText)`. Building the
- * fixture that way rather than passing a bare code keeps this test honest about
- * the shape the component has to survive.
- */
+/** What the transport actually hands the client: both a pre-flight 429 and a
+ * mid-stream error arrive as an `Error` whose *message is the JSON body*. A bare
+ * code would test a shape the component never sees. */
 function refusalError(code: "rate_limited" | "capacity_reached") {
   return new Error(JSON.stringify({ error: "…", code }));
 }
@@ -238,12 +236,8 @@ describe("ChatPanel — asking", () => {
 });
 
 describe("ChatPanel — citations", () => {
-  /*
-    `Answer` is behind a dynamic import, so the first chip in this file does not
-    exist until Vitest has transformed the markdown stack — comfortably over
-    Testing Library's 1s default on a loaded machine. Same allowance, and same
-    reason, as the `message-list` specs.
-  */
+  // `Answer` is behind a dynamic import, so the first chip waits on Vitest
+  // transforming the markdown stack — over the 1s default on a loaded machine.
   const CHIP_TIMEOUT = { timeout: 5_000 };
 
   // The panel moved up to `WorkspaceShell`, so what this component owes is

@@ -4,14 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ChatPanel } from "./chat-panel";
 
-/**
- * The real `useChat` and the real transport, against a stubbed `fetch`.
- *
- * Every other test of this component replaces `useChat`, which is how the route
- * went months without being told which conversation was open: the parameter was
- * covered on the server and never sent by the client, and nothing looked at the
- * seam between them.
- */
+/** A Server Action module: importing it for real pulls the database into a jsdom
+ * test. Its behavior is covered in `actions.integration.test.ts`. */
+vi.mock("@/lib/chats/actions", () => ({ deleteConversationTurn: vi.fn() }));
+
+/** The real `useChat` and transport against a stubbed `fetch`. Every other test
+ * replaces `useChat`, which is how the route went months without being told
+ * which conversation was open — covered on both sides, never at the seam. */
 
 function captureRequest() {
   const sent: { body?: unknown } = {};

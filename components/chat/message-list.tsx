@@ -5,25 +5,15 @@ import type { ChatSource, ChatUIMessage, RefusalReason } from "@/lib/ai/types";
 import { DEMO_EXAMPLE_QUESTIONS } from "@/lib/demo/example-questions";
 import { cn } from "@/lib/utils";
 
+import { DeleteTurnDialog } from "./delete-turn-dialog";
+import { TurnActions } from "./turn-actions";
 import { Refusal } from "./refusal";
 
-/**
- * `Answer` pulls in Streamdown — **428 KB raw**, measured, and it was in the
- * initial HTML of every workspace visit despite an empty conversation needing
- * none of it. `ssr` stays on; only the client fetch is deferred.
- */
+/** `Answer` pulls in Streamdown — **428 KB raw**, measured, and it was in the
+ * initial HTML of every visit. `ssr` stays on; only the client fetch is deferred. */
 const Answer = dynamic(() => import("./answer").then((m) => m.Answer), {
-  /*
-    Without this, `dynamic` renders `null` while the chunk is in flight — so the
-    first answer's bubble appeared, collapsed to nothing, and then filled in.
-    Measured on a production build, the chunk landed 478ms into a first answer;
-    on the dev server, where Next compiles it on demand, **1006ms into a 1433ms
-    answer**. Every later answer on the same page reused it and was instant.
-
-    That one-time gap is what made the first reply of a session look like the
-    page was reloading itself. Reserving the space keeps the layout still while
-    it loads, which is the same reason every route here has a `loading.tsx`.
-  */
+  // Without this `dynamic` renders `null` mid-flight, so the first bubble
+  // appeared, collapsed and refilled — 478ms built, 1006ms on the dev server.
   loading: () => (
     <div aria-hidden="true" className="space-y-2 py-1">
       <div className="bg-foreground/10 h-3 w-48 animate-pulse rounded" />
@@ -129,12 +119,18 @@ export function MessageList({
   signedIn,
   isDemo,
   onAsk,
+  onDeleteTurn,
+  deletingId = null,
   pending = false,
   streaming = false,
 }: {
   messages: readonly ChatUIMessage[];
   onSelectSource: (source: ChatSource) => void;
   selectedChunkId: string | null;
+  /** Omitted where the transcript is not stored, so there is nothing to delete. */
+  onDeleteTurn?: (messageId: string) => void;
+  /** The exchange whose delete is in flight. */
+  deletingId?: string | null;
   /** Passed through to the refusal, which is the only thing that needs it. */
   uploadHref: string | null;
   /** Searchable filenames, for a refusal to say what it can answer from. */
@@ -160,54 +156,74 @@ export function MessageList({
         const refusal = messageRefusal(message);
         const settled = !streaming || index < messages.length - 1;
 
+        // On the question, which is what names the exchange — the rule
+        // `deleteTurn` enforces in SQL. Not while its answer is still arriving.
+        const deletable =
+          isUser &&
+          onDeleteTurn &&
+          !(streaming && index >= messages.length - 2);
+
+        const bubble = (
+          <div
+            // Marks the surface a chip is drawn on, so a test can compare the
+            // two backgrounds — a chip was once painted in exactly this color
+            // and vanished, which no automated rule catches.
+            data-message-bubble={isUser ? "user" : "assistant"}
+            className={cn(
+              "max-w-[85%] rounded-lg px-4 py-3 text-sm",
+              isUser
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-foreground",
+            )}
+          >
+            {/* The role is announced rather than inferred from alignment,
+                which carries no meaning to a screen reader. */}
+            <span className="sr-only">{isUser ? "You asked:" : "Answer:"}</span>
+
+            {isUser ? (
+              <p className="whitespace-pre-wrap">{messageText(message)}</p>
+            ) : (
+              <>
+                <Answer
+                  text={messageText(message)}
+                  sources={messageSources(message)}
+                  onSelectSource={onSelectSource}
+                  selectedChunkId={selectedChunkId}
+                  settled={settled}
+                />
+                {/* Below the text, not instead of it: the sentence saying
+                    nothing was found is still the answer to the question. */}
+                {refusal ? (
+                  <Refusal
+                    reason={refusal}
+                    documents={documents}
+                    canUpload={canUpload}
+                    signedIn={signedIn}
+                    uploadHref={uploadHref}
+                  />
+                ) : null}
+              </>
+            )}
+          </div>
+        );
+
         return (
           <li
             key={message.id}
             className={cn("flex", isUser ? "justify-end" : "justify-start")}
           >
-            <div
-              // Marks the surface a chip is drawn on, so a test can compare the
-              // two backgrounds — a chip was once painted in exactly this color
-              // and vanished, which no automated rule catches.
-              data-message-bubble={isUser ? "user" : "assistant"}
-              className={cn(
-                "max-w-[85%] rounded-lg px-4 py-3 text-sm",
-                isUser
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-foreground",
-              )}
-            >
-              {/* The role is announced rather than inferred from alignment,
-                  which carries no meaning to a screen reader. */}
-              <span className="sr-only">
-                {isUser ? "You asked:" : "Answer:"}
-              </span>
-
-              {isUser ? (
-                <p className="whitespace-pre-wrap">{messageText(message)}</p>
-              ) : (
-                <>
-                  <Answer
-                    text={messageText(message)}
-                    sources={messageSources(message)}
-                    onSelectSource={onSelectSource}
-                    selectedChunkId={selectedChunkId}
-                    settled={settled}
-                  />
-                  {/* Below the text, not instead of it: the sentence saying
-                      nothing was found is still the answer to the question. */}
-                  {refusal ? (
-                    <Refusal
-                      reason={refusal}
-                      documents={documents}
-                      canUpload={canUpload}
-                      signedIn={signedIn}
-                      uploadHref={uploadHref}
-                    />
-                  ) : null}
-                </>
-              )}
-            </div>
+            {deletable ? (
+              <TurnActions bubble={bubble} className="justify-end">
+                <DeleteTurnDialog
+                  question={messageText(message)}
+                  hasAnswer={messages[index + 1]?.role === "assistant"}
+                  busy={deletingId === message.id}
+                  onConfirm={() => onDeleteTurn(message.id)}
+                />
+              </TurnActions>
+            ) : (
+              bubble
+            )}
           </li>
         );
       })}
