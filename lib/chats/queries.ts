@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, lt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { isUuid } from "@/lib/db/uuid";
@@ -331,6 +331,71 @@ export async function deleteChat(
     .returning({ id: chats.id });
 
   return deleted.length > 0;
+}
+
+/**
+ * Deletes a question and the answer grounded in it, which is one thing to a
+ * reader — deleting either alone strands the other.
+ *
+ * **Named by its question**, so an assistant id is refused rather than guessed
+ * at. Positions keep their gaps: `appendMessages` takes the maximum, and
+ * renumbering would race the unique index on `(chat_id, position)` for nothing.
+ */
+export async function deleteTurn(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+  messageId: string,
+): Promise<number> {
+  if (!isUuid(chatId) || !isUuid(messageId)) return 0;
+
+  return db.transaction(async (tx) => {
+    const [turn] = await tx
+      .select({ position: messages.position })
+      .from(messages)
+      .innerJoin(chats, eq(messages.chatId, chats.id))
+      .where(
+        and(
+          eq(messages.id, messageId),
+          eq(messages.chatId, chatId),
+          eq(messages.role, "user"),
+          eq(chats.workspaceId, workspaceId),
+          eq(chats.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (!turn) return 0;
+
+    // Where the next turn starts, or nothing if this is the last one. Read
+    // rather than expressed as a sentinel upper bound: `position` is an
+    // `integer`, and the obvious sentinel does not fit in one.
+    const [next] = await tx
+      .select({ position: messages.position })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.chatId, chatId),
+          eq(messages.role, "user"),
+          gt(messages.position, turn.position),
+        ),
+      )
+      .orderBy(asc(messages.position))
+      .limit(1);
+
+    const deleted = await tx
+      .delete(messages)
+      .where(
+        and(
+          eq(messages.chatId, chatId),
+          gte(messages.position, turn.position),
+          next ? lt(messages.position, next.position) : undefined,
+        ),
+      )
+      .returning({ id: messages.id });
+
+    return deleted.length;
+  });
 }
 
 export type NewChatMessage = {

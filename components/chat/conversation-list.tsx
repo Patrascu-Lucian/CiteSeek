@@ -181,9 +181,6 @@ export function ConversationList({
  * Lighter than the account dialog's typed word: what is lost is one conversation,
  * and a typed confirmation on every row trains the reader to type through it.
  * Naming the conversation is the job — a misclick got *which one* wrong.
- *
- * The documents list has the same control and no confirmation; filed in
- * `docs/backlog.md` rather than bolted on here.
  */
 function DeleteConversation({
   label,
