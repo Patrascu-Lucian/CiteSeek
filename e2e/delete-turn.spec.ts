@@ -90,9 +90,10 @@ test("the control is reachable without a pointer, and axe is clean", async ({
   await trigger.focus();
   await expect(actions).toHaveCSS("opacity", "1");
 
+  // Square, and sitting exactly on WCAG 2.5.8's 24px floor — so a shrink of any
+  // size fails here rather than only in a manual pass.
   const box = await trigger.boundingBox();
-  expect(box!.width).toBeGreaterThanOrEqual(24);
-  expect(box!.height).toBeGreaterThanOrEqual(24);
+  expect(box).toMatchObject({ width: 24, height: 24 });
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])

@@ -157,8 +157,7 @@ export function DocumentList({
                       <Button
                         type="button"
                         variant="ghost-destructive"
-                        size="sm"
-                        className="px-1.5 sm:px-2.5"
+                        size="icon-sm"
                         disabled={busyId === document.id}
                         aria-label={`Delete ${document.filename}`}
                       >
