@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
  * Past conversations, as links — routes rather than client state, so one can be
  * linked, bookmarked and reached with the back button.
  *
- * No `"use client"`: reached only through `WorkspaceSections`, which owns the
+ * No `"use client"`: reached only through `WorkspaceShell`, which owns the
  * boundary. A directive here would make Next treat this as a client *entry*,
  * whose function props must be Server Actions — `onChanged` is not one.
  *

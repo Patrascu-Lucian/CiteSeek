@@ -256,6 +256,10 @@ test.describe("usage", () => {
     // a pruned month reads as a quiet one.
     await expect(page.getByText(/last 30 days/i)).toBeVisible();
 
+    // The workspace shell is scoped to a route group so it does not reach this
+    // page (ADR 041). A second `main` would be it leaking in.
+    await expect(page.locator("main")).toHaveCount(1);
+
     // Never a currency figure: the free tier costs nothing, so any money here
     // would describe a tier this app is not on.
     await expect(page.locator("main")).not.toContainText("$");

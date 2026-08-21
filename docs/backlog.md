@@ -1746,7 +1746,7 @@ the shipped `APPEAR_AFTER_MS` instead of hoping a real page renders inside it. T
 tests that remain cover what only end-to-end can: that a real prefetch does not raise the bar, and
 that a genuinely slow navigation raises and clears it.
 
-## Switching conversations rebuilds the workspace shell, 20 August 2026
+## ~~Switching conversations rebuilds the workspace shell~~, 20 August 2026
 
 The document reload is gone — a Server Action navigates client-side now — but the React tree below
 `main` is still torn down and rebuilt on every conversation change. Measured by tagging live DOM
@@ -1767,6 +1767,28 @@ computed in the layout would be frozen. Splitting them needs the shared document
 a client context provider in the layout, which the page then consumes.
 
 Not a patch-release change. Worth doing before the composer work, since both touch the same surface.
+
+**Done**, 21 August 2026 — [ADR 041](decisions/041-the-workspace-shell-is-a-layout.md). A route
+group, `(workspace)`, rather than the bare segment: a layout at `[workspaceId]` would have wrapped
+the usage dashboard in the document list and a chat panel, which this entry did not anticipate.
+
+**The 410 ms above is wrong, and wrong in an instructive way.** Its five samples mix two
+populations — the first switch of a session and every switch after it — so the median sat between
+them and described neither. Separated, on the same machine and database:
+
+|        | first switch          | steady-state median |
+| ------ | --------------------- | ------------------- |
+| before | 396, 894, 898, 902 ms | 67, 68, 70, 71 ms   |
+| after  | 98, 102, 119, 120 ms  | 83, 85, 85, 86 ms   |
+
+So the remount was never expensive once Next had the route payload cached; the **first** switch
+was, and that one happens in every session. The steady state is **~16 ms worse**, consistently, and
+why is unmeasured — the shell now re-renders where it used to be discarded, but naming that as the
+cause without instrumenting it is the error this file keeps recording.
+
+**On the steady-state number alone this change would not pay for itself.** What justifies it is
+state: the document list keeps polling across a conversation change, the source panel stays open,
+and scroll position survives. Speed was the wrong argument for the right change.
 
 ## The composer: one row, and the send control inside it, 20 August 2026
 
@@ -1834,3 +1856,29 @@ reach `"write"` on any workspace, so the chats route's 403 was unreachable and i
 
 Not done here: rows that predate the rule still sit in the demo, unlisted and unreachable. The ADR
 carries the query to count them before anyone decides whether to delete them.
+
+## The signed-in E2E specs cannot run locally, 21 August 2026
+
+Found while adding one. `e2e/signed-in.ts` opens its own database connection from
+`process.env.DATABASE_URL`, and **nothing in the harness puts it there**: `playwright.config.ts`
+loads no env file, and neither does `e2e/global-setup.ts`. The `env` block in `webServer` reaches
+only the server Playwright spawns, not the test runner.
+
+So `pnpm test:e2e e2e/plan-caps.spec.ts` fails on `develop` with
+`password authentication failed for user "patra"` — postgres falling back to the OS user because
+the URL is absent. It reproduces without any of this milestone's changes. These specs have only
+ever run in CI, which exports the variable.
+
+Exporting it by hand works, and the guard earns its keep on the way: `.env.local` points at Neon,
+and `assertDisposableDatabase` refuses it rather than letting a browser test insert users into a
+real database. `.env.test.local` is the one that works, and an exported variable beats Next's env
+files, so runner and server then agree on which database they are looking at.
+
+**Two candidate fixes.** `playwright.config.ts` could call `loadLocalEnv(".env.test.local")` the
+way `vitest.integration.config.ts` does — one line, and the two harnesses would then agree. Or
+`signed-in.ts` could fail with a sentence naming the missing variable rather than letting postgres
+guess a username. The second is the more general fix and does not preclude the first: a fixture
+that silently connects somewhere unintended is a category of confusion, not one bug.
+
+**Not fixed here** — it predates this branch and belongs in a commit about the harness, not one
+about a layout.

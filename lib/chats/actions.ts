@@ -3,6 +3,7 @@
 // Every export here is a callable endpoint, so each one authorizes itself. An
 // action is POST-only by construction — what it is not is private.
 
+import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 
 import { createChatUnless } from "@/lib/chats/queries";
@@ -32,6 +33,11 @@ export async function createConversation(workspaceId: string): Promise<void> {
       // refusal crosses back.
       decideCap("conversations", existing, limit).allowed ? null : "capped",
   );
+
+  // The conversation list belongs to the layout, and a client navigation does
+  // not refetch one — so the write has to invalidate it or the new row is
+  // missing until something else refreshes the route (ADR 041).
+  if (admission.admitted) revalidatePath(`/w/${workspaceId}`, "layout");
 
   // The fragment scrolls the refusal into view: it renders beside the
   // conversation list, below the documents.

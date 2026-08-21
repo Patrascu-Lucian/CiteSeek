@@ -158,6 +158,30 @@ export async function resolveChatForTurn(
   return getOrCreateChat(workspaceId, userId);
 }
 
+/** An empty conversation is legitimate, so "no messages" does not mean "no such
+ * chat". */
+export async function chatExists(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+): Promise<boolean> {
+  if (!isUuid(chatId)) return false;
+
+  const [found] = await db
+    .select({ id: chats.id })
+    .from(chats)
+    .where(
+      and(
+        eq(chats.id, chatId),
+        eq(chats.workspaceId, workspaceId),
+        eq(chats.userId, userId),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(found);
+}
+
 /** Scoped by workspace *and* user, matching `createChat` — on the workspace
  * alone it would cap a shared workspace collectively. */
 export async function countChats(
