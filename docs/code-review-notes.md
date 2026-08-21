@@ -2146,3 +2146,87 @@ tests, 117 E2E and a production build, green.
   that starts taking a function as a prop has acquired a new failure mode it did not have when it
   called `fetch` itself. Worth asking of any extracted seam: what happens when the thing I now
   accept from a caller _rejects_ rather than returning the failure shape it expects?
+
+## A test that pinned the ambiguity it should have caught, 20 August 2026
+
+- **Issue found**: at the saved-message cap with three conversations, the refusal read "This
+  conversation has reached its limit of 40 saved messages. You have used all your conversations
+  too, so delete one before starting another." Two problems, and manual testing on the live URL
+  found both. "Delete one" attaches to the nearest noun, which is _messages_ — and nothing deletes
+  a message, so a reader goes looking for a control that does not exist. Worse, deleting was the
+  wrong advice: `conversationsExhausted` counts conversations, not their messages, so the other
+  two are usually still writable. The reader was being told to destroy something to reach an
+  option they already had.
+
+- **How it survived**: the unit test asserted `copy.detail` contains **"delete one"** — the exact
+  phrase that was ambiguous. It passed for the whole life of the defect, and it would have failed
+  if anyone had corrected the wording. A test written from the implementation rather than the
+  requirement locks the implementation in place.
+
+- **Fix**: "Continue one of your other conversations, or delete one to start a new one." The
+  cheap action first, the destructive one second, and "conversations" is now the nearest noun so
+  "delete one" cannot be read as a message. The test asserts both options are offered.
+
+- **First correction**: the first attempt at this named the noun — "Delete a conversation in the
+  list above" — and kept deletion as the only advice, which fixed the grammar and left the worse
+  half in place. It took Lucian pointing out that the other conversations were not full to see
+  that the sentence was wrong about what the reader had to do, not merely about what it called it.
+
+- **Lesson**: **assert the requirement, not the string.** `toContain("delete one")` looks like
+  coverage and is really a snapshot of one phrasing; the question it should have been asking is
+  "does this tell a reader something they can act on, and is it the cheapest thing that works?"
+  A copy test that cannot fail when the copy is wrong is worse than no copy test, because it
+  reports the wording as reviewed.
+
+## A cost recorded as deliberate that was never priced, 20 August 2026
+
+- **Issue found**: pressing "New conversation" reloaded the whole workspace — documents refetched,
+  chat panel remounted, scroll lost. Reported three times. Each time the answer was that it is
+  deliberate, and the backlog entry says so: `/c/new` is a form POST answering `303`, because the
+  first version was a `GET` and Next prefetches `<Link>` targets in the viewport, so merely
+  rendering the page created conversations. That reasoning is correct and the conclusion did not
+  follow from it.
+
+- **How it survived**: the entry recorded the cost as "no middle-click, no open-in-new-tab" and
+  admitted, in its own last line, that the reload "was not recorded, which understates it". So the
+  trade was written down with one side missing, and every later reading confirmed the decision
+  against the incomplete version. A defect described as intentional stops being re-examined —
+  which is the failure mode of a good decision log rather than a bad one.
+
+- **Fix**: a Server Action. It is still a POST, so prefetchers, crawlers and tab-restore still
+  cannot create anything; `redirect()` inside one navigates client-side; and the form still works
+  without JavaScript, because Next posts it to the action endpoint. Nothing was traded away — the
+  reload was never load-bearing, it was the shape of the tool. The route and its integration tests
+  moved to `lib/chats/actions.ts`, keeping the guest, cap and at-zero cases.
+
+- **Measured**, before and after, by counting `page.on("load")` and checking whether a value set
+  on `window` survived the press: **1 document load and a wiped context, against 0 and a surviving
+  one.**
+
+- **Lesson**: **"deliberate" is a claim about a trade, and a trade needs both sides written down.**
+  When a cost is recorded incompletely, the record starts defending the decision instead of
+  describing it. A repeated report is evidence the price was wrong, not evidence the reporter
+  forgot the reason.
+
+## A reload removed, and the feedback removed with it, 20 August 2026
+
+- **Issue found**: replacing the "New conversation" route handler with a Server Action deleted the
+  page reload — measured, 1 document load against 0 — and deleted every indication that anything
+  was happening. `NavigationProgress` counts a request only when its URL contains `_rsc=`, and a
+  Server Action posts to the _current_ URL with a `Next-Action` header instead. While the control
+  was a form POST, the browser's own loading indicator covered the wait; removing the document
+  navigation removed that too. Measured with the action slowed to 1.2 s: the bar never appeared.
+
+- **How it survived**: the change was verified against the thing it set out to fix. The probe
+  counted `page.on("load")` and checked that a value on `window` survived — both of which
+  improved — and neither could have noticed that the replacement was silent. Two Playwright tests
+  cover the bar, and both drive `<Link>` navigations, so the new path had no coverage at all.
+
+- **Fix**: read `Next-Action` alongside `_rsc=`, with a unit test that fails when the header check
+  is removed. ADR 024 claimed "counting the requests covers all of them"; that was true until this
+  change made it nearly true, and it is true again now.
+
+- **Lesson**: **when a change removes a mechanism, ask what else was riding on it.** The document
+  navigation was the defect; it was also, incidentally, the loading indicator. A measurement aimed
+  at the defect confirms the defect is gone and says nothing about the passengers. The reviewer
+  found it by reading what `NavigationProgress` matches on — not by running anything.

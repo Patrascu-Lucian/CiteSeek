@@ -17,7 +17,7 @@ export default async function WorkspacePage({
   searchParams,
 }: {
   params: Promise<{ workspaceId: string }>;
-  /** `/c/new` redirects here with `CAP_PARAM` when the conversation cap refuses;
+  /** `createConversation` redirects here with `CAP_PARAM` when the cap refuses;
    * a form POST has no other way to carry a refusal through the navigation. */
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {

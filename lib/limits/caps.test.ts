@@ -134,11 +134,13 @@ describe("capRefusalCopy — messages", () => {
     );
   });
 
-  it("says what to delete when conversations are exhausted too", () => {
+  it("offers the other conversations before it offers deleting one", () => {
+    // The first version sent a reader to delete something they did not have to.
     const copy = capRefusalCopy(decision, { conversationsExhausted: true });
 
+    expect(copy.detail).toMatch(/one of your other conversations/i);
     expect(copy.detail).toContain("delete one");
-    expect(copy.detail).not.toContain("Start a new conversation");
+    expect(copy.detail).not.toContain("Start a new conversation to keep going");
   });
 });
 

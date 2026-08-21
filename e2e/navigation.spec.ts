@@ -1,10 +1,8 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
-/** ADR 024: the bar counts in-flight `?_rsc=` requests, and only appears once one
- * has been running longer than `APPEAR_AFTER_MS`. Three things are worth pinning —
- * it stays down for the prefetch burst, it stays down for a quick navigation, and
- * it rises for a slow one. */
+/** ADR 024. Only what needs a real browser is here — the threshold itself is a
+ * unit test. */
 const BAR = "[data-navigation-progress]";
 
 declare global {
@@ -69,21 +67,4 @@ test("rises during a slow navigation and clears afterward", async ({
 
   // An indicator that never clears is worse than none.
   await expect(page.locator(BAR)).toHaveCount(0);
-});
-
-test("stays down for a navigation that resolves quickly", async ({ page }) => {
-  // The reason the delay exists: a bar on a 120ms navigation reads as a flicker.
-  await page.goto("/about");
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await page.waitForTimeout(400);
-
-  await watchForBar(page);
-
-  await page
-    .getByRole("link", { name: /^privacy/i })
-    .first()
-    .click();
-  await expect(page).toHaveURL(/\/privacy$/, { timeout: 30_000 });
-
-  expect(await page.evaluate(() => window.__sawBar)).toBe(false);
 });

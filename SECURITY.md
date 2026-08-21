@@ -47,6 +47,11 @@ link here:
   three separate ways; a day of demo availability is knowingly at risk. See `docs/backlog.md`.
 - **Guest conversations are not persisted**, so they are not recoverable. That is deliberate
   ([ADR 013](docs/decisions/013-chat-persistence.md)).
+- **Advisories in packages this app never executes** are pinned forward anyway, in
+  `pnpm-workspace.yaml`. `sharp` and `adm-zip` arrive through `@huggingface/transformers`, and
+  neither is on the path local mode ships: images are never decoded here, and `adm-zip` comes via
+  `onnxruntime-node`, while the browser loads `onnxruntime-web`. Pinned rather than argued away,
+  because "we do not call it" is a claim that quietly expires.
 
 ## Handling of your report
 

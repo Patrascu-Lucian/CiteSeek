@@ -1032,6 +1032,10 @@ fourth is a defect with a diagnosis.
   construction and is arguably better semantics — a `<th scope="row">` should identify the
   row, not carry data. The second needs a header cell for the new column, and an empty `<th>`
   is not free for a screen reader reading the table.
+  **Done**, 20 August 2026, with the first: one class on the date. Measured by reading the bars'
+  left edges — `171 171 170 171 171 171 171 171 167`, three distinct positions across 4px, against
+  a single 172 after. The second was not taken: the bar is `aria-hidden` decoration of the Calls
+  figure, so a column of its own would claim it is a datum the table reports.
 
 ## Local mode, found in review of the answering slice, 12 August 2026
 
@@ -1527,13 +1531,18 @@ it: validation, ownership and the stale-id fallback are all in place and tested.
 integration test that drives the client seam rather than the route alone — the gap here was
 precisely that nothing connected the two.
 
-## "New conversation" reloads the whole page, 17 August 2026
+## ~~"New conversation" reloads the whole page~~, 17 August 2026
 
 `/c/new` is a form POST answering `303`, so every press is a full document navigation: the whole
 workspace re-renders, documents are re-fetched, and the chat panel remounts. Correct, and
 deliberate — a `GET` that creates a resource is what the prefetch incident taught, and the POST is
 what fixed it (`lib/links.ts`). The cost was recorded as "no middle-click, no open-in-new-tab" and
 the reload was not, which understates it.
+
+**Done**, 20 August 2026. A Server Action replaces the route: still a POST, so the prefetch guard
+holds, but `redirect()` inside one navigates client-side and the form still works without
+JavaScript. Measured 1 document load before and 0 after. Nothing was traded back — the reload was
+never part of the trade, only the shape of the tool it was implemented with.
 
 **Options, none of which reintroduce the prefetch problem:**
 
@@ -1668,3 +1677,124 @@ not deployed yet, so running it today would recapture the old header faithfully.
 because the fake embedder retrieves the wrong passage and the picture is _of_ a citation.
 
 **Do it right after the v1.3.0 deploy**, against production, which is what the script is built for.
+
+## The storage ceiling cannot be reached by one document, 20 August 2026
+
+Found while testing the caps on the live URL. The plan allows 500,000 extracted characters, but
+`MAX_CHUNKS_PER_DOCUMENT` is 600 and the measured density is ~455 characters per chunk — so a
+single document tops out around **273,000 characters**. A 300,000-character upload never reaches
+the storage check; it fails at chunking with "This document produces 659 chunks, above the limit
+of 600. Split it into smaller documents."
+
+Nothing is wrong here, and the chunk message gives advice that works: two 250,000-character files
+ingest and land exactly on the ceiling. But "500,000 characters of storage" reads as something one
+document could use, and it is not — the two limits are set independently and their interaction is
+written down nowhere.
+
+Worth deciding rather than leaving implicit: either say the per-document ceiling beside the plan
+limit on the usage page, or raise `MAX_CHUNKS_PER_DOCUMENT` so one document can in principle fill
+the plan. The first is a copy change; the second is a cost decision, since the constant is one
+embedding call per chunk and exists to bound exactly that.
+
+## ~~A navigation test that only fails in the full suite~~, 20 August 2026
+
+`e2e/navigation.spec.ts` — "stays down for a navigation that resolves quickly" — failed twice on
+19 and 20 August, both times in a full `pnpm test:e2e` run and never in isolation. It passes 3/3
+and 4/4 when run alone, on a clean tree and on a working one, so the trigger is contention across
+the eight parallel workers rather than anything in the diff that happened to be open. The
+assertion is `expect(received).toBe(false)` receiving `true`, which reads as an indicator staying
+visible past the point the test expects it gone.
+
+**Both traces were discarded rather than read.** `trace: "retain-on-failure"` is configured
+locally, so `test-results/` held exactly what this needs — and it was deleted while tidying before
+staging, twice. That is the specific mistake this file already records under the E2E flake entry:
+capture the trace first, then re-run. Nothing here should be guessed at until one is kept.
+
+**Third sighting, 20 August 2026, and this time the trace was read.** It is not random. The
+navigation took **848 ms** — `expect(page).toHaveURL(/\/privacy$/)` in the trace — while the bar
+is suppressed for only the first **200 ms** (`APPEAR_AFTER_MS`). So the bar appeared and `__sawBar` reported
+it correctly. The test asserts that `/about` → `/privacy` _completes inside 200 ms_, which is a
+property of the machine rather than of the code, and eight parallel workers on one laptop do not
+honor it.
+
+**The fix is to assert the behavior instead of the speed**: after the click, wait out the
+suppression window and check no bar appeared _within it_, however long the navigation then takes.
+That keeps what ADR 024 actually promises and drops the part that only holds on an idle machine.
+What it stops covering is the original intent — that a genuinely fast navigation shows no bar at
+all — which cannot be tested where the navigation's speed is not controlled.
+
+**Done**, 20 August 2026, by moving the threshold to a unit test rather than rewriting the
+journey one. `components/navigation-progress.test.tsx` holds a controllable clock, so it asserts
+the shipped `APPEAR_AFTER_MS` instead of hoping a real page renders inside it. The two end-to-end
+tests that remain cover what only end-to-end can: that a real prefetch does not raise the bar, and
+that a genuinely slow navigation raises and clears it.
+
+## Switching conversations rebuilds the workspace shell, 20 August 2026
+
+The document reload is gone — a Server Action navigates client-side now — but the React tree below
+`main` is still torn down and rebuilt on every conversation change. Measured by tagging live DOM
+nodes and reading them back after the navigation: `header` is **the same node**, while `main`, the
+documents section and the conversations section are all **rebuilt**. Click to a usable tree takes a
+median of **410 ms** across five runs (143, 394, 410, 892, 906).
+
+The cause is the route shape rather than anything anyone chose. `/w/[workspaceId]/page.tsx` and
+`/w/[workspaceId]/c/[chatId]/page.tsx` are sibling segments that each render `WorkspaceView`
+independently, and there is no `layout.tsx` between them — so React unmounts one page and mounts
+the other. The header survives for exactly the reason the rest does not: it lives in a layout.
+
+**The fix is a layout, and it collides with a deliberate coupling.** Moving the shell into
+`app/(app)/w/[workspaceId]/layout.tsx` would preserve documents and conversations across the
+navigation, leaving only the chat per-route. But `workspace-view.tsx` renders documents and chat as
+one client unit on purpose: `hasReadyDocuments` has to track uploads as they finish, and a value
+computed in the layout would be frozen. Splitting them needs the shared document state to move into
+a client context provider in the layout, which the page then consumes.
+
+Not a patch-release change. Worth doing before the composer work, since both touch the same surface.
+
+## The composer: one row, and the send control inside it, 20 August 2026
+
+Raised as a change request during the 1.3.1 testing pass, and deferred only because that release
+was already cut. **A patch, not a minor**, by the policy the README already states — a minor bump per
+milestone, a patch for work that is not one. This is not a milestone, and nothing new works
+afterward that did not before. `v1.1.1` is the precedent, and it carried accessibility work. One component, shared by the workspace, the
+demo and local mode: `components/chat/composer.tsx`.
+
+**Two changes.** The textarea opens at `rows={2}` and should open at one, growing from there — the
+autogrow and its `max-h-40` ceiling already exist, so this is the starting height only. And the
+send control, currently a `<Button>` beside the field carrying `lucide-send` plus the word "Send",
+should sit **inside** the field: bottom-right while the question is multi-line, right-hand side
+while it is one. Icon only, no label.
+
+**Three constraints, all of them from work already done here.**
+
+- **The icon needs an accessible name.** Dropping the visible "Send" makes `aria-label` the only
+  name the control has, and the Stop button that replaces it while streaming has the same problem.
+- **WCAG 2.5.8 target size.** A small icon button in a corner is the shape that fails it, and the
+  sticky header already cost four `target-size` failures once. `lucide-arrow-up` in a filled circle
+  is both the common pattern and an easier target than a bare paper plane.
+- **Focus order.** Inside the field means it sits between the textarea and whatever follows in the
+  DOM; the keyboard path has to stay Tab-reachable and obvious, since Enter-to-send already exists
+  and the button is the discoverable alternative to it.
+
+**Sequence it after the workspace-shell layout work**, not before. Both touch this surface, and
+doing the composer first means doing it twice.
+
+## A signed-in reader can start conversations in the read-only demo, 20 August 2026
+
+Found in review of 1.3.1, and **not a regression** — the route this replaced behaved identically,
+which is why it is recorded rather than fixed in a patch.
+
+`accessToWorkspace` returns `"read"` on the demo for every identified actor, including signed-in
+users. `createConversation` authorizes with `"read"` and only special-cases a guest, so a signed-in
+reader passes. `workspace-view.tsx` gates the Conversations section on `signedIn` alone rather than
+`signedIn && !isDemo`, so the button renders on a workspace badged "Read-only demo".
+
+Bounded, not harmless. `createChatUnless` counts `workspaceId` **and** `userId`, so the cap is per
+reader and one person cannot exhaust the demo for everyone. What lands is rows in the demo
+workspace that nobody expects to be writable, and a badge that reads as a promise the code does not
+keep.
+
+Two candidate fixes, and they answer different questions. Gating the section on `!isDemo` hides a
+control that would work — the honest version if conversations in the demo are simply unwanted.
+Authorizing with `"write"` refuses it at the boundary, which is where the badge's claim actually
+belongs, and would need checking against the guest path that currently relies on `"read"`.
