@@ -871,7 +871,17 @@ defects.
   answers it. **Do it when:** the answer is no — and note that `preload` is a one-way door,
   since removing a preloaded domain from the browser list takes months.
 
-- **`retrieveLexical` has no tiebreaker, so the eval is not reproducible to the last digit.**
+- ~~**`retrieveLexical` has no tiebreaker, so the eval is not reproducible to the last digit.**~~
+  **Done**, 22 August 2026, on the second trigger: the follow-up rewrite will argue from
+  `pnpm eval:retrieval`, and a stable sort is what makes "unchanged" mean something.
+
+  It also gained the **first test this file has ever had** — it is off the answer path by design
+  and excluded from the coverage thresholds, so nothing would have caught a reordering. Worth
+  keeping: the obvious test, calling it twice and comparing, **passes without the fix**, because
+  two identical queries in one session scan the same way. Only asserting the tied rows come back
+  in id order fails, and it fails 3 times in 3.
+
+  The original entry follows.
   It orders by `ts_rank_cd` alone; equal-ranked rows arrive in whatever order the scan
   produced. Moving the workspace filter onto `chunks` changed that order and moved lexical
   MRR@8 from 0.53 to 0.52 — one question sliding one rank, with `recall@8` unchanged.
@@ -1173,6 +1183,18 @@ document you have in mind has finished processing", which is false here and send
 inspect something that is working. A refusal that misdiagnoses is worse than a blunt one. The
 wording should allow that a short follow-up may need naming its subject again — one sentence,
 no retrieval changes, and correct regardless of what happens to the full fix.
+
+**The quick fix is done**, 22 August 2026. The advice moved rather than being reworded: the
+streamed sentence now states what happened and stops, and the panel below — which already branched
+on the reason — carries the diagnosis. So the false half is gone from the `no_documents` case as
+well as the follow-up one, where it had been showing for both.
+
+The follow-up hint is on the `no_relevant_passages` branch only: _"A short follow-up needs its
+subject again — only the last question is searched, not the conversation."_ Saying that where
+nothing is indexed would be its own misdiagnosis, and a test pins that it does not appear there.
+
+**The full fix stays open**, and its prerequisite is now met — `retrieveLexical` has its tiebreaker,
+so an eval run can be compared against another one.
 
 ## ~~An answer that cites nothing at all~~, 12 August 2026
 

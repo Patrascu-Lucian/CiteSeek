@@ -114,3 +114,24 @@ describe("Refusal — a filename that appears twice", () => {
     expect(screen.getAllByText("report.pdf")).toHaveLength(1);
   });
 });
+
+describe("Refusal — a follow-up that carried no subject", () => {
+  /* "where?" and "at which company?" retrieve nothing, because only the last
+     question is embedded. The old copy blamed the document instead. */
+  it("says only the last question is searched", () => {
+    renderRefusal();
+
+    expect(
+      screen.getByText(/short follow-up needs its subject/i),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer that diagnosis when there is nothing indexed at all", () => {
+    // Rewording helps nobody when no document has finished processing.
+    renderRefusal({ reason: "no_documents", documents: [] });
+
+    expect(
+      screen.queryByText(/short follow-up needs its subject/i),
+    ).not.toBeInTheDocument();
+  });
+});
