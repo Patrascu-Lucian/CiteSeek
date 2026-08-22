@@ -200,9 +200,18 @@ describe("ChatPanel — asking", () => {
     await userEvent.type(screen.getByRole("textbox"), "What is the policy?");
     await userEvent.click(screen.getByRole("button", { name: /send/i }));
 
-    expect(chat.sendMessage).toHaveBeenCalledWith({
-      text: "What is the policy?",
-    });
+    /* A uuid, not the SDK's base62: `messages.id` is a uuid column, so a question
+       asked this session could not otherwise be named to the server, and editing
+       or deleting it failed until a reload. */
+    const sent = chat.sendMessage.mock.lastCall?.[0] as {
+      id: string;
+      role: string;
+      parts: unknown[];
+    };
+
+    expect(sent.id).toMatch(/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/);
+    expect(sent.role).toBe("user");
+    expect(sent.parts).toEqual([{ type: "text", text: "What is the policy?" }]);
     expect(screen.getByRole("textbox")).toHaveValue("");
   });
 

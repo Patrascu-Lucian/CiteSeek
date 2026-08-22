@@ -4,7 +4,7 @@ import { DefaultChatTransport, type ChatTransport } from "ai";
 import { MessageSquareOff, Trash2 } from "lucide-react";
 
 import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
-import { deleteConversationTurn } from "@/lib/chats/actions";
+import { clearFromTurn, deleteConversationTurn } from "@/lib/chats/actions";
 import { type CapCopy, parseCapRefusal } from "@/lib/limits/caps";
 import { parseRefusal } from "@/lib/usage/limits";
 import { Notice } from "@/components/ui/notice";
@@ -110,7 +110,8 @@ export function ChatPanel({
 
   const isStreaming = status === "streaming" || status === "submitted";
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<CapCopy | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // `Answer` carries 428 KB, kept out of the initial bundle. Warming on *submit*
   // was too late: the chunk arrived 449ms into a 962ms first answer, against
@@ -127,8 +128,53 @@ export function ChatPanel({
     return () => cancelIdleCallback(handle);
   }, []);
 
+  /* The id is minted here, not by the SDK, because the SDK's is base62 and the
+     stored one is a uuid — so a question asked this session could not be named
+     to the server, and editing or deleting it failed until a reload. */
   function ask(question: string) {
-    void sendMessage({ text: question });
+    void sendMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text: question }],
+    });
+  }
+
+  // Truncate, then ask through the ordinary route, metered like any other
+  // question (ADR 043).
+  async function editQuestion(messageId: string, question: string) {
+    if (!chatId) return;
+
+    const before = messages;
+    const from = before.findIndex((message) => message.id === messageId);
+    if (from < 0) return;
+
+    setDeletingId(messageId);
+    setMessages(before.slice(0, from));
+
+    try {
+      const { cleared } = await clearFromTurn(workspaceId, chatId, messageId);
+
+      if (!cleared) {
+        setMessages(before);
+        setDeleteError({
+          title: "That question is unchanged",
+          detail: "It may already be gone. Reload to see the conversation.",
+        });
+        return;
+      }
+
+      setDeleteError(null);
+      setEditingId(null);
+      ask(question);
+    } catch {
+      setMessages(before);
+      setDeleteError({
+        title: "That question is unchanged",
+        detail: "Could not reach the server, so nothing was changed.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   /*
@@ -161,9 +207,10 @@ export function ChatPanel({
 
       if (!deleted) {
         setMessages(before);
-        setDeleteError(
-          "That exchange was not deleted. It may already be gone.",
-        );
+        setDeleteError({
+          title: "That exchange is still here",
+          detail: "It may already be gone. Reload to see the conversation.",
+        });
         return;
       }
 
@@ -171,7 +218,10 @@ export function ChatPanel({
       onTurnComplete?.();
     } catch {
       setMessages(before);
-      setDeleteError("Could not reach the server. Nothing was deleted.");
+      setDeleteError({
+        title: "That exchange is still here",
+        detail: "Could not reach the server, so nothing was deleted.",
+      });
     } finally {
       setDeletingId(null);
     }
@@ -235,6 +285,15 @@ export function ChatPanel({
           onDeleteTurn={
             canDelete && chatId ? (id) => void deleteTurn(id) : undefined
           }
+          onEditQuestion={
+            canDelete && chatId
+              ? (id, question) => void editQuestion(id, question)
+              : undefined
+          }
+          onStartEdit={setEditingId}
+          onCancelEdit={() => setEditingId(null)}
+          editingId={editingId}
+          busyId={deletingId}
           deletingId={deletingId}
           pending={status === "submitted"}
           streaming={status === "streaming"}
@@ -247,8 +306,8 @@ export function ChatPanel({
             <Trash2 aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           }
           tone="destructive"
-          title="That exchange is still here"
-          detail={deleteError}
+          title={deleteError.title}
+          detail={deleteError.detail}
         />
       ) : null}
 

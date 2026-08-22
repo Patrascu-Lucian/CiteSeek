@@ -82,8 +82,10 @@ describe("ChatPanel — typing", () => {
       "What is the policy?{Enter}",
     );
 
-    expect(chat.sendMessage).toHaveBeenCalledExactlyOnceWith({
-      text: "What is the policy?",
-    });
+    expect(chat.sendMessage).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        parts: [{ type: "text", text: "What is the policy?" }],
+      }),
+    );
   });
 });
