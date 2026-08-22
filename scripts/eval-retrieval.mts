@@ -1,10 +1,6 @@
-/**
- * Retrieval quality against `eval/golden-set.ts`. By hand, never in CI: the fake
- * embedder would report word overlap as if it were retrieval.
- *
- * The floor is **disabled**, so one pass scores every threshold and every fusion
- * weight rather than re-embedding the same questions per setting.
- */
+/** Retrieval quality against `eval/golden-set.ts`. By hand, never in CI: the fake
+ * embedder would report word overlap as if it were retrieval. The floor is
+ * **disabled**, so one pass scores every threshold and every fusion weight. */
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +8,11 @@ import { fileURLToPath } from "node:url";
 import { eq } from "drizzle-orm";
 
 import { loadLocalEnv } from "../lib/env/load-local-env.ts";
-import { GOLDEN_SET } from "../eval/golden-set.ts";
+import {
+  FOLLOW_UP_SET,
+  GOLDEN_SET,
+  type Expectation,
+} from "../eval/golden-set.ts";
 import {
   mean,
   scoreQuery,
@@ -77,6 +77,10 @@ const FILES = [
 /** Wide, and low, because the first run showed 0.6 refusing nothing at all. */
 const THRESHOLDS = [0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.6, 0.7, 0.8];
 const K_VALUES = [1, 3, RETRIEVAL_LIMIT];
+/** Wider than any k in the sweep, so the tail of a ranking is never truncated
+ * before it is scored. */
+const SCORING_LIMIT = 20;
+const FOLLOW_UP_K = 3;
 
 console.log(`Evaluating against ${hostname}\n`);
 
@@ -107,6 +111,29 @@ try {
     console.log(`  ingested ${file}`);
   }
 
+  const spansFor = (expect: readonly Expectation[]): Span[] =>
+    expect.map(({ file, quote }) => {
+      const text = textByFile.get(file) ?? "";
+      const charStart = text.indexOf(quote);
+
+      // A quote that no longer appears is a broken golden set, not a miss. Left
+      // unchecked it would score zero and read as a retrieval regression.
+      if (charStart === -1) {
+        throw new Error(`Quote not found in ${file}: "${quote}"`);
+      }
+
+      return {
+        documentId: idByFile.get(file)!,
+        charStart,
+        charEnd: charStart + quote.length,
+      };
+    });
+
+  // Resolved before the first question: the throw above, reached 51 paid
+  // questions in, discards the whole run and writes no report.
+  const goldenSpans = GOLDEN_SET.map((one) => spansFor(one.expect));
+  const followUpSpans = FOLLOW_UP_SET.map((one) => spansFor(one.expect));
+
   /* The lexical list's weight, against a vector weight fixed at 1. Zero is
      vector alone, so the baseline sits on the same sweep as every blend. */
   const LEXICAL_WEIGHTS = [0, 0.25, 0.5, 0.75, 1];
@@ -131,30 +158,15 @@ try {
 
   console.log(`\nRunning ${String(GOLDEN_SET.length)} questions…`);
 
-  for (const one of GOLDEN_SET) {
-    const expected: Span[] = one.expect.map(({ file, quote }) => {
-      const text = textByFile.get(file) ?? "";
-      const charStart = text.indexOf(quote);
-
-      // A quote that no longer appears is a broken golden set, not a miss. Left
-      // unchecked it would score zero and read as a retrieval regression.
-      if (charStart === -1) {
-        throw new Error(`Quote not found in ${file}: "${quote}"`);
-      }
-
-      return {
-        documentId: idByFile.get(file)!,
-        charStart,
-        charEnd: charStart + quote.length,
-      };
-    });
+  for (const [index, one] of GOLDEN_SET.entries()) {
+    const expected = goldenSpans[index]!;
 
     const { chunks } = await retrieveChunks(workspaceId, one.question, {
-      limit: 20,
+      limit: SCORING_LIMIT,
       maxDistance: Number.POSITIVE_INFINITY,
     });
     const lexical = await retrieveLexical(workspaceId, one.question, {
-      limit: 20,
+      limit: SCORING_LIMIT,
     });
 
     const asSpan = (chunk: {
@@ -218,6 +230,53 @@ try {
     }
   }
 
+  console.log(
+    `\nRunning ${String(FOLLOW_UP_SET.length * 2)} follow-up queries…`,
+  );
+
+  const followUps: {
+    followUp: string;
+    asked: number;
+    standalone: number;
+    bestAsked: number | null;
+  }[] = [];
+
+  for (const [index, one] of FOLLOW_UP_SET.entries()) {
+    const expected = followUpSpans[index]!;
+
+    const scoreOf = async (query: string) => {
+      const { chunks } = await retrieveChunks(workspaceId, query, {
+        limit: SCORING_LIMIT,
+        maxDistance: Number.POSITIVE_INFINITY,
+      });
+
+      const retrieved: Retrieved[] = chunks.map((chunk) => ({
+        documentId: chunk.documentId,
+        charStart: chunk.charStart,
+        charEnd: chunk.charEnd,
+        distance: chunk.distance,
+      }));
+
+      return {
+        recall: scoreQuery(expected, retrieved, FOLLOW_UP_K).recall,
+        best: retrieved[0]?.distance ?? null,
+      };
+    };
+
+    // The pair shares nothing, and each half is a metered round trip.
+    const [asked, standalone] = await Promise.all([
+      scoreOf(one.followUp),
+      scoreOf(one.standalone),
+    ]);
+
+    followUps.push({
+      followUp: one.followUp,
+      asked: asked.recall,
+      standalone: standalone.recall,
+      bestAsked: asked.best,
+    });
+  }
+
   const answerable = cases.filter((one) => one.answerable).length;
 
   const rankTable = STRATEGIES.flatMap((strategy) =>
@@ -238,8 +297,8 @@ try {
   const report = [
     "# Retrieval evaluation",
     "",
-    `Run ${new Date().toISOString().slice(0, 10)} against \`gemini-embedding-001\`, `,
-    `${String(FILES.length)} documents, ${String(GOLDEN_SET.length)} questions `,
+    `Run ${new Date().toISOString().slice(0, 10)} against \`gemini-embedding-001\`,`,
+    `${String(FILES.length)} documents, ${String(GOLDEN_SET.length)} questions`,
     `(${String(answerable)} answerable, ${String(GOLDEN_SET.length - answerable)} not).`,
     "",
     "Questions are written against what the documents mean rather than from their",
@@ -259,6 +318,26 @@ try {
       (row) =>
         `| ${row.strategy} | ${String(row.k)} | ${row.recall.toFixed(2)} | ${row.precision.toFixed(2)} | ${row.mrr.toFixed(2)} |`,
     ),
+    "",
+    "## Follow-up questions",
+    "",
+    "Only the last message is embedded, so a follow-up carries nothing to retrieve",
+    "against. Each row is one information need asked twice — as typed, and written",
+    "to stand alone. The right column is the ceiling a rewriting step could reach.",
+    "",
+    "Vector alone, and the floor is off as it is everywhere above — so a row",
+    "scoring 1.00 here can still be refused in the product, where the floor is",
+    "0.40. The closest distance for the typed form is in `distances.json`.",
+    "",
+    `| follow-up | recall@${String(FOLLOW_UP_K)} as asked | recall@${String(FOLLOW_UP_K)} standalone |`,
+    "| --------- | ----------------- | ------------------- |",
+    ...followUps.map(
+      (row) =>
+        `| ${row.followUp} | ${row.asked.toFixed(2)} | ${row.standalone.toFixed(2)} |`,
+    ),
+    "",
+    `Mean **${mean(followUps.map((row) => row.asked)).toFixed(2)} as asked** against ` +
+      `**${mean(followUps.map((row) => row.standalone)).toFixed(2)} standalone**.`,
     "",
     "## The relevance floor",
     "",
@@ -298,14 +377,20 @@ try {
   await writeFile(
     join(FIXTURES, "..", "distances.json"),
     JSON.stringify(
-      GOLDEN_SET.map((one, index) => ({
-        question: one.question,
-        answerable: cases[index]!.answerable,
-        best: cases[index]!.retrieved[0]?.distance ?? null,
-      })),
+      {
+        golden: GOLDEN_SET.map((one, index) => ({
+          question: one.question,
+          answerable: cases[index]!.answerable,
+          best: cases[index]!.retrieved[0]?.distance ?? null,
+        })),
+        followUps: followUps.map((row) => ({
+          followUp: row.followUp,
+          best: row.bestAsked,
+        })),
+      },
       null,
       2,
-    ),
+    ) + "\n",
   );
 
   const output = join(FIXTURES, "..", "report.md");

@@ -1193,8 +1193,36 @@ The follow-up hint is on the `no_relevant_passages` branch only: _"A short follo
 subject again — only the last question is searched, not the conversation."_ Saying that where
 nothing is indexed would be its own misdiagnosis, and a test pins that it does not appear there.
 
-**The full fix stays open**, and its prerequisite is now met — `retrieveLexical` has its tiebreaker,
-so an eval run can be compared against another one.
+**The full fix stays open.** Its prerequisite was recorded as met when `retrieveLexical` got a
+tiebreaker, and that was wrong until 22 August 2026: the tiebreaker was `chunks.id`, and ids are
+minted per ingest while the harness re-ingests the corpus on every run. Runs are comparable now
+that ties break on filename and chunk index.
+
+**Measured, 22 August 2026, before building anything.** `FOLLOW_UP_SET` in `eval/golden-set.ts` is
+ten information needs written twice — as a reader types them after a previous turn, and as they
+would have to be written to stand alone. Scored against the same corpus, vector alone, with the
+relevance floor off:
+
+**recall@3 is 0.70 as asked, against 1.00 standalone.** Three of ten fail, and the standalone
+column being a clean 1.00 means a perfect rewrite recovers all three — that is the ceiling, not a
+guess. The floor being off is the caveat: the product puts a 0.40 floor in front of this, so a row
+scoring 1.00 here can still be refused. `eval/distances.json` now records the closest distance for
+each typed form, so that costs nothing to check — nine of the ten clear 0.40, and only "why?" at
+0.407 is refused before retrieval is scored at all.
+
+**Carrying a term does not predict the outcome.** "in writing?" holds a word straight out of the
+passage it wants and scores 0.00; "who handles it then?" and "how much is it?" carry nothing
+discriminative and score 1.00 — on a three-document corpus where one passage is the only one about
+an amount. So the rewrite is worth roughly **three questions in ten**, and the wording of a
+follow-up does not say which three.
+
+**The set was rebuilt, because the first version could not have failed.** Five of its ten cases
+expected the very sentence answering their own context turn, which scores 1.00 whether or not the
+follow-up was understood — a case measures nothing unless its passage is one the previous turn
+would not already have retrieved. A six-case version before that scored 0.83 for a related reason:
+five of the six carried a discriminative term, because those are the follow-ups that come to mind
+when you are writing examples rather than watching someone type. A mean over a set the author chose
+is only as honest as the sampling, and the per-row table is in `eval/report.md` for that reason.
 
 ## ~~An answer that cites nothing at all~~, 12 August 2026
 

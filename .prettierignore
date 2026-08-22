@@ -1,5 +1,9 @@
 # Generated output and lockfiles — not ours to format.
 pnpm-lock.yaml
+# Written by `pnpm eval:retrieval`. Padding a table to its widest cell means one
+# number changing width re-pads the column — noise in the diff between two runs,
+# which is the only thing this file is read for.
+eval/report.md
 .next/
 out/
 build/

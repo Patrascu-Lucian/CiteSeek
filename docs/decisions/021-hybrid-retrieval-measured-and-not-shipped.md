@@ -35,15 +35,22 @@ retrievals. The weight is the lexical list's, against a vector weight of 1, so
 
 | strategy                    | recall@1 | recall@3 | MRR      |
 | --------------------------- | -------- | -------- | -------- |
-| lexical alone               | 0.39     | 0.66     | 0.53     |
+| lexical alone               | 0.41     | 0.66     | 0.53     |
 | **hybrid 0 (vector alone)** | **0.67** | **0.95** | **0.82** |
-| hybrid 0.25                 | 0.65     | 0.85     | 0.79     |
-| hybrid 0.5                  | 0.60     | 0.85     | 0.77     |
-| hybrid 0.75                 | 0.61     | 0.85     | 0.77     |
-| hybrid 1.0                  | 0.61     | 0.85     | 0.77     |
+| hybrid 0.25                 | 0.62     | 0.85     | 0.78     |
+| hybrid 0.5                  | 0.61     | 0.85     | 0.76     |
+| hybrid 0.75                 | 0.59     | 0.85     | 0.75     |
+| hybrid 1.0                  | 0.59     | 0.85     | 0.75     |
 
 Every blend is worse than vector alone, and it degrades as the lexical list is
 given more say. There is no weight that wins.
+
+↳ **Re-measured 22 August 2026**, once `retrieveLexical` broke rank ties on a key
+that survives a re-ingest ([ADR 026](026-scoping-chunks-by-workspace.md)). The
+table above is that run; the original recorded lexical recall@1 at 0.39 and the
+blends between 0.77 and 0.79 MRR. Those cells moved because the lexical ranking
+being fused changed, not the comparison. Vector alone is identical to two
+decimals, and still no weight wins.
 
 ## Decision
 

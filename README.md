@@ -266,11 +266,11 @@ had sat in the backlog since Milestone 2 on the strength of the argument alone:
 
 | lexical weight       | recall@1 | recall@3 | MRR      |
 | -------------------- | -------- | -------- | -------- |
-| lexical alone        | 0.39     | 0.66     | 0.53     |
+| lexical alone        | 0.41     | 0.66     | 0.53     |
 | **0 (vector alone)** | **0.67** | **0.95** | **0.82** |
-| 0.25                 | 0.65     | 0.85     | 0.79     |
-| 0.5                  | 0.60     | 0.85     | 0.77     |
-| 1.0                  | 0.61     | 0.85     | 0.77     |
+| 0.25                 | 0.62     | 0.85     | 0.78     |
+| 0.5                  | 0.61     | 0.85     | 0.76     |
+| 1.0                  | 0.59     | 0.85     | 0.75     |
 
 Every blend is worse than vector alone, and worse the more say the lexical list is given — so it
 is not wired into the answer path
