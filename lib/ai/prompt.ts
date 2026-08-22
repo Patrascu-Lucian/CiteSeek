@@ -2,16 +2,9 @@ import type { RetrievedChunk } from "@/lib/rag/retrieve";
 
 import type { ChatSource } from "./types";
 
-/**
- * The grounded prompt. Pure and synchronous, so what the model is told can be
- * asserted directly rather than inferred from a live reply.
- *
- * Two rules do the work. Passages are **numbered**, and the number is all the
- * model chooses — the marker-to-chunk mapping never leaves the server, so a
- * citation can be mis-selected but not invented. And passages are **delimited
- * and declared as data**: a document saying "ignore previous instructions" is
- * quoting an attack, not issuing one.
- */
+/** Passages are **numbered**, so a citation can be mis-selected but not invented
+ * — the mapping never leaves the server — and **delimited as data**, so one
+ * saying "ignore previous instructions" is quoting an attack, not issuing it. */
 
 const PASSAGE_OPEN = "<passage";
 const PASSAGE_CLOSE = "</passage>";
@@ -42,10 +35,11 @@ export function buildSources(
   }));
 }
 
-/** What the assistant says when nothing cleared the relevance floor. */
+/** States what happened and stops. It used to blame the document for still
+ * processing, which is false on a follow-up like "where?" — the panel below
+ * carries the diagnosis, per reason. */
 export const NO_RELEVANT_PASSAGES_REPLY =
-  "I couldn't find anything relevant to that in your documents. " +
-  "Try rephrasing the question, or check that the document you have in mind has finished processing.";
+  "I couldn't find anything relevant to that in the documents I can search.";
 
 const SYSTEM_RULES = `You are a document assistant. You answer questions strictly from passages retrieved out of the user's own documents.
 

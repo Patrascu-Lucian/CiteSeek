@@ -4,15 +4,9 @@ import { FileQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { RefusalReason } from "@/lib/ai/types";
 
-/**
- * What a reader is offered when their question could not be grounded. Two
- * alternatives rejected in ADR 017: a document about the product would be
- * self-referential text in the corpus, and a second ungrounded path would give
- * the model somewhere to answer from that is not the documents.
- *
- * **Every word here is ours, none a model's** — an ungrounded turn must not
- * produce prose that reads as if it had been grounded.
- */
+/** What a reader is offered when their question could not be grounded; two
+ * alternatives rejected in ADR 017. **Every word here is ours, none a model's**
+ * — an ungrounded turn must not read as if it had been grounded. */
 export function Refusal({
   reason,
   documents,
@@ -74,7 +68,9 @@ export function Refusal({
           </ul>
           <p className="text-muted-foreground text-sm">
             If the answer should be in one of them, try naming the section or
-            using the wording the document uses.
+            using the wording the document uses. A short follow-up needs its
+            subject again — only the last question is searched, not the
+            conversation.
           </p>
         </>
       )}

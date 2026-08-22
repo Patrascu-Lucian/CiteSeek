@@ -169,14 +169,10 @@ describe("buildSystemPrompt", () => {
   });
 
   it("forbids attaching a marker to a refusal", () => {
-    // Reproduced against the real model before this rule existed: one run in
-    // four answered "the provided passages do not contain information to answer
-    // your question [1][2]" — citing passages while saying they do not contain
-    // the answer. A chip rendered, resolved, and pointed at unrelated text.
-    //
-    // A test can only assert the rule is *present*. Whether the model obeys it is
-    // measurable only against the live model, and the parser is what makes a
-    // regression harmless rather than invisible.
+    // Reproduced against the real model: one run in four cited passages while
+    // saying they did not contain the answer, and the chip resolved. A test can
+    // only assert the rule is *present*; the parser is what makes a regression
+    // harmless rather than invisible.
     const prompt = buildSystemPrompt(buildSources([chunk()]));
 
     expect(prompt).toMatch(/never attach one to a refusal/i);
@@ -191,10 +187,16 @@ describe("buildSystemPrompt", () => {
 });
 
 describe("NO_RELEVANT_PASSAGES_REPLY", () => {
-  it("says nothing was found and suggests what to do", () => {
+  it("says what happened and stops", () => {
     expect(NO_RELEVANT_PASSAGES_REPLY).toMatch(
       /couldn't find anything relevant/i,
     );
-    expect(NO_RELEVANT_PASSAGES_REPLY).toMatch(/rephrasing|processing/i);
+  });
+
+  /* It used to. On a follow-up the document is working and the question was
+     understood in a context retrieval never saw, so the advice sent the reader
+     to inspect the wrong thing. The panel diagnoses, per reason. */
+  it("does not blame the document", () => {
+    expect(NO_RELEVANT_PASSAGES_REPLY).not.toMatch(/processing/i);
   });
 });
