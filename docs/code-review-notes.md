@@ -2267,3 +2267,55 @@ tests, 117 E2E and a production build, green.
   server, and nothing put those two together. The cheapest test that would have caught it is the
   one that repeats an operation without reloading — the second time is when the client's own value
   comes back around.
+
+## A tiebreaker that was regenerated on every run, 22 August 2026
+
+- **Issue**: `retrieveLexical` broke rank ties with `ORDER BY ts_rank_cd DESC, chunks.id ASC`, and
+  `chunks.id` is `uuid().primaryKey().defaultRandom()`. The evaluation harness re-ingests the whole
+  corpus on every run, so every chunk gets a new id and equal-ranked rows sort differently each
+  time. The tiebreaker existed specifically to make two runs comparable, and did not.
+
+- **How it surfaced**: a diff nobody could explain. A commit touching only `eval/` moved lexical
+  recall@1 from 0.39 to 0.41 and recall@3 from 0.66 to 0.63 with `lexical.ts` untouched. Two
+  documents were already downstream of the wrong numbers — `README.md` carried a table
+  contradicting the `eval/report.md` it links to, and ADR 026 attributed a 0.53 → 0.52 move to a
+  join-order change that had nothing to do with it.
+
+- **How it survived**: the test written to prove the tiebreaker asserted the wrong things. It ran
+  two queries against **one** ingest and compared them, which is stable under any tiebreaker, and
+  asserted the ids came back sorted — true of `ORDER BY id` by construction. Neither assertion can
+  tell "ordered by a stable key" from "ordered by a key regenerated each run".
+
+- **Fix**: break ties on `documents.filename` then `chunks.chunkIndex`, both properties the
+  document carries and identical after a re-ingest. The test now ingests identical content **twice**
+  and compares the orders by filename and offset, since ids differ by definition. It fails against
+  the old ordering while the two original assertions still pass.
+
+- **Lesson**: **a sort key the database mints is not a deterministic sort key.** `defaultRandom()`
+  reads as an implementation detail of the primary key right up until something orders by it. And a
+  test for determinism has to cross the boundary the value is regenerated at — two queries inside
+  one ingest cannot see a per-ingest value change.
+
+## An evaluation set that could not fail, 22 August 2026
+
+- **Issue**: five of the ten new follow-up cases expected the exact sentence that answers their own
+  context turn. "and severity 2?" after "How quickly is a Severity 1 ticket answered?" expected
+  _"30 minutes for Severity 1, two hours for"_ — one sentence in the fixture states both targets, so
+  the passage the previous turn already retrieved scores the follow-up 1.00. Returning the previous
+  turn's chunk unchanged is the failure the rewrite exists to fix, counted as a success.
+
+- **Also**: two quotes were strict substrings of quotes in the golden set — `"five weeks' rent"`
+  against `"The deposit is five weeks' rent"`. The existing guard checks a quote appears once in its
+  fixture, which both do. Reword that sentence and the long quote fails loudly while the short one
+  keeps matching a passage that no longer means what it was chosen for.
+
+- **Fix**: rebuilt the set against one invariant — the expected passage must be one the context turn
+  would not already have retrieved — and added a test that no quote in either set is contained by
+  another. The mean stayed 0.70, but the composition changed enough to overturn the conclusion drawn
+  from it: a follow-up carrying a discriminative term now fails ("in writing?", 0.00) and two
+  carrying nothing succeed, so "worth three in ten, and only for the ones carrying nothing" was the
+  converse of what the table showed.
+
+- **Lesson**: **a test case that cannot fail still reports a number, and the number gets averaged.**
+  For a retrieval set the question is not "is the expected passage correct?" but "could this case
+  distinguish the thing being measured from doing nothing at all?"
