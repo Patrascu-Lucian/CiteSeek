@@ -43,8 +43,9 @@ export async function retrieveLexical(
   const search = sql`to_tsquery('english', ${words.join(" | ")})`;
   const rank = sql<number>`ts_rank_cd(${document}, ${search})`;
 
-  // Tied ranks used to arrive in scan order, which moved MRR@8 from 0.53 to 0.52
-  // when an unrelated change altered the plan — hence `chunks.id` below.
+  // Tied ranks in scan order moved MRR@8 from 0.53 to 0.52 on an unrelated plan
+  // change. Ordered by filename, not id: ids are `defaultRandom()`, so they are
+  // new on every ingest and the eval harness re-ingests on every run.
   return db
     .select({
       id: chunks.id,
@@ -66,6 +67,6 @@ export async function retrieveLexical(
         sql`${document} @@ ${search}`,
       ),
     )
-    .orderBy(desc(rank), asc(chunks.id))
+    .orderBy(desc(rank), asc(documents.filename), asc(chunks.chunkIndex))
     .limit(limit);
 }
