@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { questionFrom } from "./question";
+import { questionFrom, questionIdFrom } from "./question";
 import type { ChatUIMessage } from "./types";
 
 const user = (...texts: string[]): ChatUIMessage => ({
@@ -55,5 +55,44 @@ describe("questionFrom", () => {
   it("returns null when nobody has asked anything", () => {
     expect(questionFrom([])).toBeNull();
     expect(questionFrom([assistant("unprompted")])).toBeNull();
+  });
+});
+
+describe("questionIdFrom", () => {
+  /* The id has to survive to the route, or the turn cannot be named back to the
+     database — which is what made editing a just-asked question fail. */
+  it("takes the id of the question being asked", () => {
+    const asked: ChatUIMessage = {
+      id: "3f1c9b6e-9a2a-4a4a-8a1a-9b2c3d4e5f60",
+      role: "user",
+      parts: [{ type: "text", text: "How much leave?" }],
+    };
+
+    expect(questionIdFrom([assistant("earlier"), asked])).toBe(asked.id);
+  });
+
+  it("looks past a trailing assistant turn, as its sibling does", () => {
+    const asked: ChatUIMessage = {
+      id: "abc",
+      role: "user",
+      parts: [{ type: "text", text: "How much leave?" }],
+    };
+
+    expect(questionIdFrom([asked, assistant("28 days")])).toBe("abc");
+  });
+
+  it("answers null when nobody has asked anything", () => {
+    expect(questionIdFrom([])).toBeNull();
+    expect(questionIdFrom([assistant("unprompted")])).toBeNull();
+  });
+
+  it("answers null for a question carrying no id", () => {
+    // `appendMessages` then falls through to `defaultRandom()`.
+    const anonymous = {
+      role: "user",
+      parts: [{ type: "text", text: "How much leave?" }],
+    } as unknown as ChatUIMessage;
+
+    expect(questionIdFrom([anonymous])).toBeNull();
   });
 });

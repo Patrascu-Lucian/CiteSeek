@@ -17,7 +17,7 @@ import {
   buildSystemPrompt,
 } from "@/lib/ai/prompt";
 import { getChatModel } from "@/lib/ai/provider";
-import { questionFrom } from "@/lib/ai/question";
+import { questionFrom, questionIdFrom } from "@/lib/ai/question";
 import {
   MAX_QUESTION_CHARS,
   MAX_REQUEST_MESSAGES,
@@ -146,6 +146,7 @@ export async function POST(
   if (!messages) return badRequest("Expected a messages array.");
 
   const question = questionFrom(messages);
+  const questionId = questionIdFrom(messages);
   if (!question) return badRequest("Expected a question.");
 
   // Optional: the conversation the client is showing. Validated against the
@@ -167,10 +168,8 @@ export async function POST(
   const asked: string = question;
 
   // Writers, not signed-in: `actorType` created a demo conversation for every
-  // question a signed-in visitor asked (ADR 040).
-  //
-  // Ahead of retrieval, so the cap below refuses before the query is embedded.
-  // Creating here is safe: the fallback only inserts at zero chats.
+  // question a signed-in visitor asked (ADR 040). Ahead of retrieval, so the cap
+  // refuses before the query is embedded.
   const chatId = canWrite
     ? (await resolveChatForTurn(scope, actorId, requestedChatId)).id
     : null;
@@ -221,7 +220,7 @@ export async function POST(
     if (!chatId) return;
 
     await appendMessages(scope, actorId, chatId, [
-      { role: "user", content: asked },
+      { role: "user", content: asked, id: questionId ?? undefined },
       { role: "assistant", content: answer, citations, refusalReason },
     ]);
   }
@@ -251,13 +250,9 @@ export async function POST(
   const modelMessages = await convertToModelMessages(messages);
 
   const stream = createUIMessageStream<ChatUIMessage>({
-    /**
-     * The provider's quota error arrives *after* a 200. Our caps refuse before
-     * the stream opens as a JSON 429, but Gemini's limits are per project, so
-     * `RESOURCE_EXHAUSTED` can still land once the status line is gone. Same JSON
-     * body, so one parser handles both. Everything else keeps the SDK's opaque
-     * default rather than leaking internals.
-     */
+    /** The provider's quota error arrives *after* a 200, so `RESOURCE_EXHAUSTED`
+     * lands once the status line is gone. Same JSON body as our own 429, so one
+     * parser handles both. */
     onError: (error) =>
       APICallError.isInstance(error) && error.statusCode === 429
         ? // The provider's project-wide quota, not this reader's.
@@ -304,12 +299,8 @@ export async function POST(
         // calling the tool loops until the function times out.
         stopWhen: stepCountIs(2),
         // **No `abortSignal`, deliberately.** Forwarding `request.signal` would
-        // stop `onFinish` running when a reader closes the tab, leaving tokens
-        // already paid for uncounted. A test holds it; the other half of the
-        // reason is the SDK's — `docs/backlog.md`.
-        // Fires on Stop too — a partial answer is still what was shown. `usage`
-        // aggregates across steps, which matters because `stepCountIs(2)` means a
-        // tool-using turn runs two.
+        // stop `onFinish` running when a reader closes the tab, leaving paid-for
+        // tokens uncounted. Fires on Stop too, and `usage` spans both steps.
         onFinish: async ({ text, usage }) => {
           await persist(text, sources);
           await recordUsage({

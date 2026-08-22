@@ -16,14 +16,8 @@ import { MAX_TITLE_LENGTH, titleFromQuestion } from "./titles";
 // pull the database in with it.
 export { MAX_TITLE_LENGTH, titleFromQuestion };
 
-/**
- * Every read and write of chat data.
- *
- * Two scopes, not one: a workspace can be shared, so `workspaceId` alone would
- * let one reader load another's conversation. Every query filters on
- * `workspaceId` **and** `userId`; messages reach both by joining through their
- * chat. Signed-in users only (ADR 013).
- */
+/** Two scopes, not one: a workspace can be shared, so `workspaceId` alone would
+ * let one reader load another's conversation. Signed-in users only (ADR 013). */
 
 /** Most recent, or a new one — creating per request would make every reload start
  * a fresh conversation. */
@@ -275,14 +269,8 @@ export async function listChats(
     .orderBy(desc(chats.updatedAt));
 }
 
-/**
- * Returns whether a row changed, so a caller distinguishes "not yours" from
- * "done" without a second query. Scoped on chat, workspace *and* user: read
- * access to a shared workspace must not imply write access inside it.
- *
- * An empty title clears it, returning the chat to being described by its first
- * question.
- */
+/** Returns whether a row changed, so a caller tells "not yours" from "done"
+ * without a second query. An empty title clears it. */
 export async function renameChat(
   workspaceId: string,
   userId: string,
@@ -333,19 +321,35 @@ export async function deleteChat(
   return deleted.length > 0;
 }
 
-/**
- * Deletes a question and the answer grounded in it, which is one thing to a
- * reader — deleting either alone strands the other.
- *
- * **Named by its question**, so an assistant id is refused rather than guessed
- * at. Positions keep their gaps: `appendMessages` takes the maximum, and
- * renumbering would race the unique index on `(chat_id, position)` for nothing.
- */
+/** One exchange: deleting either half alone strands the other. **Named by its
+ * question**, so an assistant id is refused rather than guessed at. Positions
+ * keep their gaps — renumbering would race the unique index for nothing. */
 export async function deleteTurn(
   workspaceId: string,
   userId: string,
   chatId: string,
   messageId: string,
+): Promise<number> {
+  return removeFromTurn(workspaceId, userId, chatId, messageId, "one");
+}
+
+/** Everything from a question onward, for an edit: the answer below was grounded
+ * in the old wording, and the turns after followed from that answer (ADR 043). */
+export async function deleteFromTurn(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+  messageId: string,
+): Promise<number> {
+  return removeFromTurn(workspaceId, userId, chatId, messageId, "onward");
+}
+
+async function removeFromTurn(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+  messageId: string,
+  extent: "one" | "onward",
 ): Promise<number> {
   if (!isUuid(chatId) || !isUuid(messageId)) return 0;
 
@@ -370,18 +374,21 @@ export async function deleteTurn(
     // Where the next turn starts, or nothing if this is the last one. Read
     // rather than expressed as a sentinel upper bound: `position` is an
     // `integer`, and the obvious sentinel does not fit in one.
-    const [next] = await tx
-      .select({ position: messages.position })
-      .from(messages)
-      .where(
-        and(
-          eq(messages.chatId, chatId),
-          eq(messages.role, "user"),
-          gt(messages.position, turn.position),
-        ),
-      )
-      .orderBy(asc(messages.position))
-      .limit(1);
+    const [next] =
+      extent === "one"
+        ? await tx
+            .select({ position: messages.position })
+            .from(messages)
+            .where(
+              and(
+                eq(messages.chatId, chatId),
+                eq(messages.role, "user"),
+                gt(messages.position, turn.position),
+              ),
+            )
+            .orderBy(asc(messages.position))
+            .limit(1)
+        : [];
 
     const deleted = await tx
       .delete(messages)
@@ -404,16 +411,15 @@ export type NewChatMessage = {
   citations?: MessageCitation[];
   /** Set on an assistant turn that could not be grounded. */
   refusalReason?: RefusalReason | null;
+  /** The client's id for a question, so editing and deleting can name the turn
+   * they are looking at. Ignored unless it is a uuid. */
+  id?: string;
 };
 
-/**
- * Verifies ownership before writing — otherwise a guessed id appends to someone
- * else's conversation.
- *
- * Citations are stored as the **full numbered list in marker order**, so `[n]`
- * resolves to `citations[n - 1]` both while streaming and after a reload. Storing
- * only the cited subset would renumber and repoint every marker.
- */
+/** Ownership is checked first, or a guessed id appends to someone else's
+ * conversation. Citations are the **full numbered list in marker order**, so
+ * `[n]` resolves to `citations[n - 1]`; storing only the cited subset would
+ * repoint every marker. */
 export async function appendMessages(
   workspaceId: string,
   userId: string,
@@ -452,6 +458,9 @@ export async function appendMessages(
     .values(
       rows.map((row, index) => ({
         chatId,
+        // Anything else falls through to `defaultRandom()`, so a client that
+        // sends nothing — or sends garbage — still gets a row.
+        ...(row.id && isUuid(row.id) ? { id: row.id } : {}),
         position: nextPosition + index,
         role: row.role,
         content: row.content,

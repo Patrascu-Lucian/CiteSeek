@@ -6,17 +6,17 @@
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 
-import { createChatUnless, deleteTurn } from "@/lib/chats/queries";
+import {
+  createChatUnless,
+  deleteFromTurn,
+  deleteTurn,
+} from "@/lib/chats/queries";
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
 import { CAP_PARAM, decideCap } from "@/lib/limits/caps";
 import { resolvePlanLimits } from "@/lib/limits/config";
 
-/**
- * A POST, not a link: a prefetch executes a handler, and a GET created one per
- * page load.
- *
- * A **write** (ADR 040): guests need no branch, since they cannot reach `"write"`.
- */
+/** A POST, not a link: a prefetch executes a handler, and a GET created one per
+ * page load. A **write** (ADR 040), so guests need no branch. */
 export async function createConversation(workspaceId: string): Promise<void> {
   const auth = await authorizeWorkspace(workspaceId, "write");
 
@@ -48,13 +48,8 @@ export async function createConversation(workspaceId: string): Promise<void> {
   );
 }
 
-/**
- * Removes one exchange from a stored conversation.
- *
- * Returns whether anything went, so the caller can restore what it hid rather
- * than leaving a turn off screen that is still in the database. Not-yours and
- * not-there are the same answer, as everywhere else here.
- */
+/** Answers whether anything went, so a caller that hid the turn first can put it
+ * back rather than leave a stored message off screen. */
 export async function deleteConversationTurn(
   workspaceId: string,
   chatId: string,
@@ -74,4 +69,27 @@ export async function deleteConversationTurn(
   if (removed > 0) revalidatePath(`/w/${workspaceId}`, "layout");
 
   return { deleted: removed > 0 };
+}
+
+/** Clears a question and everything after it, so the edited version can go
+ * through the ordinary route rather than teaching that route a second mode
+ * (ADR 043). */
+export async function clearFromTurn(
+  workspaceId: string,
+  chatId: string,
+  messageId: string,
+): Promise<{ cleared: boolean }> {
+  const auth = await authorizeWorkspace(workspaceId, "write");
+  if (isDenied(auth)) notFound();
+
+  const removed = await deleteFromTurn(
+    auth.workspaceId,
+    auth.actorId,
+    chatId,
+    messageId,
+  );
+
+  if (removed > 0) revalidatePath(`/w/${workspaceId}`, "layout");
+
+  return { cleared: removed > 0 };
 }

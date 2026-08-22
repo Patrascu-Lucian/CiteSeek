@@ -1,11 +1,13 @@
 import dynamic from "next/dynamic";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Pencil } from "lucide-react";
 
 import type { ChatSource, ChatUIMessage, RefusalReason } from "@/lib/ai/types";
 import { DEMO_EXAMPLE_QUESTIONS } from "@/lib/demo/example-questions";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 import { DeleteTurnDialog } from "./delete-turn-dialog";
+import { EditQuestionForm } from "./edit-question-form";
 import { TurnActions } from "./turn-actions";
 import { Refusal } from "./refusal";
 
@@ -120,6 +122,11 @@ export function MessageList({
   isDemo,
   onAsk,
   onDeleteTurn,
+  onEditQuestion,
+  onStartEdit,
+  onCancelEdit,
+  editingId = null,
+  busyId = null,
   deletingId = null,
   pending = false,
   streaming = false,
@@ -129,6 +136,14 @@ export function MessageList({
   selectedChunkId: string | null;
   /** Omitted where the transcript is not stored, so there is nothing to delete. */
   onDeleteTurn?: (messageId: string) => void;
+  /** Receives the reworded question. Everything below it goes with the old one. */
+  onEditQuestion?: (messageId: string, question: string) => void;
+  onStartEdit?: (messageId: string) => void;
+  onCancelEdit?: () => void;
+  /** The question currently open for editing, if any. */
+  editingId?: string | null;
+  /** The exchange whose edit is in flight. */
+  busyId?: string | null;
   /** The exchange whose delete is in flight. */
   deletingId?: string | null;
   /** Passed through to the refusal, which is the only thing that needs it. */
@@ -162,6 +177,21 @@ export function MessageList({
           isUser &&
           onDeleteTurn &&
           !(streaming && index >= messages.length - 2);
+
+        if (editingId === message.id && onEditQuestion) {
+          return (
+            <li key={message.id} className="flex justify-end">
+              <div className="w-full max-w-[85%]">
+                <EditQuestionForm
+                  initialQuestion={messageText(message)}
+                  busy={busyId === message.id}
+                  onSubmit={(question) => onEditQuestion(message.id, question)}
+                  onCancel={onCancelEdit ?? (() => undefined)}
+                />
+              </div>
+            </li>
+          );
+        }
 
         const bubble = (
           <div
@@ -214,6 +244,18 @@ export function MessageList({
           >
             {deletable ? (
               <TurnActions bubble={bubble} className="justify-end">
+                {onEditQuestion ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={`Edit the question “${messageText(message)}”`}
+                    disabled={busyId === message.id}
+                    onClick={() => onStartEdit?.(message.id)}
+                  >
+                    <Pencil aria-hidden="true" className="size-3.5" />
+                  </Button>
+                ) : null}
                 <DeleteTurnDialog
                   question={messageText(message)}
                   hasAnswer={messages[index + 1]?.role === "assistant"}

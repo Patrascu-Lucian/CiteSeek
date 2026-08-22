@@ -2230,3 +2230,40 @@ tests, 117 E2E and a production build, green.
   navigation was the defect; it was also, incidentally, the loading indicator. A measurement aimed
   at the defect confirms the defect is gone and says nothing about the passengers. The reviewer
   found it by reading what `NavigationProgress` matches on — not by running anything.
+
+## Two id generators that never met in a test, 22 August 2026
+
+- **Issue found**: editing a question worked once and then failed with "that question was not
+  changed", reported from real use. `useChat` mints message ids in base62; `messages.id` is a
+  `uuid` column filled by `defaultRandom()`. So a question **asked in the current session** carried
+  an id the database had never seen, and `removeFromTurn`'s `isUuid` guard refused it before any
+  query ran. Deleting had the same defect and the same silence. Only a full reload, which re-seeds
+  the transcript from stored rows, made that turn addressable — which is why it looked intermittent
+  rather than broken.
+
+- **How it survived**: three layers of tests, none of which could see it. Every unit test stubs
+  `useChat`, so ids came from fixtures and matched whatever the fixture said. Every integration
+  test called `appendMessages` directly and read the ids back out of the database — always uuids.
+  And the E2E seeded its transcript with `insert into messages`, so its ids were uuids too, which
+  made an end-to-end test that exercised only server-minted ids look like end-to-end coverage.
+  **Each layer sourced its ids from one generator and asked whether that generator agreed with
+  itself.**
+
+- **Fix**: mint the id where the message is created — `crypto.randomUUID()` on the client — and
+  have the route store it, so one id names the turn on both sides. `appendMessages` accepts it only
+  when it is a uuid and otherwise falls through to `defaultRandom()`, so local mode and any caller
+  sending something else still gets a row rather than an error. The E2E now edits **twice** without
+  a reload, which is the shortest sequence that crosses the seam; it fails on the second edit with
+  the fix removed.
+
+- **A wrong turn worth recording**: the first attempt passed `sendMessage({ text, messageId })`,
+  reading the option as "use this id". It means the opposite — it names an **existing** message to
+  replace — and throws `message with id … not found`. The type says `messageId?: string` on a
+  variant where `text` is `never`, which reads as interchangeable and is not.
+
+- **Lesson**: **when two sides of a seam each generate the same kind of value, a test that seeds
+  both from one of them cannot see them disagree.** Coverage looked complete because every layer
+  was internally consistent; the defect lived only where a client-minted value was consumed by the
+  server, and nothing put those two together. The cheapest test that would have caught it is the
+  one that repeats an operation without reloading — the second time is when the client's own value
+  comes back around.

@@ -87,7 +87,9 @@ describe("deleting an exchange", () => {
     // Named by the question, because that is what identifies the exchange —
     // and what `deleteTurn` accepts.
     expect(
-      screen.getByRole("button", { name: /How much leave\?/ }),
+      screen.getByRole("button", {
+        name: /^Delete the exchange starting “How much leave/,
+      }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /Twenty-eight days/ }),
@@ -100,7 +102,9 @@ describe("deleting an exchange", () => {
     render(panel({ canDelete: false }));
 
     expect(
-      screen.queryByRole("button", { name: /How much leave\?/ }),
+      screen.queryByRole("button", {
+        name: /^Delete the exchange starting “How much leave/,
+      }),
     ).not.toBeInTheDocument();
   });
 
@@ -108,14 +112,16 @@ describe("deleting an exchange", () => {
     render(panel({ chatId: null }));
 
     expect(
-      screen.queryByRole("button", { name: /How much leave\?/ }),
+      screen.queryByRole("button", {
+        name: /^Delete the exchange starting “How much leave/,
+      }),
     ).not.toBeInTheDocument();
   });
 
   it("takes the answer with the question, and leaves the rest", async () => {
     render(panel());
 
-    await confirmDelete(/How much leave\?/);
+    await confirmDelete(/^Delete the exchange starting “How much leave/);
 
     // The surviving answer first: `Answer` is behind `next/dynamic`, so
     // asserting the deleted one is absent before any answer has rendered would
@@ -139,7 +145,7 @@ describe("deleting an exchange", () => {
     action.deleteConversationTurn.mockResolvedValue({ deleted: false });
     render(panel());
 
-    await confirmDelete(/How much leave\?/);
+    await confirmDelete(/^Delete the exchange starting “How much leave/);
 
     expect(await screen.findByText("How much leave?")).toBeInTheDocument();
     expect(screen.getByText("Twenty-eight days.")).toBeInTheDocument();
@@ -150,7 +156,7 @@ describe("deleting an exchange", () => {
     action.deleteConversationTurn.mockRejectedValue(new Error("offline"));
     render(panel());
 
-    await confirmDelete(/How much leave\?/);
+    await confirmDelete(/^Delete the exchange starting “How much leave/);
 
     expect(await screen.findByText("How much leave?")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(/nothing was deleted/i);
@@ -160,7 +166,9 @@ describe("deleting an exchange", () => {
     render(panel());
 
     await userEvent.click(
-      screen.getByRole("button", { name: /How much leave\?/ }),
+      screen.getByRole("button", {
+        name: /^Delete the exchange starting “How much leave/,
+      }),
     );
     await userEvent.click(
       within(await screen.findByRole("alertdialog")).getByRole("button", {
