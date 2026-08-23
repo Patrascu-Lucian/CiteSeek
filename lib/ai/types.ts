@@ -38,6 +38,11 @@ export type { RefusalReason };
 /** @see SOURCES_PART_ID — same reasoning. */
 export const REFUSAL_PART_ID = "refusal";
 
+/** Message metadata, not a data part: a part written before the model's first
+ * token arrives ahead of the `start` opening the message, and the client builds
+ * a second message around it. */
+export type ChatMessageMetadata = { searchedFor?: string };
+
 /**
  * The message shape shared by the route and the client.
  *
@@ -47,8 +52,12 @@ export const REFUSAL_PART_ID = "refusal";
  * `refusal` is the mirror image: it appears only when `sources` cannot, and
  * carries a reason rather than prose. What the reader is offered is rendered by
  * the client, so nothing about a refusal is written by a model.
+ *
+ * `searchedFor` appears only when the typed question retrieved nothing and a
+ * rewrite of it did — a wrong guess has to be visible, or an off-topic answer
+ * has no explanation (ADR 044).
  */
 export type ChatUIMessage = UIMessage<
-  never,
+  ChatMessageMetadata,
   { sources: ChatSource[]; refusal: { reason: RefusalReason } }
 >;

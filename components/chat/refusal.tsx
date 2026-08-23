@@ -68,9 +68,9 @@ export function Refusal({
           </ul>
           <p className="text-muted-foreground text-sm">
             If the answer should be in one of them, try naming the section or
-            using the wording the document uses. A short follow-up needs its
-            subject again — only the last question is searched, not the
-            conversation.
+            using the wording the document uses. A short follow-up is expanded
+            from the conversation automatically — when that misses, naming its
+            subject yourself is what fixes it.
           </p>
         </>
       )}

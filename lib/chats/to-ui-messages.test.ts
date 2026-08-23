@@ -36,6 +36,7 @@ function stored(overrides: Partial<ChatMessage> = {}): ChatMessage {
     content: "Paid within 30 days [1].",
     citations: [citation()],
     refusalReason: null,
+    rewrittenQuestion: null,
     createdAt: new Date("2026-07-30T10:00:00Z"),
     ...overrides,
   };
@@ -203,5 +204,23 @@ describe("toUIMessages — a refused turn", () => {
     ]);
 
     expect(message?.parts.some((p) => p.type === "data-sources")).toBe(false);
+  });
+});
+
+describe("a turn the rewrite is what retrieved", () => {
+  /* Metadata, not a part: on reload it has to land on the same message as the
+     text, which is what a data part written before `start` does not do. */
+  it("restores the question that was searched", () => {
+    const [message] = toUIMessages([
+      stored({ rewrittenQuestion: "How much is the deposit?" }),
+    ]);
+
+    expect(message?.metadata).toEqual({
+      searchedFor: "How much is the deposit?",
+    });
+  });
+
+  it("leaves metadata off a turn that was not rewritten", () => {
+    expect(toUIMessages([stored()])[0]?.metadata).toBeUndefined();
   });
 });

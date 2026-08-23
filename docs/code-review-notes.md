@@ -2319,3 +2319,55 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **a test case that cannot fail still reports a number, and the number gets averaged.**
   For a retrieval set the question is not "is the expected passage correct?" but "could this case
   distinguish the thing being measured from doing nothing at all?"
+
+## Forty-five route tests, none of which had a conversation, 23 August 2026
+
+- **Issue**: the follow-up rewrite calls `generateText`. `fake-chat-model.ts` implements only
+  `doStream`, so in local development every follow-up threw inside the route and the reader got
+  "the answer failed" where a refusal belonged. Found by hand on the first try, in under a minute.
+
+- **How it survived**: `postChat`, the helper all forty-five route tests go through, hardcodes a
+  **single-message** body. The rewrite refuses to run on a first message — there is no earlier turn
+  to recover a subject from — so no test in the suite could reach the branch. Coverage was not the
+  gap; the harness had one shape and the bug lived in the other.
+
+- **Fix**: two, at different depths. `rewriteQuestion` catches provider errors and returns `null`,
+  because the turn it runs on has already failed to retrieve and an escaping error converts a
+  refusal into a broken stream. And the fake gained a `doGenerate`, since "the model" is not only
+  ever streamed. A `postConversation` helper now posts real transcripts, and two tests use it: one
+  that a rewritten follow-up finding nothing still refuses, one that a rewrite which does retrieve
+  reports what it searched for.
+
+- **Lesson**: **a test helper that only builds one shape of input is a ceiling on what the suite
+  can find.** Forty-five tests through `postChat` looked like coverage of the route; they were
+  coverage of one request shape. Worth asking of any shared fixture: what input can this helper not
+  express, and what branch does that make unreachable?
+
+## A data part written before the message it belongs to, 23 August 2026
+
+- **Issue**: the rewritten question rendered **twice** — once above an empty assistant bubble, once
+  above the answer. Found by hand on the second manual pass, minutes after the first bug.
+
+- **Cause**: `writer.write({ type: "data-searchedFor" })` runs in `execute`, before
+  `writer.merge(toUIMessageStream(...))`. The wire order is
+  `data-sources | data-searchedFor | start | text-start | …`, so both data parts arrive ahead of the
+  `start` that opens the assistant message. The client builds one message from the parts and a
+  second from `start`.
+
+- **How it hid for months**: `data-sources` has always done this. A message holding only a source
+  list renders no visible text, so the extra bubble was invisible. The first thing put there that a
+  reader could see exposed a split that predates it.
+
+- **Fix**: `messageMetadata` on `toUIMessageStream`, which rides on the `start` chunk and therefore
+  cannot attach to any message but the one carrying the text. `to-ui-messages` sets the same
+  metadata on reload, so a restored turn and a streamed turn stay identical.
+
+- **How the tests missed it**: every client test stubs `useChat` — reasonably, since it owns a
+  network connection — so nothing in the suite assembles messages from a real stream. The route
+  tests asserted the part was _in_ the stream, which it was. Neither layer could see that the parts
+  landed on two different messages. What found it was reading the chunk sequence in wire order.
+
+- **Lesson**: **ordering a stream for one consumer's needs can violate another's.** "Sources before
+  text" is correct for citation resolution and wrong for message assembly, and the two constraints
+  are invisible to each other. When a stream carries both content and framing, check which side of
+  the message boundary each piece lands on — the wire order is the evidence, not the API's shape.

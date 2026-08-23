@@ -137,6 +137,29 @@ async function postChat(
   );
 }
 
+/** A conversation rather than one message. The rewrite refuses to run on a first
+ * message, so every single-message test above leaves that branch unexercised. */
+async function postConversation(
+  workspaceId: string,
+  turns: { role: "user" | "assistant"; text: string }[],
+) {
+  const { POST } = await import("./route");
+
+  return POST(
+    new Request("http://test/api/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        messages: turns.map((turn, index) => ({
+          id: `m${String(index)}`,
+          role: turn.role,
+          parts: [{ type: "text", text: turn.text }],
+        })),
+      }),
+    }),
+    { params: Promise.resolve({ workspaceId }) },
+  );
+}
+
 /** Reads the SSE body into the list of UI message chunks it carries. */
 async function readStream(response: Response) {
   const body = await response.text();
@@ -169,6 +192,21 @@ function sourcesOf(chunks: { type: string }[]) {
   );
 
   return part?.data ?? null;
+}
+
+/** On the `start` chunk, not in a part: that is what keeps it on the same message
+ * as the answer text. */
+function searchedForOf(chunks: { type: string }[]) {
+  const start = chunks.find(
+    (
+      chunk,
+    ): chunk is {
+      type: "start";
+      messageMetadata?: { searchedFor?: string };
+    } => chunk.type === "start",
+  );
+
+  return start?.messageMetadata?.searchedFor ?? null;
 }
 
 function refusalOf(chunks: { type: string }[]) {
@@ -338,6 +376,51 @@ describe("POST /api/w/[workspaceId]/chat", () => {
     // sources at all, so there is nothing a chip could point at.
     expect(sourcesOf(chunks)).toBeNull();
     expect(textOf(chunks)).toBe(NO_RELEVANT_PASSAGES_REPLY);
+  });
+
+  /* The shape of the dev failure: a follow-up reaches the rewrite, and anything
+     thrown there used to take the turn down — the reader saw "the answer failed"
+     rather than a refusal. Every other test here posts one message, which never
+     reaches this branch. */
+  it("still refuses when a rewritten follow-up also finds nothing", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, PASSAGE);
+    currentActor.value = asUser(user.id);
+
+    const chunks = await readStream(
+      await postConversation(workspace.id, [
+        { role: "user", text: "What is the expenses policy?" },
+        { role: "assistant", text: FAKE_ANSWER },
+        { role: "user", text: "why?" },
+      ]),
+    );
+
+    expect(refusalOf(chunks)).toEqual({ reason: "no_relevant_passages" });
+    expect(textOf(chunks)).toBe(NO_RELEVANT_PASSAGES_REPLY);
+    expect(searchedForOf(chunks)).toBeNull();
+  });
+
+  /* The fake model answers a `generateText` call with `FAKE_ANSWER`, and the fake
+     embedder puts identical text at distance 0 — so seeding that text is what
+     makes a rewrite deterministically retrieve. */
+  it("says what it searched for when the rewrite is what retrieved", async () => {
+    const user = await createTestUser(db);
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    await seedPassage(workspace.id, FAKE_ANSWER);
+    currentActor.value = asUser(user.id);
+
+    const chunks = await readStream(
+      await postConversation(workspace.id, [
+        { role: "user", text: "What is the capital of France?" },
+        { role: "assistant", text: "Nothing relevant." },
+        { role: "user", text: "why?" },
+      ]),
+    );
+
+    expect(searchedForOf(chunks)).toBe(FAKE_ANSWER);
+    expect(sourcesOf(chunks)).toHaveLength(1);
+    expect(refusalOf(chunks)).toBeNull();
   });
 
   it("cannot retrieve passages from another workspace", async () => {

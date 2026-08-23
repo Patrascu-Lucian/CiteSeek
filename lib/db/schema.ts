@@ -296,6 +296,9 @@ export const messages = pgTable(
      * needs no migration and nothing in SQL branches on it.
      */
     refusalReason: text("refusal_reason").$type<RefusalReason>(),
+    /** The question actually searched, when a rewrite of the typed one is what
+     * retrieved. Null on every other turn (ADR 044). */
+    rewrittenQuestion: text("rewritten_question"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

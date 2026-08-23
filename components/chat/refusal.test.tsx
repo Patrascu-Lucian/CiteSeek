@@ -116,13 +116,14 @@ describe("Refusal — a filename that appears twice", () => {
 });
 
 describe("Refusal — a follow-up that carried no subject", () => {
-  /* "where?" and "at which company?" retrieve nothing, because only the last
-     question is embedded. The old copy blamed the document instead. */
-  it("says only the last question is searched", () => {
+  /* "where?" and "at which company?" retrieve nothing when the rewrite of them
+     misses too. The copy said the conversation is never searched, which ADR 044
+     made false. */
+  it("says a short follow-up is expanded for the reader", () => {
     renderRefusal();
 
     expect(
-      screen.getByText(/short follow-up needs its subject/i),
+      screen.getByText(/short follow-up is expanded/i),
     ).toBeInTheDocument();
   });
 
@@ -131,7 +132,7 @@ describe("Refusal — a follow-up that carried no subject", () => {
     renderRefusal({ reason: "no_documents", documents: [] });
 
     expect(
-      screen.queryByText(/short follow-up needs its subject/i),
+      screen.queryByText(/short follow-up is expanded/i),
     ).not.toBeInTheDocument();
   });
 });
