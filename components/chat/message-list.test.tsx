@@ -278,6 +278,7 @@ describe("MessageList — a conversation restored from the database", () => {
       content: "When is reimbursement paid?",
       citations: [],
       refusalReason: null,
+      rewrittenQuestion: null,
       createdAt: new Date("2026-07-30T10:00:00Z"),
     },
     {
@@ -297,6 +298,7 @@ describe("MessageList — a conversation restored from the database", () => {
         },
       ],
       refusalReason: null,
+      rewrittenQuestion: null,
       createdAt: new Date("2026-07-30T10:00:01Z"),
     },
   ]);

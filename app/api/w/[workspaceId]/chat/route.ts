@@ -18,6 +18,7 @@ import {
 } from "@/lib/ai/prompt";
 import { getChatModel } from "@/lib/ai/provider";
 import { questionFrom, questionIdFrom } from "@/lib/ai/question";
+import { rewriteQuestion } from "@/lib/ai/rewrite";
 import {
   MAX_QUESTION_CHARS,
   MAX_REQUEST_MESSAGES,
@@ -195,22 +196,30 @@ export async function POST(
     }
   }
 
-  const { chunks: retrieved, tokens: retrievalTokens } = await retrieveChunks(
-    auth.workspaceId,
-    question,
-  );
+  const first = await retrieveChunks(auth.workspaceId, question);
+  let retrieved = first.chunks;
+  /** The question actually searched, when it is not the one that was typed. */
+  let searchedFor: string | null = null;
+
+  const meter = (
+    kind: "chat" | "embedding",
+    inputTokens: number,
+    outputTokens = 0,
+  ) =>
+    recordUsage({
+      actorType,
+      actorId,
+      ipHash,
+      workspaceId: scope,
+      kind,
+      inputTokens,
+      outputTokens,
+    });
 
   /** Before either branch: the query is embedded *before* the floor applies, so a
    * question that matched nothing was still paid for. Metering only the answered
    * branch leaves repeated nonsense uncounted. */
-  await recordUsage({
-    actorType,
-    actorId,
-    ipHash,
-    workspaceId: scope,
-    kind: "embedding",
-    inputTokens: retrievalTokens,
-  });
+  await meter("embedding", first.tokens);
 
   async function persist(
     answer: string,
@@ -221,7 +230,13 @@ export async function POST(
 
     await appendMessages(scope, actorId, chatId, [
       { role: "user", content: asked, id: questionId ?? undefined },
-      { role: "assistant", content: answer, citations, refusalReason },
+      {
+        role: "assistant",
+        content: answer,
+        citations,
+        refusalReason,
+        rewrittenQuestion: searchedFor,
+      },
     ]);
   }
 
@@ -236,11 +251,30 @@ export async function POST(
         ? "no_documents"
         : "no_relevant_passages";
 
-    // Persisted like any other turn — dropping it on reload would make the
-    // transcript a lie. The reason rides along so the panel is rebuilt rather
-    // than inferred from text that could be reworded.
-    await persist(NO_RELEVANT_PASSAGES_REPLY, [], reason);
-    return createUIMessageStreamResponse({ stream: refusalStream(reason) });
+    // Only on this branch, so an answered question never waits on a second model
+    // call (ADR 044). An empty workspace has nothing to search either way.
+    const rewritten =
+      reason === "no_relevant_passages"
+        ? await rewriteQuestion(messages, question)
+        : null;
+
+    if (rewritten) {
+      await meter("chat", rewritten.inputTokens, rewritten.outputTokens);
+
+      const second = await retrieveChunks(auth.workspaceId, rewritten.question);
+      await meter("embedding", second.tokens);
+
+      retrieved = second.chunks;
+      if (retrieved.length > 0) searchedFor = rewritten.question;
+    }
+
+    if (retrieved.length === 0) {
+      // Persisted like any other turn — dropping it on reload would make the
+      // transcript a lie. The reason rides along so the panel is rebuilt rather
+      // than inferred from text that could be reworded.
+      await persist(NO_RELEVANT_PASSAGES_REPLY, [], reason);
+      return createUIMessageStreamResponse({ stream: refusalStream(reason) });
+    }
   }
 
   const sources = buildSources(retrieved);
@@ -319,7 +353,17 @@ export async function POST(
 
       // The standalone helper over `result.toUIMessageStream()`: the method is
       // deprecated and goes away in the next major.
-      writer.merge(toUIMessageStream({ stream: result.stream }));
+      writer.merge(
+        toUIMessageStream({
+          stream: result.stream,
+          // Metadata rather than a data part: a part written here arrives before
+          // the `start` that opens the assistant message, and the client builds a
+          // second message from it. Invisible for `sources`, not for a line of
+          // text.
+          messageMetadata: () =>
+            searchedFor === null ? undefined : { searchedFor },
+        }),
+      );
     },
   });
 

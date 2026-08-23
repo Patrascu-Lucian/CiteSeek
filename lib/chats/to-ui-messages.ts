@@ -58,6 +58,9 @@ export function toUIMessages(stored: readonly ChatMessage[]): ChatUIMessage[] {
     return {
       id: message.id,
       role: "assistant",
+      ...(message.rewrittenQuestion
+        ? { metadata: { searchedFor: message.rewrittenQuestion } }
+        : {}),
       parts: [
         { type: "data-sources", id: SOURCES_PART_ID, data: sources },
         { type: "text", text: message.content },

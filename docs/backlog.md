@@ -1189,9 +1189,14 @@ streamed sentence now states what happened and stops, and the panel below — wh
 on the reason — carries the diagnosis. So the false half is gone from the `no_documents` case as
 well as the follow-up one, where it had been showing for both.
 
-The follow-up hint is on the `no_relevant_passages` branch only: _"A short follow-up needs its
-subject again — only the last question is searched, not the conversation."_ Saying that where
-nothing is indexed would be its own misdiagnosis, and a test pins that it does not appear there.
+The follow-up hint is on the `no_relevant_passages` branch only. Saying it where nothing is indexed
+would be its own misdiagnosis, and a test pins that it does not appear there.
+
+↳ **The hint's own claim went stale, 23 August 2026.** It read _"only the last question is searched,
+not the conversation"_, which the rewrite ([ADR 044](decisions/044-rewriting-a-follow-up-only-after-it-fails.md))
+made false: a follow-up that retrieves nothing is now expanded from the conversation and searched
+again. The copy says so, and still asks for the subject — because the expansion can miss, and that
+is the case a reader is looking at when they read it.
 
 **The full fix stays open.** Its prerequisite was recorded as met when `retrieveLexical` got a
 tiebreaker, and that was wrong until 22 August 2026: the tiebreaker was `chunks.id`, and ids are

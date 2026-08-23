@@ -50,6 +50,8 @@ export type ChatMessage = {
   citations: MessageCitation[];
   /** Non-null only when the turn could not be grounded. See ADR 017. */
   refusalReason: RefusalReason | null;
+  /** Non-null only when a rewrite of the typed question is what retrieved. */
+  rewrittenQuestion: string | null;
   createdAt: Date;
 };
 
@@ -70,6 +72,7 @@ export async function listChatMessages(
       content: messages.content,
       citations: messages.citations,
       refusalReason: messages.refusalReason,
+      rewrittenQuestion: messages.rewrittenQuestion,
       createdAt: messages.createdAt,
     })
     .from(messages)
@@ -411,6 +414,8 @@ export type NewChatMessage = {
   citations?: MessageCitation[];
   /** Set on an assistant turn that could not be grounded. */
   refusalReason?: RefusalReason | null;
+  /** Set when a rewrite of the typed question is what retrieved. */
+  rewrittenQuestion?: string | null;
   /** The client's id for a question, so editing and deleting can name the turn
    * they are looking at. Ignored unless it is a uuid. */
   id?: string;
@@ -466,6 +471,7 @@ export async function appendMessages(
         content: row.content,
         citations: row.citations ?? [],
         refusalReason: row.refusalReason ?? null,
+        rewrittenQuestion: row.rewrittenQuestion ?? null,
       })),
     )
     .returning({ id: messages.id });

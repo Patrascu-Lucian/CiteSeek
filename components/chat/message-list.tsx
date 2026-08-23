@@ -62,6 +62,12 @@ export function messageSources(message: ChatUIMessage): ChatSource[] {
   return part && "data" in part ? part.data : [];
 }
 
+/** Present only when the typed question retrieved nothing and a rewrite of it
+ * did, so the reader can see a wrong guess rather than an off-topic answer. */
+export function messageSearchedFor(message: ChatUIMessage): string | null {
+  return message.metadata?.searchedFor ?? null;
+}
+
 function EmptyState({
   isDemo,
   onAsk,
@@ -169,6 +175,7 @@ export function MessageList({
       {messages.map((message, index) => {
         const isUser = message.role === "user";
         const refusal = messageRefusal(message);
+        const searchedFor = messageSearchedFor(message);
         const settled = !streaming || index < messages.length - 1;
 
         // On the question, which is what names the exchange — the rule
@@ -214,6 +221,23 @@ export function MessageList({
               <p className="whitespace-pre-wrap">{messageText(message)}</p>
             ) : (
               <>
+                {/* Above the answer, because it changes what the answer is an
+                    answer to. */}
+                {searchedFor ? (
+                  <p
+                    className="text-muted-foreground mb-2 text-xs"
+                    data-searched-for=""
+                  >
+                    {/* Not "Searched for" twice: the visible label is hidden
+                        from assistive tech, so this one carries the fact. */}
+                    <span className="sr-only">
+                      Your question was rephrased and searched as:{" "}
+                    </span>
+                    <span aria-hidden="true">Searched for: </span>
+                    {searchedFor}
+                  </p>
+                ) : null}
+
                 <Answer
                   text={messageText(message)}
                   sources={messageSources(message)}

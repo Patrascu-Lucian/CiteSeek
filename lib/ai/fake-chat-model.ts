@@ -53,6 +53,18 @@ export function fakeChatModel(
   ];
 
   return new MockLanguageModelV4({
+    // Not every call streams: the follow-up rewrite uses `generateText`, and a
+    // fake missing this fails the whole turn rather than the rewrite.
+    doGenerate: () =>
+      Promise.resolve({
+        content: [{ type: "text" as const, text: answer }],
+        finishReason: { unified: "stop" as const, raw: undefined },
+        usage: {
+          inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
+          outputTokens: { total: 0, text: 0, reasoning: 0 },
+        },
+        warnings: [],
+      }),
     doStream: () =>
       Promise.resolve({
         // Zero by default: a test that waits out a simulated typing speed is a
