@@ -8,16 +8,10 @@ import { signOut } from "@/auth";
 import { GUEST_COOKIE_NAME } from "./cookies";
 
 /**
- * Ending a session.
- *
- * There are two kinds to end, and they are not the same operation. A signed-in
- * user has a row in `sessions` that Auth.js must delete; a guest has only a
- * signed cookie and no server-side state at all. Handling both through one
- * "sign out" would either leave a stale guest cookie behind or call Auth.js for
- * a session that never existed.
- *
- * Server actions rather than route handlers because both need to *write*
- * cookies, which a Server Component cannot do.
+ * Two kinds of session, and not one operation: a signed-in user has a `sessions`
+ * row Auth.js must delete, a guest has only a signed cookie. One "sign out" would
+ * either strand the cookie or call Auth.js for a session that never existed.
+ * Server actions because both *write* cookies, which a Server Component cannot.
  */
 
 export async function signOutAction(): Promise<void> {

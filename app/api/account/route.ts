@@ -7,19 +7,10 @@ import { deleteUserAccount } from "@/lib/users/deletion";
 export const runtime = "nodejs";
 
 /**
- * GDPR right to erasure.
- *
- * Deletes the account and everything reachable from it: accounts, sessions,
- * workspaces, documents, chunks and their embeddings, chats and messages. One
- * statement, because the schema's cascade chain was built to make it one.
- *
- * The session is destroyed *before* the row is deleted. Doing it the other way
- * round leaves a signed-in cookie pointing at a user that no longer exists,
- * which every subsequent request then has to handle as a special case.
- *
- * Guests are rejected rather than silently succeeding: nothing about a guest is
- * ever written to the database, so there is nothing to erase, and returning 204
- * would imply a deletion that never happened.
+ * GDPR right to erasure. The session is destroyed *before* the row, or a
+ * signed-in cookie points at a user that no longer exists and every later
+ * request handles it as a special case. A guest is rejected rather than quietly
+ * succeeding: nothing about one is written, so 204 would imply a deletion.
  */
 export async function DELETE() {
   const actor = await getActor();

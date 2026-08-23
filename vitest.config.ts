@@ -11,20 +11,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     /*
-      Above Vitest's 5s default, because that default was measuring machine load
-      rather than correctness.
-
-      The PDF and docx extraction specs take ~225ms of actual work and run in
-      1.6s when their file runs alone — but under the full suite, with parallel
-      workers competing for the transform pipeline, the same tests were observed
-      at 8-9s and failed intermittently. Nothing was wrong with them; the wall
-      clock was measuring contention.
-
-      A timeout exists to catch a test that has hung, and 15s still catches that
-      while leaving room for a busy CI runner, which is slower than this machine.
-      Note this is separate from Testing Library's own `findBy*` timeouts, which
-      a couple of specs raise for a different reason — a dynamic import having to
-      transform the markdown stack on first use.
+      Above Vitest's 5s default, which measured contention rather than
+      correctness: the extraction specs do ~225ms of work and run in 1.6s alone,
+      but were observed at 8-9s under the full suite. 15s still catches a hang.
     */
     testTimeout: 15_000,
     // Playwright owns e2e/. Without this, Vitest tries to collect those specs
@@ -53,20 +42,10 @@ export default defineConfig({
         "components/ui/**",
         "**/*.d.ts",
         // Orchestration over database calls, covered by the matching
-        // `*.integration.test.ts` against a real Postgres.
-        //
-        // Excluded from *unit* coverage rather than unit-tested, because
-        // unit-testing these would mean mocking every query helper and then
-        // asserting the mocks were called — which proves the mocks work, not
-        // that ingestion does. The threshold below exists to hold the pure core
-        // to a high bar; extending it to I/O would push toward exactly the kind
-        // of test that passes while the feature is broken.
-        //
-        // `retrieve.ts` is the sharper case: it is almost entirely a SQL query,
-        // and the only assertions worth making about it — that the workspace
-        // filter is applied, that a null embedding cannot outrank a real match,
-        // that ordering survives the subquery — are answerable only by a
-        // database actually executing it.
+        // `*.integration.test.ts`. Unit-testing them would mean mocking every
+        // query helper and asserting the mocks were called, which proves the
+        // mocks work. `retrieve.ts` is almost entirely SQL: its invariants are
+        // answerable only by a database executing it.
         "lib/rag/ingest.ts",
         "lib/rag/retrieve.ts",
         // The lexical twin of `retrieve.ts`, and excluded on the same grounds:

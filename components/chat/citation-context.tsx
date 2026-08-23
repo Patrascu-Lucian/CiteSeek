@@ -3,19 +3,11 @@ import { createContext, useContext } from "react";
 import type { ChatSource } from "@/lib/ai/types";
 
 /**
- * Citation state, passed by context rather than by props.
- *
- * This is not a style preference. `Streamdown` wraps its output in `React.memo`
- * with a comparator that only looks at `translations`, `prefix` and `dir` — so a
- * changed `components` prop never reaches the DOM. Passing the selected chunk
- * down that way compiles, renders, and silently freezes: the chip opens the
- * passage but never shows itself as pressed, and nothing anywhere reports an
- * error.
- *
- * Context sidesteps it, because a context update re-renders consumers even when
- * a memoized ancestor declines to re-render. It also lets the `components` map
- * be a module-level constant with a stable identity, which is what the memo
- * wanted in the first place.
+ * Context, not props: `Streamdown` wraps its output in `React.memo` with a
+ * comparator reading only `translations`, `prefix` and `dir`, so a changed
+ * `components` prop never reaches the DOM. Passing the selection down compiles
+ * and silently freezes — the chip opens the passage and never shows as pressed.
+ * A context update re-renders consumers past a memoized ancestor.
  */
 
 type CitationContextValue = {

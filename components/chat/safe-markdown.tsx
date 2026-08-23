@@ -1,17 +1,10 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 /**
- * What an answer is allowed to render.
- *
- * The threat is not hostile text in a document — the prompt already delimits
- * that. It is the *renderer* turning model output into a network request:
- * Markdown that renders as an image is fetched **on render, with no click**, and
- * the URL path can carry whatever the model was persuaded to put in it. That
- * exfiltrates from a document the attacker cannot otherwise read, triggered by
- * the reader simply looking.
- *
- * So images do not render and links are inert — removing the capability rather
- * than guessing what the model will do.
+ * The threat is not hostile text — the prompt delimits that — it is the renderer
+ * turning model output into a network request: an image is fetched **on render,
+ * with no click**, and its path carries whatever the model was persuaded to put
+ * there. So images do not render and links are inert.
  */
 
 /** Streamdown renders `**bold**` as a styled span — visually right, semantically

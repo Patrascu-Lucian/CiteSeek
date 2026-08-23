@@ -232,15 +232,10 @@ export const chats = pgTable(
   (table) => [
     index("chats_workspace_id_idx").on(table.workspaceId),
     /*
-      The conversation list's exact query: this user's chats in this workspace,
-      newest first. `chats_workspace_id_idx` alone leaves the user filter and the
-      sort to be done by scanning, which is invisible while a workspace holds a
-      handful of chats and is the kind of thing found much later, under data
-      nobody has yet.
-
-      `updated_at` descending because that is the order the list is read in, and
-      a matching index direction lets the sort be satisfied by the scan rather
-      than performed after it.
+      The conversation list's exact query. `chats_workspace_id_idx` alone leaves
+      the user filter and the sort to a scan — invisible at a handful of chats,
+      found much later under data nobody has yet. Descending because that is the
+      order the list is read in, so the scan satisfies the sort.
     */
     index("chats_workspace_user_updated_idx").on(
       table.workspaceId,

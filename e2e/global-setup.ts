@@ -1,22 +1,11 @@
 import { request } from "@playwright/test";
 
 /**
- * Runs one unanswerable question through the demo before any spec starts.
- *
- * `chat.spec.ts`'s two refusal tests failed on the first suite run after every
- * `pnpm build` and passed on every re-run against the same build. Locally that
- * read as a flake; on CI `retries: 2` swallowed it, so the cost was paid on
- * attempt one and hidden by attempt two — a green check over a real wait.
- *
- * Warming `/demo` alone did not fix it. This is `next start` on a production
- * build, so routes are already compiled and the first-request cost is not
- * Next's: it is the first vector search touching the HNSW index, which only the
- * chat route performs. The refusal tests are the ones that expose it because
- * they assert on retrieval's own reply, with no streaming to wait behind.
- *
- * An unanswerable question on purpose. Nothing clears the relevance floor, so
- * the model is never called (ADR 011) — this warms exactly the slow path and
- * generates nothing.
+ * One unanswerable question before any spec starts. Two refusal tests failed on
+ * the first run after every build and passed on re-run, which `retries: 2` hid
+ * on CI. The cost is the first vector search touching the HNSW index, not Next
+ * compiling — warming `/demo` alone did not fix it. Unanswerable on purpose:
+ * nothing clears the floor, so this warms the slow path and calls no model.
  */
 export default async function globalSetup() {
   const port = Number(process.env.E2E_PORT ?? 3000);
