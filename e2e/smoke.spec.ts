@@ -110,15 +110,15 @@ test.describe("a URL that does not exist", () => {
     // if both render the same thing. As a guest, or the proxy redirects to
     // sign-in before the page can answer.
     await page.goto("/demo");
-    await page.goto("/w/00000000-0000-4000-8000-000000000000");
+    const response = await page.goto("/w/00000000-0000-4000-8000-000000000000");
 
     await expect(
       page.getByRole("heading", { level: 1, name: /workspace not available/i }),
     ).toBeVisible();
-    // No status assertion: this segment's `loading.tsx` lets Next flush the shell
-    // — committing a 200 — before `notFound()` runs. Measured: removing it turns
-    // this into a real 404. The skeleton is worth more on a route crawlers never
-    // see, and the status is asserted on the app-wide 404 above.
+    // The status used to be unassertable here — `loading.tsx` flushed the shell,
+    // committing a 200, before `notFound()` ran, and the choice looked like the
+    // skeleton or the status. A guard layout above that boundary gets both.
+    expect(response?.status()).toBe(404);
   });
 });
 

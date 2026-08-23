@@ -1725,7 +1725,7 @@ the count the cap uses. Nor does it go stale — `onTurnComplete` already calls 
 for a signed-in reader, so the turn that reaches the cap re-renders the server component and closes
 the composer behind itself.
 
-## A missing workspace page is a soft 404, 19 August 2026
+## ~~A missing workspace page is a soft 404~~, 19 August 2026
 
 Found while checking that malformed ids behave like absent ones — they do, but the baseline itself
 looks wrong. A GET to `/w/<well-formed-uuid-that-does-not-exist>` with a valid session returns
@@ -1741,6 +1741,20 @@ measurement: whether a browser navigation and an RSC request differ, and whether
 can decide early enough to set the status. **Check before trusting the comment** — either the
 comment is stale or the behavior regressed, and both are worth knowing.
 
+**Fixed, 24 August 2026.** The comment was stale: a plain GET answered 200. The cause is
+`loading.tsx`, whose Suspense boundary wraps the whole segment _including its own layouts_ — the
+shell flushes when that boundary is reached, and a status cannot be set after the first byte. So
+`requireWorkspace` in `(workspace)/layout.tsx` was always too late, however early it looked in the
+file.
+
+The fix is a layout one segment up, `w/[workspaceId]/layout.tsx`, that renders `children` and
+nothing else. It runs above the boundary, so the `notFound()` lands before the response opens.
+Moving `loading.tsx` below it was tried and is **not** needed — the guard alone flips 200 to 404,
+verified by removing it and watching the test go red.
+
+The status now has a test of its own. Every existing assertion checked the words, which a soft 404
+satisfies completely.
+
 ## The README screenshots predate the branding, 19 August 2026
 
 `docs/images/*.png` were taken on 10 August. Since then the header gained the mark and became
@@ -1754,7 +1768,7 @@ because the fake embedder retrieves the wrong passage and the picture is _of_ a 
 
 **Do it right after the v1.3.0 deploy**, against production, which is what the script is built for.
 
-## The storage ceiling cannot be reached by one document, 20 August 2026
+## ~~The storage ceiling cannot be reached by one document~~, 20 August 2026
 
 Found while testing the caps on the live URL. The plan allows 500,000 extracted characters, but
 `MAX_CHUNKS_PER_DOCUMENT` is 600 and the measured density is ~455 characters per chunk — so a
@@ -1771,6 +1785,12 @@ Worth deciding rather than leaving implicit: either say the per-document ceiling
 limit on the usage page, or raise `MAX_CHUNKS_PER_DOCUMENT` so one document can in principle fill
 the plan. The first is a copy change; the second is a cost decision, since the constant is one
 embedding call per chunk and exists to bound exactly that.
+
+**Said rather than raised, 24 August 2026.** The usage page's storage bar now carries "One document
+holds about 273k of this — a larger file has to be split." Raising the chunk limit buys a rarer
+document at the cost of the one thing that bounds embedding spend per upload, which is the wrong
+trade for a limit two files already work around. `MAX_CHARS_PER_DOCUMENT` derives the figure from
+the chunk limit, so the copy follows the constant instead of repeating a number from this entry.
 
 ## ~~A navigation test that only fails in the full suite~~, 20 August 2026
 
@@ -1982,3 +2002,27 @@ nav."
 
 **Revisit if** the transcript ever becomes a genuine widget — a selection mode, or bulk actions
 across exchanges — where a container owning arrow keys would stop competing with reading.
+
+## The rewrite asks for a query and gets keyword salad, 24 August 2026
+
+The follow-up rewrite ([ADR 044](decisions/044-rewriting-a-follow-up-only-after-it-fails.md)) works, and
+what it produces against the real model is `"why expenses policy"` and
+`"how much expenses policy peripherals"` — search-engine queries, not questions. The prompt asks for
+"a standalone search query", so this is what was requested.
+
+Two reasons it is worth changing anyway.
+
+**The measured ceiling does not describe it.** `FOLLOW_UP_SET`'s standalone column is fluent
+questions — "Why are Severity 3 resolution times not contractual?" — and that is where the 1.00 came
+from. A keyword bag and a question do not embed to the same vector, so the number in `eval/report.md`
+is not evidence about what ships. Recall the harness measures and recall the product gets are
+currently two different things.
+
+**It is also the string the reader sees**, under "Searched for:". A question reads as a rephrasing;
+three nouns read as the machine talking to itself.
+
+The change is one line of prompt. What makes it worth doing properly is that the harness can score
+it: rewrite each follow-up through the model, retrieve with the result, and report recall@3 beside
+the "as asked" and "standalone" columns. That turns 0.70 → 1.00 from a ceiling into a measured
+distance actually traveled, and makes the prompt tunable against evidence rather than taste. Costs
+one paid run per attempt, which is the reason it is filed rather than done inline.

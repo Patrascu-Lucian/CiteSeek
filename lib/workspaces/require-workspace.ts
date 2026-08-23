@@ -1,15 +1,16 @@
 import { notFound } from "next/navigation";
+import { cache } from "react";
 
 import { getActor } from "@/lib/auth/actor";
 import { accessToWorkspace, canWrite } from "@/lib/auth/authorization";
 import { findWorkspaceById } from "@/lib/auth/demo";
 
-/**
- * The layout and both pages each call this. **A layout is not an authorization
- * boundary** — it and the page it wraps are separate renders, and Next is free
- * to render, skip or reuse either independently.
- */
-export async function requireWorkspace(workspaceId: string) {
+/** **A layout is not an authorization boundary** — Next may render, skip or reuse
+ * one independently of its children, so all four callers repeat this. `cache`
+ * makes that one query per render pass rather than four. */
+export const requireWorkspace = cache(async function requireWorkspace(
+  workspaceId: string,
+) {
   const actor = await getActor();
   const workspace = await findWorkspaceById(workspaceId);
 
@@ -22,4 +23,4 @@ export async function requireWorkspace(workspaceId: string) {
     /** Null for a guest, so callers narrow instead of asserting. */
     userId: actor?.type === "user" ? actor.id : null,
   };
-}
+});

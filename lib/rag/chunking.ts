@@ -24,6 +24,11 @@ export const CHUNK_OVERLAP_CHARS = 100;
  * pages. */
 export const MAX_CHUNKS_PER_DOCUMENT = 600;
 
+/** 600 chunks at a measured ~455 characters, well under the plan's 500,000: the
+ * two limits were set independently, so a 300,000-character upload fails at
+ * chunking and never reaches the storage check. */
+export const MAX_CHARS_PER_DOCUMENT = MAX_CHUNKS_PER_DOCUMENT * 455;
+
 export type Chunk = {
   chunkIndex: number;
   content: string;
