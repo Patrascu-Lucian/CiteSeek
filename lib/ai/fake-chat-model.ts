@@ -3,15 +3,10 @@ import { type LanguageModel, simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 
 /**
- * The same argument as `fake-embedder.ts`, one layer up: CI has no key and cannot
- * depend on a live model that is rate-limited and occasionally down.
- *
- * Produces a grounded-looking answer citing `[1]` — enough to assert markers
- * become chips, chips open the panel, and the payload survives the round trip.
- * Says nothing about answer quality.
- *
- * Built on the SDK's own mock: the language-model interface belongs to the SDK,
- * and a hand-rolled version would drift silently on upgrade while compiling.
+ * The same argument as `fake-embedder.ts`, one layer up: CI has no key. Answers
+ * with a `[1]`, enough for markers becoming chips and the round trip — nothing
+ * about quality. Built on the SDK's own mock, since a hand-rolled one would drift
+ * silently on upgrade while still compiling.
  */
 
 /** The answer the fake always gives. Cites [1] so the citation path is exercised. */

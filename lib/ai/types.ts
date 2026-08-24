@@ -3,17 +3,11 @@ import type { UIMessage } from "ai";
 import type { MessageCitation, RefusalReason } from "@/lib/db/schema";
 
 /**
- * One retrieved passage, as the model is told about it and as the client renders
- * it.
- *
- * The model chooses *which* marker to write; it never supplies what a marker
- * points at. That asymmetry is what makes a fabricated citation impossible
- * rather than discouraged — a marker with no matching source renders as plain
- * text.
- *
- * Its own module rather than beside the prompt builder: the client imports this,
- * and a type-only import from a module full of prompt strings is one refactor
- * away from pulling them into the browser bundle.
+ * The model chooses *which* marker to write and never what it points at, which is
+ * what makes a fabricated citation impossible rather than discouraged — a marker
+ * with no source renders as plain text. Its own module because the client imports
+ * it, and a type-only import from the prompt builder is one refactor away from
+ * pulling prompt strings into the browser bundle.
  */
 export type ChatSource = MessageCitation & {
   /** 1-based. Matches the `[n]` the model writes. */
@@ -44,18 +38,11 @@ export const REFUSAL_PART_ID = "refusal";
 export type ChatMessageMetadata = { searchedFor?: string };
 
 /**
- * The message shape shared by the route and the client.
- *
  * `sources` is written *before* the model's text, so a `[1]` arriving mid-stream
- * already has something to resolve against — chips appear as the answer is typed.
- *
- * `refusal` is the mirror image: it appears only when `sources` cannot, and
- * carries a reason rather than prose. What the reader is offered is rendered by
- * the client, so nothing about a refusal is written by a model.
- *
- * `searchedFor` appears only when the typed question retrieved nothing and a
- * rewrite of it did — a wrong guess has to be visible, or an off-topic answer
- * has no explanation (ADR 044).
+ * has something to resolve against. `refusal` is its mirror — a reason, never
+ * prose, so nothing a reader is offered comes from a model. `searchedFor` appears
+ * only where a rewrite retrieved what the typed question could not, because a
+ * wrong guess has to be visible (ADR 044).
  */
 export type ChatUIMessage = UIMessage<
   ChatMessageMetadata,

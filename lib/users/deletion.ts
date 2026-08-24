@@ -4,21 +4,10 @@ import { db } from "@/lib/db";
 import { usageEvents, users } from "@/lib/db/schema";
 
 /**
- * GDPR erasure, as one transaction — the schema was built to make it nearly one
- * statement:
- *
- *   users ─┬─ accounts
- *          ├─ sessions
- *          ├─ workspaces ── documents ── chunks
- *          └─ chats ── messages
- *
- * Structural rather than application code remembering to tidy up: embeddings
- * live in `chunks.embedding` so they go with the row, and text is stored in
- * `documents.contentText` rather than object storage, so nothing orphans
- * (ADR 009). Guests need no equivalent — nothing about one is ever written.
- *
- * `usage_events` needs its own statement: `actor_id` is text rather than a
- * foreign key, because it holds guest ids too, so no cascade reaches it.
+ * GDPR erasure in one transaction, because the cascade is structural rather than
+ * code remembering to tidy up: embeddings live in `chunks.embedding` and text in
+ * `documents.contentText`, so nothing orphans (ADR 009). `usage_events` needs its
+ * own statement — `actor_id` is text, not a foreign key, since it holds guest ids.
  */
 export async function deleteUserAccount(userId: string): Promise<boolean> {
   return db.transaction(async (tx) => {

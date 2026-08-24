@@ -38,17 +38,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/sign-in",
   },
   /*
-    **This is not blanket trust of a client-supplied Host.** Every request arrives
-    through Vercel's proxy, which terminates TLS and sets the forwarded host
-    itself, so Auth.js needs those headers to resolve the callback for the request
-    in front of it — on previews, where the hostname changes per deploy, and in
-    production alike.
-
-    Gating this on `VERCEL_ENV` took production sign-in down on 6 August 2026.
-    `AUTH_URL` does not substitute: it pins the canonical URL Auth.js advertises,
-    not the host it is allowed to read. An outside review flagged the unconditional
-    value as something to tighten; on a bare Node server it would be, and here it
-    is the platform doing the work.
+    **Not blanket trust of a client-supplied Host.** Vercel's proxy terminates TLS
+    and sets the forwarded host itself, and a preview's hostname changes per
+    deploy. Gating this on `VERCEL_ENV` took production sign-in down on 6 August
+    2026; `AUTH_URL` pins the URL Auth.js advertises, not the host it may read.
   */
   trustHost: true,
   events: {

@@ -14,17 +14,9 @@ import {
 } from "@/components/ui/card";
 
 /**
- * The error boundary for everything outside the workspace.
- *
- * The workspace has its own, which is the segment most likely to fail — it
- * queries on every render. This one covers what was left: the landing page,
- * `/sign-in`, `/demo`, `/w` itself. Without it those fall through to Next's
- * default error page, which is unstyled and offers nothing to do.
- *
- * Not `global-error.tsx`: that replaces the root layout and is only reachable
- * when the layout itself throws. This sits inside the layout, so the skip link
- * and the fonts survive — a reader hitting an error still gets the product's
- * chrome rather than a bare document.
+ * The boundary for everything outside the workspace, which has its own. **Not
+ * `global-error.tsx`**: that replaces the root layout and only catches the layout
+ * itself throwing. This sits inside it, so the fonts and skip link survive.
  */
 export default function AppError({
   error,

@@ -42,17 +42,11 @@ function markerExample(sources: readonly ChatSource[]): string {
 const LOOP_WINDOW = 80;
 
 /**
- * Greedy decoding has no way out of a loop it has entered: asked to correct
- * itself, the model repeated one paragraph seven times until `max_new_tokens`
- * stopped it.
- *
- * Detected here rather than configured on the model. `repetition_penalty` is
- * presence-based over the whole sequence — `new Set(input_ids)`, prompt included
- * — so the repeated words were already penalised before the first repeat and it
- * changed nothing, byte for byte. `no_repeat_ngram_size` does work, and also
- * spans the prompt, which would forbid quoting the passage that rule 6 asks the
- * model to quote. This reads only what was generated, so it costs quoting
- * nothing.
+ * Greedy decoding cannot leave a loop: the model repeated one paragraph seven
+ * times until `max_new_tokens` stopped it. Detected here rather than configured —
+ * `repetition_penalty` is presence-based over the prompt too, so it changed
+ * nothing byte for byte, and `no_repeat_ngram_size` would forbid quoting the
+ * passage the prompt asks for. This reads only what was generated.
  */
 function isLooping(answer: string): boolean {
   if (answer.length < LOOP_WINDOW * 2) return false;

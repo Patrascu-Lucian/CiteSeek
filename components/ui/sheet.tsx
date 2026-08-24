@@ -7,17 +7,10 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * A panel that slides in from the edge, built on Radix's Dialog.
- *
- * Written by hand rather than pulled from the registry, which wanted to
- * overwrite `button.tsx` on the way in. Follows `alert-dialog.tsx`'s conventions
- * — `data-slot` attributes, `radix-ui` unified import, `cn` for class merging —
- * so it reads as part of the same set.
- *
- * Dialog rather than a plain div because the primitive already handles the
- * things that are tedious and easy to get wrong: focus is trapped inside while
- * open, returned to the trigger on close, Escape dismisses, and the rest of the
- * page is hidden from assistive technology.
+ * Written by hand, not from the registry, which wanted to overwrite `button.tsx`
+ * on the way in; it follows `alert-dialog.tsx`'s conventions instead. Radix's
+ * Dialog rather than a div, for the focus trap, the return to the trigger,
+ * Escape, and hiding the rest of the page from assistive technology.
  */
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {

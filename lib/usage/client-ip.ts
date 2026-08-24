@@ -1,19 +1,11 @@
 import { createHmac } from "node:crypto";
 
 /**
- * Identifying a caller for the purpose of limiting them.
- *
- * A guest's id lives in a cookie they can clear, and `/demo` mints a fresh one
- * per visit — so guest identity is self-assigned and useless as a limit key. The
- * only thing an anonymous visitor does not control is the address their packets
- * arrive from.
- *
- * The address is never stored: it is reduced to `HMAC-SHA256(ip, AUTH_SECRET)`
- * before reaching the database. Equality on the hash counts identically, so
- * enforcement is unchanged and the table holds no personal data in the clear.
- *
- * Rotating `AUTH_SECRET` re-keys every hash and resets every limit — the same
- * trade already accepted for guest cookies.
+ * A guest's cookie id is self-assigned — `/demo` mints a fresh one per visit — so
+ * the address is the only thing an anonymous caller does not control. Stored only
+ * as `HMAC-SHA256(ip, AUTH_SECRET)`: equality still counts, so enforcement is
+ * unchanged and no address is in the clear. Rotating `AUTH_SECRET` re-keys every
+ * hash and resets every limit.
  */
 
 /**

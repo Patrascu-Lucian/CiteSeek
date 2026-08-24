@@ -1,16 +1,9 @@
 import { pageShell } from "@/components/ui/page-shell";
 
 /**
- * Streamed while the account query runs.
- *
- * This is what makes the navigation feel instant rather than stuck: with a
- * loading boundary the router commits the new route immediately and streams the
- * page into it, so the URL changes and the layout appears at once. Without one,
- * Next holds the *old* page on screen until the server has finished — which
- * reads as a link that did nothing.
- *
- * A skeleton rather than a spinner, matching the workspace: it reserves the real
- * layout, so nothing jumps when the content arrives.
+ * Without a loading boundary Next holds the *old* page on screen until the server
+ * finishes, which reads as a link that did nothing. A skeleton rather than a
+ * spinner: it reserves the real layout, so nothing jumps on arrival.
  */
 export default function AccountLoading() {
   return (

@@ -8,16 +8,10 @@ import {
 } from "@/lib/auth/guest";
 
 /**
- * Entry point for guest mode.
- *
- * A GET that sets a cookie is normally a smell, but this is a navigation target
- * from a link and it creates no server-side state -- the token is self-contained
- * and nothing is written to the database. Requiring a POST would mean an
- * interstitial between "click Try the demo" and seeing the product, which is
- * precisely the friction the demo exists to remove.
- *
- * Redirect targets are derived from `request.url` rather than an env var so this
- * works unchanged on localhost, Vercel previews, and production.
+ * A GET that sets a cookie is normally a smell; this one is a link target that
+ * writes nothing — the token is self-contained — and a POST would put an
+ * interstitial between "Try the demo" and the product. Redirect targets come from
+ * `request.url`, so localhost, previews and production need no configuration.
  */
 export async function GET(request: Request) {
   const secret = process.env.AUTH_SECRET;
