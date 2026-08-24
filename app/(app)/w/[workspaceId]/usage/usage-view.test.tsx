@@ -138,6 +138,20 @@ describe("UsageView — the plan ceiling", () => {
     expect(within(section).getByText("180k of 500k")).toBeInTheDocument();
   });
 
+  /* Two limits set independently, and the reader meets the smaller one first: a
+     300,000-character upload fails at chunking and never reaches this bar, so
+     "500k" on its own reads as something one document could fill. */
+  it("says one document cannot fill the storage it shows", () => {
+    render(
+      <UsageView workspaceId="w1" usage={usage()} canUpload plan={plan()} />,
+    );
+
+    const section = screen.getByRole("region", { name: /plan/i });
+    expect(
+      within(section).getByText(/one document holds about/i),
+    ).toHaveTextContent("273k");
+  });
+
   /* The demo is read-only for everyone, so a ceiling there would describe a
      limit nobody in that workspace can reach. */
   it("is absent where no cap can bite", () => {
