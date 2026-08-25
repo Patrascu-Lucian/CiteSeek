@@ -68,9 +68,9 @@ export function Refusal({
           </ul>
           <p className="text-muted-foreground text-sm">
             If the answer should be in one of them, try naming the section or
-            using the wording the document uses. A short follow-up is expanded
-            from the conversation automatically — when that misses, naming its
-            subject yourself is what fixes it.
+            using the wording the document uses. A short follow-up is the usual
+            cause — “how much?” carries nothing to search for, so naming its
+            subject again is what fixes it.
           </p>
         </>
       )}
