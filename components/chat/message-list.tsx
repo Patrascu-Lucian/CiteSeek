@@ -180,10 +180,13 @@ export function MessageList({
 
         // On the question, which is what names the exchange — the rule
         // `deleteTurn` enforces in SQL. Not while its answer is still arriving.
+        // `pending` as well as `streaming`: between submit and the first token the
+        // question is the newest message and nothing is streaming yet, so the
+        // controls offered to act on a turn the server had not written down.
         const deletable =
           isUser &&
           onDeleteTurn &&
-          !(streaming && index >= messages.length - 2);
+          !((streaming || pending) && index >= messages.length - 2);
 
         if (editingId === message.id && onEditQuestion) {
           return (
