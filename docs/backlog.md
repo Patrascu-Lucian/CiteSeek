@@ -2041,14 +2041,24 @@ one paid run per attempt, which is the reason it is filed rather than done inlin
 
 ## The workspace route scores CLS 0.324 while it loads, 25 August 2026
 
-Found re-measuring for v1.4.0. Lighthouse reports **CLS 0.324** on `/w/[id]`, reproducible to
-three decimals across three runs, and it is the largest single deduction in the performance score.
-The v1.3.1 release measures 0.329, so this predates the milestone and neither caused nor fixed it.
+Found re-measuring for v1.4.0. Lighthouse reports **CLS 0.324** on `/w/[id]`, and it is the largest
+single deduction in the performance score. The v1.3.1 release measures 0.329, so this predates the
+milestone and neither caused nor fixed it.
 
 It is stable where the CPU-bound metrics are not: total blocking time ranged 80–870 ms across six
-runs on the same machine while CLS did not move at all. That is the evidence it is a property of
-the page rather than of the machine — not that CLS is immune to load, which it is not, since shift
-depends on when hydration and font swaps land.
+local runs while CLS did not move at all. That is the evidence it is a property of the page rather
+than of the machine — not that CLS is immune to load, which it is not, since shift depends on when
+hydration and font swaps land.
+
+**It is not perfectly reproducible, though.** Three runs against production gave 0, 0.324, 0.324 —
+so the shift can be missed entirely, presumably when content arrives before the first paint. Six
+local runs gave 0.324 every time. Whatever the fix turns out to be, a single run cannot demonstrate
+it worked.
+
+**The price, at v1.4.0 deployed.** Layout shift scores 35 of 100 and carries a quarter of the
+performance weight, so it costs roughly **16 points** on its own. Every other metric is 88 or
+better — total blocking time, where script weight lands, is 99. This one entry is what stands
+between the workspace route and the project's own Lighthouse bar of 95.
 
 **One element accounts for all of it.** Lighthouse's `layout-shift-elements` audit reports a single
 entry scoring **0.3235** of the 0.324: `<footer class="border-border/60 mt-auto border-t">`. Nothing
