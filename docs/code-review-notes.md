@@ -2393,7 +2393,9 @@ tests, 117 E2E and a production build, green.
   now says "a typical size, not a ceiling" in its own comment, since it had the same error.
 
 - **Found alongside**: the product disagreed with itself. The documents list says "passages"; the
-  upload error said "chunks", a word the UI uses nowhere else, and no test pinned either.
+  upload error said "chunks". A review of the release caught that the sweep was incomplete — the
+  privacy page said both words in one sentence — and that nothing pinned either word in a test.
+  Both are fixed; the incomplete sweep is the more useful half of the story.
 
 - **Lesson**: **when a sentence needs a hedge to be true, ask what the hedge is hiding.** "About",
   "roughly", "up to" are worth a second look in copy that states a limit — they are where an

@@ -1777,16 +1777,20 @@ because the fake embedder retrieves the wrong passage and the picture is _of_ a 
 
 ↳ **Stale again at v1.4.0, for a different reason.** The composer changed shape in this release
 — one row, send inside the field — and every icon button became a square box, neither of which
-existed when these were taken. `answer.png` and `source.png` both show the composer. Re-shoot
-after the deploy, which is when `pnpm demo:shots` works at all.
+existed when these were taken. `answer.png` and `source.png` both show the composer.
+
+↳ **Re-shot, 25 August 2026** — `42fba29`, once v1.4.0 was deployed. The viewport went from 900 to
+960 in the same commit: at 900 the composer was cut in half, survivable while it was an empty box
+and not once the send button moved inside it.
 
 ## ~~The storage ceiling cannot be reached by one document~~, 20 August 2026
 
 Found while testing the caps on the live URL. The plan allows 500,000 extracted characters, but
 `MAX_CHUNKS_PER_DOCUMENT` is 600 and the measured density is ~455 characters per chunk — so a
 single document tops out around **273,000 characters**. A 300,000-character upload never reaches
-the storage check; it fails at chunking with "This document produces 659 chunks, above the limit
-of 600. Split it into smaller documents."
+the storage check; it fails at chunking with "This document produces 659 passages, above the limit
+of 600. Split it into smaller documents." (That message said "chunks" until `808f20a`, which is
+itself part of this entry's story — see below.)
 
 Nothing is wrong here, and the chunk message gives advice that works: two 250,000-character files
 ingest and land exactly on the ceiling. But "500,000 characters of storage" reads as something one
@@ -2073,10 +2077,23 @@ CSS.
 
 Worth doing: 0.324 is well past the 0.1 "good" threshold, and it is the first thing a reader sees.
 
-**Fixed, 25 August 2026.** The skeleton now reserves a conversation-shaped block as well as the
-documents one. Three local runs before and after: CLS 0.324 every time, then 0 every time, with the
-performance median moving 72 → 88. Lighthouse stops emitting `layout-shift-elements` entirely,
-which it only does when nothing shifts.
+**Fixed on the guest route, 25 August 2026.** The skeleton now reserves a conversation-shaped block
+as well as the documents one. Three local runs before and after: CLS 0.324 every time, then 0 every
+time, with the performance median moving 72 → 88. Lighthouse stops emitting
+`layout-shift-elements` entirely, which it only does when nothing shifts.
+
+**Signed in does not shift, which was worth checking rather than assuming.** `workspace-shell.tsx`
+renders the Conversations section only when `signedIn && canWrite`, so a writable workspace has a
+fourth block the skeleton has no stand-in for — a review of this release expected it to shift for
+that reason. Measured with a session cookie against a local production build, three runs each on a
+workspace with a document and a conversation and on an empty one: **CLS 0 every time, no element
+reported**.
+
+The reason inverts the intuition. The guest page is the _shortest_ — a read-only card, no dropzone,
+no conversations — so its footer is inside the viewport at first paint and has somewhere to move
+to. Every signed-in variant is taller, so the footer starts below the fold and shifting it moves
+nothing a reader can see. A skeleton mismatched to the content is only a defect where the page is
+short enough for the mismatch to show.
 
 **No CI guard, deliberately.** An E2E collecting `layout-shift` entries passed with the fix removed:
 locally the Suspense boundary resolves before first paint, so `loading.tsx` never renders and there

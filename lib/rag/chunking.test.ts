@@ -230,6 +230,10 @@ describe("chunkText — limits", () => {
     const enormous = paragraphs(MAX_CHUNKS_PER_DOCUMENT * 2);
 
     expect(() => chunkText(enormous)).toThrow(DocumentTooLargeError);
-    expect(() => chunkText(enormous)).toThrow(/above the limit of 600/);
+    // "passages", not "chunks": the word the documents list and the usage page
+    // use. Only the number was pinned, so the noun regressed silently once.
+    expect(() => chunkText(enormous)).toThrow(
+      /passages, above the limit of 600/,
+    );
   });
 });

@@ -9,7 +9,16 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { brotliCompressSync } from "node:zlib";
 
+/** Local only, unlike `perf:ttft`, which shares this variable: the sizes come
+ * from `.next` on disk, so pointing it at production measures a local build under
+ * production's name. */
 const base = process.env.MEASURE_BASE_URL ?? "http://localhost:3000";
+
+if (!/^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(base)) {
+  throw new Error(
+    `${base} is not local. This reads chunk sizes from \`.next\`.`,
+  );
+}
 
 /** A name, never a path. Git Bash rewrites a leading slash into a drive letter
  * before the argument reaches Node — `/w` arrives as `W:/` — so the documented
@@ -30,10 +39,13 @@ const path = TARGETS[name as keyof typeof TARGETS];
 async function guestCookie(): Promise<string> {
   // A production server, not `pnpm dev`: dev appends `?v=…` to every chunk URL,
   // so none of them resolve on disk.
+  // `cause` because the message is a guess: DNS, TLS and a proxy refusal all
+  // arrive here and none of them is "nothing is listening".
   const response = await fetch(`${base}/demo`, { redirect: "manual" }).catch(
-    () => {
+    (cause: unknown) => {
       throw new Error(
-        `Nothing is answering on ${base}. Run \`pnpm build && pnpm start\` first.`,
+        `Cannot reach ${base}. Run \`pnpm build && pnpm start\` first.`,
+        { cause },
       );
     },
   );

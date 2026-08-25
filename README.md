@@ -55,8 +55,8 @@ that already exists. The model chooses which passages to cite; it cannot invent 
 citing.
 
 That ordering is also why the [Numbers](#numbers) below report two separate figures: the
-stream's first byte at ~500 ms is the citation payload, and the first token of prose at
-~1.03 s is the model. They are different events, and quoting only the smaller one would be
+stream's first byte at ~365 ms is the citation payload, and the first token of prose at
+~0.85 s is the model. They are different events, and quoting only the smaller one would be
 flattering and wrong.
 
 Workspace scoping is enforced in the SQL of that vector search, not by filtering afterward
@@ -207,21 +207,26 @@ production, not that the ceiling has been stressed.
 **Time to first token** — the deployed app, as a guest, asking a question the demo document
 answers. Two figures, because only one of them is TTFT:
 
-| Measured from request start        | v1.3.1 | v1.4.0 |
-| ---------------------------------- | ------ | ------ |
-| First byte of the stream (sources) | 461 ms | 502 ms |
-| **First token of the answer**      | 1.03 s | 1.03 s |
+| Measured from request start        | v1.3.1, by hand | v1.4.0, `perf:ttft` |
+| ---------------------------------- | --------------- | ------------------- |
+| First byte of the stream (sources) | 461 ms          | 365 ms              |
+| **First token of the answer**      | 1.03 s          | 0.85 s              |
 
 The stream opens before the answering model is called: the citation payload is written first,
 as a fact about retrieval rather than a summary of what the model claimed. So a reader sees
-sources resolve at ~500 ms and prose begin at ~1 s.
+sources resolve at ~365 ms and prose begin at ~0.85 s.
 
-The v1.4.0 column is `pnpm perf:ttft`, four samples against production. Time to first token is
-unchanged; the first-byte median moved 41 ms, which is inside the spread of those four — the
-first request after a cold function took 1,639 ms on its own.
+**Read that as a method change, not a speed-up.** An earlier run of `perf:ttft` published 502 ms
+and 1.03 s from the same deployment. Two faults produced the difference and a review of this
+release found both: the median took the upper of the two middle samples on an even count, and a
+cold start — 1,893 ms on the run above, against a ~400 ms steady state — sat in the sample rather
+than ahead of it. The script now discards a warm-up and takes a real median, so the v1.4.0 column
+is the app and the v1.3.1 column is a hand measurement of unknown method. They are not a
+before-and-after.
 
-Four samples rather than five — the fifth was refused by this project's own rate limiter,
-which is the intended behavior and a reasonable way to find out it works in production.
+The script also refuses to time a refusal. A refusal streams in the same shape as an answer,
+deliberately, so the client has one code path — and no answering model runs on that branch, so
+timing one would have put a retrieval round trip into this table as a generation.
 
 **Client bundle**, measured by reading the scripts the page actually serves. An earlier entry
 here claimed the 428 KB markdown chunk — a parser, a
@@ -290,13 +295,14 @@ that was the only available one anyway. Nothing is blocked that the app wanted.
 | Cumulative layout shift  | 0.329  | 0.324  |
 | Largest contentful paint | 3.2 s  | 3.6 s  |
 
-Read those columns against each other rather than against the 90 above: a different Chrome build
-and a busier machine. Total blocking time ranged 80–870 ms across six runs and says nothing.
+Read those columns against each other rather than against the deployed rows above: a different
+Chrome build and a busier machine. Total blocking time ranged 80–870 ms across six runs and says
+nothing.
 
-Two things it does say. **CLS ~0.33 is unchanged and is the largest deduction on both builds** — a
-real shift, reproducible to three decimal places, filed rather than fixed here. And LCP moved 0.4 s
-while first contentful paint and speed index did not, which points at when content arrives rather
-than at when the page starts painting.
+Two things it does say. **CLS ~0.33 was unchanged and was the largest deduction on both builds** —
+a real shift, and the one this release fixes; the before/after is below. And LCP moved 0.4 s while
+first contentful paint and speed index did not, which points at when content arrives rather than at
+when the page starts painting.
 
 **Retrieval quality**, measured by `pnpm eval:retrieval` against a golden set of 51 questions
 over three documents written for the purpose — 41 answerable, 10 answerable by none of them.
