@@ -207,14 +207,18 @@ production, not that the ceiling has been stressed.
 **Time to first token** — the deployed app, as a guest, asking a question the demo document
 answers. Two figures, because only one of them is TTFT:
 
-| Measured from request start        | Median |
-| ---------------------------------- | ------ |
-| First byte of the stream (sources) | 461 ms |
-| **First token of the answer**      | 1.03 s |
+| Measured from request start        | v1.3.1 | v1.4.0 |
+| ---------------------------------- | ------ | ------ |
+| First byte of the stream (sources) | 461 ms | 502 ms |
+| **First token of the answer**      | 1.03 s | 1.03 s |
 
-The stream opens before the model is called at all: the citation payload is written first, as
-a fact about retrieval rather than a summary of what the model claimed. So a reader sees
-sources resolve at ~460 ms and prose begin at ~1 s.
+The stream opens before the answering model is called: the citation payload is written first,
+as a fact about retrieval rather than a summary of what the model claimed. So a reader sees
+sources resolve at ~500 ms and prose begin at ~1 s.
+
+The v1.4.0 column is `pnpm perf:ttft`, four samples against production. Time to first token is
+unchanged; the first-byte median moved 41 ms, which is inside the spread of those four — the
+first request after a cold function took 1,639 ms on its own.
 
 Four samples rather than five — the fifth was refused by this project's own rate limiter,
 which is the intended behavior and a reasonable way to find out it works in production.
