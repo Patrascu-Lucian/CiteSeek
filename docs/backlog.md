@@ -1760,7 +1760,7 @@ verified by removing it and watching the test go red.
 The status now has a test of its own. Every existing assertion checked the words, which a soft 404
 satisfies completely.
 
-## The README screenshots predate the branding, 19 August 2026
+## ~~The README screenshots predate the branding~~, 19 August 2026
 
 `docs/images/*.png` were taken on 10 August. Since then the header gained the mark and became
 sticky and translucent, so every thumbnail shows a header the live site no longer has — and the
@@ -1772,6 +1772,13 @@ not deployed yet, so running it today would recapture the old header faithfully.
 because the fake embedder retrieves the wrong passage and the picture is _of_ a citation.
 
 **Do it right after the v1.3.0 deploy**, against production, which is what the script is built for.
+
+**Done, 20 August 2026** — `3c3e172`, regenerated against production after the v1.3.0 deploy.
+
+↳ **Stale again at v1.4.0, for a different reason.** The composer changed shape in this release
+— one row, send inside the field — and every icon button became a square box, neither of which
+existed when these were taken. `answer.png` and `source.png` both show the composer. Re-shoot
+after the deploy, which is when `pnpm demo:shots` works at all.
 
 ## ~~The storage ceiling cannot be reached by one document~~, 20 August 2026
 
