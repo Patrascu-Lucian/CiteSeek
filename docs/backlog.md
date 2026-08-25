@@ -2031,3 +2031,41 @@ it: rewrite each follow-up through the model, retrieve with the result, and repo
 the "as asked" and "standalone" columns. That turns 0.70 → 1.00 from a ceiling into a measured
 distance actually traveled, and makes the prompt tunable against evidence rather than taste. Costs
 one paid run per attempt, which is the reason it is filed rather than done inline.
+
+## The workspace route scores CLS 0.324 while it loads, 25 August 2026
+
+Found re-measuring for v1.4.0. Lighthouse reports **CLS 0.324** on `/w/[id]`, reproducible to
+three decimals across three runs, and it is the largest single deduction in the performance score.
+The v1.3.1 release measures 0.329, so this predates the milestone and neither caused nor fixed it.
+
+It is stable where the CPU-bound metrics are not: total blocking time ranged 80–870 ms across six
+runs on the same machine while CLS did not move at all. That is the evidence it is a property of
+the page rather than of the machine — not that CLS is immune to load, which it is not, since shift
+depends on when hydration and font swaps land.
+
+The likely source is `loading.tsx` handing over to content: the skeleton reserves a layout, and
+anything the real content sizes differently — the document list, the conversation list, the
+composer — moves everything below it. Not chased here because the fix is a measurement of its own:
+find which element moves, in the trace Lighthouse already records, before changing any CSS.
+
+Worth doing: 0.324 is well past the 0.1 "good" threshold, and it is the first thing a reader sees.
+
+## Largest contentful paint moved 0.4s and nothing else did, 25 August 2026
+
+Same re-measurement. On the workspace route, LCP went **3.2s → 3.6s** between v1.3.1 and v1.4.0,
+while first contentful paint (0.8s) and speed index (~1.1s) were unchanged, and the client
+bundle is flat at 980 KB raw / 254 KB brotli.
+
+**No cause identified**, and two candidates are ruled out. Unchanged FCP rules out the guard layout
+added for the soft 404: it runs above `loading.tsx`, so if it delayed anything it would delay the
+first paint. And the layout's own data is unchanged _on the measured route_ — the run is a guest on
+`/w/[id]`, where v1.3.1's `workspace-view.tsx` already awaited `listDocuments` and put `listChats`
+behind `signedIn`, exactly as v1.4.0 puts it behind `writable && userId`. A guest calls neither
+version of it. Identical database work, under the same `loading.tsx` boundary.
+
+So what moved is when the largest element finishes, for a reason not yet found. The first version of
+this entry blamed the layout's data and was wrong — worth recording, because a wrong cause sends the
+follow-up run to measure the thing that did not change.
+
+Three runs per build, one machine, one Chrome. 0.4s is small enough to want a fourth and fifth run
+before anyone acts on it, and the numbers are recorded here so that run has something to compare to.
