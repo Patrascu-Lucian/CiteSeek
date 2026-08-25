@@ -2043,10 +2043,16 @@ runs on the same machine while CLS did not move at all. That is the evidence it 
 the page rather than of the machine — not that CLS is immune to load, which it is not, since shift
 depends on when hydration and font swaps land.
 
-The likely source is `loading.tsx` handing over to content: the skeleton reserves a layout, and
-anything the real content sizes differently — the document list, the conversation list, the
-composer — moves everything below it. Not chased here because the fix is a measurement of its own:
-find which element moves, in the trace Lighthouse already records, before changing any CSS.
+**One element accounts for all of it.** Lighthouse's `layout-shift-elements` audit reports a single
+entry scoring **0.3235** of the 0.324: `<footer class="border-border/60 mt-auto border-t">`. Nothing
+else on the page shifts measurably, so the document list, the conversation list and the composer are
+all in the clear.
+
+`mt-auto` positions the footer wherever the content ends, so it moves when `loading.tsx` hands over
+and the content turns out taller than the skeleton. The skeleton's comment says it "reserves the
+real layout"; against the footer it does not. So the fix is a measurement first — compare the
+skeleton's height to the loaded page's and close the gap — rather than anything in the footer's own
+CSS.
 
 Worth doing: 0.324 is well past the 0.1 "good" threshold, and it is the first thing a reader sees.
 
