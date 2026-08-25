@@ -2092,3 +2092,51 @@ follow-up run to measure the thing that did not change.
 
 Three runs per build, one machine, one Chrome. 0.4s is small enough to want a fourth and fifth run
 before anyone acts on it, and the numbers are recorded here so that run has something to compare to.
+
+## The CSP issue in Chrome's panel is Zod asking permission, 25 August 2026
+
+Found chasing best practices 96 on the deployed workspace route. Lighthouse reports one
+`inspector-issues` entry of type "Content security policy" with no URL, so nothing appears as a
+blocked request. The DevTools `Audits` domain names it exactly:
+
+```
+ContentSecurityPolicyIssue  violatedDirective: script-src  isReportOnly: false
+                            contentSecurityPolicyViolationType: kEvalViolation
+```
+
+It is Zod's `allowsEval` in `v4/core/util.js` — a `cached()` probe reading `new F("")` in source,
+which Terser rewrites to `Function(""),!0` in the bundle. Zod compiles validators with the
+`Function` constructor where it can and interprets them where it cannot. The production policy
+carries no `'unsafe-eval'`, so the probe throws, the `catch` runs, and Zod takes the interpreted
+path — the only path that policy permits anyway. Nothing the app wanted is blocked.
+
+**Only `zod@4.4.3` reaches a browser.** `zod@3.25.76` is also in the tree, pulled by
+`@modelcontextprotocol/sdk` for the `shadcn` CLI devDependency; the AI SDK graph is entirely 4.4.3
+and the built client chunk holds one copy. That matters to anyone acting on this: only 4.4.3's
+`allowsEval` honours `globalConfig.jitless`.
+
+**It reproduces against a production build only.** `lib/security/content-security-policy.ts`
+appends `'unsafe-eval'` outside production, so under `pnpm dev` the probe succeeds, the JIT path is
+taken and nothing is logged. Lighthouse and Playwright both see it because both run `pnpm start`.
+
+**It also fires `securitypolicyviolation`.** Zod's own comment beside the probe says so — "strict
+CSPs report the caught `new Function` as a `securitypolicyviolation` even though the throw is
+swallowed." So the cost is not only a dead entry in the Issues panel: add a `report-to` endpoint or
+a violation listener and this reports on every workspace page load, drowning whatever the endpoint
+was added to catch.
+
+**Not fixed, and not a one-liner.** `z.config({ jitless: true })` skips the probe, but `zod` is not
+a direct dependency and no app file imports it — so it first needs adding at a version that
+resolves to the _same_ 4.4.3 instance the AI SDK uses. Then `allowsEval` is a `cached()` value read
+inside the `$ZodObject` constructor, so the config call has to execute before the first
+`z.object(...)` in any AI SDK module evaluates. That is an import-ordering constraint. Worth doing
+the day a violation endpoint goes in, and worth knowing beforehand that it is an afternoon rather
+than a line.
+
+**A CSP error naming `content.js` is not this, and not ours.** `content.js` is the conventional
+filename for a browser extension's content script; `citeseek.app/content.js` is a 404 and the
+workspace HTML never references it. An MV3 content script runs in an isolated world and is not
+itself subject to the page's policy — what our CSP blocks is a script such an extension injects
+into the main world, which is why the message quotes our policy. It appears only in a browser with
+that extension installed, which is why Lighthouse and a clean Playwright run see the Zod probe and
+not this one.
