@@ -26,10 +26,14 @@ so rather than highlighting the wrong paragraph.
 <a href="docs/images/source.png"><img src="docs/images/source.png" width="620" alt="The source panel open on the cited passage, highlighted, with its page number"></a>
 
 The part worth stealing is the guarantee underneath it. **When nothing retrieved clears the
-relevance floor, the model is never called at all** — the route returns a refusal it wrote
-itself. A hallucinated citation is not unlikely here; it is unreachable, because there was no
-generation step in which to invent one
-([ADR 011](docs/decisions/011-retrieval-and-citation-strategy.md)).
+relevance floor, no answer is generated** — the route returns a refusal it wrote itself. A
+hallucinated citation is not unlikely here; it is unreachable, because no prose was written
+for one to hide in ([ADR 011](docs/decisions/011-retrieval-and-citation-strategy.md)).
+
+One model call does happen on that branch, and it is not an answer: a follow-up that retrieved
+nothing is rewritten into a standalone search query and searched again. That output is used as
+a query and shown to the reader as one — never as prose, and never as something a citation can
+attach to ([ADR 044](docs/decisions/044-rewriting-a-follow-up-only-after-it-fails.md)).
 
 ## How a question is answered
 
@@ -38,13 +42,13 @@ flowchart LR
     A[Question] --> B[Embed]
     B --> C[(pgvector<br/>scoped in SQL)]
     C --> D{Clears the<br/>relevance floor?}
-    D -- no --> E[Refusal we wrote.<br/>No model call.]
+    D -- no --> E[Refusal we wrote.<br/>No answer generated.]
     D -- yes --> F[Citations first,<br/>then the model]
 ```
 
 Read the two edges out of the decision node together — they are the whole design.
 
-The refusal branch never reaches a model, which is what makes "no relevant passages" a
+The refusal branch generates no answer, which is what makes "no relevant passages" a
 structural outcome rather than a prompt instruction the model may ignore. The answer branch
 writes **the citations before generation begins**, so a marker resolves against a payload
 that already exists. The model chooses which passages to cite; it cannot invent what it is
