@@ -64,8 +64,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Passages and embeddings</strong> — the text split into
-            chunks, each with a numeric vector used to find relevant passages.
-            The vectors are derived from your text and are stored alongside it.
+            passages, each with a numeric vector used to find relevant ones. The
+            vectors are derived from your text and are stored alongside it.
           </li>
           <li>
             <strong>Conversations</strong> — your questions, the answers, and
