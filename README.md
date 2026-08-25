@@ -55,7 +55,7 @@ that already exists. The model chooses which passages to cite; it cannot invent 
 citing.
 
 That ordering is also why the [Numbers](#numbers) below report two separate figures: the
-stream's first byte at ~460 ms is the citation payload, and the first token of prose at
+stream's first byte at ~500 ms is the citation payload, and the first token of prose at
 ~1.03 s is the model. They are different events, and quoting only the smaller one would be
 flattering and wrong.
 
@@ -88,7 +88,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 79 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 84 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -267,6 +267,10 @@ anonymous run scores a different page entirely.
 | `/w/[id]` guest | v0.7.0  | 87          | 100           | 100            | 100 |
 | `/w/[id]` guest | v1.4.0  | 80          | 100           | 96             | 63  |
 
+**The v0.7.0 rows were taken by hand on a different Chrome**, so read each row against its own
+column rather than down the table — a 7-point drop across those two is partly the tooling. The
+like-for-like comparison is the local one below, on one harness.
+
 **The workspace row's SEO 100 went stale on 18 August**, when `robots.txt` began disallowing `/w`
 on purpose — `app/robots.ts` says why. `is-crawlable` fails by design there and carries most of the
 category's weight, so 63 is the score a page nobody should index is supposed to get. Every other SEO
@@ -320,6 +324,13 @@ alone:
 | 0.25                 | 0.62     | 0.85     | 0.78     |
 | 0.5                  | 0.61     | 0.85     | 0.76     |
 | 1.0                  | 0.59     | 0.85     | 0.75     |
+
+**A short follow-up is the case this set could not see**, so it got its own. Ten information needs
+written twice — as a reader types them after a previous turn, and self-contained — score
+**recall@3 0.70 as asked against 1.00 standalone**. Three in ten fail, and a clean 1.00 on the
+right column means a perfect rewrite recovers all three: a ceiling, not a guess. That measurement
+is what [ADR 044](docs/decisions/044-rewriting-a-follow-up-only-after-it-fails.md) was decided on,
+and it was taken before anything was built.
 
 Every blend is worse than vector alone, and worse the more say the lexical list is given — so it
 is not wired into the answer path
@@ -385,8 +396,19 @@ Total blocking time — where script weight lands — scores **99** on the heavi
 Layout shift scores **35** and carries a quarter of the total, so one metric costs roughly 16
 points and the page is otherwise at its target. `layout-shift-elements` names a single element for
 0.3235 of the 0.324: the footer, positioned by content height with `mt-auto`, moving when
-`loading.tsx` hands over to content taller than its skeleton. A CSS fix, worth more than the
-bundle refactor it replaces as the open item.
+`loading.tsx` hands over to content taller than its skeleton.
+
+**Fixed by reserving the conversation panel in the skeleton**, which had reserved the documents
+half only — about 400 px against a page over 900. Three local runs before and after, same harness:
+
+| `/w/[id]` guest, local  | before    | after     |
+| ----------------------- | --------- | --------- |
+| Cumulative layout shift | 0.324 × 3 | **0 × 3** |
+| Performance, median     | 72        | **88**    |
+
+The deployed row above still reads 80 because production is v1.4.0 and this lands after it. Nine
+lines of markup, against the bundle refactor it replaces — which would have traded the composer's
+interactivity for five points.
 
 ## Known gaps at this milestone
 
@@ -419,9 +441,10 @@ in the data layer rather than by hiding buttons — is already true and proven b
 tests, and a role column whose only production value is `owner` adds a branch no user can reach
 ([ADR 016](docs/decisions/016-workspace-membership-deferred.md)).
 
-The workspace page scores 90 on Lighthouse rather than the 95 this project set as its bar. The
-cause is measured and recorded above; closing it means deferring chat hydration, which is a
-worse trade than the points are worth.
+The workspace page has not met the Lighthouse 95 this project set as its bar. Deployed v1.4.0
+scores 80; the layout shift behind most of that gap is fixed and measures 88 locally, which the
+next release will confirm or not. Deferring chat hydration — the reason recorded here for four
+milestones — was never what bound it.
 
 **Half the ungrounded questions still reach the model.** The relevance threshold is now measured
 rather than guessed ([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what
