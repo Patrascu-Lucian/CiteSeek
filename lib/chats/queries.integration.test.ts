@@ -730,3 +730,34 @@ describe("a client-supplied message id", () => {
     expect(stored!.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 });
+
+describe("a client id that was already stored", () => {
+  /* Regenerate re-sends the turn with the id it minted the first time, and the
+     route persists on Stop too — so the second insert collides on the primary
+     key. It threw: a 500 on the refusal branch, and on the answer branch a turn
+     the reader watched arrive that was never written down. */
+  it("keeps the turn rather than failing on the collision", async () => {
+    const user = await createTestUser(db, "repeat");
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    const chat = await getOrCreateChat(workspace.id, user.id);
+    const id = "11111111-2222-4333-8444-555555555555";
+
+    for (const answer of ["An answer", "Another answer"]) {
+      await appendMessages(workspace.id, user.id, chat.id, [
+        { role: "user", content: "A question", id },
+        { role: "assistant", content: answer },
+      ]);
+    }
+
+    const stored = await listChatMessages(workspace.id, user.id, chat.id);
+
+    expect(stored.map((one) => one.content)).toEqual([
+      "A question",
+      "An answer",
+      "A question",
+      "Another answer",
+    ]);
+    // The first keeps the name; the second falls back rather than colliding.
+    expect(stored.filter((one) => one.id === id)).toHaveLength(1);
+  });
+});
