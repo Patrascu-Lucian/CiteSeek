@@ -98,8 +98,8 @@ function parseMessages(body: unknown): ChatUIMessage[] | null {
 
 /**
  * Streamed in the same shape as a real answer, so the client has one code path.
- * Fixed server-side text and no model call — this is what makes "I don't know"
- * structural rather than instructed. The `refusal` part carries *why*.
+ * Fixed server-side text, written here rather than generated — this is what
+ * makes "I don't know" structural rather than instructed. The `refusal` part carries *why*.
  */
 function refusalStream(reason: RefusalReason) {
   return createUIMessageStream<ChatUIMessage>({
@@ -240,8 +240,9 @@ export async function POST(
     ]);
   }
 
-  // The relevance floor. No passages means no model call, so there is nothing to
-  // cite — as opposed to instructing a model to refuse, which mostly works.
+  // The relevance floor. No passages means no answer is generated, so there is
+  // nothing to cite — as opposed to instructing a model to refuse, which mostly
+  // works. A rewrite below may call a model; its output is a query, never prose.
   if (retrieved.length === 0) {
     // One extra query, only on this branch: "nothing matched" and "nothing to
     // match against" need different copy, or we tell someone to upload a document

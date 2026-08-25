@@ -327,7 +327,7 @@ test.describe("about", () => {
     await page.goto("/about");
 
     await expect(
-      page.getByText(/the model is never called at all/i),
+      page.getByText(/no answer is generated at all/i),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: /try the demo/i }),
