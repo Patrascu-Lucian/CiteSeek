@@ -8,6 +8,11 @@ called, so a refusal cannot cite. That claim is about the _refusal branch_, and 
 holds — no generation step runs there, so there is nothing to invent a citation
 into.
 
+↳ **Amended, 25 August 2026.** "No generation step runs there" stopped being literally true
+when [ADR 044](044-rewriting-a-follow-up-only-after-it-fails.md) put a rewrite on that branch.
+The claim it was making survives: no _answer_ is generated, so there is still no prose for a
+citation to hide in. The rewrite's output is a search query, shown to the reader as one.
+
 What was never established is how often that branch is taken when it should be.
 `MAX_DISTANCE` shipped at `0.6` for `gemini-embedding-001` and the code said so
 plainly: _"Provisional — needs tuning against real documents, which is the one

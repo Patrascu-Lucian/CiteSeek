@@ -18,7 +18,7 @@ describe("the about page", () => {
     render(<AboutPage />);
 
     expect(
-      screen.getByText(/the model is never called at all/i),
+      screen.getByText(/no answer is generated at all/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/cites nothing/i)).toBeInTheDocument();
   });
