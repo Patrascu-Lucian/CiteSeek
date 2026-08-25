@@ -81,6 +81,12 @@ for (const url of [...new Set(urls)]) {
   rows.push({ file: url, raw: bytes.byteLength, transferred: compressed });
 }
 
+// Zero scripts is not a small measurement, it is a failed one — an assetPrefix,
+// a CDN-hosted chunk, or a selector that stopped matching the tags Next emits.
+if (rows.length === 0) {
+  throw new Error(`No scripts matched on ${target}.`);
+}
+
 const kb = (bytes: number) => `${String(Math.round(bytes / 1024))} KB`;
 
 rows.sort((a, b) => b.raw - a.raw);
