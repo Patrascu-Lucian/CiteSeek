@@ -2039,7 +2039,7 @@ the "as asked" and "standalone" columns. That turns 0.70 → 1.00 from a ceiling
 distance actually traveled, and makes the prompt tunable against evidence rather than taste. Costs
 one paid run per attempt, which is the reason it is filed rather than done inline.
 
-## The workspace route scores CLS 0.324 while it loads, 25 August 2026
+## ~~The workspace route scores CLS 0.324 while it loads~~, 25 August 2026
 
 Found re-measuring for v1.4.0. Lighthouse reports **CLS 0.324** on `/w/[id]`, and it is the largest
 single deduction in the performance score. The v1.3.1 release measures 0.329, so this predates the
@@ -2072,6 +2072,18 @@ skeleton's height to the loaded page's and close the gap — rather than anythin
 CSS.
 
 Worth doing: 0.324 is well past the 0.1 "good" threshold, and it is the first thing a reader sees.
+
+**Fixed, 25 August 2026.** The skeleton now reserves a conversation-shaped block as well as the
+documents one. Three local runs before and after: CLS 0.324 every time, then 0 every time, with the
+performance median moving 72 → 88. Lighthouse stops emitting `layout-shift-elements` entirely,
+which it only does when nothing shifts.
+
+**No CI guard, deliberately.** An E2E collecting `layout-shift` entries passed with the fix removed:
+locally the Suspense boundary resolves before first paint, so `loading.tsx` never renders and there
+is nothing to shift. CDP throttling did not change that — a localhost document request stays fast.
+The test was deleted rather than kept green, and the guard is a Lighthouse run against a deployed
+build. Worth re-measuring on production after the next release, since local and deployed disagreed
+on this metric before.
 
 ## Largest contentful paint moved 0.4s and nothing else did, 25 August 2026
 
