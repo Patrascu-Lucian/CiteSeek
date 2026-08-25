@@ -260,15 +260,20 @@ down; the two methods are comparable within themselves and not to each other.
 needs a guest cookie: `proxy.ts` redirects a credential-less `/w/*` to `/sign-in`, so an
 anonymous run scores a different page entirely.
 
-| Page                               | Performance | Accessibility | Best practices | SEO |
-| ---------------------------------- | ----------- | ------------- | -------------- | --- |
-| `/` landing — deployed             | 98          | 100           | 100            | 100 |
-| `/w/[id]` guest — deployed, before | 87          | 100           | 100            | 100 |
-| `/w/[id]` guest — local build      | 84 → **90** | 100           | 100            | 100 |
+| Page, deployed  | Version | Performance | Accessibility | Best practices | SEO |
+| --------------- | ------- | ----------- | ------------- | -------------- | --- |
+| `/` landing     | v0.7.0  | 98          | 100           | 100            | 100 |
+| `/` landing     | v1.4.0  | 98          | 100           | 100            | 100 |
+| `/w/[id]` guest | v0.7.0  | 87          | 100           | 100            | 100 |
+| `/w/[id]` guest | v1.4.0  | 80          | 100           | 96             | 63  |
 
 **The workspace row's SEO 100 went stale on 18 August**, when `robots.txt` began disallowing `/w`
-on purpose — `app/robots.ts` says why. `is-crawlable` fails by design there, capping that category
-at 63. A page nobody should index cannot also score as indexable.
+on purpose — `app/robots.ts` says why. `is-crawlable` fails by design there and carries most of the
+category's weight, so 63 is the score a page nobody should index is supposed to get. Every other SEO
+audit on it passes, and the page that is meant to be found still measures 100.
+
+Best practices at 96 is not by design: a Content Security Policy issue is logged in Chrome's Issues
+panel on the workspace route and not on the landing page. Unexplained, and being chased.
 
 **Re-measured at v1.4.0**, three runs per build against one local server:
 
@@ -361,13 +366,27 @@ metric Lighthouse reports, and a single pair cannot tell a change from variance.
 
 <a href="docs/images/dark.png"><img src="docs/images/dark.png" width="400" alt="The same workspace in the dark palette"></a>
 
-The workspace page is short of the 95 target and the reason is specific: 124 KB of the
-remaining bundle is unused Vercel AI SDK and Zod, reachable only by deferring `useChat` —
-which would delay the composer becoming interactive. Trading the product's primary interaction
-for five points is the wrong way round, so the gap is recorded rather than closed. LCP is the
-chat panel's empty-state text, and its breakdown is 20 ms of server time against 437 ms of
-render delay, so the remaining cost is script evaluation rather than anything the database
-does.
+The workspace page is short of the 95 target, and at v1.4.0 the reason changed. It used to be
+bundle weight: 124 KB of unused Vercel AI SDK and Zod, reachable only by deferring `useChat`,
+which would delay the composer becoming interactive — the product's primary interaction traded
+for five points, so the gap was recorded rather than closed.
+
+That is no longer what binds. The deployed v1.4.0 breakdown:
+
+| Weight | Score | Value | Metric                   |
+| ------ | ----- | ----- | ------------------------ |
+| 10     | 100   | 0.9 s | First contentful paint   |
+| 25     | 88    | 2.6 s | Largest contentful paint |
+| 30     | 99    | 70 ms | Total blocking time      |
+| 25     | 35    | 0.324 | Cumulative layout shift  |
+| 10     | 100   | 0.9 s | Speed index              |
+
+Total blocking time — where script weight lands — scores **99** on the heaviest-weighted metric.
+Layout shift scores **35** and carries a quarter of the total, so one metric costs roughly 16
+points and the page is otherwise at its target. `layout-shift-elements` names a single element for
+0.3235 of the 0.324: the footer, positioned by content height with `mt-auto`, moving when
+`loading.tsx` hands over to content taller than its skeleton. A CSS fix, worth more than the
+bundle refactor it replaces as the open item.
 
 ## Known gaps at this milestone
 
