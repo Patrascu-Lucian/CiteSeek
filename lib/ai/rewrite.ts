@@ -11,6 +11,8 @@ import type { ChatUIMessage } from "./types";
 const TURNS = 6;
 /** A rewrite is one question. Anything longer is the model explaining itself. */
 const MAX_CHARS = 200;
+/** Half of the route's `maxDuration`. */
+const REWRITE_TIMEOUT_MS = 30_000;
 
 const SYSTEM = [
   "Rewrite the user's last message as a standalone search query.",
@@ -63,6 +65,16 @@ export async function rewriteQuestion(
       model: getChatModel(),
       system: SYSTEM,
       prompt: history,
+      // A search query, not an answer. `acceptRewrite` discards anything past the
+      // first line and past MAX_CHARS, and paying for those tokens first is a
+      // reader already waiting on a refusal.
+      maxOutputTokens: 64,
+      // The same follow-up has to rewrite to the same query, or a bug report
+      // cannot be reproduced from it.
+      temperature: 0,
+      // Half the route's budget: past this the refusal is worth more than the
+      // retry.
+      abortSignal: AbortSignal.timeout(REWRITE_TIMEOUT_MS),
     });
 
     const question = acceptRewrite(text, asked);
