@@ -87,8 +87,10 @@ export default function AboutPage() {
           When nothing in your documents is relevant, the answer says so and
           cites nothing — and it cannot do otherwise. Passages are retrieved
           before the model is involved, and if none clear the relevance
-          threshold <strong>the model is never called at all</strong>. There is
-          no text to hallucinate a citation into, because no text is generated.
+          threshold <strong>no answer is generated at all</strong>. There is no
+          prose to hallucinate a citation into, because none is written. A short
+          follow-up is rewritten and searched again first, and that rewrite is
+          shown to you as a search query rather than offered as an answer.
         </p>
         <p className="mt-3">
           That is the difference between a rule the system enforces and an

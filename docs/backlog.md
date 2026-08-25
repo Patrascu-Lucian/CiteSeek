@@ -245,13 +245,39 @@ each of these is reversible and therefore safe to defer.
 - Bundle-size budget enforced in CI for the chat route.
 - Lighthouse CI as a PR gate rather than a manual measurement.
 
-- **One rule for confirming a destructive action.** There are three now and they do not agree:
+- ~~**One rule for confirming a destructive action.**~~ **Done**, 21 August 2026 —
+  [ADR 042](decisions/042-one-rule-for-destroying-something.md). The rule is written down, the two
+  false claims are deleted, and deleting an exchange joined the middle tier rather than earning a
+  lighter one. **Undo was designed and rejected**: restoring after the fact needs an endpoint
+  taking message content from the client, which is ADR 035's failure self-inflicted, and deferring
+  the delete holds the cap shut at the moment a reader is deleting to make room. The frequency
+  premise was also weak — 40 saved messages is 20 exchanges, not a daily habit. Revisit if the
+  server ever holds deleted rows itself, which would make restore safe. The original entry follows.
+
+  There are three now and they do not agree:
   deleting an account requires typing a word, deleting a conversation opens a dialog naming it,
   deleting a document happens on the first click. The graduation is defensible — account, then
   conversation, then a document that can be uploaded again — but it was arrived at one report at
   a time rather than decided. Worth settling as a single rule, with undo considered as the
   alternative to confirmation: a delete that can be taken back for a few seconds interrupts
   nobody and protects the same mistake.
+
+  ↳ **"Deleting a document happens on the first click" is false**, found 21 August 2026 while
+  sizing this for Milestone 8. `components/documents/document-list.tsx` opens an `AlertDialog`
+  naming the file and exactly what goes with it — "the document, its extracted text and every
+  passage indexed from it". A comment in `components/chat/conversation-list.tsx` repeats the same
+  false claim and points here, so the two have been agreeing with each other rather than with the
+  code.
+
+  So this is **not three rules that disagree**. It is one rule already implemented twice — a dialog
+  naming the object and its cost — plus one deliberate escalation for the account, and two written
+  claims that outlived the code. The work is writing the rule down and deleting the two statements,
+  not a retrofit.
+
+  What is still genuinely open is the tier below: a per-turn delete is frequent and small, and the
+  conversation dialog's own comment already makes the argument one level up — "a typed confirmation
+  on every row trains the reader to type through it". A dialog on every turn trains the reader to
+  click through it. That is the case for undo, and it is Milestone 8's to settle.
 
 ## Measured, for the bundle budget
 
@@ -845,7 +871,17 @@ defects.
   answers it. **Do it when:** the answer is no — and note that `preload` is a one-way door,
   since removing a preloaded domain from the browser list takes months.
 
-- **`retrieveLexical` has no tiebreaker, so the eval is not reproducible to the last digit.**
+- ~~**`retrieveLexical` has no tiebreaker, so the eval is not reproducible to the last digit.**~~
+  **Done**, 22 August 2026, on the second trigger: the follow-up rewrite will argue from
+  `pnpm eval:retrieval`, and a stable sort is what makes "unchanged" mean something.
+
+  It also gained the **first test this file has ever had** — it is off the answer path by design
+  and excluded from the coverage thresholds, so nothing would have caught a reordering. Worth
+  keeping: the obvious test, calling it twice and comparing, **passes without the fix**, because
+  two identical queries in one session scan the same way. Only asserting the tied rows come back
+  in id order fails, and it fails 3 times in 3.
+
+  The original entry follows.
   It orders by `ts_rank_cd` alone; equal-ranked rows arrive in whatever order the scan
   produced. Moving the workspace filter onto `chunks` changed that order and moved lexical
   MRR@8 from 0.53 to 0.52 — one question sliding one rank, with `recall@8` unchanged.
@@ -1147,6 +1183,51 @@ document you have in mind has finished processing", which is false here and send
 inspect something that is working. A refusal that misdiagnoses is worse than a blunt one. The
 wording should allow that a short follow-up may need naming its subject again — one sentence,
 no retrieval changes, and correct regardless of what happens to the full fix.
+
+**The quick fix is done**, 22 August 2026. The advice moved rather than being reworded: the
+streamed sentence now states what happened and stops, and the panel below — which already branched
+on the reason — carries the diagnosis. So the false half is gone from the `no_documents` case as
+well as the follow-up one, where it had been showing for both.
+
+The follow-up hint is on the `no_relevant_passages` branch only. Saying it where nothing is indexed
+would be its own misdiagnosis, and a test pins that it does not appear there.
+
+↳ **The hint's own claim went stale, 23 August 2026.** It read _"only the last question is searched,
+not the conversation"_, which the rewrite ([ADR 044](decisions/044-rewriting-a-follow-up-only-after-it-fails.md))
+made false: a follow-up that retrieves nothing is now expanded from the conversation and searched
+again. The copy says so, and still asks for the subject — because the expansion can miss, and that
+is the case a reader is looking at when they read it.
+
+**The full fix stays open.** Its prerequisite was recorded as met when `retrieveLexical` got a
+tiebreaker, and that was wrong until 22 August 2026: the tiebreaker was `chunks.id`, and ids are
+minted per ingest while the harness re-ingests the corpus on every run. Runs are comparable now
+that ties break on filename and chunk index.
+
+**Measured, 22 August 2026, before building anything.** `FOLLOW_UP_SET` in `eval/golden-set.ts` is
+ten information needs written twice — as a reader types them after a previous turn, and as they
+would have to be written to stand alone. Scored against the same corpus, vector alone, with the
+relevance floor off:
+
+**recall@3 is 0.70 as asked, against 1.00 standalone.** Three of ten fail, and the standalone
+column being a clean 1.00 means a perfect rewrite recovers all three — that is the ceiling, not a
+guess. The floor being off is the caveat: the product puts a 0.40 floor in front of this, so a row
+scoring 1.00 here can still be refused. `eval/distances.json` now records the closest distance for
+each typed form, so that costs nothing to check — nine of the ten clear 0.40, and only "why?" at
+0.407 is refused before retrieval is scored at all.
+
+**Carrying a term does not predict the outcome.** "in writing?" holds a word straight out of the
+passage it wants and scores 0.00; "who handles it then?" and "how much is it?" carry nothing
+discriminative and score 1.00 — on a three-document corpus where one passage is the only one about
+an amount. So the rewrite is worth roughly **three questions in ten**, and the wording of a
+follow-up does not say which three.
+
+**The set was rebuilt, because the first version could not have failed.** Five of its ten cases
+expected the very sentence answering their own context turn, which scores 1.00 whether or not the
+follow-up was understood — a case measures nothing unless its passage is one the previous turn
+would not already have retrieved. A six-case version before that scored 0.83 for a related reason:
+five of the six carried a discriminative term, because those are the follow-ups that come to mind
+when you are writing examples rather than watching someone type. A mean over a set the author chose
+is only as honest as the sampling, and the per-row table is in `eval/report.md` for that reason.
 
 ## ~~An answer that cites nothing at all~~, 12 August 2026
 
@@ -1649,7 +1730,7 @@ the count the cap uses. Nor does it go stale — `onTurnComplete` already calls 
 for a signed-in reader, so the turn that reaches the cap re-renders the server component and closes
 the composer behind itself.
 
-## A missing workspace page is a soft 404, 19 August 2026
+## ~~A missing workspace page is a soft 404~~, 19 August 2026
 
 Found while checking that malformed ids behave like absent ones — they do, but the baseline itself
 looks wrong. A GET to `/w/<well-formed-uuid-that-does-not-exist>` with a valid session returns
@@ -1665,6 +1746,20 @@ measurement: whether a browser navigation and an RSC request differ, and whether
 can decide early enough to set the status. **Check before trusting the comment** — either the
 comment is stale or the behavior regressed, and both are worth knowing.
 
+**Fixed, 24 August 2026.** The comment was stale: a plain GET answered 200. The cause is
+`loading.tsx`, whose Suspense boundary wraps the whole segment _including its own layouts_ — the
+shell flushes when that boundary is reached, and a status cannot be set after the first byte. So
+`requireWorkspace` in `(workspace)/layout.tsx` was always too late, however early it looked in the
+file.
+
+The fix is a layout one segment up, `w/[workspaceId]/layout.tsx`, that renders `children` and
+nothing else. It runs above the boundary, so the `notFound()` lands before the response opens.
+Moving `loading.tsx` below it was tried and is **not** needed — the guard alone flips 200 to 404,
+verified by removing it and watching the test go red.
+
+The status now has a test of its own. Every existing assertion checked the words, which a soft 404
+satisfies completely.
+
 ## The README screenshots predate the branding, 19 August 2026
 
 `docs/images/*.png` were taken on 10 August. Since then the header gained the mark and became
@@ -1678,7 +1773,7 @@ because the fake embedder retrieves the wrong passage and the picture is _of_ a 
 
 **Do it right after the v1.3.0 deploy**, against production, which is what the script is built for.
 
-## The storage ceiling cannot be reached by one document, 20 August 2026
+## ~~The storage ceiling cannot be reached by one document~~, 20 August 2026
 
 Found while testing the caps on the live URL. The plan allows 500,000 extracted characters, but
 `MAX_CHUNKS_PER_DOCUMENT` is 600 and the measured density is ~455 characters per chunk — so a
@@ -1695,6 +1790,12 @@ Worth deciding rather than leaving implicit: either say the per-document ceiling
 limit on the usage page, or raise `MAX_CHUNKS_PER_DOCUMENT` so one document can in principle fill
 the plan. The first is a copy change; the second is a cost decision, since the constant is one
 embedding call per chunk and exists to bound exactly that.
+
+**Said rather than raised, 24 August 2026.** The usage page's storage bar now carries "One document
+holds about 273k of this — a larger file has to be split." Raising the chunk limit buys a rarer
+document at the cost of the one thing that bounds embedding spend per upload, which is the wrong
+trade for a limit two files already work around. `MAX_CHARS_PER_DOCUMENT` derives the figure from
+the chunk limit, so the copy follows the constant instead of repeating a number from this entry.
 
 ## ~~A navigation test that only fails in the full suite~~, 20 August 2026
 
@@ -1729,7 +1830,7 @@ the shipped `APPEAR_AFTER_MS` instead of hoping a real page renders inside it. T
 tests that remain cover what only end-to-end can: that a real prefetch does not raise the bar, and
 that a genuinely slow navigation raises and clears it.
 
-## Switching conversations rebuilds the workspace shell, 20 August 2026
+## ~~Switching conversations rebuilds the workspace shell~~, 20 August 2026
 
 The document reload is gone — a Server Action navigates client-side now — but the React tree below
 `main` is still torn down and rebuilt on every conversation change. Measured by tagging live DOM
@@ -1751,7 +1852,29 @@ a client context provider in the layout, which the page then consumes.
 
 Not a patch-release change. Worth doing before the composer work, since both touch the same surface.
 
-## The composer: one row, and the send control inside it, 20 August 2026
+**Done**, 21 August 2026 — [ADR 041](decisions/041-the-workspace-shell-is-a-layout.md). A route
+group, `(workspace)`, rather than the bare segment: a layout at `[workspaceId]` would have wrapped
+the usage dashboard in the document list and a chat panel, which this entry did not anticipate.
+
+**The 410 ms above is wrong, and wrong in an instructive way.** Its five samples mix two
+populations — the first switch of a session and every switch after it — so the median sat between
+them and described neither. Separated, on the same machine and database:
+
+|        | first switch          | steady-state median |
+| ------ | --------------------- | ------------------- |
+| before | 396, 894, 898, 902 ms | 67, 68, 70, 71 ms   |
+| after  | 98, 102, 119, 120 ms  | 83, 85, 85, 86 ms   |
+
+So the remount was never expensive once Next had the route payload cached; the **first** switch
+was, and that one happens in every session. The steady state is **~16 ms worse**, consistently, and
+why is unmeasured — the shell now re-renders where it used to be discarded, but naming that as the
+cause without instrumenting it is the error this file keeps recording.
+
+**On the steady-state number alone this change would not pay for itself.** What justifies it is
+state: the document list keeps polling across a conversation change, the source panel stays open,
+and scroll position survives. Speed was the wrong argument for the right change.
+
+## ~~The composer: one row, and the send control inside it~~, 20 August 2026
 
 Raised as a change request during the 1.3.1 testing pass, and deferred only because that release
 was already cut. **A patch, not a minor**, by the policy the README already states — a minor bump per
@@ -1779,7 +1902,21 @@ while it is one. Icon only, no label.
 **Sequence it after the workspace-shell layout work**, not before. Both touch this surface, and
 doing the composer first means doing it twice.
 
-## A signed-in reader can start conversations in the read-only demo, 20 August 2026
+**Done**, 21 August 2026. Measured on the demo: the field opens at **28px** where two rows was
+about 48, and grows to 68 at three. The control is `size="icon"` — **32×32**, square, above WCAG
+2.5.8's floor — beside a one-line question and bottom-aligned under a grown one.
+
+**The fourth constraint was not in this entry.** Send and Stop were two `<Button>`s chosen by a
+branch, so opening a stream unmounted whichever one had focus and dropped it to the body. They are
+now **one** element whose type, label, handler and icon swap, which keeps the node — and the focus
+— across the change. A test forces a remount with a `key` and goes red, so the property cannot be
+lost silently.
+
+`lucide-arrow-up` in a filled circle rather than a paper plane, as the entry predicted: a bigger
+target and the more common pattern. `aria-label` is the only name either state has now, and axe
+over the form is clean.
+
+## ~~A signed-in reader can start conversations in the read-only demo~~, 20 August 2026
 
 Found in review of 1.3.1, and **not a regression** — the route this replaced behaved identically,
 which is why it is recorded rather than fixed in a patch.
@@ -1798,3 +1935,143 @@ Two candidate fixes, and they answer different questions. Gating the section on 
 control that would work — the honest version if conversations in the demo are simply unwanted.
 Authorizing with `"write"` refuses it at the boundary, which is where the badge's claim actually
 belongs, and would need checking against the guest path that currently relies on `"read"`.
+
+**Done**, 21 August 2026 — [ADR 040](decisions/040-read-is-the-right-to-ask.md), and both fixes in
+that order: the boundary first, the interface second.
+
+**This entry described the smaller half.** The button was not the leak. The chat route authorizes
+`"read"` — correctly, since answering is a read a guest must be able to do — and then persisted on
+`actorType === "user"`, where `resolveChatForTurn` falls back to `getOrCreateChat`. So a signed-in
+visitor asking the demo **any question at all** created a conversation and stored both messages.
+Hiding the button would have fixed nothing and closed the entry.
+
+The rule that replaced both checks is one sentence: `"read"` is the right to ask, `"write"` is the
+right to leave something behind. `canWrite` became a type guard on the way, which let two write
+paths delete their guest branches rather than assert the same fact locally.
+
+The guest path the entry said to check turned out to need no check and no branch: a guest cannot
+reach `"write"` on any workspace, so the chats route's 403 was unreachable and is gone.
+
+Not done here: rows that predate the rule still sit in the demo, unlisted and unreachable. The ADR
+carries the query to count them before anyone decides whether to delete them.
+
+## The signed-in E2E specs cannot run locally, 21 August 2026
+
+Found while adding one. `e2e/signed-in.ts` opens its own database connection from
+`process.env.DATABASE_URL`, and **nothing in the harness puts it there**: `playwright.config.ts`
+loads no env file, and neither does `e2e/global-setup.ts`. The `env` block in `webServer` reaches
+only the server Playwright spawns, not the test runner.
+
+So `pnpm test:e2e e2e/plan-caps.spec.ts` fails on `develop` with
+`password authentication failed for user "patra"` — postgres falling back to the OS user because
+the URL is absent. It reproduces without any of this milestone's changes. These specs have only
+ever run in CI, which exports the variable.
+
+Exporting it by hand works, and the guard earns its keep on the way: `.env.local` points at Neon,
+and `assertDisposableDatabase` refuses it rather than letting a browser test insert users into a
+real database. `.env.test.local` is the one that works, and an exported variable beats Next's env
+files, so runner and server then agree on which database they are looking at.
+
+**Two candidate fixes.** `playwright.config.ts` could call `loadLocalEnv(".env.test.local")` the
+way `vitest.integration.config.ts` does — one line, and the two harnesses would then agree. Or
+`signed-in.ts` could fail with a sentence naming the missing variable rather than letting postgres
+guess a username. The second is the more general fix and does not preclude the first: a fixture
+that silently connects somewhere unintended is a category of confusion, not one bug.
+
+**Not fixed here** — it predates this branch and belongs in a commit about the harness, not one
+about a layout.
+
+## Roving tabindex over the transcript — considered and rejected, 21 August 2026
+
+Raised while adding a delete control to each question in Milestone 8: one control per exchange adds
+a tab stop per exchange, between the transcript and the composer. Recorded so it is not re-raised as
+new.
+
+**It is the wrong pattern here.** Roving tabindex belongs to composite widgets — toolbars,
+listboxes, grids, menus — where the container owns arrow-key movement between its items. A chat
+transcript is content with embedded interactive elements, and the citation chip is the whole point
+of the product.
+
+**It would not help the readers it looks like it helps.** Screen readers in browse mode intercept
+arrow keys for reading and never pass them to the page, so the handler would be inert for exactly
+those users. It buys arrow navigation for sighted keyboard users only.
+
+**It would not fix the stated problem.** Citation chips are already the majority of the tab stops:
+a 20-exchange conversation carries roughly 60 of them before any delete control exists, so 20 more
+is a 33% increase rather than a new category.
+
+**What shipped instead**: a "Skip to the question box" link at the top of the transcript, matching
+`app/layout.tsx`'s existing skip link — whose own comment already named this surface, saying "the
+chat surface will be a long, streaming region, so a keyboard user must be able to jump past the
+nav."
+
+**Revisit if** the transcript ever becomes a genuine widget — a selection mode, or bulk actions
+across exchanges — where a container owning arrow keys would stop competing with reading.
+
+## The rewrite asks for a query and gets keyword salad, 24 August 2026
+
+The follow-up rewrite ([ADR 044](decisions/044-rewriting-a-follow-up-only-after-it-fails.md)) works, and
+what it produces against the real model is `"why expenses policy"` and
+`"how much expenses policy peripherals"` — search-engine queries, not questions. The prompt asks for
+"a standalone search query", so this is what was requested.
+
+Two reasons it is worth changing anyway.
+
+**The measured ceiling does not describe it.** `FOLLOW_UP_SET`'s standalone column is fluent
+questions — "Why are Severity 3 resolution times not contractual?" — and that is where the 1.00 came
+from. A keyword bag and a question do not embed to the same vector, so the number in `eval/report.md`
+is not evidence about what ships. Recall the harness measures and recall the product gets are
+currently two different things.
+
+**It is also the string the reader sees**, under "Searched for:". A question reads as a rephrasing;
+three nouns read as the machine talking to itself.
+
+The change is one line of prompt. What makes it worth doing properly is that the harness can score
+it: rewrite each follow-up through the model, retrieve with the result, and report recall@3 beside
+the "as asked" and "standalone" columns. That turns 0.70 → 1.00 from a ceiling into a measured
+distance actually traveled, and makes the prompt tunable against evidence rather than taste. Costs
+one paid run per attempt, which is the reason it is filed rather than done inline.
+
+## The workspace route scores CLS 0.324 while it loads, 25 August 2026
+
+Found re-measuring for v1.4.0. Lighthouse reports **CLS 0.324** on `/w/[id]`, reproducible to
+three decimals across three runs, and it is the largest single deduction in the performance score.
+The v1.3.1 release measures 0.329, so this predates the milestone and neither caused nor fixed it.
+
+It is stable where the CPU-bound metrics are not: total blocking time ranged 80–870 ms across six
+runs on the same machine while CLS did not move at all. That is the evidence it is a property of
+the page rather than of the machine — not that CLS is immune to load, which it is not, since shift
+depends on when hydration and font swaps land.
+
+**One element accounts for all of it.** Lighthouse's `layout-shift-elements` audit reports a single
+entry scoring **0.3235** of the 0.324: `<footer class="border-border/60 mt-auto border-t">`. Nothing
+else on the page shifts measurably, so the document list, the conversation list and the composer are
+all in the clear.
+
+`mt-auto` positions the footer wherever the content ends, so it moves when `loading.tsx` hands over
+and the content turns out taller than the skeleton. The skeleton's comment says it "reserves the
+real layout"; against the footer it does not. So the fix is a measurement first — compare the
+skeleton's height to the loaded page's and close the gap — rather than anything in the footer's own
+CSS.
+
+Worth doing: 0.324 is well past the 0.1 "good" threshold, and it is the first thing a reader sees.
+
+## Largest contentful paint moved 0.4s and nothing else did, 25 August 2026
+
+Same re-measurement. On the workspace route, LCP went **3.2s → 3.6s** between v1.3.1 and v1.4.0,
+while first contentful paint (0.8s) and speed index (~1.1s) were unchanged, and the client
+bundle is flat at 980 KB raw / 254 KB brotli.
+
+**No cause identified**, and two candidates are ruled out. Unchanged FCP rules out the guard layout
+added for the soft 404: it runs above `loading.tsx`, so if it delayed anything it would delay the
+first paint. And the layout's own data is unchanged _on the measured route_ — the run is a guest on
+`/w/[id]`, where v1.3.1's `workspace-view.tsx` already awaited `listDocuments` and put `listChats`
+behind `signedIn`, exactly as v1.4.0 puts it behind `writable && userId`. A guest calls neither
+version of it. Identical database work, under the same `loading.tsx` boundary.
+
+So what moved is when the largest element finishes, for a reason not yet found. The first version of
+this entry blamed the layout's data and was wrong — worth recording, because a wrong cause sends the
+follow-up run to measure the thing that did not change.
+
+Three runs per build, one machine, one Chrome. 0.4s is small enough to want a fourth and fifth run
+before anyone acts on it, and the numbers are recorded here so that run has something to compare to.

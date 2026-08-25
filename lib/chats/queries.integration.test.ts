@@ -15,6 +15,8 @@ import {
   appendMessages,
   createChatUnless,
   deleteChat,
+  deleteFromTurn,
+  deleteTurn,
   getOrCreateChat,
   listChatMessages,
   listChats,
@@ -500,5 +502,262 @@ describe("admitting a conversation against the cap", () => {
     );
 
     expect(forOther.admitted).toBe(true);
+  });
+});
+
+describe("deleteTurn", () => {
+  /** Two exchanges, oldest first, returned with the ids the caller would name. */
+  async function twoTurns() {
+    const { user, workspace, chat } = await scenario("turns");
+
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "First question" },
+      { role: "assistant", content: "First answer", citations: [CITATION] },
+    ]);
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "Second question" },
+      { role: "assistant", content: "Second answer" },
+    ]);
+
+    const stored = await listChatMessages(workspace.id, user.id, chat.id);
+    return { user, workspace, chat, stored };
+  }
+
+  it("takes the answer with the question", async () => {
+    const { user, workspace, chat, stored } = await twoTurns();
+
+    expect(
+      await deleteTurn(workspace.id, user.id, chat.id, stored[0]!.id),
+    ).toBe(2);
+
+    expect(
+      (await listChatMessages(workspace.id, user.id, chat.id)).map(
+        (message) => message.content,
+      ),
+    ).toEqual(["Second question", "Second answer"]);
+  });
+
+  it("stops at the next question rather than truncating the rest", async () => {
+    // A middle turn goes on its own. Deleting to the end would be a different
+    // feature, and the one editing needs.
+    const { user, workspace, chat, stored } = await twoTurns();
+
+    await deleteTurn(workspace.id, user.id, chat.id, stored[0]!.id);
+    const left = await listChatMessages(workspace.id, user.id, chat.id);
+
+    expect(left).toHaveLength(2);
+    expect(left[0]!.position).toBe(2);
+  });
+
+  it("refuses an answer's id, since a turn is named by its question", async () => {
+    const { user, workspace, chat, stored } = await twoTurns();
+
+    expect(
+      await deleteTurn(workspace.id, user.id, chat.id, stored[1]!.id),
+    ).toBe(0);
+    expect(await listChatMessages(workspace.id, user.id, chat.id)).toHaveLength(
+      4,
+    );
+  });
+
+  it("leaves the gap rather than renumbering what follows", async () => {
+    // `appendMessages` takes the maximum, so a gap costs nothing — and
+    // renumbering would race the unique index on (chat_id, position).
+    const { user, workspace, chat, stored } = await twoTurns();
+
+    await deleteTurn(workspace.id, user.id, chat.id, stored[0]!.id);
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "Third question" },
+    ]);
+
+    const left = await listChatMessages(workspace.id, user.id, chat.id);
+    expect(left.map((message) => message.position)).toEqual([2, 3, 4]);
+  });
+
+  it("cannot reach another workspace's conversation", async () => {
+    const { chat, stored } = await twoTurns();
+    const other = await scenario("turns-other");
+
+    expect(
+      await deleteTurn(
+        other.workspace.id,
+        other.user.id,
+        chat.id,
+        stored[0]!.id,
+      ),
+    ).toBe(0);
+  });
+
+  it("cannot reach another user's conversation in a workspace they share", async () => {
+    const { workspace, chat, stored } = await twoTurns();
+    const stranger = await createTestUser(db, "turns-stranger");
+
+    expect(
+      await deleteTurn(workspace.id, stranger.id, chat.id, stored[0]!.id),
+    ).toBe(0);
+  });
+
+  it("answers zero for a malformed id rather than throwing", async () => {
+    const { user, workspace, chat } = await twoTurns();
+
+    expect(await deleteTurn(workspace.id, user.id, chat.id, "not-a-uuid")).toBe(
+      0,
+    );
+  });
+});
+
+describe("deleteFromTurn", () => {
+  async function threeTurns() {
+    const { user, workspace, chat } = await scenario("from-turn");
+
+    for (const n of [1, 2, 3]) {
+      await appendMessages(workspace.id, user.id, chat.id, [
+        { role: "user", content: `Question ${n}` },
+        { role: "assistant", content: `Answer ${n}` },
+      ]);
+    }
+
+    const stored = await listChatMessages(workspace.id, user.id, chat.id);
+    return { user, workspace, chat, stored };
+  }
+
+  it("takes everything after the question as well as the turn itself", async () => {
+    const { user, workspace, chat, stored } = await threeTurns();
+
+    // From the second question: four rows, not the two `deleteTurn` would take.
+    expect(
+      await deleteFromTurn(workspace.id, user.id, chat.id, stored[2]!.id),
+    ).toBe(4);
+
+    expect(
+      (await listChatMessages(workspace.id, user.id, chat.id)).map(
+        (message) => message.content,
+      ),
+    ).toEqual(["Question 1", "Answer 1"]);
+  });
+
+  /* The distinction the two functions exist for, asserted against each other so
+     a shared implementation cannot quietly collapse them. */
+  it("differs from deleteTurn on the same message", async () => {
+    const one = await threeTurns();
+    const onward = await threeTurns();
+
+    expect(
+      await deleteTurn(
+        one.workspace.id,
+        one.user.id,
+        one.chat.id,
+        one.stored[2]!.id,
+      ),
+    ).toBe(2);
+    expect(
+      await deleteFromTurn(
+        onward.workspace.id,
+        onward.user.id,
+        onward.chat.id,
+        onward.stored[2]!.id,
+      ),
+    ).toBe(4);
+  });
+
+  it("refuses an answer's id, as its sibling does", async () => {
+    const { user, workspace, chat, stored } = await threeTurns();
+
+    expect(
+      await deleteFromTurn(workspace.id, user.id, chat.id, stored[1]!.id),
+    ).toBe(0);
+  });
+
+  it("cannot reach another user's conversation", async () => {
+    const { workspace, chat, stored } = await threeTurns();
+    const stranger = await createTestUser(db, "from-turn-stranger");
+
+    expect(
+      await deleteFromTurn(workspace.id, stranger.id, chat.id, stored[0]!.id),
+    ).toBe(0);
+  });
+
+  /* Unlike `deleteTurn`, this one *frees* its numbers rather than leaving a gap:
+     `appendMessages` takes `MAX(position) + 1`, and truncating to the end lowers
+     the maximum. Deleting from the middle cannot, because a later row still
+     holds a higher one. */
+  it("reuses the freed positions for the re-asked turn", async () => {
+    const { user, workspace, chat, stored } = await threeTurns();
+
+    await deleteFromTurn(workspace.id, user.id, chat.id, stored[2]!.id);
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "Question 2, reworded" },
+      { role: "assistant", content: "Answer 2, again" },
+    ]);
+
+    const left = await listChatMessages(workspace.id, user.id, chat.id);
+    expect(left.map((message) => message.content)).toEqual([
+      "Question 1",
+      "Answer 1",
+      "Question 2, reworded",
+      "Answer 2, again",
+    ]);
+    expect(left.map((message) => message.position)).toEqual([0, 1, 2, 3]);
+  });
+});
+
+describe("a client-supplied message id", () => {
+  /* The bug this exists for: the SDK mints base62 ids, `messages.id` is a uuid
+     column, so a question asked in the current session could not be named to
+     `deleteTurn` — editing or deleting it failed until a reload. */
+  it("is stored, so the turn can be named straight away", async () => {
+    const { user, workspace, chat } = await scenario("client-id");
+    const id = "3f1c9b6e-9a2a-4a4a-8a1a-9b2c3d4e5f60";
+
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "A question", id },
+      { role: "assistant", content: "An answer" },
+    ]);
+
+    expect(await deleteTurn(workspace.id, user.id, chat.id, id)).toBe(2);
+  });
+
+  it("falls back to a generated one when it is not a uuid", async () => {
+    // The SDK's own format, and local mode, which never reaches here at all.
+    const { user, workspace, chat } = await scenario("client-id-junk");
+
+    await appendMessages(workspace.id, user.id, chat.id, [
+      { role: "user", content: "A question", id: "kP3xQ9mZ" },
+    ]);
+
+    const [stored] = await listChatMessages(workspace.id, user.id, chat.id);
+    expect(stored!.id).not.toBe("kP3xQ9mZ");
+    expect(stored!.id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});
+
+describe("a client id that was already stored", () => {
+  /* Regenerate re-sends the turn with the id it minted the first time, and the
+     route persists on Stop too — so the second insert collides on the primary
+     key. It threw: a 500 on the refusal branch, and on the answer branch a turn
+     the reader watched arrive that was never written down. */
+  it("keeps the turn rather than failing on the collision", async () => {
+    const user = await createTestUser(db, "repeat");
+    const workspace = await createTestWorkspace(db, { ownerId: user.id });
+    const chat = await getOrCreateChat(workspace.id, user.id);
+    const id = "11111111-2222-4333-8444-555555555555";
+
+    for (const answer of ["An answer", "Another answer"]) {
+      await appendMessages(workspace.id, user.id, chat.id, [
+        { role: "user", content: "A question", id },
+        { role: "assistant", content: answer },
+      ]);
+    }
+
+    const stored = await listChatMessages(workspace.id, user.id, chat.id);
+
+    expect(stored.map((one) => one.content)).toEqual([
+      "A question",
+      "An answer",
+      "A question",
+      "Another answer",
+    ]);
+    // The first keeps the name; the second falls back rather than colliding.
+    expect(stored.filter((one) => one.id === id)).toHaveLength(1);
   });
 });

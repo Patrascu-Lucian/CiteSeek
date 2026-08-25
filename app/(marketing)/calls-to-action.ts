@@ -1,16 +1,10 @@
 import type { Actor } from "@/lib/auth/actor";
 
 /**
- * What the landing page offers, given who is reading it.
- *
- * The page used to render "Get started" and "Try the demo — no signup"
- * unconditionally: a signed-in visitor was told to sign up, and offered a guest
- * mode they had already outgrown. It was the first page anyone sees and the only
- * one that did not know the actor existed.
- *
- * Kept as a pure function in its own module so the logic can be tested without
- * an auth session or a database. The `Actor` import is type-only, so nothing
- * here pulls Auth.js into a unit test.
+ * The landing page rendered "Get started" and "no signup" unconditionally, so a
+ * signed-in visitor was invited to sign up — the first page anyone sees and the
+ * only one that did not know the actor existed. Pure and its own module so it
+ * tests without a session; the `Actor` import is type-only.
  */
 
 export type CallToAction = { href: string; label: string };

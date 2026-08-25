@@ -1,257 +1,301 @@
-[
-  {
-    "question": "How quickly does someone get back to me if everything is down?",
-    "answerable": true,
-    "best": 0.29407026838418115
-  },
-  {
-    "question": "Does the response clock keep running through the night?",
-    "answerable": true,
-    "best": 0.29364442825317383
-  },
-  {
-    "question": "Can I push a ticket up the chain more than once?",
-    "answerable": true,
-    "best": 0.29955088790215756
-  },
-  {
-    "question": "Does pushing a ticket up make it more urgent?",
-    "answerable": true,
-    "best": 0.2891042907647554
-  },
-  {
-    "question": "What do I get back if you miss a target?",
-    "answerable": true,
-    "best": 0.3001607656478882
-  },
-  {
-    "question": "Do I have to ask for the money back or is it automatic?",
-    "answerable": true,
-    "best": 0.3600870752282682
-  },
-  {
-    "question": "Can your engineers ask for a copy of our live database?",
-    "answerable": true,
-    "best": 0.3349859118461609
-  },
-  {
-    "question": "How long do you keep whatever I attach to a ticket?",
-    "answerable": true,
-    "best": 0.3289341330528259
-  },
-  {
-    "question": "Will an engineer be moving my mouse during a call?",
-    "answerable": true,
-    "best": 0.347243667892543
-  },
-  {
-    "question": "How much warning do I need to give before it renews?",
-    "answerable": true,
-    "best": 0.32479101343074535
-  },
-  {
-    "question": "If I drop to the cheaper tier, when does that start?",
-    "answerable": true,
-    "best": 0.3249710589612781
-  },
-  {
-    "question": "What happens to tickets I already have open if I cancel?",
-    "answerable": true,
-    "best": 0.3134089503708166
-  },
-  {
-    "question": "How much force does this thing actually put out?",
-    "answerable": true,
-    "best": 0.31046490010828254
-  },
-  {
-    "question": "Do I need ear defenders standing next to it?",
-    "answerable": true,
-    "best": 0.2929184647524786
-  },
-  {
-    "question": "Which oil goes in it?",
-    "answerable": true,
-    "best": 0.3382008474528969
-  },
-  {
-    "question": "How often does the oil need replacing?",
-    "answerable": true,
-    "best": 0.321088115009311
-  },
-  {
-    "question": "Why does it feel jerky when I first switch it on?",
-    "answerable": true,
-    "best": 0.3629625223301326
-  },
-  {
-    "question": "What temperature is too hot for it to run at?",
-    "answerable": true,
-    "best": 0.3390466772941755
-  },
-  {
-    "question": "How tight do the tooling bolts go?",
-    "answerable": true,
-    "best": 0.2835207536984161
-  },
-  {
-    "question": "Is there a point where a resharpened tool is too thin to use?",
-    "answerable": true,
-    "best": 0.4109293887850093
-  },
-  {
-    "question": "The over-temperature warning will not go away after a restart.",
-    "answerable": true,
-    "best": 0.3633254766464188
-  },
-  {
-    "question": "The two pressure readings disagree with each other.",
-    "answerable": true,
-    "best": 0.3134853653022417
-  },
-  {
-    "question": "Anything to do before putting it on a lorry?",
-    "answerable": true,
-    "best": 0.3747366816119291
-  },
-  {
-    "question": "It is going into a damp shed for the winter.",
-    "answerable": true,
-    "best": 0.32628464698791504
-  },
-  {
-    "question": "When is the money due each month and how do I send it?",
-    "answerable": true,
-    "best": 0.319350579957681
-  },
-  {
-    "question": "Is there a ceiling on how much it can go up?",
-    "answerable": true,
-    "best": 0.35517698526382446
-  },
-  {
-    "question": "How much do I have to hand over at the start?",
-    "answerable": true,
-    "best": 0.3286979598582995
-  },
-  {
-    "question": "Can I be charged for repainting when I leave?",
-    "answerable": true,
-    "best": 0.33251635231126375
-  },
-  {
-    "question": "The boiler died in January. How fast should someone come?",
-    "answerable": true,
-    "best": 0.31955498456953024
-  },
-  {
-    "question": "Nobody is answering and water is coming through the ceiling.",
-    "answerable": true,
-    "best": 0.35684822493605506
-  },
-  {
-    "question": "Can the owner turn up unannounced?",
-    "answerable": true,
-    "best": 0.31542857381275613
-  },
-  {
-    "question": "How much notice do I give to move out?",
-    "answerable": true,
-    "best": 0.3057791772949193
-  },
-  {
-    "question": "Is a text message enough to give notice?",
-    "answerable": true,
-    "best": 0.33025256811065984
-  },
-  {
-    "question": "My partner has been staying over for a month.",
-    "answerable": true,
-    "best": 0.35029159343365035
-  },
-  {
-    "question": "Does having a dog cost extra?",
-    "answerable": true,
-    "best": 0.31275647694675146
-  },
-  {
-    "question": "What does E04 mean?",
-    "answerable": true,
-    "best": 0.32155213718271636
-  },
-  {
-    "question": "ISO VG 46",
-    "answerable": true,
-    "best": 0.3358621997668969
-  },
-  {
-    "question": "M16 torque spec",
-    "answerable": true,
-    "best": 0.3873328201373102
-  },
-  {
-    "question": "What counts as Severity 2?",
-    "answerable": true,
-    "best": 0.2756639287271444
-  },
-  {
-    "question": "What is the HL-90?",
-    "answerable": true,
-    "best": 0.2999563217163086
-  },
-  {
-    "question": "clause 7",
-    "answerable": true,
-    "best": 0.3422242206997864
-  },
-  {
-    "question": "How do I reset my password?",
-    "answerable": false,
-    "best": 0.45265936851501465
-  },
-  {
-    "question": "Which insurance company underwrites the property?",
-    "answerable": false,
-    "best": 0.42157816886901855
-  },
-  {
-    "question": "What is the warranty period on the hydraulic pump?",
-    "answerable": false,
-    "best": 0.34807886636020713
-  },
-  {
-    "question": "Who is the current chief executive?",
-    "answerable": false,
-    "best": 0.46594966643598645
-  },
-  {
-    "question": "Is there parking included?",
-    "answerable": false,
-    "best": 0.39107760654056145
-  },
-  {
-    "question": "What are the fire evacuation arrangements?",
-    "answerable": false,
-    "best": 0.39979103204474087
-  },
-  {
-    "question": "Can I get this in French?",
-    "answerable": false,
-    "best": 0.421579847147483
-  },
-  {
-    "question": "How many people work in the support team?",
-    "answerable": false,
-    "best": 0.33234276377132976
-  },
-  {
-    "question": "What is the capital of Portugal?",
-    "answerable": false,
-    "best": 0.49354156813273153
-  },
-  {
-    "question": "Does the press come in a wider bed size?",
-    "answerable": false,
-    "best": 0.33940470327223005
-  }
-]
+{
+  "golden": [
+    {
+      "question": "How quickly does someone get back to me if everything is down?",
+      "answerable": true,
+      "best": 0.29407018423080444
+    },
+    {
+      "question": "Does the response clock keep running through the night?",
+      "answerable": true,
+      "best": 0.2936445264114296
+    },
+    {
+      "question": "Can I push a ticket up the chain more than once?",
+      "answerable": true,
+      "best": 0.299551048861475
+    },
+    {
+      "question": "Does pushing a ticket up make it more urgent?",
+      "answerable": true,
+      "best": 0.2891041424603501
+    },
+    {
+      "question": "What do I get back if you miss a target?",
+      "answerable": true,
+      "best": 0.3001606047249188
+    },
+    {
+      "question": "Do I have to ask for the money back or is it automatic?",
+      "answerable": true,
+      "best": 0.3600870370864868
+    },
+    {
+      "question": "Can your engineers ask for a copy of our live database?",
+      "answerable": true,
+      "best": 0.33498593181287717
+    },
+    {
+      "question": "How long do you keep whatever I attach to a ticket?",
+      "answerable": true,
+      "best": 0.3289341330528259
+    },
+    {
+      "question": "Will an engineer be moving my mouse during a call?",
+      "answerable": true,
+      "best": 0.34724352798591607
+    },
+    {
+      "question": "How much warning do I need to give before it renews?",
+      "answerable": true,
+      "best": 0.32479099407169176
+    },
+    {
+      "question": "If I drop to the cheaper tier, when does that start?",
+      "answerable": true,
+      "best": 0.32497119903564453
+    },
+    {
+      "question": "What happens to tickets I already have open if I cancel?",
+      "answerable": true,
+      "best": 0.31340900997546317
+    },
+    {
+      "question": "How much force does this thing actually put out?",
+      "answerable": true,
+      "best": 0.31046489806368616
+    },
+    {
+      "question": "Do I need ear defenders standing next to it?",
+      "answerable": true,
+      "best": 0.2929183840751648
+    },
+    {
+      "question": "Which oil goes in it?",
+      "answerable": true,
+      "best": 0.3382009267807007
+    },
+    {
+      "question": "How often does the oil need replacing?",
+      "answerable": true,
+      "best": 0.32108819484710693
+    },
+    {
+      "question": "Why does it feel jerky when I first switch it on?",
+      "answerable": true,
+      "best": 0.362962543964386
+    },
+    {
+      "question": "What temperature is too hot for it to run at?",
+      "answerable": true,
+      "best": 0.33904667729417426
+    },
+    {
+      "question": "How tight do the tooling bolts go?",
+      "answerable": true,
+      "best": 0.2835207154465136
+    },
+    {
+      "question": "Is there a point where a resharpened tool is too thin to use?",
+      "answerable": true,
+      "best": 0.4109294659453302
+    },
+    {
+      "question": "The over-temperature warning will not go away after a restart.",
+      "answerable": true,
+      "best": 0.3633254983023094
+    },
+    {
+      "question": "The two pressure readings disagree with each other.",
+      "answerable": true,
+      "best": 0.31348538398742676
+    },
+    {
+      "question": "Anything to do before putting it on a lorry?",
+      "answerable": true,
+      "best": 0.37473670764972855
+    },
+    {
+      "question": "It is going into a damp shed for the winter.",
+      "answerable": true,
+      "best": 0.32628468651427855
+    },
+    {
+      "question": "When is the money due each month and how do I send it?",
+      "answerable": true,
+      "best": 0.31935064081247677
+    },
+    {
+      "question": "Is there a ceiling on how much it can go up?",
+      "answerable": true,
+      "best": 0.35517702565124676
+    },
+    {
+      "question": "How much do I have to hand over at the start?",
+      "answerable": true,
+      "best": 0.3286979594438657
+    },
+    {
+      "question": "Can I be charged for repainting when I leave?",
+      "answerable": true,
+      "best": 0.33251631259918213
+    },
+    {
+      "question": "The boiler died in January. How fast should someone come?",
+      "answerable": true,
+      "best": 0.31955490345417303
+    },
+    {
+      "question": "Nobody is answering and water is coming through the ceiling.",
+      "answerable": true,
+      "best": 0.3568482824383119
+    },
+    {
+      "question": "Can the owner turn up unannounced?",
+      "answerable": true,
+      "best": 0.3154284750052756
+    },
+    {
+      "question": "How much notice do I give to move out?",
+      "answerable": true,
+      "best": 0.30577921867370605
+    },
+    {
+      "question": "Is a text message enough to give notice?",
+      "answerable": true,
+      "best": 0.3302526277153106
+    },
+    {
+      "question": "My partner has been staying over for a month.",
+      "answerable": true,
+      "best": 0.35029157103845787
+    },
+    {
+      "question": "Does having a dog cost extra?",
+      "answerable": true,
+      "best": 0.31275655703285554
+    },
+    {
+      "question": "What does E04 mean?",
+      "answerable": true,
+      "best": 0.3215522574453188
+    },
+    {
+      "question": "ISO VG 46",
+      "answerable": true,
+      "best": 0.3358622193336487
+    },
+    {
+      "question": "M16 torque spec",
+      "answerable": true,
+      "best": 0.38733276053266186
+    },
+    {
+      "question": "What counts as Severity 2?",
+      "answerable": true,
+      "best": 0.2756640911102295
+    },
+    {
+      "question": "What is the HL-90?",
+      "answerable": true,
+      "best": 0.2999563008533803
+    },
+    {
+      "question": "clause 7",
+      "answerable": true,
+      "best": 0.3422243391141677
+    },
+    {
+      "question": "How do I reset my password?",
+      "answerable": false,
+      "best": 0.4526593522029919
+    },
+    {
+      "question": "Which insurance company underwrites the property?",
+      "answerable": false,
+      "best": 0.42157807478773934
+    },
+    {
+      "question": "What is the warranty period on the hydraulic pump?",
+      "answerable": false,
+      "best": 0.348078927283222
+    },
+    {
+      "question": "Who is the current chief executive?",
+      "answerable": false,
+      "best": 0.46594977378845215
+    },
+    {
+      "question": "Is there parking included?",
+      "answerable": false,
+      "best": 0.3910776376724243
+    },
+    {
+      "question": "What are the fire evacuation arrangements?",
+      "answerable": false,
+      "best": 0.3997910857076089
+    },
+    {
+      "question": "Can I get this in French?",
+      "answerable": false,
+      "best": 0.4215799570083618
+    },
+    {
+      "question": "How many people work in the support team?",
+      "answerable": false,
+      "best": 0.33234280347824097
+    },
+    {
+      "question": "What is the capital of Portugal?",
+      "answerable": false,
+      "best": 0.49354162773738075
+    },
+    {
+      "question": "Does the press come in a wider bed size?",
+      "answerable": false,
+      "best": 0.3394047021865845
+    }
+  ],
+  "followUps": [
+    {
+      "followUp": "and the fault code?",
+      "best": 0.3621633864738564
+    },
+    {
+      "followUp": "on premier?",
+      "best": 0.35592611765421023
+    },
+    {
+      "followUp": "how often?",
+      "best": 0.3693549633026123
+    },
+    {
+      "followUp": "and the filter?",
+      "best": 0.3736171499718923
+    },
+    {
+      "followUp": "what about the deposit?",
+      "best": 0.31033051013946533
+    },
+    {
+      "followUp": "in writing?",
+      "best": 0.3847173819114327
+    },
+    {
+      "followUp": "how much is it?",
+      "best": 0.3910518288612366
+    },
+    {
+      "followUp": "why?",
+      "best": 0.40701955556869507
+    },
+    {
+      "followUp": "who handles it then?",
+      "best": 0.3399624621890496
+    },
+    {
+      "followUp": "and outside them?",
+      "best": 0.37910375719643974
+    }
+  ]
+}

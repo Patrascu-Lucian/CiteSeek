@@ -6,6 +6,10 @@ import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
 
 import { ChatPanel } from "./chat-panel";
 
+/** A Server Action module: importing it for real pulls the database into a jsdom
+ * test. Its behavior is covered in `actions.integration.test.ts`. */
+vi.mock("@/lib/chats/actions", () => ({ deleteConversationTurn: vi.fn() }));
+
 /**
  * `useChat` owns a network connection, so it is replaced here. Everything else —
  * the states, the wiring, the accessible names — is the component's own and runs
@@ -82,15 +86,9 @@ function renderPanel(
   );
 }
 
-/**
- * What the transport actually hands the client for a refusal.
- *
- * Both the pre-flight 429 and a mid-stream provider error arrive as an `Error`
- * whose *message is the JSON body* — the SDK throws `new Error(response.text())`
- * and turns a stream error part into `new Error(errorText)`. Building the
- * fixture that way rather than passing a bare code keeps this test honest about
- * the shape the component has to survive.
- */
+/** What the transport actually hands the client: both a pre-flight 429 and a
+ * mid-stream error arrive as an `Error` whose *message is the JSON body*. A bare
+ * code would test a shape the component never sees. */
 function refusalError(code: "rate_limited" | "capacity_reached") {
   return new Error(JSON.stringify({ error: "…", code }));
 }
@@ -202,9 +200,18 @@ describe("ChatPanel — asking", () => {
     await userEvent.type(screen.getByRole("textbox"), "What is the policy?");
     await userEvent.click(screen.getByRole("button", { name: /send/i }));
 
-    expect(chat.sendMessage).toHaveBeenCalledWith({
-      text: "What is the policy?",
-    });
+    /* A uuid, not the SDK's base62: `messages.id` is a uuid column, so a question
+       asked this session could not otherwise be named to the server, and editing
+       or deleting it failed until a reload. */
+    const sent = chat.sendMessage.mock.lastCall?.[0] as {
+      id: string;
+      role: string;
+      parts: unknown[];
+    };
+
+    expect(sent.id).toMatch(/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/);
+    expect(sent.role).toBe("user");
+    expect(sent.parts).toEqual([{ type: "text", text: "What is the policy?" }]);
     expect(screen.getByRole("textbox")).toHaveValue("");
   });
 
@@ -238,15 +245,11 @@ describe("ChatPanel — asking", () => {
 });
 
 describe("ChatPanel — citations", () => {
-  /*
-    `Answer` is behind a dynamic import, so the first chip in this file does not
-    exist until Vitest has transformed the markdown stack — comfortably over
-    Testing Library's 1s default on a loaded machine. Same allowance, and same
-    reason, as the `message-list` specs.
-  */
+  // `Answer` is behind a dynamic import, so the first chip waits on Vitest
+  // transforming the markdown stack — over the 1s default on a loaded machine.
   const CHIP_TIMEOUT = { timeout: 5_000 };
 
-  // The panel moved up to `WorkspaceSections`, so what this component owes is
+  // The panel moved up to `WorkspaceShell`, so what this component owes is
   // the citation, not the panel.
   it("reports the citation when a chip is activated", async () => {
     chat.messages = [ANSWER];

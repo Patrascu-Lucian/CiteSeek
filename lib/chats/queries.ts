@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, lt, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { isUuid } from "@/lib/db/uuid";
@@ -16,14 +16,8 @@ import { MAX_TITLE_LENGTH, titleFromQuestion } from "./titles";
 // pull the database in with it.
 export { MAX_TITLE_LENGTH, titleFromQuestion };
 
-/**
- * Every read and write of chat data.
- *
- * Two scopes, not one: a workspace can be shared, so `workspaceId` alone would
- * let one reader load another's conversation. Every query filters on
- * `workspaceId` **and** `userId`; messages reach both by joining through their
- * chat. Signed-in users only (ADR 013).
- */
+/** Two scopes, not one: a workspace can be shared, so `workspaceId` alone would
+ * let one reader load another's conversation. Signed-in users only (ADR 013). */
 
 /** Most recent, or a new one — creating per request would make every reload start
  * a fresh conversation. */
@@ -56,6 +50,8 @@ export type ChatMessage = {
   citations: MessageCitation[];
   /** Non-null only when the turn could not be grounded. See ADR 017. */
   refusalReason: RefusalReason | null;
+  /** Non-null only when a rewrite of the typed question is what retrieved. */
+  rewrittenQuestion: string | null;
   createdAt: Date;
 };
 
@@ -76,6 +72,7 @@ export async function listChatMessages(
       content: messages.content,
       citations: messages.citations,
       refusalReason: messages.refusalReason,
+      rewrittenQuestion: messages.rewrittenQuestion,
       createdAt: messages.createdAt,
     })
     .from(messages)
@@ -156,6 +153,30 @@ export async function resolveChatForTurn(
   }
 
   return getOrCreateChat(workspaceId, userId);
+}
+
+/** An empty conversation is legitimate, so "no messages" does not mean "no such
+ * chat". */
+export async function chatExists(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+): Promise<boolean> {
+  if (!isUuid(chatId)) return false;
+
+  const [found] = await db
+    .select({ id: chats.id })
+    .from(chats)
+    .where(
+      and(
+        eq(chats.id, chatId),
+        eq(chats.workspaceId, workspaceId),
+        eq(chats.userId, userId),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(found);
 }
 
 /** Scoped by workspace *and* user, matching `createChat` — on the workspace
@@ -251,14 +272,8 @@ export async function listChats(
     .orderBy(desc(chats.updatedAt));
 }
 
-/**
- * Returns whether a row changed, so a caller distinguishes "not yours" from
- * "done" without a second query. Scoped on chat, workspace *and* user: read
- * access to a shared workspace must not imply write access inside it.
- *
- * An empty title clears it, returning the chat to being described by its first
- * question.
- */
+/** Returns whether a row changed, so a caller tells "not yours" from "done"
+ * without a second query. An empty title clears it. */
 export async function renameChat(
   workspaceId: string,
   userId: string,
@@ -309,22 +324,125 @@ export async function deleteChat(
   return deleted.length > 0;
 }
 
+/** One exchange: deleting either half alone strands the other. **Named by its
+ * question**, so an assistant id is refused rather than guessed at. Positions
+ * keep their gaps — renumbering would race the unique index for nothing. */
+export async function deleteTurn(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+  messageId: string,
+): Promise<number> {
+  return removeFromTurn(workspaceId, userId, chatId, messageId, "one");
+}
+
+/** Everything from a question onward, for an edit: the answer below was grounded
+ * in the old wording, and the turns after followed from that answer (ADR 043). */
+export async function deleteFromTurn(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+  messageId: string,
+): Promise<number> {
+  return removeFromTurn(workspaceId, userId, chatId, messageId, "onward");
+}
+
+async function removeFromTurn(
+  workspaceId: string,
+  userId: string,
+  chatId: string,
+  messageId: string,
+  extent: "one" | "onward",
+): Promise<number> {
+  if (!isUuid(chatId) || !isUuid(messageId)) return 0;
+
+  return db.transaction(async (tx) => {
+    const [turn] = await tx
+      .select({ position: messages.position })
+      .from(messages)
+      .innerJoin(chats, eq(messages.chatId, chats.id))
+      .where(
+        and(
+          eq(messages.id, messageId),
+          eq(messages.chatId, chatId),
+          eq(messages.role, "user"),
+          eq(chats.workspaceId, workspaceId),
+          eq(chats.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (!turn) return 0;
+
+    // Where the next turn starts, or nothing if this is the last one. Read
+    // rather than expressed as a sentinel upper bound: `position` is an
+    // `integer`, and the obvious sentinel does not fit in one.
+    const [next] =
+      extent === "one"
+        ? await tx
+            .select({ position: messages.position })
+            .from(messages)
+            .where(
+              and(
+                eq(messages.chatId, chatId),
+                eq(messages.role, "user"),
+                gt(messages.position, turn.position),
+              ),
+            )
+            .orderBy(asc(messages.position))
+            .limit(1)
+        : [];
+
+    const deleted = await tx
+      .delete(messages)
+      .where(
+        and(
+          eq(messages.chatId, chatId),
+          gte(messages.position, turn.position),
+          next ? lt(messages.position, next.position) : undefined,
+        ),
+      )
+      .returning({ id: messages.id });
+
+    return deleted.length;
+  });
+}
+
+/** Postgres 23505, which Drizzle wraps — the code is on the cause, not on the
+ * error it throws. Narrowed rather than caught broadly: an insert that failed
+ * for any other reason has to keep failing. */
+function isUniqueViolation(error: unknown): boolean {
+  for (let at: unknown = error; at; at = (at as { cause?: unknown }).cause) {
+    if (
+      typeof at === "object" &&
+      at !== null &&
+      "code" in at &&
+      at.code === "23505"
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export type NewChatMessage = {
   role: "user" | "assistant";
   content: string;
   citations?: MessageCitation[];
   /** Set on an assistant turn that could not be grounded. */
   refusalReason?: RefusalReason | null;
+  /** Set when a rewrite of the typed question is what retrieved. */
+  rewrittenQuestion?: string | null;
+  /** The client's id for a question, so editing and deleting can name the turn
+   * they are looking at. Ignored unless it is a uuid. */
+  id?: string;
 };
 
-/**
- * Verifies ownership before writing — otherwise a guessed id appends to someone
- * else's conversation.
- *
- * Citations are stored as the **full numbered list in marker order**, so `[n]`
- * resolves to `citations[n - 1]` both while streaming and after a reload. Storing
- * only the cited subset would renumber and repoint every marker.
- */
+/** Ownership is checked first, or a guessed id appends to someone else's
+ * conversation. Citations are the **full numbered list in marker order**, so
+ * `[n]` resolves to `citations[n - 1]`; storing only the cited subset would
+ * repoint every marker. */
 export async function appendMessages(
   workspaceId: string,
   userId: string,
@@ -358,19 +476,36 @@ export async function appendMessages(
 
   const nextPosition = (last?.position ?? -1) + 1;
 
+  const values = (withClientIds: boolean) =>
+    rows.map((row, index) => ({
+      chatId,
+      // Anything else falls through to `defaultRandom()`, so a client that
+      // sends nothing — or sends garbage — still gets a row.
+      ...(withClientIds && row.id && isUuid(row.id) ? { id: row.id } : {}),
+      position: nextPosition + index,
+      role: row.role,
+      content: row.content,
+      citations: row.citations ?? [],
+      refusalReason: row.refusalReason ?? null,
+      rewrittenQuestion: row.rewrittenQuestion ?? null,
+    }));
+
+  // Regenerate re-sends the turn with the id it already stored, and Stop still
+  // persists — so a repeat is ordinary use, not an attack. Losing the client id
+  // costs this turn its name; losing the turn would cost the reader an answer
+  // they watched arrive.
   const inserted = await db
     .insert(messages)
-    .values(
-      rows.map((row, index) => ({
-        chatId,
-        position: nextPosition + index,
-        role: row.role,
-        content: row.content,
-        citations: row.citations ?? [],
-        refusalReason: row.refusalReason ?? null,
-      })),
-    )
-    .returning({ id: messages.id });
+    .values(values(true))
+    .returning({ id: messages.id })
+    .catch((error: unknown) => {
+      if (!isUniqueViolation(error)) throw error;
+
+      return db
+        .insert(messages)
+        .values(values(false))
+        .returning({ id: messages.id });
+    });
 
   // A chat with no title yet takes it from the first question asked in it.
   const firstQuestion = rows.find((row) => row.role === "user")?.content;

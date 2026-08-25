@@ -6,15 +6,10 @@ import { type Actor } from "./authorization";
 import { GUEST_COOKIE_NAME, verifyGuestToken } from "./guest";
 
 /**
- * The single place the app asks "who is this request?".
- *
- * Two mechanisms sit behind it -- Auth.js for real accounts, a signed cookie for
- * guests -- and callers should never need to know which. Route handlers and
- * Server Components depend on this function, not on `auth()` or the cookie
- * directly, which is what keeps ADR 004's exit path from Auth.js realistic.
- *
- * A real session wins over a guest cookie: someone who has signed in is a user,
- * even if a stale demo cookie is still lying around in their browser.
+ * The single place the app asks "who is this request?", hiding both mechanisms —
+ * Auth.js and a signed guest cookie. Nothing calls `auth()` directly, which is
+ * what keeps ADR 004's exit path realistic. A real session wins over a guest
+ * cookie, since a stale demo cookie often outlives signing in.
  */
 export async function getActor(): Promise<Actor> {
   const session = await auth();

@@ -6,14 +6,13 @@ import type { ChatUIMessage } from "@/lib/ai/types";
 
 import { ChatPanel } from "./chat-panel";
 
-/**
- * A performance regression asserted as behavior: the draft used to live in
- * `ChatPanel`, so one keystroke re-parsed every `Answer` through Streamdown.
- *
- * Renders rather than milliseconds — a timing assertion would be flaky, and the
- * count is what regressed. Its own file because the stub below replaces
- * `MessageList` for the whole module.
- */
+/** A Server Action module: importing it for real pulls the database into a jsdom
+ * test. Its behavior is covered in `actions.integration.test.ts`. */
+vi.mock("@/lib/chats/actions", () => ({ deleteConversationTurn: vi.fn() }));
+
+/** A performance regression asserted as behavior: the draft used to live in
+ * `ChatPanel`, so one keystroke re-parsed every `Answer`. Renders rather than
+ * milliseconds, because the count is what regressed. */
 const transcript = vi.hoisted(() => ({ renders: 0 }));
 
 vi.mock("./message-list", () => ({
@@ -83,8 +82,10 @@ describe("ChatPanel — typing", () => {
       "What is the policy?{Enter}",
     );
 
-    expect(chat.sendMessage).toHaveBeenCalledExactlyOnceWith({
-      text: "What is the policy?",
-    });
+    expect(chat.sendMessage).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        parts: [{ type: "text", text: "What is the policy?" }],
+      }),
+    );
   });
 });

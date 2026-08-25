@@ -23,16 +23,11 @@ export type Access = "none" | "read" | "write";
 
 /**
  * The whole model: owners write their own workspaces; any *identified* actor
- * reads the demo; nobody writes the demo, since the next visitor would see
- * whatever the last one did; everything else is denied.
- *
- * Requiring an actor rather than making the demo world-readable is what makes the
- * guest signature load-bearing — a forged token resolves to `null` and is refused
- * here, so access is not self-granted.
- *
- * It does *not* make the guest id a trustworthy rate-limit key: a valid cookie
- * proves we issued it, not that its holder has only one.
- * Limiting counts the client address instead (ADR 014).
+ * reads the demo; nobody writes it, or the next visitor sees what the last one
+ * did; everything else is denied. Requiring an actor is what makes the guest
+ * signature load-bearing — a forged token resolves to `null` and is refused here.
+ * **Not** a rate-limit key: a valid cookie proves we issued it, not that its
+ * holder has one (ADR 014).
  */
 export function accessToWorkspace(
   actor: Actor,
@@ -59,10 +54,12 @@ export function canRead(
   return accessToWorkspace(actor, workspace) !== "none";
 }
 
+/** A guard, not a boolean: `"write"` implies a signed-in owner, so write paths
+ * need no guest branch. */
 export function canWrite(
   actor: Actor,
   workspace: WorkspaceAccessSubject,
-): boolean {
+): actor is Extract<Actor, { type: "user" }> {
   return accessToWorkspace(actor, workspace) === "write";
 }
 

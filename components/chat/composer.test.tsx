@@ -89,3 +89,42 @@ describe("Composer", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });
+
+describe("the composer's shape", () => {
+  it("opens at one row and grows from there", () => {
+    const { textbox } = renderComposer();
+
+    expect(textbox).toHaveAttribute("rows", "1");
+  });
+
+  it("names the control without showing a word", () => {
+    // The label is the only name it has once "Send" is gone.
+    const { textbox } = renderComposer();
+    const send = screen.getByRole("button", { name: /send the question/i });
+
+    expect(send).toHaveTextContent("");
+    // After the field in the DOM, so Tab from a typed question reaches it.
+    expect(textbox.compareDocumentPosition(send)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  /* Two buttons swapped by a branch would unmount the focused one the instant a
+     stream opened, dropping focus to the body. */
+  it("keeps focus on the control when it turns into Stop", async () => {
+    const handlers = { onSubmit: vi.fn(), onStop: vi.fn() };
+    const { rerender } = render(
+      <Composer isStreaming={false} disabled={false} {...handlers} />,
+    );
+
+    await userEvent.type(screen.getByRole("textbox"), "What is the policy?");
+    const send = screen.getByRole("button", { name: /send the question/i });
+    send.focus();
+    expect(send).toHaveFocus();
+
+    rerender(<Composer isStreaming disabled={false} {...handlers} />);
+
+    expect(screen.getByRole("button", { name: /stop the answer/i })).toBe(send);
+    expect(send).toHaveFocus();
+  });
+});

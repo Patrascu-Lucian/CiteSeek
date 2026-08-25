@@ -17,7 +17,8 @@ import {
   buildSystemPrompt,
 } from "@/lib/ai/prompt";
 import { getChatModel } from "@/lib/ai/provider";
-import { questionFrom } from "@/lib/ai/question";
+import { questionFrom, questionIdFrom } from "@/lib/ai/question";
+import { rewriteQuestion } from "@/lib/ai/rewrite";
 import {
   MAX_QUESTION_CHARS,
   MAX_REQUEST_MESSAGES,
@@ -97,8 +98,8 @@ function parseMessages(body: unknown): ChatUIMessage[] | null {
 
 /**
  * Streamed in the same shape as a real answer, so the client has one code path.
- * Fixed server-side text and no model call — this is what makes "I don't know"
- * structural rather than instructed. The `refusal` part carries *why*.
+ * Fixed server-side text, written here rather than generated — this is what
+ * makes "I don't know" structural rather than instructed. The `refusal` part carries *why*.
  */
 function refusalStream(reason: RefusalReason) {
   return createUIMessageStream<ChatUIMessage>({
@@ -146,6 +147,7 @@ export async function POST(
   if (!messages) return badRequest("Expected a messages array.");
 
   const question = questionFrom(messages);
+  const questionId = questionIdFrom(messages);
   if (!question) return badRequest("Expected a question.");
 
   // Optional: the conversation the client is showing. Validated against the
@@ -163,20 +165,15 @@ export async function POST(
 
   // Destructured before the closure: TypeScript drops narrowing at a function
   // boundary, so reading through `auth` inside it would widen these back.
-  const { workspaceId: scope, actorType, actorId } = auth;
+  const { workspaceId: scope, actorType, actorId, canWrite } = auth;
   const asked: string = question;
 
-  // Signed-in only: persisting guest turns would put an unbounded write path
-  // behind a public URL (ADR 005). `resolveChatForTurn` validates the id the
-  // client sends, so a guess cannot append to someone else's transcript.
-  //
-  // Ahead of retrieval so the cap below refuses before the query is embedded.
-  // Safe to create a chat here: the fallback only inserts at zero chats, and a
-  // reader with zero chats has no messages to be capped on.
-  const chatId =
-    actorType === "user"
-      ? (await resolveChatForTurn(scope, actorId, requestedChatId)).id
-      : null;
+  // Writers, not signed-in: `actorType` created a demo conversation for every
+  // question a signed-in visitor asked (ADR 040). Ahead of retrieval, so the cap
+  // refuses before the query is embedded.
+  const chatId = canWrite
+    ? (await resolveChatForTurn(scope, actorId, requestedChatId)).id
+    : null;
 
   if (chatId) {
     const limits = resolvePlanLimits();
@@ -199,22 +196,30 @@ export async function POST(
     }
   }
 
-  const { chunks: retrieved, tokens: retrievalTokens } = await retrieveChunks(
-    auth.workspaceId,
-    question,
-  );
+  const first = await retrieveChunks(auth.workspaceId, question);
+  let retrieved = first.chunks;
+  /** The question actually searched, when it is not the one that was typed. */
+  let searchedFor: string | null = null;
+
+  const meter = (
+    kind: "chat" | "embedding",
+    inputTokens: number,
+    outputTokens = 0,
+  ) =>
+    recordUsage({
+      actorType,
+      actorId,
+      ipHash,
+      workspaceId: scope,
+      kind,
+      inputTokens,
+      outputTokens,
+    });
 
   /** Before either branch: the query is embedded *before* the floor applies, so a
    * question that matched nothing was still paid for. Metering only the answered
    * branch leaves repeated nonsense uncounted. */
-  await recordUsage({
-    actorType,
-    actorId,
-    ipHash,
-    workspaceId: scope,
-    kind: "embedding",
-    inputTokens: retrievalTokens,
-  });
+  await meter("embedding", first.tokens);
 
   async function persist(
     answer: string,
@@ -224,13 +229,20 @@ export async function POST(
     if (!chatId) return;
 
     await appendMessages(scope, actorId, chatId, [
-      { role: "user", content: asked },
-      { role: "assistant", content: answer, citations, refusalReason },
+      { role: "user", content: asked, id: questionId ?? undefined },
+      {
+        role: "assistant",
+        content: answer,
+        citations,
+        refusalReason,
+        rewrittenQuestion: searchedFor,
+      },
     ]);
   }
 
-  // The relevance floor. No passages means no model call, so there is nothing to
-  // cite — as opposed to instructing a model to refuse, which mostly works.
+  // The relevance floor. No passages means no answer is generated, so there is
+  // nothing to cite — as opposed to instructing a model to refuse, which mostly
+  // works. A rewrite below may call a model; its output is a query, never prose.
   if (retrieved.length === 0) {
     // One extra query, only on this branch: "nothing matched" and "nothing to
     // match against" need different copy, or we tell someone to upload a document
@@ -240,11 +252,30 @@ export async function POST(
         ? "no_documents"
         : "no_relevant_passages";
 
-    // Persisted like any other turn — dropping it on reload would make the
-    // transcript a lie. The reason rides along so the panel is rebuilt rather
-    // than inferred from text that could be reworded.
-    await persist(NO_RELEVANT_PASSAGES_REPLY, [], reason);
-    return createUIMessageStreamResponse({ stream: refusalStream(reason) });
+    // Only on this branch, so an answered question never waits on a second model
+    // call (ADR 044). An empty workspace has nothing to search either way.
+    const rewritten =
+      reason === "no_relevant_passages"
+        ? await rewriteQuestion(messages, question)
+        : null;
+
+    if (rewritten) {
+      await meter("chat", rewritten.inputTokens, rewritten.outputTokens);
+
+      const second = await retrieveChunks(auth.workspaceId, rewritten.question);
+      await meter("embedding", second.tokens);
+
+      retrieved = second.chunks;
+      if (retrieved.length > 0) searchedFor = rewritten.question;
+    }
+
+    if (retrieved.length === 0) {
+      // Persisted like any other turn — dropping it on reload would make the
+      // transcript a lie. The reason rides along so the panel is rebuilt rather
+      // than inferred from text that could be reworded.
+      await persist(NO_RELEVANT_PASSAGES_REPLY, [], reason);
+      return createUIMessageStreamResponse({ stream: refusalStream(reason) });
+    }
   }
 
   const sources = buildSources(retrieved);
@@ -254,13 +285,9 @@ export async function POST(
   const modelMessages = await convertToModelMessages(messages);
 
   const stream = createUIMessageStream<ChatUIMessage>({
-    /**
-     * The provider's quota error arrives *after* a 200. Our caps refuse before
-     * the stream opens as a JSON 429, but Gemini's limits are per project, so
-     * `RESOURCE_EXHAUSTED` can still land once the status line is gone. Same JSON
-     * body, so one parser handles both. Everything else keeps the SDK's opaque
-     * default rather than leaking internals.
-     */
+    /** The provider's quota error arrives *after* a 200, so `RESOURCE_EXHAUSTED`
+     * lands once the status line is gone. Same JSON body as our own 429, so one
+     * parser handles both. */
     onError: (error) =>
       APICallError.isInstance(error) && error.statusCode === 429
         ? // The provider's project-wide quota, not this reader's.
@@ -307,12 +334,8 @@ export async function POST(
         // calling the tool loops until the function times out.
         stopWhen: stepCountIs(2),
         // **No `abortSignal`, deliberately.** Forwarding `request.signal` would
-        // stop `onFinish` running when a reader closes the tab, leaving tokens
-        // already paid for uncounted. A test holds it; the other half of the
-        // reason is the SDK's — `docs/backlog.md`.
-        // Fires on Stop too — a partial answer is still what was shown. `usage`
-        // aggregates across steps, which matters because `stepCountIs(2)` means a
-        // tool-using turn runs two.
+        // stop `onFinish` running when a reader closes the tab, leaving paid-for
+        // tokens uncounted. Fires on Stop too, and `usage` spans both steps.
         onFinish: async ({ text, usage }) => {
           await persist(text, sources);
           await recordUsage({
@@ -331,7 +354,17 @@ export async function POST(
 
       // The standalone helper over `result.toUIMessageStream()`: the method is
       // deprecated and goes away in the next major.
-      writer.merge(toUIMessageStream({ stream: result.stream }));
+      writer.merge(
+        toUIMessageStream({
+          stream: result.stream,
+          // Metadata rather than a data part: a part written here arrives before
+          // the `start` that opens the assistant message, and the client builds a
+          // second message from it. Invisible for `sources`, not for a line of
+          // text.
+          messageMetadata: () =>
+            searchedFor === null ? undefined : { searchedFor },
+        }),
+      );
     },
   });
 

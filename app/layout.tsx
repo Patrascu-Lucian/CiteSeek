@@ -66,18 +66,10 @@ export const metadata: Metadata = {
 };
 
 /**
- * Reads the theme cookie so the palette is correct on the first byte.
- *
- * This is the whole reason the preference is a cookie (ADR 018). The usual
- * implementation of this feature keeps the choice in `localStorage`, which the
- * server cannot see — so the first paint is always the wrong palette, and a
- * render-blocking inline script exists to correct it before anyone sees it.
- * A cookie arrives with the request, so there is nothing to correct: no script,
- * no `suppressHydrationWarning`, and nothing that can flash if scripts are slow
- * or disabled.
- *
- * No cookie means no class, which hands the decision to the
- * `prefers-color-scheme` block in `globals.css`.
+ * The palette is right on the first byte, which is the whole reason the choice is
+ * a cookie (ADR 018): `localStorage` is invisible to the server, so the usual
+ * version paints the wrong palette and corrects it with a blocking inline script.
+ * No cookie means no class, leaving `prefers-color-scheme` to decide.
  */
 async function themeClassName(): Promise<string> {
   const stored = (await cookies()).get(THEME_COOKIE_NAME)?.value;

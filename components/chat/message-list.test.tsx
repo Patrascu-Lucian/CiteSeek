@@ -278,6 +278,7 @@ describe("MessageList — a conversation restored from the database", () => {
       content: "When is reimbursement paid?",
       citations: [],
       refusalReason: null,
+      rewrittenQuestion: null,
       createdAt: new Date("2026-07-30T10:00:00Z"),
     },
     {
@@ -297,6 +298,7 @@ describe("MessageList — a conversation restored from the database", () => {
         },
       ],
       refusalReason: null,
+      rewrittenQuestion: null,
       createdAt: new Date("2026-07-30T10:00:01Z"),
     },
   ]);
@@ -439,5 +441,33 @@ describe("MessageList — a refusal", () => {
     );
 
     expect(document.querySelector("[data-refusal]")).toBeNull();
+  });
+});
+
+describe("MessageList — a question the server has not written down yet", () => {
+  /* Between submit and the first token nothing is streaming, so a guard on
+     `streaming` alone let Edit and Delete render on a turn with no row behind
+     it. Acting on either reported "That exchange is still here" about a question
+     that plainly was. */
+  it("offers no turn controls while the answer is still pending", () => {
+    render(
+      <MessageList
+        messages={[userMessage("What is the policy?")]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        uploadHref="/w/w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
+        isDemo={false}
+        onAsk={() => undefined}
+        onDeleteTurn={vi.fn()}
+        onEditQuestion={vi.fn()}
+        pending
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /edit/i })).toBeNull();
   });
 });

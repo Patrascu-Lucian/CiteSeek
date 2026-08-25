@@ -4,7 +4,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Send, Square } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -58,7 +58,7 @@ export function Composer({
     // Focus stays in the composer so a follow-up question can be typed without
     // reaching for the mouse.
     textareaRef.current?.focus();
-    // Back to two rows: the value is cleared here rather than by typing, so
+    // Back to one row: the value is cleared here rather than by typing, so
     // nothing else would measure it.
     if (textareaRef.current) fit(textareaRef.current);
   }
@@ -71,39 +71,53 @@ export function Composer({
   }
 
   return (
-    <form onSubmit={submit} className="flex items-end gap-2">
+    <form onSubmit={submit}>
       <label className="sr-only" htmlFor="chat-question">
         Ask a question about {subject}
       </label>
-      <textarea
-        id="chat-question"
-        ref={textareaRef}
-        rows={2}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => {
-          setValue(event.target.value);
-          fit(event.target);
-        }}
-        onKeyDown={handleKeyDown}
-        placeholder={`Ask a question about ${subject}…`}
-        // Grows with the question and stops at `max-h-40`, after which it
-        // scrolls — a composer that can take the whole panel leaves nowhere to
-        // read the answer it is about to get.
-        className="border-input bg-background focus-visible:ring-ring max-h-40 flex-1 resize-none overflow-y-auto rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-      />
 
-      {isStreaming ? (
-        <Button type="button" variant="outline" onClick={onStop}>
-          <Square aria-hidden="true" className="size-4" />
-          Stop
+      {/* The ring moves to the box, since the field no longer has its own edge. */}
+      <div className="border-input bg-background focus-within:ring-ring flex items-end gap-2 rounded-md border p-1.5 focus-within:ring-2">
+        <textarea
+          id="chat-question"
+          ref={textareaRef}
+          rows={1}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => {
+            setValue(event.target.value);
+            fit(event.target);
+          }}
+          onKeyDown={handleKeyDown}
+          placeholder={`Ask a question about ${subject}…`}
+          // Grows with the question and stops at `max-h-40`, after which it
+          // scrolls — a composer that can take the whole panel leaves nowhere to
+          // read the answer it is about to get.
+          className="max-h-40 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent px-1.5 py-1 text-sm outline-none disabled:opacity-50"
+        />
+
+        {/*
+          One button, not two swapped by a branch: it changes identity under a
+          reader's focus the moment a stream opens, and a remount would drop that
+          focus to the body. `items-end` puts it beside a one-line question and
+          under a grown one.
+        */}
+        <Button
+          type={isStreaming ? "button" : "submit"}
+          variant={isStreaming ? "outline" : "default"}
+          size="icon"
+          className="rounded-full"
+          aria-label={isStreaming ? "Stop the answer" : "Send the question"}
+          onClick={isStreaming ? onStop : undefined}
+          disabled={isStreaming ? false : disabled || value.trim().length === 0}
+        >
+          {isStreaming ? (
+            <Square aria-hidden="true" className="size-3.5" />
+          ) : (
+            <ArrowUp aria-hidden="true" className="size-4" />
+          )}
         </Button>
-      ) : (
-        <Button type="submit" disabled={disabled || value.trim().length === 0}>
-          <Send aria-hidden="true" className="size-4" />
-          Send
-        </Button>
-      )}
+      </div>
     </form>
   );
 }

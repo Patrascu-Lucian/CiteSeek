@@ -1,15 +1,9 @@
 /**
- * Fails the build when the database is behind the repo's migrations. Wired into
- * Vercel's build command.
- *
- * Migration 0001 was applied to the development branch only, and production
- * returned 500s with no body on upload while the documents list kept working —
- * it selects columns explicitly, the insert did not.
- *
- * **It checks; it does not migrate.** Migrating from a build step would let a
- * *preview* build mutate whichever database Preview points at; failing at startup
- * would take the app down on drift. Failing the build keeps the previous version
- * serving and turns "I forgot to migrate" into a red deploy.
+ * Fails the build when the database is behind the repo's migrations — 0001 was
+ * applied to the dev branch only, and production returned bodiless 500s on upload
+ * while the documents list kept working. **It checks; it does not migrate**: a
+ * preview build would otherwise mutate whatever Preview points at, and failing at
+ * startup would take the app down. A red deploy keeps the old version serving.
  */
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";

@@ -5,16 +5,9 @@ import { findDemoWorkspace } from "@/lib/auth/demo";
 import { getOrCreatePersonalWorkspace } from "@/lib/workspaces/personal";
 
 /**
- * "Take me to my workspace."
- *
- * A single entry point that resolves whoever is asking to the right workspace,
- * so no other route has to know a user's workspace id in advance. Sign-in
- * redirects here, and so does `/sign-in` when someone already signed in lands on
- * it.
- *
- * Creation lives here rather than in a page render: this is the one place a
- * workspace may be brought into existence, and a route handler is the honest
- * home for a request that writes.
+ * "Take me to my workspace", so no other route needs a workspace id in advance.
+ * Creation lives here rather than in a page render: it is the one place a
+ * workspace comes into existence, and a handler is the honest home for a write.
  */
 export async function GET(request: Request) {
   const actor = await getActor();

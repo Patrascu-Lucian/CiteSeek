@@ -1,13 +1,8 @@
 /**
- * Whether this browser has already agreed to fetch the chat model.
- *
- * Module state was not enough: every route into `/local` is a plain `<a>`
- * because the page needs its own CSP (ADR 028), so arriving there is always a
- * full document load and anything held in memory is already gone. Consent has
- * to outlive the page or the gate asks again on every visit.
- *
- * `localStorage`, not a cookie: nothing on the server reads this, and sending it
- * with every request would put a local-mode fact on the wire.
+ * Module state was not enough: every route into `/local` is a plain `<a>` for its
+ * own CSP (ADR 028), so arriving is always a full document load and memory is
+ * gone. `localStorage`, not a cookie — nothing on the server reads this, and a
+ * cookie would put a local-mode fact on every request.
  */
 const KEY = "citeseek:local-model-consented";
 

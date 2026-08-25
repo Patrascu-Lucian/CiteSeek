@@ -3,16 +3,10 @@ import type { Embedder } from "@/lib/rag/embeddings";
 import { LOCAL_EMBEDDING_DIMENSIONS } from "./embedder";
 
 /**
- * A stand-in for the browser, so tests exercise ingestion without a 30 MB model
- * download on a headless runner with no Hugging Face access.
- *
- * Deliberately not `lib/ai/fake-embedder.ts`: that one hashes with `node:crypto`
- * and is 768-wide to match the server's column. Nothing compares a local vector
- * to a server one, so the two fakes never have to agree.
- *
- * Same shape as its server counterpart — a hashing bag of words, so text sharing
- * words lands close together. It measures word overlap, not meaning, and **a
- * relevance floor must never be tuned against it**.
+ * A browser stand-in, so tests skip a 30 MB download on a runner with no Hugging
+ * Face access. **Not** `lib/ai/fake-embedder.ts`: that hashes with `node:crypto`
+ * and is 768-wide for the server's column, and nothing ever compares a local
+ * vector to a server one. Word overlap, not meaning — never tune a floor to it.
  */
 const STOPWORDS = new Set([
   "a",

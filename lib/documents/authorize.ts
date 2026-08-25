@@ -5,14 +5,10 @@ import { canRead, canWrite } from "@/lib/auth/authorization";
 import { findWorkspaceById } from "@/lib/auth/demo";
 
 /**
- * The authorization preamble every document route runs.
+ * The authorization preamble every workspace-scoped route runs.
  *
- * Centralized so the check cannot be forgotten on a new route and cannot drift
- * between routes — the two ways this sort of guard usually fails.
- *
- * **Not-found and denied return the identical response.** Distinguishing them
- * would let anyone probe which workspace ids exist by comparing a 404 with a
- * 403. The same reasoning already applies in the workspace page.
+ * **Not-found and denied return the identical response**, or anyone could probe
+ * which workspace ids exist by comparing a 404 with a 403.
  */
 
 const DENIED = { error: "Workspace not found." } as const;
@@ -25,14 +21,25 @@ export type AuthorizedWorkspace = {
   workspaceId: string;
   actorType: "user" | "guest";
   actorId: string;
+  /** For read-authorized routes that still write. Not `actorType`: a signed-in
+   * reader of the demo is a user who may not write (ADR 040). */
+  canWrite: boolean;
 };
 
-/**
- * Resolves the caller and checks their access to a workspace.
- *
- * Returns a `NextResponse` on failure so callers can `if ("status" in result)`
- * and return it directly, rather than reconstructing the same error shape.
- */
+export type AuthorizedWrite = AuthorizedWorkspace & {
+  actorType: "user";
+  canWrite: true;
+};
+
+/** `"read"` is the right to ask; `"write"` is the right to leave something behind. */
+export async function authorizeWorkspace(
+  workspaceId: string,
+  access: "write",
+): Promise<AuthorizedWrite | NextResponse>;
+export async function authorizeWorkspace(
+  workspaceId: string,
+  access: "read",
+): Promise<AuthorizedWorkspace | NextResponse>;
 export async function authorizeWorkspace(
   workspaceId: string,
   access: "read" | "write",
@@ -43,15 +50,25 @@ export async function authorizeWorkspace(
   const workspace = await findWorkspaceById(workspaceId);
   if (!workspace) return deniedResponse();
 
-  const permitted =
-    access === "write" ? canWrite(actor, workspace) : canRead(actor, workspace);
+  // Two branches, not a ternary: a guard inside a ternary narrows nothing.
+  if (access === "write") {
+    if (!canWrite(actor, workspace)) return deniedResponse();
 
-  if (!permitted) return deniedResponse();
+    return {
+      workspaceId: workspace.id,
+      actorType: actor.type,
+      actorId: actor.id,
+      canWrite: true,
+    };
+  }
+
+  if (!canRead(actor, workspace)) return deniedResponse();
 
   return {
     workspaceId: workspace.id,
     actorType: actor.type,
     actorId: actor.id,
+    canWrite: canWrite(actor, workspace),
   };
 }
 

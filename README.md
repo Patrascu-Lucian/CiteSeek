@@ -26,10 +26,14 @@ so rather than highlighting the wrong paragraph.
 <a href="docs/images/source.png"><img src="docs/images/source.png" width="620" alt="The source panel open on the cited passage, highlighted, with its page number"></a>
 
 The part worth stealing is the guarantee underneath it. **When nothing retrieved clears the
-relevance floor, the model is never called at all** — the route returns a refusal it wrote
-itself. A hallucinated citation is not unlikely here; it is unreachable, because there was no
-generation step in which to invent one
-([ADR 011](docs/decisions/011-retrieval-and-citation-strategy.md)).
+relevance floor, no answer is generated** — the route returns a refusal it wrote itself. A
+hallucinated citation is not unlikely here; it is unreachable, because no prose was written
+for one to hide in ([ADR 011](docs/decisions/011-retrieval-and-citation-strategy.md)).
+
+One model call does happen on that branch, and it is not an answer: a follow-up that retrieved
+nothing is rewritten into a standalone search query and searched again. That output is used as
+a query and shown to the reader as one — never as prose, and never as something a citation can
+attach to ([ADR 044](docs/decisions/044-rewriting-a-follow-up-only-after-it-fails.md)).
 
 ## How a question is answered
 
@@ -38,13 +42,13 @@ flowchart LR
     A[Question] --> B[Embed]
     B --> C[(pgvector<br/>scoped in SQL)]
     C --> D{Clears the<br/>relevance floor?}
-    D -- no --> E[Refusal we wrote.<br/>No model call.]
+    D -- no --> E[Refusal we wrote.<br/>No answer generated.]
     D -- yes --> F[Citations first,<br/>then the model]
 ```
 
 Read the two edges out of the decision node together — they are the whole design.
 
-The refusal branch never reaches a model, which is what makes "no relevant passages" a
+The refusal branch generates no answer, which is what makes "no relevant passages" a
 structural outcome rather than a prompt instruction the model may ignore. The answer branch
 writes **the citations before generation begins**, so a marker resolves against a payload
 that already exists. The model chooses which passages to cite; it cannot invent what it is
@@ -215,8 +219,8 @@ sources resolve at ~460 ms and prose begin at ~1 s.
 Four samples rather than five — the fifth was refused by this project's own rate limiter,
 which is the intended behavior and a reasonable way to find out it works in production.
 
-**Client bundle**, measured by reading the scripts the page actually serves. The Milestone 2
-entry here claimed the 428 KB markdown chunk — a parser, a
+**Client bundle**, measured by reading the scripts the page actually serves. An earlier entry
+here claimed the 428 KB markdown chunk — a parser, a
 diagram renderer, a syntax highlighter and a maths typesetter — was lazy and absent from the
 initial payload. **Measuring it showed the opposite**: it was in the initial HTML of every
 workspace visit. Loading `Answer` through `next/dynamic` fixed that, since no conversation
@@ -233,6 +237,20 @@ The deployed app measured 1671 KB / 459 KB before the change, which is the same 
 compression noise — worth stating, because a before/after that quietly swaps environments
 mid-table is how a real regression gets hidden by an unrelated improvement.
 
+**Re-measured at v1.4.0**, by `pnpm perf:bundle /w` rather than by hand: it reads the `<script>` and
+preloaded-script tags the page actually serves, brotli-compresses each file, and refuses to report a
+number if the page redirected or a file is missing — so two runs are comparable by construction.
+Against the v1.3.1 release build on the same machine, with an identical lockfile:
+
+| Scripts on `/w/[id]` | v1.3.1 | v1.4.0 |
+| -------------------- | ------ | ------ |
+| Raw                  | 976 KB | 980 KB |
+| Transferred (brotli) | 253 KB | 254 KB |
+
+Flat — which is the result the shell change was aiming at, not an improvement to claim. These are
+smaller than the hand-taken figures above because the compressor and the tag set are now written
+down; the two methods are comparable within themselves and not to each other.
+
 **Lighthouse**, mobile emulation with its default throttling (Slow 4G, 4× CPU). The workspace
 needs a guest cookie: `proxy.ts` redirects a credential-less `/w/*` to `/sign-in`, so an
 anonymous run scores a different page entirely.
@@ -242,6 +260,26 @@ anonymous run scores a different page entirely.
 | `/` landing — deployed             | 98          | 100           | 100            | 100 |
 | `/w/[id]` guest — deployed, before | 87          | 100           | 100            | 100 |
 | `/w/[id]` guest — local build      | 84 → **90** | 100           | 100            | 100 |
+
+**The workspace row's SEO 100 went stale on 18 August**, when `robots.txt` began disallowing `/w`
+on purpose — `app/robots.ts` says why. `is-crawlable` fails by design there, capping that category
+at 63. A page nobody should index cannot also score as indexable.
+
+**Re-measured at v1.4.0**, three runs per build against one local server:
+
+| `/w/[id]` guest, local   | v1.3.1 | v1.4.0 |
+| ------------------------ | ------ | ------ |
+| Performance, median      | 77     | 72     |
+| Cumulative layout shift  | 0.329  | 0.324  |
+| Largest contentful paint | 3.2 s  | 3.6 s  |
+
+Read those columns against each other rather than against the 90 above: a different Chrome build
+and a busier machine. Total blocking time ranged 80–870 ms across six runs and says nothing.
+
+Two things it does say. **CLS ~0.33 is unchanged and is the largest deduction on both builds** — a
+real shift, reproducible to three decimal places, filed rather than fixed here. And LCP moved 0.4 s
+while first contentful paint and speed index did not, which points at when content arrives rather
+than at when the page starts painting.
 
 **Retrieval quality**, measured by `pnpm eval:retrieval` against a golden set of 51 questions
 over three documents written for the purpose — 41 answerable, 10 answerable by none of them.
@@ -262,15 +300,16 @@ cannot.
 
 **Hybrid retrieval was built against this harness and rejected by it.** Postgres full-text search
 fused with the vector results by reciprocal rank — the standard second signal, and an entry that
-had sat in the backlog since Milestone 2 on the strength of the argument alone:
+had sat in the backlog since the chat route was first built, on the strength of the argument
+alone:
 
 | lexical weight       | recall@1 | recall@3 | MRR      |
 | -------------------- | -------- | -------- | -------- |
-| lexical alone        | 0.39     | 0.66     | 0.53     |
+| lexical alone        | 0.41     | 0.66     | 0.53     |
 | **0 (vector alone)** | **0.67** | **0.95** | **0.82** |
-| 0.25                 | 0.65     | 0.85     | 0.79     |
-| 0.5                  | 0.60     | 0.85     | 0.77     |
-| 1.0                  | 0.61     | 0.85     | 0.77     |
+| 0.25                 | 0.62     | 0.85     | 0.78     |
+| 0.5                  | 0.61     | 0.85     | 0.76     |
+| 1.0                  | 0.59     | 0.85     | 0.75     |
 
 Every blend is worse than vector alone, and worse the more say the lexical list is given — so it
 is not wired into the answer path
@@ -350,8 +389,8 @@ would put an unbounded write path behind a public URL
 ([ADR 013](docs/decisions/013-chat-persistence.md)). Signed-in conversations are kept, listed
 and addressable; the demo has no history because nothing about a guest is written down.
 
-Workspaces have a single owner and cannot be shared. Roles and membership were planned for
-Milestone 4 and deliberately cut: the structural claim they would make — authorization enforced
+Workspaces have a single owner and cannot be shared. Roles and membership were planned once and
+deliberately cut: the structural claim they would make — authorization enforced
 in the data layer rather than by hiding buttons — is already true and proven by the cross-tenant
 tests, and a role column whose only production value is `owner` adds a branch no user can reach
 ([ADR 016](docs/decisions/016-workspace-membership-deferred.md)).

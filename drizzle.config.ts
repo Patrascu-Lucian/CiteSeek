@@ -6,17 +6,10 @@ import { loadLocalEnv } from "./lib/env/load-local-env.ts";
 loadLocalEnv();
 
 /**
- * Migrations use the *unpooled* connection.
- *
- * Neon's pooled endpoint is PgBouncer in transaction mode, and Neon's own docs
- * call out schema migrations as a case it does not support -- DDL wants a stable
- * session, which a transaction pooler does not give it. The app keeps using the
- * pooled URL, because serverless functions open many short-lived connections and
- * that is exactly what the pooler is for.
- *
- * `DATABASE_URL_UNPOOLED` is Neon's own naming, so their Vercel integration sets
- * it automatically. Locally and in CI there is no pooler, so it falls back to
- * DATABASE_URL and both point at the same place.
+ * Migrations use the *unpooled* connection: Neon's pooled endpoint is PgBouncer
+ * in transaction mode, which its own docs exclude for DDL. The app keeps the
+ * pooled URL, which is what serverless connections are for. `DATABASE_URL_UNPOOLED`
+ * is Neon's naming; with no pooler it falls back to the same place.
  */
 const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
 

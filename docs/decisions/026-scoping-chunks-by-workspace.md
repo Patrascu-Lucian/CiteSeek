@@ -96,6 +96,13 @@ same questions still find their passage; one moved a rank. `retrieveLexical` ord
 `ts_rank_cd` with no tiebreaker, and moving its filter from `documents` to `chunks` changes
 the scan order that equal-ranked rows arrive in. It is not in the answer path.
 
+↳ **Corrected, 22 August 2026.** That cell was noise, and the cause named above is not what
+produced it. The tiebreaker added afterwards was `chunks.id`, which looks stable and is not:
+ids are `defaultRandom()` and the harness re-ingests the whole corpus on every run, so tied
+rows re-sorted each time whatever the plan did. A later run moved lexical recall@1 0.39 → 0.41
+and recall@3 0.66 → 0.63 with no change to `retrieveLexical` at all. Ties now break on
+`documents.filename` then `chunks.chunkIndex`, which are the same after a re-ingest.
+
 **Iterative scan is bounded, so a residual remains.** `hnsw.max_scan_tuples` defaults
 to 20,000: under enough crowding the scan gives up and still returns fewer than `limit`
 rows. Rarer than the bug being fixed and the same silent shape, which is why it is

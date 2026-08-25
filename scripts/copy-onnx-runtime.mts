@@ -1,15 +1,8 @@
 /**
- * Copies the ONNX Runtime WASM into `public/onnx/`, so local inference loads it
- * from this origin instead of `cdn.jsdelivr.net`.
- *
- * Measured: without this, a real embedding run fetches
- * `onnxruntime-web@…-dev…/ort-wasm-simd-threaded.asyncify.wasm` from jsDelivr —
- * **executable code from a third party**, which is a heavier thing to put in
- * `connect-src` than the public model files on Hugging Face. Serving it
- * ourselves keeps the remote hosts to weights alone (ADR 032).
- *
- * Generated rather than committed: 74 MB of binaries do not belong in git, and
- * the version has to track the installed `onnxruntime-web` exactly.
+ * The ONNX Runtime WASM into `public/onnx/`: without it a real run fetches
+ * **executable code** from jsDelivr, a heavier thing to allow in `connect-src`
+ * than the weights on Hugging Face (ADR 032). Generated, not committed — 74 MB of
+ * binaries, and the version must track the installed `onnxruntime-web` exactly.
  */
 import { copyFile, mkdir, readdir } from "node:fs/promises";
 import { createRequire } from "node:module";

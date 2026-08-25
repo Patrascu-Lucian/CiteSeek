@@ -113,12 +113,9 @@ describe("capRefusalCopy — conversations", () => {
   });
 });
 
-/*
-  Not a style rule. `getOrCreateChat` inserts when a reader has none, and it runs
-  on the chat-*turn* path as the fallback for a stale id — so at zero it would
-  either exceed a cap of 0 or, if the cap were enforced there, swallow the
-  question. Every value ≥ 1 is safe because that path never inserts a second.
-*/
+// Not a style rule. `getOrCreateChat` inserts when a reader has none, on the
+// chat-*turn* path, so at zero it would either exceed a cap of 0 or swallow the
+// question. Every value >= 1 is safe: that path never inserts a second.
 describe("the conversations limit", () => {
   it("is at least one, which is what makes the implicit path safe", () => {
     expect(DEFAULT_PLAN_LIMITS.conversations).toBeGreaterThanOrEqual(1);
@@ -128,10 +125,13 @@ describe("the conversations limit", () => {
 describe("capRefusalCopy — messages", () => {
   const decision = reached({ cap: "messages", limit: 60, current: 60 });
 
-  it("offers the move that works when a conversation is still available", () => {
-    expect(capRefusalCopy(decision).detail).toContain(
-      "Start a new conversation",
-    );
+  it("offers both moves that work when a conversation is still available", () => {
+    // Deleting an exchange became a real move in ADR 042. Naming what to delete
+    // is what ADR 039 asks of a stock limit, and this one could not until then.
+    const { detail } = capRefusalCopy(decision);
+
+    expect(detail).toContain("Delete an exchange");
+    expect(detail).toContain("start a new conversation");
   });
 
   it("offers the other conversations before it offers deleting one", () => {
@@ -139,8 +139,8 @@ describe("capRefusalCopy — messages", () => {
     const copy = capRefusalCopy(decision, { conversationsExhausted: true });
 
     expect(copy.detail).toMatch(/one of your other conversations/i);
-    expect(copy.detail).toContain("delete one");
-    expect(copy.detail).not.toContain("Start a new conversation to keep going");
+    expect(copy.detail).toContain("delete an exchange");
+    expect(copy.detail).not.toContain("start a new conversation");
   });
 });
 

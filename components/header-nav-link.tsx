@@ -5,16 +5,10 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 /**
- * A navigation link that says where you are. No `"use client"`: `MainNav` owns
- * the boundary, and an entry may not take a plain function prop.
- *
- * `aria-current="page"` is the part that matters — styling alone leaves the
- * information visual-only, the same failure as a styled span standing in for
- * `<strong>`.
- *
- * No pending indicator: measuring showed the feedback belongs a layer up, in a
- * `loading.tsx` boundary that says *where* you are going rather than only that
- * you are waiting.
+ * No `"use client"`: `MainNav` owns the boundary. `aria-current="page"` is the
+ * part that matters — styling alone leaves "where you are" visual-only. No
+ * pending indicator either; measuring put that in a `loading.tsx` a layer up,
+ * which can say *where* you are going.
  */
 export function HeaderNavLink({
   href,

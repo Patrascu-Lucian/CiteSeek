@@ -3,20 +3,11 @@ import { createHash } from "node:crypto";
 import { EMBEDDING_DIMENSIONS } from "@/lib/rag/vector";
 
 /**
- * A deterministic stand-in, so ingestion and retrieval can run without an API key
- * in CI, E2E and offline.
- *
- * A **hashing bag-of-words vectorizer**: each word hashes to a dimension and is
- * counted there. That buys the property a hash of the whole string cannot —
- * **text sharing words lands close together**. Hashing the whole input would
- * make a question orthogonal to the passage answering it, so only a query
- * identical to a stored passage could retrieve anything.
- *
- * Not semantic: "reimbursement" and "expenses" are unrelated here, only literal
- * overlap counts. It proves the pipeline stores, retrieves and orders — not
- * quality, and **the relevance floor must not be tuned against these numbers**.
- *
- * Returns un-normalized vectors so real and fake share one normalization step.
+ * A deterministic stand-in, so retrieval runs without an API key. A hashing
+ * bag-of-words vectorizer: text sharing words lands close, where hashing the
+ * whole string would leave a question orthogonal to its own answer. **Not
+ * semantic** — literal overlap only, so the relevance floor must never be tuned
+ * against these numbers. Un-normalized, so real and fake share one step.
  */
 
 /** Removed so two unrelated sentences do not look similar merely for both being

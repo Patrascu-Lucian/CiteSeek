@@ -16,15 +16,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 /**
- * Irreversible account deletion, behind a typed confirmation.
- *
- * A plain "are you sure?" is dismissed reflexively — the muscle memory of
- * clicking through dialogs is exactly what an unrecoverable action must defeat.
- * Requiring the word "delete" to be typed forces a deliberate act, and it is the
- * standard pattern for this severity precisely because people recognize it.
- *
- * The dialog says specifically what is destroyed. "Delete your account" tells
- * the user nothing about their documents.
+ * A typed confirmation, because "are you sure?" is dismissed by the same muscle
+ * memory an unrecoverable action has to defeat (ADR 042). The copy names what is
+ * destroyed — "delete your account" says nothing about documents.
  */
 
 const CONFIRMATION_WORD = "delete";

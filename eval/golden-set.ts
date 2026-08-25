@@ -1,14 +1,12 @@
-/**
- * **Quotes, not offsets**: ids are minted per ingest, offsets move on any edit,
- * and a quote that stops matching fails the run rather than scoring zero.
- *
- * `expect: []` is a question the corpus cannot answer — the floor's job, and
- * invisible to a set without them.
- */
+/** **Quotes, not offsets**: ids are minted per ingest and offsets move on any
+ * edit, so a quote that stops matching fails the run rather than scoring zero.
+ * `expect: []` is a question the corpus cannot answer — the floor's job. */
+
+export type Expectation = { file: string; quote: string };
 
 export type GoldenCase = {
   question: string;
-  expect: readonly { file: string; quote: string }[];
+  expect: readonly Expectation[];
 };
 
 const SUPPORT = "meridian-support-policy.md";
@@ -272,4 +270,87 @@ export const GOLDEN_SET: readonly GoldenCase[] = [
   { question: "How many people work in the support team?", expect: [] },
   { question: "What is the capital of Portugal?", expect: [] },
   { question: "Does the press come in a wider bed size?", expect: [] },
+];
+
+/** Separate from `GOLDEN_SET`, or every previously recorded number moves. */
+export type FollowUpCase = {
+  /** The turns before it, for a rewriting step to read. Not embedded today. */
+  context: readonly string[];
+  followUp: string;
+  standalone: string;
+  /** A passage the context turn would not already have retrieved, or the case
+   * scores 1.00 whether or not the follow-up was understood. */
+  expect: readonly Expectation[];
+};
+
+export const FOLLOW_UP_SET: readonly FollowUpCase[] = [
+  {
+    context: ["What is the maximum oil temperature?"],
+    followUp: "and the fault code?",
+    standalone: "Which fault code indicates over-temperature?",
+    expect: [{ file: MANUAL, quote: "indicates over-temperature and latches" }],
+  },
+  {
+    context: ["Is support covered at the weekend?"],
+    followUp: "on premier?",
+    standalone: "Are Premier plans covered at weekends?",
+    expect: [{ file: SUPPORT, quote: "covered continuously" }],
+  },
+  {
+    context: ["What oil does the press take?"],
+    followUp: "how often?",
+    standalone: "How often should the hydraulic oil be changed?",
+    expect: [
+      { file: MANUAL, quote: "every 2,000 operating hours or annually" },
+    ],
+  },
+  {
+    context: ["What oil does the press take?"],
+    followUp: "and the filter?",
+    standalone: "How often is the hydraulic filter changed?",
+    expect: [{ file: MANUAL, quote: "The filter is changed at the same" }],
+  },
+  {
+    context: ["Can I keep a cat?"],
+    followUp: "what about the deposit?",
+    standalone: "Does keeping a pet require an additional deposit?",
+    expect: [{ file: TENANCY, quote: "Consent carries an additional deposit" }],
+  },
+  {
+    context: ["How much notice must I give to leave?"],
+    followUp: "in writing?",
+    standalone: "Must notice to end the tenancy be in writing?",
+    expect: [{ file: TENANCY, quote: "Notice must be in writing" }],
+  },
+
+  /* Carrying no term of their own. An earlier set of six scored 0.83, and five
+     of the six held a discriminative word retrieval finds with no context at
+     all — the mean was measuring the sampling. */
+  {
+    context: ["What can be deducted from the deposit at the end?"],
+    followUp: "how much is it?",
+    standalone: "How much is the tenancy deposit?",
+    expect: [{ file: TENANCY, quote: "The deposit is five weeks' rent" }],
+  },
+  {
+    context: ["Are resolution times guaranteed for a Severity 3 defect?"],
+    followUp: "why?",
+    standalone: "Why are Severity 3 resolution times not contractual?",
+    expect: [{ file: SUPPORT, quote: "scheduled against the release train" }],
+  },
+  {
+    context: ["Can a customer escalate a ticket?"],
+    followUp: "who handles it then?",
+    standalone: "Who owns a ticket after it is escalated?",
+    expect: [{ file: SUPPORT, quote: "duty lead, who owns it until closure" }],
+  },
+  {
+    context: ["What are the coverage hours on a Standard plan?"],
+    followUp: "and outside them?",
+    standalone:
+      "What happens to a Severity 1 ticket raised outside covered hours?",
+    expect: [
+      { file: SUPPORT, quote: "begin their 30-minute clock when coverage" },
+    ],
+  },
 ];

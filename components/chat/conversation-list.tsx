@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
  * Past conversations, as links — routes rather than client state, so one can be
  * linked, bookmarked and reached with the back button.
  *
- * No `"use client"`: reached only through `WorkspaceSections`, which owns the
+ * No `"use client"`: reached only through `WorkspaceShell`, which owns the
  * boundary. A directive here would make Next treat this as a client *entry*,
  * whose function props must be Server Actions — `onChanged` is not one.
  *
@@ -154,7 +154,7 @@ export function ConversationList({
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
                     aria-label={`Rename ${label}`}
                     disabled={busyId === chat.id}
                     onClick={() => setRenaming(chat.id)}
@@ -181,9 +181,6 @@ export function ConversationList({
  * Lighter than the account dialog's typed word: what is lost is one conversation,
  * and a typed confirmation on every row trains the reader to type through it.
  * Naming the conversation is the job — a misclick got *which one* wrong.
- *
- * The documents list has the same control and no confirmation; filed in
- * `docs/backlog.md` rather than bolted on here.
  */
 function DeleteConversation({
   label,
@@ -202,7 +199,7 @@ function DeleteConversation({
         <Button
           type="button"
           variant="ghost-destructive"
-          size="sm"
+          size="icon-sm"
           aria-label={`Delete ${label}`}
           disabled={busy}
         >

@@ -12,16 +12,10 @@ import type { ChatSource } from "./types";
 export const CITATION_HREF_PREFIX = "#citation-";
 
 /**
- * A run of markers: `[1]`, `[1, 2]`, `[1][2]`.
- *
- * Both spellings were observed on the deployed app — told several passages mean
- * several markers the model wrote `[1, 2]`, told to separate them it wrote
- * `[1][2]`. Matching the whole run means the separator between chips is chosen
- * here rather than inherited: on screen they look the same either way, but
- * **copied as text** adjacent chips flatten into "35", a marker that cannot
- * exist.
- *
- * The negative lookahead leaves `[1](https://…)` alone.
+ * A run of markers: `[1]`, `[1, 2]`, `[1][2]` — both spellings were observed on
+ * the deployed app. Matching the whole run chooses the separator here rather than
+ * inheriting it: on screen they look alike, but **copied as text** adjacent chips
+ * flatten into "35". The negative lookahead leaves `[1](https://…)` alone.
  */
 const GROUPED_MARKER = /(?:\[\d+(?:\s*,\s*\d+)*])+(?!\()/g;
 

@@ -1,14 +1,13 @@
-// The server → client boundary. Repeating the directive below would hide where
-// the split happens, and make Next treat each component as a client entry whose
-// function props must be Server Actions.
+// The server → client boundary. Repeating the directive lower down would make
+// Next treat those components as client *entries*, whose function props must be
+// Server Actions.
 "use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FileText, MessageSquareOff } from "lucide-react";
 
-import { ChatPanel } from "@/components/chat/chat-panel";
 import { workspaceDocumentText } from "@/lib/documents/text-loader";
 import { SourcePanel, type SourceTarget } from "@/components/chat/source-panel";
 import { ConversationList } from "@/components/chat/conversation-list";
@@ -25,20 +24,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { ChatUIMessage } from "@/lib/ai/types";
+import type { ChatSource } from "@/lib/ai/types";
 import type { ChatSummary } from "@/lib/chats/queries";
 import type { DocumentSummary } from "@/lib/documents/queries";
-import type { CapCopy } from "@/lib/limits/caps";
+import { CAP_PARAM, type CapCopy } from "@/lib/limits/caps";
 
-/**
- * Owns `documents` and everything that mutates it. One unit rather than two
- * siblings because chat depends on the list — computed during the *server* render
- * instead, chat kept the value it was born with and stayed on "Nothing to search
- * yet" until a manual reload.
- *
- * Second instance of that shape (first: `DocumentList` seeding
- * `useState(initialDocuments)`). One owner, no prop copied into state.
- */
+import { WorkspaceShellProvider } from "./workspace-shell-context";
+
+/** Owns `documents` and everything that mutates it. One owner, no prop copied
+ * into state. */
 
 const POLL_INTERVAL_MS = 2_000;
 
@@ -49,39 +43,32 @@ function isInFlight(documents: readonly DocumentSummary[]): boolean {
   );
 }
 
-export function WorkspaceSections({
+export function WorkspaceShell({
   workspaceId,
   initialDocuments,
-  initialMessages,
   chats,
-  activeChatId,
   canWrite,
   signedIn,
-  isDemo,
-  conversationCap = null,
-  messageCap = null,
+  conversationCap,
+  children,
 }: {
   workspaceId: string;
   initialDocuments: DocumentSummary[];
-  initialMessages: ChatUIMessage[];
   /** Empty for guests, whose conversations are never stored. */
   chats: readonly ChatSummary[];
-  activeChatId: string | null;
   canWrite: boolean;
   signedIn: boolean;
-  isDemo: boolean;
-  /** Set only just after `createConversation` refused, and cleared by the next
-   * navigation. */
-  conversationCap?: CapCopy | null;
-  /** Set while the open conversation is full. */
-  messageCap?: CapCopy | null;
+  /** Rendered only when `CAP_PARAM` is on the URL. */
+  conversationCap: CapCopy | null;
+  children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [documents, setDocuments] = useState(initialDocuments);
   const [pollError, setPollError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // One panel, two openers: a citation from the transcript, a document from the list.
   const [source, setSource] = useState<SourceTarget | null>(null);
 
   // Memoized: the panel's effect depends on it, so a new function each render
@@ -91,12 +78,8 @@ export function WorkspaceSections({
     [workspaceId],
   );
 
-  /*
-    The conversation list is server-rendered, so after a rename or delete the
-    server has to re-render it. `router.refresh()` re-runs the Server Component
-    and reconciles — no second source of truth on the client, which is the same
-    rule the documents list follows by polling rather than mutating locally.
-  */
+  // The conversation list is server-rendered, so a rename or delete re-runs the
+  // Server Component rather than mutating a second copy on the client.
   const refreshFromServer = useCallback(() => router.refresh(), [router]);
 
   const refresh = useCallback(async () => {
@@ -148,13 +131,43 @@ export function WorkspaceSections({
         const payload = (await response.json().catch(() => null)) as {
           error?: string;
         } | null;
-        setPollError(payload?.error ?? "Could not retry this document.");
+        setPollError(payload?.error ?? "Could not retry that document.");
+        return;
       }
       await refresh();
     } finally {
       setBusyId(null);
     }
   }
+
+  // From the URL, because a layout is never given the `chatId` segment.
+  // `/w/<id>` names none and opens `chats[0]`, which `listChats` orders newest.
+  const namedChatId = pathname.match(/\/c\/([^/]+)$/)?.[1] ?? null;
+  const activeChatId = namedChatId ?? chats[0]?.id ?? null;
+
+  const readyFilenames = useMemo(
+    () =>
+      documents
+        .filter((document) => document.status === "ready")
+        .map((document) => document.filename),
+    [documents],
+  );
+
+  const openSource = useCallback(
+    (chatSource: ChatSource) =>
+      setSource({ kind: "citation", source: chatSource }),
+    [],
+  );
+
+  const shell = useMemo(
+    () => ({
+      hasReadyDocuments: readyFilenames.length > 0,
+      readyFilenames,
+      openSource,
+      openChunkId: source?.kind === "citation" ? source.source.chunkId : null,
+    }),
+    [readyFilenames, openSource, source],
+  );
 
   return (
     <>
@@ -233,10 +246,11 @@ export function WorkspaceSections({
       </section>
 
       {/*
-        Only for a signed-in reader: guest conversations are never written down
-        (ADR 013), so a guest has no history and an empty list would promise one.
+        No history exists for a guest (ADR 013) or on the demo (ADR 040).
+        `canWrite` rather than `!isDemo`, so the control disappears for the same
+        reason the server refuses it.
       */}
-      {signedIn ? (
+      {signedIn && canWrite ? (
         <section
           aria-labelledby="conversations-heading"
           className="mt-12 space-y-4"
@@ -253,7 +267,8 @@ export function WorkspaceSections({
             </form>
           </div>
 
-          {conversationCap ? (
+          {conversationCap &&
+          searchParams.get(CAP_PARAM) === "conversations" ? (
             <Notice
               icon={
                 <MessageSquareOff
@@ -276,50 +291,7 @@ export function WorkspaceSections({
         </section>
       ) : null}
 
-      <section aria-labelledby="chat-heading" className="mt-12 space-y-4">
-        <h2 id="chat-heading" className="text-lg font-medium">
-          Ask
-        </h2>
-
-        {/* Guests may ask — chat is a read — but get no persistence: the
-          conversation lives in browser state, which keeps an unbounded write path
-          off a public URL. */}
-        <ChatPanel
-          /*
-            `useChat` seeds from `initialMessages` once and then owns its state, so
-            a *new* prop is ignored — deleting the last conversation left its
-            messages on screen with nothing behind them. Keying rather than syncing
-            prop into state: the conversation is this component's identity.
-          */
-          key={activeChatId ?? "none"}
-          workspaceId={workspaceId}
-          chatId={activeChatId}
-          // Derived on every render from the same state the list shows, so an
-          // upload that finishes processing opens the composer without a reload.
-          hasReadyDocuments={documents.some(
-            (document) => document.status === "ready",
-          )}
-          signedIn={signedIn}
-          isDemo={isDemo}
-          onOpenSource={(chatSource) => {
-            setSource({ kind: "citation", source: chatSource });
-          }}
-          openChunkId={
-            source?.kind === "citation" ? source.source.chunkId : null
-          }
-          initialMessages={initialMessages}
-          messageCap={messageCap}
-          canUpload={canWrite}
-          // Only what is actually searchable. A document still processing is
-          // not something a refusal may claim to be able to answer from.
-          documents={documents
-            .filter((document) => document.status === "ready")
-            .map((document) => document.filename)}
-          // Only for a signed-in reader: a guest's turns are never written
-          // down, so there is no server-rendered list for them to go stale.
-          onTurnComplete={signedIn ? refreshFromServer : undefined}
-        />
-      </section>
+      <WorkspaceShellProvider value={shell}>{children}</WorkspaceShellProvider>
 
       <SourcePanel
         target={source}

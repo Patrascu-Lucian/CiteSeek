@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type ChatTransport } from "ai";
-import { MessageSquareOff } from "lucide-react";
+import { MessageSquareOff, Trash2 } from "lucide-react";
 
 import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
+import { clearFromTurn, deleteConversationTurn } from "@/lib/chats/actions";
 import { type CapCopy, parseCapRefusal } from "@/lib/limits/caps";
 import { parseRefusal } from "@/lib/usage/limits";
 import { Notice } from "@/components/ui/notice";
@@ -30,6 +31,7 @@ export function ChatPanel({
   openChunkId,
   chatId = null,
   messageCap = null,
+  canDelete = false,
   transport,
   uploadHref,
 }: {
@@ -41,6 +43,8 @@ export function ChatPanel({
   hasReadyDocuments: boolean;
   /** Set while this conversation is full, which closes the composer. */
   messageCap?: CapCopy | null;
+  /** Whether this transcript is stored, and so has anything to delete. */
+  canDelete?: boolean;
   /** Searchable filenames. Only a refusal reads these, to say what it *can*
    * answer from. */
   documents?: readonly string[];
@@ -86,30 +90,32 @@ export function ChatPanel({
     [workspaceId, chatId],
   );
 
-  const { messages, sendMessage, regenerate, stop, status, error, clearError } =
-    useChat<ChatUIMessage>({
-      messages: initialMessages,
-      transport: transport ?? routeTransport,
-      /*
-        The conversation list is server-rendered, so counts and titles sat stale
-        until a reload. Unconditional — the route persists whatever was shown, a
-        stopped answer included — and safe the instant the stream closes, since
-        the route commits inside `streamText`'s `onFinish` before the body ends.
-        An integration test pins that, or this refetches a count one turn behind.
-      */
-      onFinish: () => onTurnComplete?.(),
-    });
+  const {
+    messages,
+    setMessages,
+    sendMessage,
+    regenerate,
+    stop,
+    status,
+    error,
+    clearError,
+  } = useChat<ChatUIMessage>({
+    messages: initialMessages,
+    transport: transport ?? routeTransport,
+    // Server-rendered counts and titles sat stale until a reload. Unconditional,
+    // and safe the moment the stream closes: the route commits inside
+    // `streamText`'s own `onFinish`, which an integration test pins.
+    onFinish: () => onTurnComplete?.(),
+  });
 
   const isStreaming = status === "streaming" || status === "submitted";
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<CapCopy | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  /*
-    `Answer` carries Streamdown and 428 KB of parser and highlighter, kept out of
-    the initial bundle. Warming on *submit* was measurably too late — the chunk
-    arrived 449ms into a 962ms first answer, against 46ms for later ones. It was
-    not overlapping the wait, it was the wait.
-
-    Fire-and-forget: the real import still runs when the component renders.
-  */
+  // `Answer` carries 428 KB, kept out of the initial bundle. Warming on *submit*
+  // was too late: the chunk arrived 449ms into a 962ms first answer, against
+  // 46ms for later ones — it was not overlapping the wait, it was the wait.
   useEffect(() => {
     // Safari has only shipped `requestIdleCallback` recently; a timeout is the
     // fallback rather than skipping the warm-up on those browsers entirely.
@@ -122,8 +128,103 @@ export function ChatPanel({
     return () => cancelIdleCallback(handle);
   }, []);
 
+  /* The id is minted here, not by the SDK, because the SDK's is base62 and the
+     stored one is a uuid — so a question asked this session could not be named
+     to the server, and editing or deleting it failed until a reload. */
   function ask(question: string) {
-    void sendMessage({ text: question });
+    void sendMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text: question }],
+    });
+  }
+
+  // Truncate, then ask through the ordinary route, metered like any other
+  // question (ADR 043).
+  async function editQuestion(messageId: string, question: string) {
+    if (!chatId) return;
+
+    const before = messages;
+    const from = before.findIndex((message) => message.id === messageId);
+    if (from < 0) return;
+
+    setDeletingId(messageId);
+    setMessages(before.slice(0, from));
+
+    try {
+      const { cleared } = await clearFromTurn(workspaceId, chatId, messageId);
+
+      if (!cleared) {
+        setMessages(before);
+        setDeleteError({
+          title: "That question is unchanged",
+          detail: "It may already be gone. Reload to see the conversation.",
+        });
+        return;
+      }
+
+      setDeleteError(null);
+      setEditingId(null);
+      ask(question);
+    } catch {
+      setMessages(before);
+      setDeleteError({
+        title: "That question is unchanged",
+        detail: "Could not reach the server, so nothing was changed.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  /*
+    Hidden first, then confirmed. The action answers `{ deleted }` rather than
+    throwing on a miss, so a turn that is still stored goes back on screen
+    instead of silently disappearing until a reload contradicts it.
+  */
+  async function deleteTurn(messageId: string) {
+    if (!chatId) return;
+
+    const before = messages;
+    const from = before.findIndex((message) => message.id === messageId);
+    if (from < 0) return;
+
+    // Up to the next question, matching what the server deletes.
+    const next = before.findIndex(
+      (message, index) => index > from && message.role === "user",
+    );
+    const until = next < 0 ? before.length : next;
+
+    setDeletingId(messageId);
+    setMessages([...before.slice(0, from), ...before.slice(until)]);
+
+    try {
+      const { deleted } = await deleteConversationTurn(
+        workspaceId,
+        chatId,
+        messageId,
+      );
+
+      if (!deleted) {
+        setMessages(before);
+        setDeleteError({
+          title: "That exchange is still here",
+          detail: "It may already be gone. Reload to see the conversation.",
+        });
+        return;
+      }
+
+      setDeleteError(null);
+      onTurnComplete?.();
+    } catch {
+      setMessages(before);
+      setDeleteError({
+        title: "That exchange is still here",
+        detail: "Could not reach the server, so nothing was deleted.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   // Every question here would retrieve nothing and get the same refusal, which
@@ -142,12 +243,8 @@ export function ChatPanel({
 
   return (
     <div className="space-y-4">
-      {/*
-        Status is announced rather than the tokens themselves. A live region
-        wrapped around streaming text makes a screen reader read the answer again
-        on every token — technically "announced", practically unusable. This says
-        what is happening; the answer itself is read normally once it settles.
-      */}
+      {/* Status, not the tokens: a live region around streaming text makes a
+          screen reader re-read the answer on every token. */}
       <p aria-live="polite" className="sr-only">
         {status === "submitted"
           ? "Searching the documents."
@@ -157,6 +254,16 @@ export function ChatPanel({
               ? "The answer failed."
               : ""}
       </p>
+
+      {/* Past the transcript rather than through it: every answer carries
+          citation chips, and now every question carries a control. Same pattern
+          as the header's own skip link. */}
+      <a
+        href="#chat-question"
+        className="focus:bg-background focus:ring-ring sr-only focus:not-sr-only focus:rounded-md focus:px-3 focus:py-2 focus:ring-2"
+      >
+        Skip to the question box
+      </a>
 
       <div className="border-border min-h-64 rounded-lg border p-(--card-spacing)">
         <MessageList
@@ -173,10 +280,36 @@ export function ChatPanel({
           signedIn={signedIn}
           isDemo={isDemo}
           onAsk={ask}
+          // Only where the transcript is stored: a guest's vanishes on reload,
+          // so a control offering to delete it would describe nothing.
+          onDeleteTurn={
+            canDelete && chatId ? (id) => void deleteTurn(id) : undefined
+          }
+          onEditQuestion={
+            canDelete && chatId
+              ? (id, question) => void editQuestion(id, question)
+              : undefined
+          }
+          onStartEdit={setEditingId}
+          onCancelEdit={() => setEditingId(null)}
+          editingId={editingId}
+          busyId={deletingId}
+          deletingId={deletingId}
           pending={status === "submitted"}
           streaming={status === "streaming"}
         />
       </div>
+
+      {deleteError ? (
+        <Notice
+          icon={
+            <Trash2 aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          }
+          tone="destructive"
+          title={deleteError.title}
+          detail={deleteError.detail}
+        />
+      ) : null}
 
       {error ? (
         <ChatError
