@@ -408,6 +408,24 @@ async function removeFromTurn(
   });
 }
 
+/** Postgres 23505, which Drizzle wraps — the code is on the cause, not on the
+ * error it throws. Narrowed rather than caught broadly: an insert that failed
+ * for any other reason has to keep failing. */
+function isUniqueViolation(error: unknown): boolean {
+  for (let at: unknown = error; at; at = (at as { cause?: unknown }).cause) {
+    if (
+      typeof at === "object" &&
+      at !== null &&
+      "code" in at &&
+      at.code === "23505"
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export type NewChatMessage = {
   role: "user" | "assistant";
   content: string;
@@ -458,23 +476,36 @@ export async function appendMessages(
 
   const nextPosition = (last?.position ?? -1) + 1;
 
+  const values = (withClientIds: boolean) =>
+    rows.map((row, index) => ({
+      chatId,
+      // Anything else falls through to `defaultRandom()`, so a client that
+      // sends nothing — or sends garbage — still gets a row.
+      ...(withClientIds && row.id && isUuid(row.id) ? { id: row.id } : {}),
+      position: nextPosition + index,
+      role: row.role,
+      content: row.content,
+      citations: row.citations ?? [],
+      refusalReason: row.refusalReason ?? null,
+      rewrittenQuestion: row.rewrittenQuestion ?? null,
+    }));
+
+  // Regenerate re-sends the turn with the id it already stored, and Stop still
+  // persists — so a repeat is ordinary use, not an attack. Losing the client id
+  // costs this turn its name; losing the turn would cost the reader an answer
+  // they watched arrive.
   const inserted = await db
     .insert(messages)
-    .values(
-      rows.map((row, index) => ({
-        chatId,
-        // Anything else falls through to `defaultRandom()`, so a client that
-        // sends nothing — or sends garbage — still gets a row.
-        ...(row.id && isUuid(row.id) ? { id: row.id } : {}),
-        position: nextPosition + index,
-        role: row.role,
-        content: row.content,
-        citations: row.citations ?? [],
-        refusalReason: row.refusalReason ?? null,
-        rewrittenQuestion: row.rewrittenQuestion ?? null,
-      })),
-    )
-    .returning({ id: messages.id });
+    .values(values(true))
+    .returning({ id: messages.id })
+    .catch((error: unknown) => {
+      if (!isUniqueViolation(error)) throw error;
+
+      return db
+        .insert(messages)
+        .values(values(false))
+        .returning({ id: messages.id });
+    });
 
   // A chat with no title yet takes it from the first question asked in it.
   const firstQuestion = rows.find((row) => row.role === "user")?.content;
