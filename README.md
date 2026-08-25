@@ -276,8 +276,11 @@ on purpose — `app/robots.ts` says why. `is-crawlable` fails by design there an
 category's weight, so 63 is the score a page nobody should index is supposed to get. Every other SEO
 audit on it passes, and the page that is meant to be found still measures 100.
 
-Best practices at 96 is not by design: a Content Security Policy issue is logged in Chrome's Issues
-panel on the workspace route and not on the landing page. Unexplained, and being chased.
+Best practices at 96 is one Content Security Policy issue, logged on the workspace route and not on
+the landing page. It is Zod asking whether it may compile: `try { Function("") } catch { … }`, a
+capability probe it uses to decide between JIT-compiled validators and interpreted ones. The production
+policy carries no `'unsafe-eval'`, so the probe throws, the `catch` runs, and Zod takes the path
+that was the only available one anyway. Nothing is blocked that the app wanted.
 
 **Re-measured at v1.4.0**, three runs per build against one local server:
 
