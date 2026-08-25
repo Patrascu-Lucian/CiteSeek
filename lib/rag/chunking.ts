@@ -24,9 +24,10 @@ export const CHUNK_OVERLAP_CHARS = 100;
  * pages. */
 export const MAX_CHUNKS_PER_DOCUMENT = 600;
 
-/** 600 chunks at a measured ~455 characters, well under the plan's 500,000: the
- * two limits were set independently, so a 300,000-character upload fails at
- * chunking and never reaches the storage check. */
+/** 600 passages at a measured ~455 characters, well under the plan's 500,000: the
+ * two limits were set independently, so a 300,000-character upload fails here and
+ * never reaches the storage check. **A typical size, not a ceiling** — passages
+ * run to `CHUNK_MAX_CHARS`, so a dense document stores more. */
 export const MAX_CHARS_PER_DOCUMENT = MAX_CHUNKS_PER_DOCUMENT * 455;
 
 export type Chunk = {
@@ -41,7 +42,7 @@ export type Chunk = {
 export class DocumentTooLargeError extends Error {
   constructor(chunkCount: number) {
     super(
-      `This document produces ${chunkCount} chunks, above the limit of ${MAX_CHUNKS_PER_DOCUMENT}. Split it into smaller documents.`,
+      `This document produces ${chunkCount} passages, above the limit of ${MAX_CHUNKS_PER_DOCUMENT}. Split it into smaller documents.`,
     );
     this.name = "DocumentTooLargeError";
   }
