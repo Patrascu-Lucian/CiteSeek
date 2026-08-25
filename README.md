@@ -237,7 +237,8 @@ The deployed app measured 1671 KB / 459 KB before the change, which is the same 
 compression noise — worth stating, because a before/after that quietly swaps environments
 mid-table is how a real regression gets hidden by an unrelated improvement.
 
-**Re-measured at v1.4.0**, by `pnpm perf:bundle /w` rather than by hand: it reads the `<script>` and
+**Re-measured at v1.4.0**, by `pnpm perf:bundle workspace` against a local `pnpm start`
+rather than by hand: it reads the `<script>` and
 preloaded-script tags the page actually serves, brotli-compresses each file, and refuses to report a
 number if the page redirected or a file is missing — so two runs are comparable by construction.
 Against the v1.3.1 release build on the same machine, with an identical lockfile:
