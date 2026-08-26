@@ -410,12 +410,12 @@ points and the page is otherwise at its target. `layout-shift-elements` names a 
 
 **Fixed in v1.4.1 by reserving the conversation panel in the skeleton**, which had reserved the
 documents half only. Six lines of markup, against the bundle refactor it replaces — which would
-have traded the composer's interactivity for five points. Deployed, three runs:
+have traded the composer's interactivity for five points. Deployed:
 
-| `/w/[id]` guest, deployed | v1.4.0          | v1.4.1    |
-| ------------------------- | --------------- | --------- |
-| Cumulative layout shift   | 0, 0.324, 0.324 | **0 × 3** |
-| Performance, median       | 80              | **95**    |
+| `/w/[id]` guest, deployed | v1.4.0          | v1.4.1     |
+| ------------------------- | --------------- | ---------- |
+| Cumulative layout shift   | 0, 0.324, 0.324 | **0 × 15** |
+| Performance, median       | 80              | **95**     |
 
 Fifteen points, and the metric that carried a quarter of the weight now scores 100 — so the
 workspace route meets the 95 this project set as its bar, for the first time.
@@ -423,7 +423,7 @@ workspace route meets the 95 this project set as its bar, for the first time.
 Fifteen samples, five invocations of three: the median was **95 every time**, and cumulative layout
 shift was **0 in all fifteen**. Individual runs ranged 90 to 96, and that spread is entirely total
 blocking time between 100 ms and 150 ms — largest contentful paint held at 2.7 s throughout, which
-is what makes it the honest thing to point at next. It scores **84**, the only metric under 94.
+is what makes it the honest thing to point at next. It scores **84**, and nothing else fell below 94.
 
 Measured with `pnpm perf:lighthouse`, which pins its Lighthouse version because scores move between
 releases. The figure does depend on the connection it is taken over: the same build over a busier
