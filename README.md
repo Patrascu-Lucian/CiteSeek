@@ -88,7 +88,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 89 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 93 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -478,9 +478,16 @@ arrives inside `<div hidden>` and waits for React's swap script, on a CPU thrott
 paint and largest paint are in tension here by construction: this route spends 0.9 s to get 2.7 s.
 Measured locally with the boundary removed, every metric improves — performance 87 → 92 — and
 layout shift stays at 0, so the skeleton is covering a wait of about 190 ms that is not there on
-the warm path. It is kept for the cold one, where the difference between a skeleton and a blank
-page is the whole experience and Lighthouse never looks. The price of that insurance is those
-five points.
+the warm path.
+
+**It is kept anyway, and the reason is a number this measurement does not take.** Lighthouse as run
+here only ever performs a cold full-page load; the skeleton exists for a navigation. Entering the
+workspace from `/account` on a connection throttled to 400 ms latency and 4× CPU, five runs each,
+the content appears at ~2,150 ms either way — but the destination commits at **460 ms** with the
+boundary and **1,670 ms** without it. The progress bar rises at ~290 ms in both cases, so the
+difference is not feedback against none: it is 1.2 s spent on the page you asked for rather than
+the page you left. Five Lighthouse points for that, deliberately and by a margin worth naming
+([ADR 045](docs/decisions/045-what-the-loading-skeleton-buys.md)).
 
 **Half the ungrounded questions still reach the model.** The relevance threshold is now measured
 rather than guessed ([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what
