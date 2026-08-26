@@ -1,27 +1,10 @@
-import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+
+import { watchFor } from "./watch-for";
 
 /** ADR 024. Only what needs a real browser is here — the threshold itself is a
  * unit test. */
 const BAR = "[data-navigation-progress]";
-
-declare global {
-  interface Window {
-    __sawBar: boolean;
-  }
-}
-
-/** Records whether the bar was ever in the DOM, however briefly. Polling would
- * race the thing it is measuring. */
-async function watchForBar(page: Page) {
-  await page.evaluate(() => {
-    window.__sawBar = false;
-    new MutationObserver(() => {
-      if (document.querySelector("[data-navigation-progress]"))
-        window.__sawBar = true;
-    }).observe(document.body, { childList: true, subtree: true });
-  });
-}
 
 test("stays down while the page prefetches links on arrival", async ({
   page,
@@ -55,7 +38,10 @@ test("rises during a slow navigation and clears afterward", async ({
     await route.continue();
   });
 
-  await watchForBar(page);
+  // Seeded from the DOM: a bar still up here would pass without the navigation.
+  await expect(page.locator(BAR)).toHaveCount(0);
+
+  const sawBar = await watchFor(page, BAR);
 
   await page
     .getByRole("link", { name: /try the demo/i })
@@ -63,7 +49,7 @@ test("rises during a slow navigation and clears afterward", async ({
     .click();
   await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}$/, { timeout: 30_000 });
 
-  expect(await page.evaluate(() => window.__sawBar)).toBe(true);
+  expect(await sawBar()).toBe(true);
 
   // An indicator that never clears is worse than none.
   await expect(page.locator(BAR)).toHaveCount(0);
