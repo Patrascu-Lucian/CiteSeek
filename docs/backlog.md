@@ -2188,3 +2188,35 @@ reports an element; worth nothing before that.
 The suspects worth checking first, if it does recur: the hero graphic is `absolute` in the `sm`
 band and static above it, and the gradient behind the hero is sized from the section rather than
 from the document.
+
+## The skeleton buys first paint and pays for it in largest paint, 26 August 2026
+
+After the footer fix, largest contentful paint is the only metric on `/w/[id]` below 94 — it scores
+**84 at 2.7 s**, holding there across eighteen samples while everything else sits at 94 or above.
+The README points at it as the next target. This is what it is.
+
+Lighthouse's phase breakdown: **TTFB 636 ms, load delay 0, load time 0, render delay 2,100 ms**.
+Load delay and load time at zero mean the element is text rather than a resource — it is the chat
+panel's empty state, _"Answers cite the passages they come from, so you can check them."_ And the
+server is not the cause: `curl` gets the complete document 25 ms after the first byte, 190 ms total.
+
+**It is React's streaming swap.** `loading.tsx` makes the segment a Suspense boundary, so the
+skeleton is sent first and paints — that is the 0.9 s first contentful paint. The real content
+follows in the same response inside `<div hidden id="S:0">`, and a `$RC(` script moves it into
+place. Verified in the served HTML: the empty-state text sits inside that hidden div, and the one
+`$RC(` call in the document comes after it. Hidden content cannot paint, so LCP waits on a script,
+and under 4× CPU throttling that script is queued behind 254 KB of other JavaScript.
+
+So the skeleton buys first paint and pays for it in largest paint. The two metrics are in tension
+by construction, and this route currently spends 0.9 s to get 2.7 s.
+
+**Not fixed, because the fix is a decision.** Removing the boundary would let the content stream in
+place with no swap, and would cost the skeleton — which is also what reserves the layout and keeps
+cumulative layout shift at 0, and which the guard layout above it is positioned around
+([ADR 041](decisions/041-the-workspace-shell-is-a-layout.md)). Trading a 0 CLS for a better LCP is
+the wrong direction on a metric worth a quarter of the score. The other lever is the 254 KB the
+swap script waits behind, which is the bundle argument the README retired — and it would now be
+aimed at the right thing.
+
+Worth recording that the old explanation was wrong twice over: it said the gap was bundle weight
+(total blocking time scores 97), then that it was the footer (fixed). It is the boundary.
