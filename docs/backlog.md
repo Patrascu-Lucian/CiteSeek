@@ -2192,31 +2192,54 @@ from the document.
 ## The skeleton buys first paint and pays for it in largest paint, 26 August 2026
 
 After the footer fix, largest contentful paint is the only metric on `/w/[id]` below 94 — it scores
-**84 at 2.7 s**, holding there across eighteen samples while everything else sits at 94 or above.
+**84 at 2.7 s**, holding there across every sample while everything else sits at 94 or above.
 The README points at it as the next target. This is what it is.
 
 Lighthouse's phase breakdown: **TTFB 636 ms, load delay 0, load time 0, render delay 2,100 ms**.
 Load delay and load time at zero mean the element is text rather than a resource — it is the chat
-panel's empty state, _"Answers cite the passages they come from, so you can check them."_ And the
-server is not the cause: `curl` gets the complete document 25 ms after the first byte, 190 ms total.
+panel's empty state, _"Answers cite the passages they come from, so you can check them."_ Nothing is
+waiting on the server either: unthrottled, `curl` has the complete document 25 ms after the first
+byte. That is a different network from the throttled run above and settles nothing about it on its
+own — the zeros do that — but it rules out the backend as a place to look.
 
 **It is React's streaming swap.** `loading.tsx` makes the segment a Suspense boundary, so the
 skeleton is sent first and paints — that is the 0.9 s first contentful paint. The real content
 follows in the same response inside `<div hidden id="S:0">`, and a `$RC(` script moves it into
 place. Verified in the served HTML: the empty-state text sits inside that hidden div, and the one
 `$RC(` call in the document comes after it. Hidden content cannot paint, so LCP waits on a script,
-and under 4× CPU throttling that script is queued behind 254 KB of other JavaScript.
+and under 4× CPU throttling it waits behind the rest of the page's JavaScript.
 
 So the skeleton buys first paint and pays for it in largest paint. The two metrics are in tension
 by construction, and this route currently spends 0.9 s to get 2.7 s.
 
-**Not fixed, because the fix is a decision.** Removing the boundary would let the content stream in
-place with no swap, and would cost the skeleton — which is also what reserves the layout and keeps
-cumulative layout shift at 0, and which the guard layout above it is positioned around
-([ADR 041](decisions/041-the-workspace-shell-is-a-layout.md)). Trading a 0 CLS for a better LCP is
-the wrong direction on a metric worth a quarter of the score. The other lever is the 254 KB the
-swap script waits behind, which is the bundle argument the README retired — and it would now be
-aimed at the right thing.
+**Deleting `loading.tsx` was assumed to cost the zero layout shift. It does not.** A review argued
+the cost was misnamed, and measuring settled it — three runs each against one local production
+build, boundary present and absent:
 
-Worth recording that the old explanation was wrong twice over: it said the gap was bundle weight
-(total blocking time scores 97), then that it was the footer (fixed). It is the boundary.
+| `/w/[id]` guest, local   | with `loading.tsx` | without    |
+| ------------------------ | ------------------ | ---------- |
+| Performance, median      | 87                 | **92**     |
+| First contentful paint   | 1.0 s              | **0.8 s**  |
+| Largest contentful paint | 3.8 s              | **3.3 s**  |
+| Cumulative layout shift  | 0                  | **0**      |
+| Total blocking time      | 130 ms             | **100 ms** |
+| Speed index              | 1.0 s              | **0.8 s**  |
+
+Better on every metric, including the two the boundary is supposed to buy. Layout shift stays at 0
+because without the boundary nothing streams in late: the document arrives complete, and the footer
+is in its final place at first paint. First paint does not suffer either, because the data behind
+this route takes about 190 ms — the skeleton is covering a wait that is not there.
+
+**Still not deleted, for a reason Lighthouse cannot measure.** 190 ms is the warm path. A cold Neon
+compute or a cross-region hop turns that into seconds, and the difference between a skeleton and a
+blank page is the whole of what a reader experiences then. The boundary is insurance against the
+slow path, priced at about five Lighthouse points on the fast one. Worth deciding deliberately —
+and worth knowing the price is those five points, not the layout shift.
+
+The guard layout above it is unaffected either way: it exists so `notFound()` runs before the
+response flushes, which is a stronger position without a boundary below it, not a weaker one
+([ADR 041](decisions/041-the-workspace-shell-is-a-layout.md)).
+
+Worth recording that the explanation for this gap has now been wrong three times: bundle weight for
+four milestones, then the footer, then this entry's own claim about what removing the boundary
+would cost. Each was replaced by a measurement rather than by a better argument.
