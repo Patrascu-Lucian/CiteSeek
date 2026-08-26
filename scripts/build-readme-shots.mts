@@ -21,8 +21,10 @@ const OUTPUT_DIR = join(
 );
 
 // 1×, since these at 2× run to about a megabyte. 1280 is past the header's `md`
-// breakpoint, so the nav is the desktop one rather than the hamburger.
-const VIEWPORT = { width: 1280, height: 900 };
+// breakpoint, so the nav is the desktop one rather than the hamburger. 900 cut
+// the composer in half — survivable while it was an empty box, and not once the
+// send button moved inside it.
+const VIEWPORT = { width: 1280, height: 960 };
 
 /** Answered by the seeded handbook, and phrased the way someone would ask. */
 const QUESTION = "What can I claim back for a hotel, and do I need a receipt?";

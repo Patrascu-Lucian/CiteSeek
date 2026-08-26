@@ -8,7 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { MAX_CHARS_PER_DOCUMENT } from "@/lib/rag/chunking";
+import {
+  MAX_CHARS_PER_DOCUMENT,
+  MAX_CHUNKS_PER_DOCUMENT,
+} from "@/lib/rag/chunking";
 import type { PlanUsage, PlanUsageAxis } from "@/lib/limits/usage";
 import type { WorkspaceUsage } from "@/lib/usage/dashboard";
 import { pageShell } from "@/components/ui/page-shell";
@@ -213,7 +216,7 @@ function PlanSection({ plan }: { plan: PlanUsage }) {
           label="Document text"
           axis={plan.storage}
           compact
-          note={`One document holds about ${short(MAX_CHARS_PER_DOCUMENT)} of this — a larger file has to be split.`}
+          note={`Each document is capped at ${String(MAX_CHUNKS_PER_DOCUMENT)} passages, about ${short(MAX_CHARS_PER_DOCUMENT)} of this. A larger file has to be split.`}
         />
       </dl>
     </section>

@@ -55,8 +55,8 @@ that already exists. The model chooses which passages to cite; it cannot invent 
 citing.
 
 That ordering is also why the [Numbers](#numbers) below report two separate figures: the
-stream's first byte at ~460 ms is the citation payload, and the first token of prose at
-~1.03 s is the model. They are different events, and quoting only the smaller one would be
+stream's first byte at ~365 ms is the citation payload, and the first token of prose at
+~0.85 s is the model. They are different events, and quoting only the smaller one would be
 flattering and wrong.
 
 Workspace scoping is enforced in the SQL of that vector search, not by filtering afterward
@@ -88,7 +88,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 79 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 89 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -207,17 +207,26 @@ production, not that the ceiling has been stressed.
 **Time to first token** — the deployed app, as a guest, asking a question the demo document
 answers. Two figures, because only one of them is TTFT:
 
-| Measured from request start        | Median |
-| ---------------------------------- | ------ |
-| First byte of the stream (sources) | 461 ms |
-| **First token of the answer**      | 1.03 s |
+| Measured from request start        | v1.3.1, by hand | v1.4.0, `perf:ttft` |
+| ---------------------------------- | --------------- | ------------------- |
+| First byte of the stream (sources) | 461 ms          | 365 ms              |
+| **First token of the answer**      | 1.03 s          | 0.85 s              |
 
-The stream opens before the model is called at all: the citation payload is written first, as
-a fact about retrieval rather than a summary of what the model claimed. So a reader sees
-sources resolve at ~460 ms and prose begin at ~1 s.
+The stream opens before the answering model is called: the citation payload is written first,
+as a fact about retrieval rather than a summary of what the model claimed. So a reader sees
+sources resolve at ~365 ms and prose begin at ~0.85 s.
 
-Four samples rather than five — the fifth was refused by this project's own rate limiter,
-which is the intended behavior and a reasonable way to find out it works in production.
+**Read that as a method change, not a speed-up.** An earlier run of `perf:ttft` published 502 ms
+and 1.03 s from the same deployment. Two faults produced the difference and a review of this
+release found both: the median took the upper of the two middle samples on an even count, and a
+cold start — 1,893 ms on the run above, against a ~400 ms steady state — sat in the sample rather
+than ahead of it. The script now discards a warm-up and takes a real median, so the v1.4.0 column
+is the app and the v1.3.1 column is a hand measurement of unknown method. They are not a
+before-and-after.
+
+The script also refuses to time a refusal. A refusal streams in the same shape as an answer,
+deliberately, so the client has one code path — and no answering model runs on that branch, so
+timing one would have put a retrieval round trip into this table as a generation.
 
 **Client bundle**, measured by reading the scripts the page actually serves. An earlier entry
 here claimed the 428 KB markdown chunk — a parser, a
@@ -237,7 +246,8 @@ The deployed app measured 1671 KB / 459 KB before the change, which is the same 
 compression noise — worth stating, because a before/after that quietly swaps environments
 mid-table is how a real regression gets hidden by an unrelated improvement.
 
-**Re-measured at v1.4.0**, by `pnpm perf:bundle /w` rather than by hand: it reads the `<script>` and
+**Re-measured at v1.4.0**, by `pnpm perf:bundle workspace` against a local `pnpm start`
+rather than by hand: it reads the `<script>` and
 preloaded-script tags the page actually serves, brotli-compresses each file, and refuses to report a
 number if the page redirected or a file is missing — so two runs are comparable by construction.
 Against the v1.3.1 release build on the same machine, with an identical lockfile:
@@ -255,15 +265,27 @@ down; the two methods are comparable within themselves and not to each other.
 needs a guest cookie: `proxy.ts` redirects a credential-less `/w/*` to `/sign-in`, so an
 anonymous run scores a different page entirely.
 
-| Page                               | Performance | Accessibility | Best practices | SEO |
-| ---------------------------------- | ----------- | ------------- | -------------- | --- |
-| `/` landing — deployed             | 98          | 100           | 100            | 100 |
-| `/w/[id]` guest — deployed, before | 87          | 100           | 100            | 100 |
-| `/w/[id]` guest — local build      | 84 → **90** | 100           | 100            | 100 |
+| Page, deployed  | Version | Performance | Accessibility | Best practices | SEO |
+| --------------- | ------- | ----------- | ------------- | -------------- | --- |
+| `/` landing     | v0.7.0  | 98          | 100           | 100            | 100 |
+| `/` landing     | v1.4.0  | 98          | 100           | 100            | 100 |
+| `/w/[id]` guest | v0.7.0  | 87          | 100           | 100            | 100 |
+| `/w/[id]` guest | v1.4.0  | 80          | 100           | 96             | 63  |
+
+**The v0.7.0 rows were taken by hand on a different Chrome**, so read each row against its own
+column rather than down the table — a 7-point drop across those two is partly the tooling. The
+like-for-like comparison is the local one below, on one harness.
 
 **The workspace row's SEO 100 went stale on 18 August**, when `robots.txt` began disallowing `/w`
-on purpose — `app/robots.ts` says why. `is-crawlable` fails by design there, capping that category
-at 63. A page nobody should index cannot also score as indexable.
+on purpose — `app/robots.ts` says why. `is-crawlable` fails by design there and carries most of the
+category's weight, so 63 is the score a page nobody should index is supposed to get. Every other SEO
+audit on it passes, and the page that is meant to be found still measures 100.
+
+Best practices at 96 is one Content Security Policy issue, logged on the workspace route and not on
+the landing page. It is Zod asking whether it may compile: `try { Function("") } catch { … }`, a
+capability probe it uses to decide between JIT-compiled validators and interpreted ones. The production
+policy carries no `'unsafe-eval'`, so the probe throws, the `catch` runs, and Zod takes the path
+that was the only available one anyway. Nothing is blocked that the app wanted.
 
 **Re-measured at v1.4.0**, three runs per build against one local server:
 
@@ -273,13 +295,14 @@ at 63. A page nobody should index cannot also score as indexable.
 | Cumulative layout shift  | 0.329  | 0.324  |
 | Largest contentful paint | 3.2 s  | 3.6 s  |
 
-Read those columns against each other rather than against the 90 above: a different Chrome build
-and a busier machine. Total blocking time ranged 80–870 ms across six runs and says nothing.
+Read those columns against each other rather than against the deployed rows above: a different
+Chrome build and a busier machine. Total blocking time ranged 80–870 ms across six runs and says
+nothing.
 
-Two things it does say. **CLS ~0.33 is unchanged and is the largest deduction on both builds** — a
-real shift, reproducible to three decimal places, filed rather than fixed here. And LCP moved 0.4 s
-while first contentful paint and speed index did not, which points at when content arrives rather
-than at when the page starts painting.
+Two things it does say. **CLS ~0.33 was unchanged and was the largest deduction on both builds** —
+a real shift, and the one this release fixes; the before/after is below. And LCP moved 0.4 s while
+first contentful paint and speed index did not, which points at when content arrives rather than at
+when the page starts painting.
 
 **Retrieval quality**, measured by `pnpm eval:retrieval` against a golden set of 51 questions
 over three documents written for the purpose — 41 answerable, 10 answerable by none of them.
@@ -310,6 +333,13 @@ alone:
 | 0.25                 | 0.62     | 0.85     | 0.78     |
 | 0.5                  | 0.61     | 0.85     | 0.76     |
 | 1.0                  | 0.59     | 0.85     | 0.75     |
+
+**A short follow-up is the case this set could not see**, so it got its own. Ten information needs
+written twice — as a reader types them after a previous turn, and self-contained — score
+**recall@3 0.70 as asked against 1.00 standalone**. Three in ten fail, and a clean 1.00 on the
+right column means a perfect rewrite recovers all three: a ceiling, not a guess. That measurement
+is what [ADR 044](docs/decisions/044-rewriting-a-follow-up-only-after-it-fails.md) was decided on,
+and it was taken before anything was built.
 
 Every blend is worse than vector alone, and worse the more say the lexical list is given — so it
 is not wired into the answer path
@@ -356,13 +386,38 @@ metric Lighthouse reports, and a single pair cannot tell a change from variance.
 
 <a href="docs/images/dark.png"><img src="docs/images/dark.png" width="400" alt="The same workspace in the dark palette"></a>
 
-The workspace page is short of the 95 target and the reason is specific: 124 KB of the
-remaining bundle is unused Vercel AI SDK and Zod, reachable only by deferring `useChat` —
-which would delay the composer becoming interactive. Trading the product's primary interaction
-for five points is the wrong way round, so the gap is recorded rather than closed. LCP is the
-chat panel's empty-state text, and its breakdown is 20 ms of server time against 437 ms of
-render delay, so the remaining cost is script evaluation rather than anything the database
-does.
+The workspace page is short of the 95 target, and at v1.4.0 the reason changed. It used to be
+bundle weight: 124 KB of unused Vercel AI SDK and Zod, reachable only by deferring `useChat`,
+which would delay the composer becoming interactive — the product's primary interaction traded
+for five points, so the gap was recorded rather than closed.
+
+That is no longer what binds. The deployed v1.4.0 breakdown:
+
+| Weight | Score | Value | Metric                   |
+| ------ | ----- | ----- | ------------------------ |
+| 10     | 100   | 0.9 s | First contentful paint   |
+| 25     | 88    | 2.6 s | Largest contentful paint |
+| 30     | 99    | 70 ms | Total blocking time      |
+| 25     | 35    | 0.324 | Cumulative layout shift  |
+| 10     | 100   | 0.9 s | Speed index              |
+
+Total blocking time — where script weight lands — scores **99** on the heaviest-weighted metric.
+Layout shift scores **35** and carries a quarter of the total, so one metric costs roughly 16
+points and the page is otherwise at its target. `layout-shift-elements` names a single element for
+0.3235 of the 0.324: the footer, positioned by content height with `mt-auto`, moving when
+`loading.tsx` hands over to content taller than its skeleton.
+
+**Fixed by reserving the conversation panel in the skeleton**, which had reserved the documents
+half only — about 400 px against a page over 900. Three local runs before and after, same harness:
+
+| `/w/[id]` guest, local  | before    | after     |
+| ----------------------- | --------- | --------- |
+| Cumulative layout shift | 0.324 × 3 | **0 × 3** |
+| Performance, median     | 72        | **88**    |
+
+The deployed row above still reads 80 because production is v1.4.0 and this lands after it. Nine
+lines of markup, against the bundle refactor it replaces — which would have traded the composer's
+interactivity for five points.
 
 ## Known gaps at this milestone
 
@@ -395,9 +450,10 @@ in the data layer rather than by hiding buttons — is already true and proven b
 tests, and a role column whose only production value is `owner` adds a branch no user can reach
 ([ADR 016](docs/decisions/016-workspace-membership-deferred.md)).
 
-The workspace page scores 90 on Lighthouse rather than the 95 this project set as its bar. The
-cause is measured and recorded above; closing it means deferring chat hydration, which is a
-worse trade than the points are worth.
+The workspace page has not met the Lighthouse 95 this project set as its bar. Deployed v1.4.0
+scores 80; the layout shift behind most of that gap is fixed and measures 88 locally, which the
+next release will confirm or not. Deferring chat hydration — the reason recorded here for four
+milestones — was never what bound it.
 
 **Half the ungrounded questions still reach the model.** The relevance threshold is now measured
 rather than guessed ([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what

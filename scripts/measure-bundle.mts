@@ -9,13 +9,46 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { brotliCompressSync } from "node:zlib";
 
+/** Local only, unlike `perf:ttft`, which shares this variable: the sizes come
+ * from `.next` on disk, so pointing it at production measures a local build under
+ * production's name. */
 const base = process.env.MEASURE_BASE_URL ?? "http://localhost:3000";
-const path = process.argv[2] ?? "/";
+
+if (!/^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(base)) {
+  throw new Error(
+    `${base} is not local. This reads chunk sizes from \`.next\`.`,
+  );
+}
+
+/** A name, never a path. Git Bash rewrites a leading slash into a drive letter
+ * before the argument reaches Node — `/w` arrives as `W:/` — so the documented
+ * command silently measured nothing. */
+const TARGETS = { workspace: "/w", landing: "/" } as const;
+const name = process.argv[2] ?? "workspace";
+
+if (!(name in TARGETS)) {
+  throw new Error(
+    `Unknown target "${name}". Expected ${Object.keys(TARGETS).join(" or ")}.`,
+  );
+}
+
+const path = TARGETS[name as keyof typeof TARGETS];
 
 /** `/demo` mints the guest cookie and redirects; `proxy.ts` sends a
  * credential-less `/w/*` to sign-in, which would measure a different page. */
 async function guestCookie(): Promise<string> {
-  const response = await fetch(`${base}/demo`, { redirect: "manual" });
+  // A production server, not `pnpm dev`: dev appends `?v=…` to every chunk URL,
+  // so none of them resolve on disk.
+  // `cause` because the message is a guess: DNS, TLS and a proxy refusal all
+  // arrive here and none of them is "nothing is listening".
+  const response = await fetch(`${base}/demo`, { redirect: "manual" }).catch(
+    (cause: unknown) => {
+      throw new Error(
+        `Cannot reach ${base}. Run \`pnpm build && pnpm start\` first.`,
+        { cause },
+      );
+    },
+  );
   const cookie = response.headers
     .getSetCookie()
     .map((one) => one.split(";")[0])

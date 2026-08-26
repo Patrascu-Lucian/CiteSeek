@@ -147,9 +147,12 @@ describe("UsageView — the plan ceiling", () => {
     );
 
     const section = screen.getByRole("region", { name: /plan/i });
-    expect(
-      within(section).getByText(/one document holds about/i),
-    ).toHaveTextContent("273k");
+    const note = within(section).getByText(/each document is capped at/i);
+
+    // The passage count is the rule; the character figure is derived from a
+    // measured density and reads as a typical size on its own.
+    expect(note).toHaveTextContent("600 passages");
+    expect(note).toHaveTextContent("273k");
   });
 
   /* The demo is read-only for everyone, so a ceiling there would describe a

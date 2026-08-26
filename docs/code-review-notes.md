@@ -2371,3 +2371,109 @@ tests, 117 E2E and a production build, green.
   text" is correct for citation resolution and wrong for message assembly, and the two constraints
   are invisible to each other. When a stream carries both content and framing, check which side of
   the message boundary each piece lands on — the wire order is the evidence, not the API's shape.
+
+## A hedge word covering for a number that was not a limit, 25 August 2026
+
+- **Issue**: the usage page's storage note read "One document holds about 273k of this — a larger
+  file has to be split." Lucian's reading: it states a typical size where a maximum was meant. He
+  was right about the sentence, and the sentence was the smaller half.
+
+- **The number was not a cap.** The rule the system enforces is `MAX_CHUNKS_PER_DOCUMENT = 600`;
+  273k is that multiplied by a **measured average** of ~455 characters per passage. `CHUNK_MAX_CHARS`
+  is 800, so a text-dense document can hold well over 273k and still pass. "No document may exceed
+  273k" would have been false — which is why the original copy hedged, and why firming up the
+  wording without checking would have shipped a confident inaccuracy.
+
+- **The hedge was the tell.** "About" was doing two jobs: reading as _approximately this limit_
+  while actually meaning _this is an average_. The vagueness was not a style problem to tighten; it
+  was the sentence quietly declining to claim something it could not support.
+
+- **Fix**: lead with the rule — "Each document is capped at 600 passages, about 273k of this" — so
+  the cap is the passage count and the character figure is visibly derived. `MAX_CHARS_PER_DOCUMENT`
+  now says "a typical size, not a ceiling" in its own comment, since it had the same error.
+
+- **Found alongside**: the product disagreed with itself. The documents list says "passages"; the
+  upload error said "chunks". A review of the release caught that the sweep was incomplete — the
+  privacy page said both words in one sentence — and that nothing pinned either word in a test.
+  Both are fixed; the incomplete sweep is the more useful half of the story.
+
+- **Lesson**: **when a sentence needs a hedge to be true, ask what the hedge is hiding.** "About",
+  "roughly", "up to" are worth a second look in copy that states a limit — they are where an
+  approximation and an average look identical. And state the rule the system enforces rather than a
+  figure derived from it: the derivation holds only while its assumption does, and nothing tells you
+  when that stops being true.
+
+## A documented command that had only ever run with an undocumented workaround, 25 August 2026
+
+- **Issue**: the README said to measure the bundle with `pnpm perf:bundle /w`. Lucian ran it and got
+  `tsx scripts/measure-bundle.mts "W:/"` followed by `ECONNREFUSED ::1:3000`. Two faults in one line.
+
+- **Cause**: Git Bash rewrites a leading slash into a drive letter before the argument reaches Node,
+  so `/w` arrives as `W:/`. I had hit this while writing the script, worked around it with
+  `MSYS_NO_PATHCONV=1`, and then documented the command **without** the workaround — so the README
+  described something I had never actually run. The script also needs `pnpm start` up, which nothing
+  said.
+
+- **Fix**: the argument is a name now, not a path — `pnpm perf:bundle workspace` — so there is
+  nothing for the shell to rewrite, and an unknown name fails loudly instead of measuring the wrong
+  page. No server gives `Nothing is answering on http://localhost:3000. Run \`pnpm build && pnpm
+  start\` first.`
+
+- **Lesson**: **a workaround you needed to run something is part of the instructions, not a detail
+  of your setup.** The moment I typed `MSYS_NO_PATHCONV=1` the command had two forms — the one that
+  works and the one I wrote down — and only the second one shipped.
+
+## Repeating a filed claim without checking whether it was still true, 25 August 2026
+
+- **Issue**: I listed "regenerate the README screenshots — they have predated the branding since 10
+  August" as outstanding work. Lucian pointed at `3c3e172`, "docs: regenerate the shots the branding
+  invalidated", from 20 August. They had been done for five days.
+
+- **Cause**: I read it from an open `docs/backlog.md` entry and repeated it as current. The entry
+  was accurate when written and nobody closed it, because closing an entry is a step with no
+  failing test behind it.
+
+- **Fix**: the entry is struck through with the commit that closed it — and carries a `↳` noting it
+  went stale **again** at v1.4.0 for a different reason, since the composer changed shape.
+
+- **Lesson**: **a backlog entry records a moment, not a state.** An open one is a claim about the
+  past that looks like a claim about the present, and the gap grows silently because nothing fails
+  when work is finished but unfiled. Check the commit log before repeating an entry as work to do.
+
+## A verification that filtered out its own evidence, 25 August 2026
+
+- **Issue**: I reported that Zod's blocked `Function("")` probe "fires no `securitypolicyviolation`
+  event", having loaded production in Playwright with a listener attached and seen nothing.
+
+- **It fires.** Zod's own source says so three lines above the probe: "strict CSPs report the caught
+  `new Function` as a `securitypolicyviolation` even though the throw is swallowed."
+
+- **Cause**: my listener logged lines beginning `VIOLATION script-src …`, and my console filter
+  matched `/content security policy|csp|refused to/i`. The filter excluded the handler's own output.
+  I then reported the silence as a finding.
+
+- **How it came out**: Lucian was skeptical because his DevTools showed a CSP error. His evidence
+  actually pointed somewhere else — `content.js` is a browser extension, not our code — but the
+  challenge was right even though the exhibit was not, and re-checking found the broken harness.
+
+- **Lesson**: **an absence of evidence is worth nothing until the instrument is shown to detect a
+  presence.** A filter, a grep, a matcher — anything narrowing what a check can see needs one known
+  positive through it before "nothing found" means anything. Same shape as the E2E written that day
+  which passed with the fix removed.
+
+## The same fact stated twice, and only one copy updated, 25 August 2026
+
+- **Issue**: three separate corrections in one day, all the same shape. The README's Lighthouse
+  table gained a v1.4.0 row while the prose beneath still blamed a bundle the numbers had cleared.
+  A commit fixing the layout shift left the README calling that fix "the open item" — caught by
+  Lucian asking whether the README belonged in the commit. And relabelling rows by version left
+  `/` landing reading "30 July" beside `/w/[id]` reading "v1.4.0", which he read, correctly, as
+  "nobody has measured the landing page since July."
+
+- **Cause**: a 669-line README states most numbers twice — once where they are measured and once
+  where they are discussed. Editing the section you are in is the natural move and updates one copy.
+
+- **Lesson**: **when a number moves, `grep` for it rather than editing the section you are looking
+  at.** And a docs commit has the same bar as a code one: it should not land in a state where the
+  document argues with itself. The check is cheap — read the paragraph _under_ the table you just
+  changed.
