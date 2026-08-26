@@ -2477,3 +2477,120 @@ tests, 117 E2E and a production build, green.
   at.** And a docs commit has the same bar as a code one: it should not land in a state where the
   document argues with itself. The check is cheap — read the paragraph _under_ the table you just
   changed.
+
+## A conclusion drawn from a metric that could not see the thing, 26 August 2026
+
+- **Issue**: `app/(app)/w/[workspaceId]/loading.tsx` was written up as costing about five Lighthouse
+  points for nothing — measured locally, deleting it improved **every metric on the report**,
+  including the zero layout shift the file was assumed to be holding. The write-up kept it anyway,
+  on the argument that it was insurance against a cold database compute. Lucian did not accept
+  either half: _"I don't know about the idea of removing the loading.tsx, it feels wrong."_
+
+- **Cause**: two faults stacked. The recommendation rested entirely on Lighthouse, and **Lighthouse
+  as run here only ever performs a cold full-page load** — the CLI's navigation mode does not
+  navigate, so a file whose entire value is
+  feedback _during_ a navigation shows up as pure cost. And the reason given for keeping it was an
+  argument rather than a measurement, which is the same failure the entry above it was correcting.
+
+- **Fix**: measure the navigation. Entering the workspace from `/account` at 400 ms latency and 4×
+  CPU, content appears at ~2,150 ms either way — but the destination commits at 460 ms with the
+  boundary and **1,670 ms** without it. Five points for 1.2 s spent on the page the reader asked for
+  rather than the one they left. Recorded as
+  [ADR 045](decisions/045-what-the-loading-skeleton-buys.md) and guarded by an E2E that was
+  falsified by deleting the file. The same run found that switching conversations never shows the
+  skeleton at all, with the boundary or without it — a Suspense fallback fires on mount, and that
+  boundary is already mounted. Nobody had looked.
+
+- **Lesson**: **a tool's blind spot does not appear in its output.** Lighthouse reported honestly on
+  everything it measures; the error was treating its scope as the scope of the question. Before
+  acting on a measurement, say out loud what the tool never does — Lighthouse never navigates, axe
+  never judges whether an affordance is discoverable, a unit test never crosses a process boundary.
+  And the reviewer with no numbers was right against the reviewer with numbers, because he was
+  asking about the case the numbers omitted.
+
+## The instrument that saw one thing and reported the absence of everything, 26 August 2026
+
+- **Issue**: the measurement in the entry above was written up as showing that removing
+  `loading.tsx` left a reader with **no feedback at all** for 1.7 s — "no URL change, no spinner, no
+  repaint". Review pointed at `components/navigation-progress.tsx`, a shipped progress bar with its
+  own ADR and its own E2E, and asked why a 1,670 ms navigation had not raised it.
+
+- **Cause**: the harness watched for `[aria-busy="true"]` and nothing else, so it could only ever
+  report on the skeleton. Measuring instead of arguing is the rule this project keeps relearning,
+  and this is its failure mode: **a measurement is silent about what it was not pointed at, and
+  reads as a statement about everything.** Worse, it happened while writing the entry above, which
+  is the same failure one level up — a tool's blind spot rather than a probe's.
+
+- **Fix**: re-measure with the bar instrumented. It rises at ~290 ms in both columns. The real trade
+  is not feedback against none — it is 1.2 s on the destination against 1.2 s on the page left
+  behind, under a bar either way. The decision to keep the file survived; the argument for it did
+  not, and the ADR, README and backlog state it at that size rather than the flattering one. The
+  conversation-switch entry needed the same correction, having been drafted from the same harness.
+
+- **Lesson**: **when a measurement returns "nothing happened", the first suspect is the probe.** Say
+  what the harness can see before quoting what it saw — a selector, a filter, a log grep. The
+  positive result needs one known-good case through it too: had the harness been pointed at a
+  navigation known to raise the bar, it would have failed loudly instead of confirming a story. The
+  entry of 25 August about a verification that filtered out its own evidence is the same mistake,
+  one day and one instrument apart.
+
+## A guard test whose own premises could fail silently, 26 August 2026
+
+- **Issue**: review of the skeleton guard found three ways it could fail while the app was fine, and
+  one way it could pass while the app was broken. The visibility assertion kept the default 5 s
+  expect timeout under 4× CPU throttling and 400 ms latency, against a navigation that measures
+  ~2,150 ms locally — on a slower runner it fails at the heading and reads as "the skeleton
+  regressed". The prefetch interception was an inverted allowlist, so a Next release that stops
+  marking prefetches would warm the router cache and the click would never suspend. The route
+  pattern `**/w/**` also matched the workspace chunks under `/_next/static/…/w/…`. And the observer
+  accepted `[aria-busy="true"]` anywhere, so the first component to adopt it as a pending state
+  would retire the guard without a word.
+
+- **Cause**: every one of them is the test asserting a conclusion while assuming its own setup. The
+  premise — throttled, un-prefetched, and looking at the skeleton specifically — was arranged and
+  then trusted.
+
+- **Fix**: an explicit 20 s timeout on the assertion (`test.slow()` raises the _test_ budget and
+  does not touch expect timeouts, which is not obvious); every unmarked request to a `/w/` path
+  recorded and asserted absent before the click, so a Next change that stops marking prefetches
+  fails by name instead of blaming the skeleton; a pathname predicate instead of a glob; and
+  `main[aria-busy="true"]`, which a component-level pending state cannot satisfy. A later round added
+  the last premise: the observer lives in the document, so a click that reloads the page rather than
+  navigating within it now fails as a reload instead of as a missing skeleton.
+
+- **Lesson**: **a test that arranges a precondition should assert it, not assume it.** The
+  interesting failure is not the one where the assertion goes red — it is the one where the setup
+  quietly stopped working and the assertion answers a different question. Ask of any guard: what
+  would make this pass without the thing it guards, and what would make it fail without the thing
+  being broken? Both had answers here.
+
+- **And re-falsify after every change to the guard, not once when it is written.** Hardening this
+  one introduced a fresh way for it to pass while broken: seeding the observer with the DOM as
+  found meant it could start from `/account`'s own loading skeleton, which is still on screen while
+  the header link — rendered by a layout above that boundary — is already visible. With
+  `loading.tsx` deleted the test then passed one run in three. Nothing in review or in a green
+  suite would have shown that; deleting the file again did, in a minute.
+
+## Closing off the real fix with a sentence nobody had run, 26 August 2026
+
+- **Issue**: the backlog entry on conversation switching said a deeper boundary was not an option —
+  "a second `loading.tsx` deeper in the tree would not help: that boundary is mounted too, from the
+  second navigation onward." Review disagreed with the mechanism, citing Next's `layout-router`:
+  each `LoadingBoundary` is keyed by its router cache segment, so a boundary _below_ the changing
+  segment gets a new key per `chatId` and does remount.
+
+- **Cause**: the sentence generalised from a real measurement one level up. The boundary at
+  `[workspaceId]` genuinely does not fire on a chat switch, and that was measured; "so a deeper one
+  would not either" was reasoning dressed in the measurement's authority, in the entry whose own
+  thesis is that arguments about this file have been wrong four times running.
+
+- **Fix**: build it. A `loading.tsx` at `c/[chatId]` appears at 144–346 ms against a ~600 ms
+  navigation, in four runs of five. The entry now says so, and presents the deeper boundary as the
+  weaker of two options — it blanks a transcript the reader can still read — rather than as no
+  option at all.
+
+- **Lesson**: **a measured claim does not extend to its neighbours for free.** The dangerous shape is
+  a paragraph that opens with a number and closes with an inference, because the number lends the
+  inference a confidence it never earned. The tell is a sentence that rules something out: ruling in
+  needs evidence and everyone knows it, while ruling out slips past as tidying up. Every option this
+  project has closed by argument has had to be reopened.
