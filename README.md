@@ -468,8 +468,16 @@ The workspace page reaches the Lighthouse 95 this project set as its bar, as the
 in five consecutive invocations.
 It scored 80 at v1.4.0. Deferring chat
 hydration — the reason recorded here for four milestones — was never what bound it; a footer
-positioned by content height was, and six lines of skeleton markup closed it. What is left is
-largest contentful paint at 2.7 s.
+positioned by content height was, and six lines of skeleton markup closed it.
+
+What is left is largest contentful paint at 2.7 s, and it is the skeleton's own price. Lighthouse
+splits it as 636 ms to first byte and **2,100 ms of render delay**, with nothing spent fetching —
+the element is text, and `curl` has the whole document 25 ms after the first byte. `loading.tsx`
+makes the segment a Suspense boundary, so the skeleton paints at 0.9 s while the real content
+arrives inside `<div hidden>` and waits for React's swap script, queued behind 254 KB of other
+JavaScript on a throttled CPU. First paint and largest paint are in tension here by construction:
+this route spends 0.9 s to get 2.7 s. Removing the boundary would close the gap and give back the
+zero layout shift the skeleton is holding, which is worth more.
 
 **Half the ungrounded questions still reach the model.** The relevance threshold is now measured
 rather than guessed ([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what
