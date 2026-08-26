@@ -271,6 +271,7 @@ anonymous run scores a different page entirely.
 | `/` landing     | v1.4.0  | 98          | 100           | 100            | 100 |
 | `/w/[id]` guest | v0.7.0  | 87          | 100           | 100            | 100 |
 | `/w/[id]` guest | v1.4.0  | 80          | 100           | 96             | 63  |
+| `/w/[id]` guest | v1.4.1  | 95          | 100           | 96             | 63  |
 
 **The v0.7.0 rows were taken by hand on a different Chrome**, so read each row against its own
 column rather than down the table — a 7-point drop across those two is partly the tooling. The
@@ -407,17 +408,30 @@ points and the page is otherwise at its target. `layout-shift-elements` names a 
 0.3235 of the 0.324: the footer, positioned by content height with `mt-auto`, moving when
 `loading.tsx` hands over to content taller than its skeleton.
 
-**Fixed by reserving the conversation panel in the skeleton**, which had reserved the documents
-half only — about 400 px against a page over 900. Three local runs before and after, same harness:
+**Fixed in v1.4.1 by reserving the conversation panel in the skeleton**, which had reserved the
+documents half only. Six lines of markup, against the bundle refactor it replaces — which would
+have traded the composer's interactivity for five points. Deployed, three runs:
 
-| `/w/[id]` guest, local  | before    | after     |
-| ----------------------- | --------- | --------- |
-| Cumulative layout shift | 0.324 × 3 | **0 × 3** |
-| Performance, median     | 72        | **88**    |
+| `/w/[id]` guest, deployed | v1.4.0          | v1.4.1    |
+| ------------------------- | --------------- | --------- |
+| Cumulative layout shift   | 0, 0.324, 0.324 | **0 × 3** |
+| Performance, median       | 80              | **95**    |
 
-The deployed row above still reads 80 because production is v1.4.0 and this lands after it. Nine
-lines of markup, against the bundle refactor it replaces — which would have traded the composer's
-interactivity for five points.
+Fifteen points, and the metric that carried a quarter of the weight now scores 100 — so the
+workspace route meets the 95 this project set as its bar, for the first time.
+
+Fifteen samples, five invocations of three: the median was **95 every time**, and cumulative layout
+shift was **0 in all fifteen**. Individual runs ranged 90 to 96, and that spread is entirely total
+blocking time between 100 ms and 150 ms — largest contentful paint held at 2.7 s throughout, which
+is what makes it the honest thing to point at next. It scores **84**, the only metric under 94.
+
+Measured with `pnpm perf:lighthouse`, which pins its Lighthouse version because scores move between
+releases. The figure does depend on the connection it is taken over: the same build over a busier
+link measured 89, with the whole difference in largest contentful paint.
+
+The signed-in routes were measured too, and do not shift: the guest page is the shortest, so its
+footer sits in the viewport with somewhere to move, while every signed-in variant is taller and
+starts it below the fold.
 
 ## Known gaps at this milestone
 
@@ -450,10 +464,12 @@ in the data layer rather than by hiding buttons — is already true and proven b
 tests, and a role column whose only production value is `owner` adds a branch no user can reach
 ([ADR 016](docs/decisions/016-workspace-membership-deferred.md)).
 
-The workspace page has not met the Lighthouse 95 this project set as its bar. Deployed v1.4.0
-scores 80; the layout shift behind most of that gap is fixed and measures 88 locally, which the
-next release will confirm or not. Deferring chat hydration — the reason recorded here for four
-milestones — was never what bound it.
+The workspace page reaches the Lighthouse 95 this project set as its bar, as the median of three
+in five consecutive invocations.
+It scored 80 at v1.4.0. Deferring chat
+hydration — the reason recorded here for four milestones — was never what bound it; a footer
+positioned by content height was, and six lines of skeleton markup closed it. What is left is
+largest contentful paint at 2.7 s.
 
 **Half the ungrounded questions still reach the model.** The relevance threshold is now measured
 rather than guessed ([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what
