@@ -2189,7 +2189,7 @@ The suspects worth checking first, if it does recur: the hero graphic is `absolu
 band and static above it, and the gradient behind the hero is sized from the section rather than
 from the document.
 
-## The skeleton buys first paint and pays for it in largest paint, 26 August 2026
+## ~~The skeleton buys first paint and pays for it in largest paint~~, 26 August 2026
 
 After the footer fix, largest contentful paint is the only metric on `/w/[id]` below 94 — it scores
 **84 at 2.7 s**, holding there across every sample while everything else sits at 94 or above.
@@ -2230,16 +2230,64 @@ because without the boundary nothing streams in late: the document arrives compl
 is in its final place at first paint. First paint does not suffer either, because the data behind
 this route takes about 190 ms — the skeleton is covering a wait that is not there.
 
-**Still not deleted, for a reason Lighthouse cannot measure.** 190 ms is the warm path. A cold Neon
-compute or a cross-region hop turns that into seconds, and the difference between a skeleton and a
-blank page is the whole of what a reader experiences then. The boundary is insurance against the
-slow path, priced at about five Lighthouse points on the fast one. Worth deciding deliberately —
-and worth knowing the price is those five points, not the layout shift.
+**Closed: kept, and now for a measured reason rather than a guess.** The first version of this
+paragraph argued the boundary was insurance against a cold Neon compute — plausible, untimed, and
+the fourth argument in a row about this file that nobody had checked. What settles it is that
+**Lighthouse as run here only ever performs a cold full-page load, and the skeleton exists for a
+navigation.**
+Entering `/w/[id]` from `/account` on a throttled connection, five runs each:
+
+| Entering the workspace | with `loading.tsx` | without  |
+| ---------------------- | ------------------ | -------- |
+| Progress bar appears   | 290 ms             | 285 ms   |
+| Destination commits    | **460 ms**         | 1,670 ms |
+| Content visible        | 2,150 ms           | 2,150 ms |
+
+Content arrives at the same moment either way; what differs is when the page that was clicked
+appears. The bar rises in both columns, so the boundary is not the difference between feedback and
+none — instrument it alongside `[aria-busy]` before re-running any of this, or the result reads
+"nothing on screen" and is wrong. Five Lighthouse points for 1.2 s on the destination rather than on
+the page left behind is a trade worth making, and
+[ADR 045](decisions/045-what-the-loading-skeleton-buys.md) records it at that size.
+`e2e/workspace-shell.spec.ts` guards it, falsified by deleting the file.
 
 The guard layout above it is unaffected either way: it exists so `notFound()` runs before the
 response flushes, which is a stronger position without a boundary below it, not a weaker one
 ([ADR 041](decisions/041-the-workspace-shell-is-a-layout.md)).
 
-Worth recording that the explanation for this gap has now been wrong three times: bundle weight for
-four milestones, then the footer, then this entry's own claim about what removing the boundary
-would cost. Each was replaced by a measurement rather than by a better argument.
+Worth recording that the explanation for this gap has now been wrong three times — bundle weight for
+four versions, then the footer, then this entry's own claim about what removing the boundary would
+cost — and that the reason for keeping the file was wrong a fourth. Every one of them was replaced
+by a measurement rather than by a better argument, and every one of them sounded right.
+
+## Switching conversations names nothing, 26 August 2026
+
+Measuring the loading boundary ([ADR 045](decisions/045-what-the-loading-skeleton-buys.md)) turned
+up a case nobody had looked at. `/w/[id]/c/1` → `/w/[id]/c/2` is the most frequent navigation in the
+app, and the loading skeleton never appears on it: `skeletonShown: 0` across ten runs, with the
+boundary and without it. React shows a Suspense fallback for a boundary being _mounted_, and that
+one is already mounted by the time the reader is inside the workspace — a transition updating it
+keeps the old subtree on screen by design.
+
+**A `loading.tsx` at `c/[chatId]` would fire, though**, which an earlier reading of this got wrong by
+reasoning instead of measuring. Next keys each `LoadingBoundary` by its router cache segment, so a
+boundary below the changing segment gets a new key per `chatId`, unmounts and remounts. Tried: it
+appears at 144–346 ms against a ~600 ms navigation, in four runs of five.
+
+That makes it an option rather than the answer. It replaces the transcript with a skeleton on every
+switch, and by this project's own argument for the workspace skeleton — that its value is naming
+_what_ is loading — blanking the conversation you can still read is the weaker trade at 600 ms.
+
+**It is not silent, though.** The progress bar
+([ADR 024](decisions/024-a-bar-for-the-gap-before-a-route-paints.md)) rises at ~300 ms against a
+~600 ms navigation, throttled to 400 ms latency and 4× CPU. Worth stating because a harness watching
+only for `[aria-busy]` reports this navigation as having no feedback whatsoever.
+
+So what is missing is narrow: the bar reports that a fetch is open, not _which_ conversation is
+opening. The clicked row does not mark itself, so on a slow connection two clicks in a row are
+indistinguishable. `useLinkStatus` (Next 15.3+) gives a link its own pending state and is the shape
+that fits — the list already owns the active-item styling.
+
+Small, and worth doing for the same reason the skeleton is worth five Lighthouse points: telling a
+reader _what_ is loading is a different message from telling them _that_ something is. Not urgent at
+600 ms on a warm local database.
