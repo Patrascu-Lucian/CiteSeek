@@ -9,6 +9,7 @@
   },
   "scripts": {
     "perf:bundle": "tsx scripts/measure-bundle.mts",
+    "perf:lighthouse": "tsx scripts/measure-lighthouse.mts",
     "perf:ttft": "tsx scripts/measure-ttft.mts",
     "prepare": "git config core.hooksPath .githooks || echo 'warning: git hooks not enabled (no .git directory?)'",
     "dev": "next dev",
