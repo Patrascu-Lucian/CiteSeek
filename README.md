@@ -648,9 +648,9 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 814   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
-| Integration | 174   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
-| E2E         | 139   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
+| Unit        | 879   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Integration | 198   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
+| E2E         | 149   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
 
