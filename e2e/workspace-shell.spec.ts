@@ -1,4 +1,5 @@
 import { hydrated } from "./hydration";
+import { watchFor } from "./watch-for";
 import { expect, test } from "./signed-in";
 
 /**
@@ -108,4 +109,85 @@ test("a new conversation appears in the list without a reload", async ({
   await expect(
     list.getByRole("link", { name: /untitled conversation/i }),
   ).toBeVisible();
+});
+
+/**
+ * Without `loading.tsx` the destination does not commit for 1.7 s — the reader
+ * waits on the page they left (ADR 045). Throttled because unthrottled the data
+ * lands in ~190 ms and the fallback window shuts before anything can observe it.
+ */
+test("entering the workspace shows the skeleton", async ({
+  page,
+  signedIn,
+}) => {
+  // In the body: at module scope it would slow every test in the file.
+  test.slow();
+
+  // Declined: answered from the router's cache, the click never suspends.
+  const served: string[] = [];
+
+  await page.route(
+    (url) => url.pathname.startsWith("/w/"),
+    async (route) => {
+      const headers = route.request().headers();
+      const prefetch =
+        headers["next-router-prefetch"] ??
+        headers["next-router-segment-prefetch"];
+
+      if (prefetch !== undefined) {
+        await route.abort();
+        return;
+      }
+
+      // Every `/w/` path: the cache is keyed by segment, so the Usage link warms
+      // the same `[workspaceId]` boundary.
+      served.push(new URL(route.request().url()).pathname);
+      await route.continue();
+    },
+  );
+
+  await page.goto("/account");
+  const link = page.getByRole("link", { name: "Workspace" }).first();
+  await expect(link).toBeVisible();
+  // An unhydrated link navigates as the browser, discarding the observer below.
+  await hydrated(page, 'header a[href^="/w/"]');
+
+  // The header sits in a layout above `/account`'s own boundary, so the link is
+  // clickable while that page still resolves. Before throttling, not after.
+  await expect(page.locator('main[aria-busy="true"]')).toHaveCount(0);
+
+  const cdp = await page.context().newCDPSession(page);
+  // Without this, `emulateNetworkConditions` is ignored and nothing throttles.
+  await cdp.send("Network.enable");
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+  await cdp.send("Network.emulateNetworkConditions", {
+    offline: false,
+    latency: 400,
+    downloadThroughput: (1.6 * 1024 * 1024) / 8,
+    uploadThroughput: (750 * 1024) / 8,
+  });
+
+  // This boundary by name. Four other routes render a busy `main`, and one added
+  // at `app/(app)/` would satisfy `aria-busy` with `loading.tsx` deleted.
+  const sawSkeleton = await watchFor(page, "main[data-workspace-skeleton]");
+
+  // Snapshot rather than a flag the handler reads late.
+  const early = [...served];
+  await link.click();
+  // ~2.2 s throttled, so the default 5 s would fail as if the skeleton had gone.
+  await expect(page.getByRole("heading", { name: "Documents" })).toBeVisible({
+    timeout: 20_000,
+  });
+  expect(page.url()).toContain(signedIn.workspaceId);
+
+  // A Next release that stops marking prefetches would warm the cache silently.
+  expect(
+    early,
+    "the workspace was fetched before the click, so the router cache was warm",
+  ).toEqual([]);
+
+  expect(
+    await sawSkeleton(),
+    "no loading skeleton rendered on the way into the workspace",
+  ).toBe(true);
 });
