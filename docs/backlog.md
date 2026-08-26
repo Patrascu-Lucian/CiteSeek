@@ -2169,3 +2169,22 @@ itself subject to the page's policy — what our CSP blocks is a script such an 
 into the main world, which is why the message quotes our policy. It appears only in a browser with
 that extension installed, which is why Lighthouse and a clean Playwright run see the Zod probe and
 not this one.
+
+## The landing page shifted once, 0.316, 26 August 2026
+
+Seen on a single `pnpm perf:lighthouse landing` run against production at v1.4.1: cumulative layout
+shift **0.316**, scoring 37. Three runs immediately after gave 0 and a performance score of 98, and
+every earlier measurement of that page gave 0 too.
+
+So it is intermittent, which is the same character the workspace route showed before its fix — 0 on
+one production run of three where local gave 0.324 three times out of three. Something about
+timing decides whether the shift lands inside the measured window.
+
+Not chased, because a single observation names no element. `perf:lighthouse` now prints the
+`layout-shift-elements` audit whenever CLS is non-zero, so the next occurrence identifies itself
+rather than costing a Lighthouse trace and twenty minutes. Worth acting on the first time a run
+reports an element; worth nothing before that.
+
+The suspects worth checking first, if it does recur: the hero graphic is `absolute` in the `sm`
+band and static above it, and the gradient behind the hero is sized from the section rather than
+from the document.
