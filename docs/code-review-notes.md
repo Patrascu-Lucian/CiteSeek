@@ -2603,3 +2603,26 @@ tests, 117 E2E and a production build, green.
   inference a confidence it never earned. The tell is a sentence that rules something out: ruling in
   needs evidence and everyone knows it, while ruling out slips past as tidying up. Every option this
   project has closed by argument has had to be reopened.
+
+## A reporter that unmounted before it could report, 27 August 2026
+
+- **Issue**: switching conversations left every other row disabled — permanently. Found by Lucian in
+  the first manual click, against 21 unit tests, 198 integration tests and 150 E2E, all green.
+
+- **Cause**: the pending flag comes from `useLinkStatus`, which reads the transition from the
+  `<Link>` above it, so a probe component has to sit inside each row's link and report upward. That
+  probe was rendered only on rows that were _not_ active — an optimization on the reasoning that the
+  active row can never be pending, since its click is `preventDefault`ed. True, and beside the
+  point: **the row being opened becomes the active row.** The probe unmounted at the moment the
+  navigation completed, so it never fired the effect that reports `pending: false`, and the id it
+  had set was never cleared.
+
+- **Fix**: render the probe on every row. The skip bought nothing — the active row cannot enter a
+  pending state anyway, which is the same fact that made it look safe to skip.
+
+- **Lesson**: **a component that reports on a lifecycle has to outlive the lifecycle it reports on.**
+  The shape to distrust is a render condition written in terms of the very state the child exists to
+  observe, because the transition that matters is the one that changes the condition. Every test
+  here rendered a fixed state and passed; catching it needed a rerender with a _different_
+  `activeChatId`, which is the transition itself. A green suite that only ever asserts still frames
+  says nothing about the moment between them.

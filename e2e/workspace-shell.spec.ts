@@ -1,6 +1,6 @@
 import { hydrated } from "./hydration";
 import { watchFor } from "./watch-for";
-import { expect, test } from "./signed-in";
+import { expect, test, type SignedIn } from "./signed-in";
 
 /**
  * The shell survives a conversation change (ADR 041).
@@ -12,12 +12,8 @@ import { expect, test } from "./signed-in";
 const CONVERSATION_LINK =
   "aside a, [aria-labelledby='conversations-heading'] a";
 
-test("switching conversations keeps the shell mounted", async ({
-  page,
-  signedIn,
-}) => {
-  const { sql, workspaceId, userId } = signedIn;
-
+/** "Conversation 1" is the more recent, so it is the one already open. */
+async function seedTwoConversations({ sql, workspaceId, userId }: SignedIn) {
   await sql`
     insert into documents (workspace_id, filename, mime_type, size_bytes, status, content_text, chunk_count)
     values (${workspaceId}, 'handbook.pdf', 'application/pdf', 2048, 'ready', repeat('x', 200), 3)`;
@@ -33,6 +29,15 @@ test("switching conversations keeps the shell mounted", async ({
       insert into messages (chat_id, position, role, content)
       values (${chat.id}, 0, 'user', ${`Question number ${index + 1}`})`;
   }
+}
+
+test("switching conversations keeps the shell mounted", async ({
+  page,
+  signedIn,
+}) => {
+  const { workspaceId } = signedIn;
+
+  await seedTwoConversations(signedIn);
 
   await page.goto(`/w/${workspaceId}`);
   await hydrated(page, CONVERSATION_LINK);
@@ -190,4 +195,67 @@ test("entering the workspace shows the skeleton", async ({
     await sawSkeleton(),
     "no loading skeleton rendered on the way into the workspace",
   ).toBe(true);
+});
+
+/**
+ * The skeleton never fires here — that boundary is already mounted (ADR 045).
+ * Throttled because the switch is ~600 ms warm and both states are gone before
+ * anything can observe them.
+ */
+test("names the conversation being opened", async ({ page, signedIn }) => {
+  test.slow();
+
+  const { workspaceId } = signedIn;
+  await seedTwoConversations(signedIn);
+
+  await page.goto(`/w/${workspaceId}`);
+  // An unhydrated link navigates as the browser, discarding the observers below.
+  await hydrated(page, CONVERSATION_LINK);
+
+  const opening = page.getByRole("link", { name: /Conversation 2/ });
+  const held = page.getByRole("link", { name: /Conversation 1/ });
+  // From the DOM: SQL does not promise the insert order matches `generate_series`.
+  const openingHref = (await opening.getAttribute("href"))!;
+  const heldHref = (await held.getAttribute("href"))!;
+
+  const cdp = await page.context().newCDPSession(page);
+  // Without this, `emulateNetworkConditions` is ignored and nothing throttles.
+  await cdp.send("Network.enable");
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+  await cdp.send("Network.emulateNetworkConditions", {
+    offline: false,
+    latency: 400,
+    downloadThroughput: (1.6 * 1024 * 1024) / 8,
+    uploadThroughput: (750 * 1024) / 8,
+  });
+
+  // Both scoped by href. "A row marked itself" would pass on an implementation
+  // that marks every row, which is the defect being fixed.
+  const sawOpening = await watchFor(
+    page,
+    `a[href="${openingHref}"][data-opening]`,
+  );
+  const sawHeld = await watchFor(
+    page,
+    `a[href="${heldHref}"][aria-disabled="true"]`,
+  );
+
+  await opening.click();
+  await expect(page.getByText("Question number 2")).toBeVisible({
+    timeout: 20_000,
+  });
+
+  expect(
+    await sawOpening(),
+    "the conversation that was clicked never marked itself as opening",
+  ).toBe(true);
+  expect(
+    await sawHeld(),
+    "the other conversation stayed a live destination while one was opening",
+  ).toBe(true);
+
+  // Held back for good if the probe unmounts as its row becomes the active one.
+  await expect(
+    page.locator('[aria-labelledby="conversations-heading"] a[aria-disabled]'),
+  ).toHaveCount(0);
 });
