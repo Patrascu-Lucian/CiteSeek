@@ -2260,7 +2260,7 @@ four versions, then the footer, then this entry's own claim about what removing 
 cost — and that the reason for keeping the file was wrong a fourth. Every one of them was replaced
 by a measurement rather than by a better argument, and every one of them sounded right.
 
-## Switching conversations names nothing, 26 August 2026
+## ~~Switching conversations names nothing~~, 26 August 2026
 
 Measuring the loading boundary ([ADR 045](decisions/045-what-the-loading-skeleton-buys.md)) turned
 up a case nobody had looked at. `/w/[id]/c/1` → `/w/[id]/c/2` is the most frequent navigation in the
@@ -2291,3 +2291,26 @@ that fits — the list already owns the active-item styling.
 Small, and worth doing for the same reason the skeleton is worth five Lighthouse points: telling a
 reader _what_ is loading is a different message from telling them _that_ something is. Not urgent at
 600 ms on a warm local database.
+
+**Done.** The clicked row takes the selected look immediately and spins in place of its message
+icon; every other destination dims and the row controls close. `aria-busy` marks the one opening,
+`aria-disabled` the ones held back. `aria-current` is left alone until the navigation commits — the
+visual is optimistic, the semantics stay true.
+
+Selection had to _move_, not just be added. The outgoing row keeps `bg-muted font-medium` from
+`aria-current` until the navigation commits, so with the highlight merely added to the clicked row
+two rows read as chosen at once, and dimming the old one left it looking selected-but-disabled. The
+rule is now "while something is opening, that row owns the selected look".
+
+A **`loading.tsx` at `c/[chatId]`** was written, measured and deleted. It fires, but it cannot be
+delayed: a Suspense fallback shows the instant the boundary suspends. Thresholding it the way
+[ADR 024](decisions/024-a-bar-for-the-gap-before-a-route-paints.md) thresholds the bar would have
+meant lifting the pending id into a context and running a timer, and at the 600 ms measured here the
+skeleton would have appeared for ~300 ms and vanished — the flicker a threshold exists to prevent.
+Blanking a transcript the reader can still read was the weaker trade either way.
+
+- **Not extended to the header's Workspace link, deliberately.**
+  [ADR 045](decisions/045-what-the-loading-skeleton-buys.md) says the skeleton stops paying for
+  itself if the destination gets named on the way into the workspace. Putting `useLinkStatus` on
+  that link would do exactly that and would reopen the five points. A conversation row is a
+  different navigation; the header link is the one the ADR is about.

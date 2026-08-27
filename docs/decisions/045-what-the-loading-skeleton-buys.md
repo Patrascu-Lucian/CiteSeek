@@ -68,8 +68,15 @@ and a transition updating it keeps the old content on screen instead. The skelet
 entering the segment, not for moving inside it.
 
 It is not silent, though — the progress bar covers it, rising at ~300 ms against a ~600 ms
-navigation. What it lacks is anything identifying _which_ conversation is being opened, which is a
-narrower gap than "no feedback" and is what `docs/backlog.md` carries.
+navigation. What it lacks is anything identifying _which_ conversation is being opened.
+
+↳ **Amended, 27 August 2026.** That gap is now closed, and it does not trigger the reversal below.
+The conversation list marks the row being opened and dims the others, so the switch names its
+destination. The condition in _Consequences_ is about the **progress bar** naming a destination on
+the way _into_ the workspace, which is the navigation this decision was measured on. A row naming
+itself inside the workspace is a different surface and a different navigation, and the boundary
+still buys the 1.2 s it was kept for. Putting `useLinkStatus` on the header's Workspace link
+**would** trigger it, which is why that was left alone.
 
 ## Consequences
 

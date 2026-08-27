@@ -1,7 +1,7 @@
-import { useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import Link, { useLinkStatus } from "next/link";
 import { useRouter } from "next/navigation";
-import { MessageSquare, Pencil, Trash2 } from "lucide-react";
+import { Loader2, MessageSquare, Pencil, Trash2 } from "lucide-react";
 
 import {
   AlertDialog,
@@ -44,7 +44,16 @@ export function ConversationList({
   const router = useRouter();
   const [renaming, setRenaming] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const trackOpening = useCallback((chatId: string, pending: boolean) => {
+    // Only the row that set it may clear it, or a link settling after a second
+    // click erases the newer one.
+    setOpeningId((current) =>
+      pending ? chatId : current === chatId ? null : current,
+    );
+  }, []);
 
   async function send(chatId: string, init: RequestInit) {
     setBusyId(chatId);
@@ -113,6 +122,13 @@ export function ConversationList({
       <ul className="space-y-1">
         {chats.map((chat) => {
           const isActive = chat.id === activeChatId;
+          const isOpening = openingId === chat.id;
+          const isWaiting = openingId !== null && !isOpening;
+          // Selection follows the click, not the URL, so the row being left drops
+          // it rather than competing. `aria-current` stays put until it commits.
+          const looksSelected = openingId === null ? isActive : isOpening;
+          // Including the row being opened: it is about to be replaced.
+          const locked = busyId === chat.id || openingId !== null;
           const label = chat.title ?? "Untitled conversation";
 
           return (
@@ -129,17 +145,38 @@ export function ConversationList({
                   <Link
                     href={`/w/${workspaceId}/c/${chat.id}`}
                     aria-current={isActive ? "page" : undefined}
+                    aria-busy={isOpening || undefined}
+                    aria-disabled={isWaiting || undefined}
+                    data-opening={isOpening ? "" : undefined}
+                    // Nothing to do: the reader is already here.
+                    onClick={
+                      isActive ? (event) => event.preventDefault() : undefined
+                    }
                     className={cn(
                       "focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
-                      isActive
+                      looksSelected
                         ? "bg-muted text-foreground font-medium"
                         : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                      isWaiting && "pointer-events-none opacity-50",
                     )}
                   >
-                    <MessageSquare
-                      aria-hidden="true"
-                      className="size-4 shrink-0"
-                    />
+                    {/* On every row, including the active one: the row being
+                        opened becomes the active row, and a probe unmounted at
+                        that moment never reports the navigation finishing. */}
+                    <OpeningProbe chatId={chat.id} onChange={trackOpening} />
+
+                    {/* In the icon's box, not beside it: the row keeps its size. */}
+                    {isOpening ? (
+                      <Loader2
+                        aria-hidden="true"
+                        className="size-4 shrink-0 animate-spin"
+                      />
+                    ) : (
+                      <MessageSquare
+                        aria-hidden="true"
+                        className="size-4 shrink-0"
+                      />
+                    )}
                     <span className="truncate">{label}</span>
                     <span className="text-muted-foreground ml-auto shrink-0 text-xs">
                       {chat.messageCount}
@@ -156,7 +193,7 @@ export function ConversationList({
                     variant="ghost"
                     size="icon-sm"
                     aria-label={`Rename ${label}`}
-                    disabled={busyId === chat.id}
+                    disabled={locked}
                     onClick={() => setRenaming(chat.id)}
                   >
                     <Pencil aria-hidden="true" className="size-4" />
@@ -164,7 +201,7 @@ export function ConversationList({
                   <DeleteConversation
                     label={label}
                     messageCount={chat.messageCount}
-                    busy={busyId === chat.id}
+                    busy={locked}
                     onConfirm={() => void remove(chat.id)}
                   />
                 </div>
@@ -175,6 +212,25 @@ export function ConversationList({
       </ul>
     </div>
   );
+}
+
+/** `useLinkStatus` reads the transition from the `<Link>` above it, so it cannot
+ * be called where the list holds its state — the property that kept it out of the
+ * progress bar (ADR 024). Reports upward instead. */
+function OpeningProbe({
+  chatId,
+  onChange,
+}: {
+  chatId: string;
+  onChange: (chatId: string, pending: boolean) => void;
+}) {
+  const { pending } = useLinkStatus();
+
+  useEffect(() => {
+    onChange(chatId, pending);
+  }, [chatId, pending, onChange]);
+
+  return null;
 }
 
 /**
