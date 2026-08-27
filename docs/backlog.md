@@ -2314,3 +2314,32 @@ Blanking a transcript the reader can still read was the weaker trade either way.
   itself if the destination gets named on the way into the workspace. Putting `useLinkStatus` on
   that link would do exactly that and would reopen the five points. A conversation row is a
   different navigation; the header link is the one the ADR is about.
+
+## A unit flake with no name, and nothing to absorb it, 27 August 2026
+
+One `pnpm test:coverage` run failed a single test out of 886 while the conversation-switch work was
+being finished. **Which test is not recorded**: the output was piped through `grep` for the summary
+line, so the failing name scrolled past with everything else. Not reproduced since — fifteen runs of
+the file most likely to hold it (`components/chat/conversation-list.test.tsx`, the one being written
+at the time) and four full coverage runs, all green.
+
+The incident is thin. What it exposed is not.
+
+**The unit suite has nothing to absorb a flake.** `vitest.config.ts` sets no `retry`, and `verify`
+runs `pnpm test:coverage` once, with no rerun and no `continue-on-error`. Playwright is configured
+the other way — `retries: process.env.CI ? 2 : 0` — so an E2E flake costs a retry and a unit flake
+costs the pull request. `e2e` also declares `needs: verify`, so one unlucky unit test stops the
+browser suite from running at all.
+
+**The fix is not `retry: 2` on vitest.** That buys green pull requests by discarding the evidence,
+which is the trade this project refuses everywhere else. What is missing is the ability to _name_ a
+failure when it happens: CI prints to a log nobody keeps, and locally the output was thrown away by
+the same command that checked it. A second reporter writing a file per run would fix that, and the
+flags matter — `--reporter=default --reporter=junit --outputFile=…`, because the junit reporter
+writes to stdout without `outputFile` and would land in the same discarded stream. Upload it under
+`if: ${{ !cancelled() }}`, which is what the `playwright-report` step already uses: that keeps the
+artifact on a pass as well as a fail, and `failure()` would drop it on a cancelled run — the case
+where a hang is exactly what you wanted to read.
+
+Worth doing before the next one rather than after, because a second sighting is only worth something
+if it can be compared with the first.
