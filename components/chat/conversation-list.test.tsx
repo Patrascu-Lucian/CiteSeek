@@ -53,18 +53,24 @@ afterEach(() => {
   opening.href = null;
 });
 
-/** `userEvent.click` returns nothing, and the event is what is being asserted. */
-async function clickAndCapture(element: HTMLElement) {
+/** `userEvent` returns nothing, and the event is what is being asserted. Both
+ * routes end in a click, which is what makes one `onClick` cover them. */
+async function activate(element: HTMLElement, by: "mouse" | "keyboard") {
   let seen: MouseEvent | null = null;
   const capture = (event: MouseEvent) => {
     seen = event;
   };
 
   element.addEventListener("click", capture);
-  await userEvent.click(element);
+  if (by === "keyboard") {
+    element.focus();
+    await userEvent.keyboard("{Enter}");
+  } else {
+    await userEvent.click(element);
+  }
   element.removeEventListener("click", capture);
 
-  if (seen === null) throw new Error("The click never reached the element.");
+  if (seen === null) throw new Error(`No click arrived by ${by}.`);
   return seen as MouseEvent;
 }
 
@@ -116,6 +122,17 @@ function renderList(activeChatId: string | null = "chat-1") {
           workspaceId="w1"
           chats={chats}
           activeChatId={chatId}
+          onChanged={onChanged}
+        />,
+      );
+    },
+    /** A refresh that returns a shorter list, with the navigation still open. */
+    withChats: (next: typeof chats) => {
+      rerender(
+        <ConversationList
+          workspaceId="w1"
+          chats={next}
+          activeChatId={activeChatId}
           onChanged={onChanged}
         />,
       );
@@ -234,6 +251,32 @@ describe("ConversationList", () => {
     ).toBeEnabled();
   });
 
+  it("refuses a keyboard activation on a row held back", async () => {
+    // No active row, or the guard on re-clicking the open one would mask this.
+    opening.href = "/w/w1/c/chat-2";
+    renderList(null);
+
+    const held = screen.getByRole("link", { name: /expenses policy/i });
+    const click = await activate(held, "keyboard");
+
+    expect(click.defaultPrevented).toBe(true);
+  });
+
+  it("releases the list when the opening row leaves before it arrives", () => {
+    // Its flag outlived it, holding every row disabled with nothing to clear it.
+    opening.href = "/w/w1/c/chat-2";
+    const { withChats } = renderList("chat-1");
+
+    withChats(chats.filter((chat) => chat.id !== "chat-2"));
+
+    expect(
+      screen.getByRole("link", { name: /expenses policy/i }),
+    ).not.toHaveAttribute("aria-disabled");
+    expect(
+      screen.getByRole("button", { name: "Rename Expenses policy" }),
+    ).toBeEnabled();
+  });
+
   it("leaves every row live when nothing is opening", () => {
     renderList();
 
@@ -247,7 +290,7 @@ describe("ConversationList", () => {
     renderList("chat-2");
 
     const open = screen.getByRole("link", { name: /untitled conversation/i });
-    const click = await clickAndCapture(open);
+    const click = await activate(open, "mouse");
 
     expect(click.defaultPrevented).toBe(true);
   });

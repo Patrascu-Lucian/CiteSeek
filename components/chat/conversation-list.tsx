@@ -148,9 +148,13 @@ export function ConversationList({
                     aria-busy={isOpening || undefined}
                     aria-disabled={isWaiting || undefined}
                     data-opening={isOpening ? "" : undefined}
-                    // Nothing to do: the reader is already here.
+                    // The boundary. `aria-disabled` is advisory and
+                    // `pointer-events-none` stops only the mouse, so Tab and a
+                    // virtual click reach a held-back row.
                     onClick={
-                      isActive ? (event) => event.preventDefault() : undefined
+                      isActive || isWaiting
+                        ? (event) => event.preventDefault()
+                        : undefined
                     }
                     className={cn(
                       "focus-visible:ring-ring flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
@@ -228,6 +232,9 @@ function OpeningProbe({
 
   useEffect(() => {
     onChange(chatId, pending);
+    // A row can leave mid-navigation — `chats` shrinks on a refresh — and the
+    // flag it set would hold the list disabled with nothing left to clear it.
+    return () => onChange(chatId, false);
   }, [chatId, pending, onChange]);
 
   return null;

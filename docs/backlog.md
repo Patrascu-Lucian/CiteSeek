@@ -2309,19 +2309,32 @@ meant lifting the pending id into a context and running a timer, and at the 600 
 skeleton would have appeared for ~300 ms and vanished — the flicker a threshold exists to prevent.
 Blanking a transcript the reader can still read was the weaker trade either way.
 
+- **It announces nothing, deliberately — for now.** The spinner is `aria-hidden`, `aria-busy` on a
+  link is a global attribute assistive technology largely ignores, and `aria-current` stays on the
+  outgoing row on purpose. So the whole message travels visually. A polite live region would close
+  it — the pattern is one file away in `app/(app)/w/[workspaceId]/loading.tsx` — but it would speak
+  on every switch, which at ~600 ms is plausibly worse than silence, and a navigation already
+  changes what a screen reader is reading. Left undecided rather than built, because the way to
+  settle it is to hear it, not to reason about it.
+
+  One consequence to know before reopening: mid-transition the outgoing row is both
+  `aria-current="page"` and `aria-disabled="true"`, which reads as "current page, disabled". That
+  is accurate — it is still the current page, and it is no longer a destination — but it is the
+  kind of pairing worth having on paper before someone reads it as a bug.
+
 - **Not extended to the header's Workspace link, deliberately.**
   [ADR 045](decisions/045-what-the-loading-skeleton-buys.md) says the skeleton stops paying for
   itself if the destination gets named on the way into the workspace. Putting `useLinkStatus` on
   that link would do exactly that and would reopen the five points. A conversation row is a
   different navigation; the header link is the one the ADR is about.
 
-## A unit flake with no name, and nothing to absorb it, 27 August 2026
+## ~~A unit flake with no name, and nothing to absorb it~~, 27 August 2026
 
 One `pnpm test:coverage` run failed a single test out of 886 while the conversation-switch work was
 being finished. **Which test is not recorded**: the output was piped through `grep` for the summary
 line, so the failing name scrolled past with everything else. Not reproduced since — fifteen runs of
 the file most likely to hold it (`components/chat/conversation-list.test.tsx`, the one being written
-at the time) and four full coverage runs, all green.
+at the time — the wrong file, as it turned out) and four full coverage runs, all green.
 
 The incident is thin. What it exposed is not.
 
@@ -2337,17 +2350,29 @@ failure when it happens: CI prints to a log nobody keeps, and locally the output
 the same command that checked it.
 
 **Half of this is now done: the naming half.** Both vitest configs write a junit report beside the
-default reporter, and `ci.yml` uploads each under `if: ${{ !cancelled() }}` — the condition the
-`playwright-report` step already uses, which keeps the artifact on a pass as well as a fail.
-`failure()` was rejected: it also drops the file on a canceled run, which is when a hang is the
-thing worth reading. `outputFile` is not optional — without it the junit reporter prints to the same
-stream that lost the last one.
+default reporter, and `ci.yml` uploads each under `if: ${{ always() }}`. That condition was got wrong
+first: `!cancelled()` was chosen on the belief that it survives a cancelled run, and it does not —
+it skips there exactly as `failure()` does, and only `always()` runs. A job past `timeout-minutes` is
+cancelled, so the hang is precisely the run the first version would have thrown away. `outputFile` is
+not optional either — without it the junit reporter prints to the same stream that lost the last one.
+
+Playwright had to move for this to hold locally. Its `outputDir` defaults to `test-results/`, the
+directory it empties at the start of every run, so `pnpm test:e2e` deleted the report `pnpm test`
+had just written — this entry's own complaint, one command later. It writes to
+`test-results/playwright/` now.
 
 Falsified rather than assumed: a test was broken deliberately, the run's output sent to `/dev/null`,
 and the failing name read back out of the file alone. It reads
 `ConversationList > marks the conversation being opened, and only that one`.
 
-**Still open: the flake itself, and the absorbing half.** This one is unidentified and will stay
-that way — it predates the reporter. No retry has been added and none should be without a measured
-rate to justify it, which is what the next sighting now supplies. A second sighting is only worth
-something if it can be compared with the first, and now it can be.
+**And then it named the thing, on the first run that failed after it went in — which was not a
+flake.** `lib/usage/client-ip.test.ts > refuses to run without a secret rather than storing the
+address`, read straight out of the artifact. `hashClientIp(ip, secret = process.env.AUTH_SECRET)`
+takes the secret as a defaulted parameter, so passing `undefined` reads the environment rather than
+meaning "none". Any shell that exports `AUTH_SECRET` — every E2E command here does — turned that
+guard green without it holding. Deterministic in both directions once seen, which is exactly why it
+looked random: the runs that failed and the runs that passed were in different shells.
+
+The test now stubs the variable rather than assuming the shell lacks it. **No retry was added and
+none is needed** — the one sighting that started this entry was never a flake, and a retry would
+have hidden a guard that had quietly stopped guarding instead of surfacing it.

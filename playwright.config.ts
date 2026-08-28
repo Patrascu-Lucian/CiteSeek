@@ -8,6 +8,9 @@ const baseURL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  // Playwright empties `outputDir` each run and its default is `test-results/`,
+  // where the vitest reports land — so this was deleting them.
+  outputDir: "test-results/playwright",
   // Runs after `webServer` accepts connections, which is not the same as being
   // ready to answer — the first vector search is the cost. See the file.
   globalSetup: "./e2e/global-setup.ts",
