@@ -1,6 +1,6 @@
 {
   "name": "citeseek",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.17.0",
@@ -9,6 +9,7 @@
   },
   "scripts": {
     "perf:bundle": "tsx scripts/measure-bundle.mts",
+    "perf:lighthouse": "tsx scripts/measure-lighthouse.mts",
     "perf:ttft": "tsx scripts/measure-ttft.mts",
     "prepare": "git config core.hooksPath .githooks || echo 'warning: git hooks not enabled (no .git directory?)'",
     "dev": "next dev",

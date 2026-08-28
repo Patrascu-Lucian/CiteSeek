@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as NextLink from "next/link";
 
 import { MAX_TITLE_LENGTH } from "@/lib/chats/titles";
 
@@ -8,6 +9,36 @@ import { ConversationList } from "./conversation-list";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
+
+/** `useLinkStatus` takes no argument, so the fake `<Link>` publishes the href it
+ * matches on — without it a stub cannot tell one row from another. */
+const opening = vi.hoisted(() => ({ href: null as string | null }));
+
+vi.mock("next/link", async (importOriginal) => {
+  const actual = await importOriginal<typeof NextLink>();
+  const react = await import("react");
+  const Href = react.createContext<string>("");
+
+  return {
+    ...actual,
+    default: ({
+      href,
+      children,
+      ...rest
+    }: {
+      href: string;
+      children?: React.ReactNode;
+    } & Record<string, unknown>) =>
+      react.createElement(
+        Href.Provider,
+        { value: href },
+        react.createElement("a", { href, ...rest }, children),
+      ),
+    useLinkStatus: () => ({
+      pending: react.useContext(Href) === opening.href,
+    }),
+  };
+});
 
 const fetchMock = vi.fn();
 
@@ -17,7 +48,31 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  opening.href = null;
+});
+
+/** `userEvent` returns nothing, and the event is what is being asserted. Both
+ * routes end in a click, which is what makes one `onClick` cover them. */
+async function activate(element: HTMLElement, by: "mouse" | "keyboard") {
+  let seen: MouseEvent | null = null;
+  const capture = (event: MouseEvent) => {
+    seen = event;
+  };
+
+  element.addEventListener("click", capture);
+  if (by === "keyboard") {
+    element.focus();
+    await userEvent.keyboard("{Enter}");
+  } else {
+    await userEvent.click(element);
+  }
+  element.removeEventListener("click", capture);
+
+  if (seen === null) throw new Error(`No click arrived by ${by}.`);
+  return seen as MouseEvent;
+}
 
 /**
  * Deleting is behind a confirmation, so every delete in these tests goes through
@@ -49,7 +104,7 @@ const chats = [
 
 function renderList(activeChatId: string | null = "chat-1") {
   const onChanged = vi.fn();
-  render(
+  const { rerender } = render(
     <ConversationList
       workspaceId="w1"
       chats={chats}
@@ -57,7 +112,32 @@ function renderList(activeChatId: string | null = "chat-1") {
       onChanged={onChanged}
     />,
   );
-  return { onChanged };
+
+  return {
+    onChanged,
+    arriveAt: (chatId: string) => {
+      opening.href = null;
+      rerender(
+        <ConversationList
+          workspaceId="w1"
+          chats={chats}
+          activeChatId={chatId}
+          onChanged={onChanged}
+        />,
+      );
+    },
+    /** A refresh that returns a shorter list, with the navigation still open. */
+    withChats: (next: typeof chats) => {
+      rerender(
+        <ConversationList
+          workspaceId="w1"
+          chats={next}
+          activeChatId={activeChatId}
+          onChanged={onChanged}
+        />,
+      );
+    },
+  };
 }
 
 describe("ConversationList", () => {
@@ -101,6 +181,118 @@ describe("ConversationList", () => {
     expect(
       screen.getByRole("link", { name: /expenses policy/i }),
     ).not.toHaveAttribute("aria-current");
+  });
+
+  it("marks the conversation being opened, and only that one", () => {
+    opening.href = "/w/w1/c/chat-2";
+    renderList();
+
+    expect(
+      screen.getByRole("link", { name: /untitled conversation/i }),
+    ).toHaveAttribute("aria-busy", "true");
+    expect(
+      screen.getByRole("link", { name: /expenses policy/i }),
+    ).not.toHaveAttribute("aria-busy");
+
+    // Icons are `aria-hidden`, so the spinner has no accessible name to find it by.
+    expect(
+      screen
+        .getByRole("link", { name: /untitled conversation/i })
+        .querySelector(".animate-spin"),
+    ).not.toBeNull();
+  });
+
+  it("holds the other destinations back while one is opening", () => {
+    opening.href = "/w/w1/c/chat-2";
+    renderList();
+
+    expect(
+      screen.getByRole("link", { name: /expenses policy/i }),
+    ).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("hands the selected look to the row being opened", () => {
+    // Otherwise the row being left keeps it, and two rows read as chosen.
+    opening.href = "/w/w1/c/chat-2";
+    renderList("chat-1");
+
+    expect(
+      screen.getByRole("link", { name: /untitled conversation/i }),
+    ).toHaveClass("bg-muted");
+    expect(
+      screen.getByRole("link", { name: /expenses policy/i }),
+    ).not.toHaveClass("bg-muted");
+  });
+
+  it("holds the row controls back too", () => {
+    opening.href = "/w/w1/c/chat-2";
+    renderList();
+
+    expect(
+      screen.getByRole("button", { name: "Rename Expenses policy" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Delete Untitled conversation" }),
+    ).toBeDisabled();
+  });
+
+  it("releases the list once the conversation has opened", () => {
+    // A probe rendered only on inactive rows unmounts as its row becomes active.
+    opening.href = "/w/w1/c/chat-2";
+    const { arriveAt } = renderList("chat-1");
+
+    arriveAt("chat-2");
+
+    for (const link of screen.getAllByRole("link")) {
+      expect(link).not.toHaveAttribute("aria-disabled");
+    }
+    expect(
+      screen.getByRole("button", { name: "Rename Expenses policy" }),
+    ).toBeEnabled();
+  });
+
+  it("refuses a keyboard activation on a row held back", async () => {
+    // No active row, or the guard on re-clicking the open one would mask this.
+    opening.href = "/w/w1/c/chat-2";
+    renderList(null);
+
+    const held = screen.getByRole("link", { name: /expenses policy/i });
+    const click = await activate(held, "keyboard");
+
+    expect(click.defaultPrevented).toBe(true);
+  });
+
+  it("releases the list when the opening row leaves before it arrives", () => {
+    // Its flag outlived it, holding every row disabled with nothing to clear it.
+    opening.href = "/w/w1/c/chat-2";
+    const { withChats } = renderList("chat-1");
+
+    withChats(chats.filter((chat) => chat.id !== "chat-2"));
+
+    expect(
+      screen.getByRole("link", { name: /expenses policy/i }),
+    ).not.toHaveAttribute("aria-disabled");
+    expect(
+      screen.getByRole("button", { name: "Rename Expenses policy" }),
+    ).toBeEnabled();
+  });
+
+  it("leaves every row live when nothing is opening", () => {
+    renderList();
+
+    for (const link of screen.getAllByRole("link")) {
+      expect(link).not.toHaveAttribute("aria-busy");
+      expect(link).not.toHaveAttribute("aria-disabled");
+    }
+  });
+
+  it("does nothing when the open conversation is clicked again", async () => {
+    renderList("chat-2");
+
+    const open = screen.getByRole("link", { name: /untitled conversation/i });
+    const click = await activate(open, "mouse");
+
+    expect(click.defaultPrevented).toBe(true);
   });
 
   it("gives each row's controls a name that says which conversation", () => {

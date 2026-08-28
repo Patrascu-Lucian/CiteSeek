@@ -88,7 +88,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 89 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 95 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -410,12 +410,12 @@ points and the page is otherwise at its target. `layout-shift-elements` names a 
 
 **Fixed in v1.4.1 by reserving the conversation panel in the skeleton**, which had reserved the
 documents half only. Six lines of markup, against the bundle refactor it replaces — which would
-have traded the composer's interactivity for five points. Deployed, three runs:
+have traded the composer's interactivity for five points. Deployed:
 
-| `/w/[id]` guest, deployed | v1.4.0          | v1.4.1    |
-| ------------------------- | --------------- | --------- |
-| Cumulative layout shift   | 0, 0.324, 0.324 | **0 × 3** |
-| Performance, median       | 80              | **95**    |
+| `/w/[id]` guest, deployed | v1.4.0          | v1.4.1     |
+| ------------------------- | --------------- | ---------- |
+| Cumulative layout shift   | 0, 0.324, 0.324 | **0 × 15** |
+| Performance, median       | 80              | **95**     |
 
 Fifteen points, and the metric that carried a quarter of the weight now scores 100 — so the
 workspace route meets the 95 this project set as its bar, for the first time.
@@ -423,7 +423,7 @@ workspace route meets the 95 this project set as its bar, for the first time.
 Fifteen samples, five invocations of three: the median was **95 every time**, and cumulative layout
 shift was **0 in all fifteen**. Individual runs ranged 90 to 96, and that spread is entirely total
 blocking time between 100 ms and 150 ms — largest contentful paint held at 2.7 s throughout, which
-is what makes it the honest thing to point at next. It scores **84**, the only metric under 94.
+is what makes it the honest thing to point at next. It scores **84**, and nothing else fell below 94.
 
 Measured with `pnpm perf:lighthouse`, which pins its Lighthouse version because scores move between
 releases. The figure does depend on the connection it is taken over: the same build over a busier
@@ -468,8 +468,26 @@ The workspace page reaches the Lighthouse 95 this project set as its bar, as the
 in five consecutive invocations.
 It scored 80 at v1.4.0. Deferring chat
 hydration — the reason recorded here for four milestones — was never what bound it; a footer
-positioned by content height was, and six lines of skeleton markup closed it. What is left is
-largest contentful paint at 2.7 s.
+positioned by content height was, and six lines of skeleton markup closed it.
+
+What is left is largest contentful paint at 2.7 s, and it is the skeleton's own price. Lighthouse
+splits it as 636 ms to first byte and **2,100 ms of render delay**, with nothing spent fetching —
+the element is text, and `curl` has the whole document 25 ms after the first byte. `loading.tsx`
+makes the segment a Suspense boundary, so the skeleton paints at 0.9 s while the real content
+arrives inside `<div hidden>` and waits for React's swap script, on a CPU throttled 4×. First
+paint and largest paint are in tension here by construction: this route spends 0.9 s to get 2.7 s.
+Measured locally with the boundary removed, every metric improves — performance 87 → 92 — and
+layout shift stays at 0, so the skeleton is covering a wait of about 190 ms that is not there on
+the warm path.
+
+**It is kept anyway, and the reason is a number this measurement does not take.** Lighthouse as run
+here only ever performs a cold full-page load; the skeleton exists for a navigation. Entering the
+workspace from `/account` on a connection throttled to 400 ms latency and 4× CPU, five runs each,
+the content appears at ~2,150 ms either way — but the destination commits at **460 ms** with the
+boundary and **1,670 ms** without it. The progress bar rises at ~290 ms in both cases, so the
+difference is not feedback against none: it is 1.2 s spent on the page you asked for rather than
+the page you left. Five Lighthouse points for that, deliberately and by a margin worth naming
+([ADR 045](docs/decisions/045-what-the-loading-skeleton-buys.md)).
 
 **Half the ungrounded questions still reach the model.** The relevance threshold is now measured
 rather than guessed ([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what
@@ -637,9 +655,9 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 814   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
-| Integration | 174   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
-| E2E         | 139   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
+| Unit        | 888   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Integration | 198   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
+| E2E         | 150   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
 

@@ -2169,3 +2169,210 @@ itself subject to the page's policy — what our CSP blocks is a script such an 
 into the main world, which is why the message quotes our policy. It appears only in a browser with
 that extension installed, which is why Lighthouse and a clean Playwright run see the Zod probe and
 not this one.
+
+## The landing page shifted once, 0.316, 26 August 2026
+
+Seen on a single `pnpm perf:lighthouse landing` run against production at v1.4.1: cumulative layout
+shift **0.316**, scoring 37. Three runs immediately after gave 0 and a performance score of 98, and
+every earlier measurement of that page gave 0 too.
+
+So it is intermittent, which is the same character the workspace route showed before its fix — 0 on
+one production run of three where local gave 0.324 three times out of three. Something about
+timing decides whether the shift lands inside the measured window.
+
+Not chased, because a single observation names no element. `perf:lighthouse` now prints the
+`layout-shift-elements` audit whenever CLS is non-zero, so the next occurrence identifies itself
+rather than costing a Lighthouse trace and twenty minutes. Worth acting on the first time a run
+reports an element; worth nothing before that.
+
+The suspects worth checking first, if it does recur: the hero graphic is `absolute` in the `sm`
+band and static above it, and the gradient behind the hero is sized from the section rather than
+from the document.
+
+## ~~The skeleton buys first paint and pays for it in largest paint~~, 26 August 2026
+
+After the footer fix, largest contentful paint is the only metric on `/w/[id]` below 94 — it scores
+**84 at 2.7 s**, holding there across every sample while everything else sits at 94 or above.
+The README points at it as the next target. This is what it is.
+
+Lighthouse's phase breakdown: **TTFB 636 ms, load delay 0, load time 0, render delay 2,100 ms**.
+Load delay and load time at zero mean the element is text rather than a resource — it is the chat
+panel's empty state, _"Answers cite the passages they come from, so you can check them."_ Nothing is
+waiting on the server either: unthrottled, `curl` has the complete document 25 ms after the first
+byte. That is a different network from the throttled run above and settles nothing about it on its
+own — the zeros do that — but it rules out the backend as a place to look.
+
+**It is React's streaming swap.** `loading.tsx` makes the segment a Suspense boundary, so the
+skeleton is sent first and paints — that is the 0.9 s first contentful paint. The real content
+follows in the same response inside `<div hidden id="S:0">`, and a `$RC(` script moves it into
+place. Verified in the served HTML: the empty-state text sits inside that hidden div, and the one
+`$RC(` call in the document comes after it. Hidden content cannot paint, so LCP waits on a script,
+and under 4× CPU throttling it waits behind the rest of the page's JavaScript.
+
+So the skeleton buys first paint and pays for it in largest paint. The two metrics are in tension
+by construction, and this route currently spends 0.9 s to get 2.7 s.
+
+**Deleting `loading.tsx` was assumed to cost the zero layout shift. It does not.** A review argued
+the cost was misnamed, and measuring settled it — three runs each against one local production
+build, boundary present and absent:
+
+| `/w/[id]` guest, local   | with `loading.tsx` | without    |
+| ------------------------ | ------------------ | ---------- |
+| Performance, median      | 87                 | **92**     |
+| First contentful paint   | 1.0 s              | **0.8 s**  |
+| Largest contentful paint | 3.8 s              | **3.3 s**  |
+| Cumulative layout shift  | 0                  | **0**      |
+| Total blocking time      | 130 ms             | **100 ms** |
+| Speed index              | 1.0 s              | **0.8 s**  |
+
+Better on every metric, including the two the boundary is supposed to buy. Layout shift stays at 0
+because without the boundary nothing streams in late: the document arrives complete, and the footer
+is in its final place at first paint. First paint does not suffer either, because the data behind
+this route takes about 190 ms — the skeleton is covering a wait that is not there.
+
+**Closed: kept, and now for a measured reason rather than a guess.** The first version of this
+paragraph argued the boundary was insurance against a cold Neon compute — plausible, untimed, and
+the fourth argument in a row about this file that nobody had checked. What settles it is that
+**Lighthouse as run here only ever performs a cold full-page load, and the skeleton exists for a
+navigation.**
+Entering `/w/[id]` from `/account` on a throttled connection, five runs each:
+
+| Entering the workspace | with `loading.tsx` | without  |
+| ---------------------- | ------------------ | -------- |
+| Progress bar appears   | 290 ms             | 285 ms   |
+| Destination commits    | **460 ms**         | 1,670 ms |
+| Content visible        | 2,150 ms           | 2,150 ms |
+
+Content arrives at the same moment either way; what differs is when the page that was clicked
+appears. The bar rises in both columns, so the boundary is not the difference between feedback and
+none — instrument it alongside `[aria-busy]` before re-running any of this, or the result reads
+"nothing on screen" and is wrong. Five Lighthouse points for 1.2 s on the destination rather than on
+the page left behind is a trade worth making, and
+[ADR 045](decisions/045-what-the-loading-skeleton-buys.md) records it at that size.
+`e2e/workspace-shell.spec.ts` guards it, falsified by deleting the file.
+
+The guard layout above it is unaffected either way: it exists so `notFound()` runs before the
+response flushes, which is a stronger position without a boundary below it, not a weaker one
+([ADR 041](decisions/041-the-workspace-shell-is-a-layout.md)).
+
+Worth recording that the explanation for this gap has now been wrong three times — bundle weight for
+four versions, then the footer, then this entry's own claim about what removing the boundary would
+cost — and that the reason for keeping the file was wrong a fourth. Every one of them was replaced
+by a measurement rather than by a better argument, and every one of them sounded right.
+
+## ~~Switching conversations names nothing~~, 26 August 2026
+
+Measuring the loading boundary ([ADR 045](decisions/045-what-the-loading-skeleton-buys.md)) turned
+up a case nobody had looked at. `/w/[id]/c/1` → `/w/[id]/c/2` is the most frequent navigation in the
+app, and the loading skeleton never appears on it: `skeletonShown: 0` across ten runs, with the
+boundary and without it. React shows a Suspense fallback for a boundary being _mounted_, and that
+one is already mounted by the time the reader is inside the workspace — a transition updating it
+keeps the old subtree on screen by design.
+
+**A `loading.tsx` at `c/[chatId]` would fire, though**, which an earlier reading of this got wrong by
+reasoning instead of measuring. Next keys each `LoadingBoundary` by its router cache segment, so a
+boundary below the changing segment gets a new key per `chatId`, unmounts and remounts. Tried: it
+appears at 144–346 ms against a ~600 ms navigation, in four runs of five.
+
+That makes it an option rather than the answer. It replaces the transcript with a skeleton on every
+switch, and by this project's own argument for the workspace skeleton — that its value is naming
+_what_ is loading — blanking the conversation you can still read is the weaker trade at 600 ms.
+
+**It is not silent, though.** The progress bar
+([ADR 024](decisions/024-a-bar-for-the-gap-before-a-route-paints.md)) rises at ~300 ms against a
+~600 ms navigation, throttled to 400 ms latency and 4× CPU. Worth stating because a harness watching
+only for `[aria-busy]` reports this navigation as having no feedback whatsoever.
+
+So what is missing is narrow: the bar reports that a fetch is open, not _which_ conversation is
+opening. The clicked row does not mark itself, so on a slow connection two clicks in a row are
+indistinguishable. `useLinkStatus` (Next 15.3+) gives a link its own pending state and is the shape
+that fits — the list already owns the active-item styling.
+
+Small, and worth doing for the same reason the skeleton is worth five Lighthouse points: telling a
+reader _what_ is loading is a different message from telling them _that_ something is. Not urgent at
+600 ms on a warm local database.
+
+**Done.** The clicked row takes the selected look immediately and spins in place of its message
+icon; every other destination dims and the row controls close. `aria-busy` marks the one opening,
+`aria-disabled` the ones held back. `aria-current` is left alone until the navigation commits — the
+visual is optimistic, the semantics stay true.
+
+Selection had to _move_, not just be added. The outgoing row keeps `bg-muted font-medium` from
+`aria-current` until the navigation commits, so with the highlight merely added to the clicked row
+two rows read as chosen at once, and dimming the old one left it looking selected-but-disabled. The
+rule is now "while something is opening, that row owns the selected look".
+
+A **`loading.tsx` at `c/[chatId]`** was written, measured and deleted. It fires, but it cannot be
+delayed: a Suspense fallback shows the instant the boundary suspends. Thresholding it the way
+[ADR 024](decisions/024-a-bar-for-the-gap-before-a-route-paints.md) thresholds the bar would have
+meant lifting the pending id into a context and running a timer, and at the 600 ms measured here the
+skeleton would have appeared for ~300 ms and vanished — the flicker a threshold exists to prevent.
+Blanking a transcript the reader can still read was the weaker trade either way.
+
+- **It announces nothing, deliberately — for now.** The spinner is `aria-hidden`, `aria-busy` on a
+  link is a global attribute assistive technology largely ignores, and `aria-current` stays on the
+  outgoing row on purpose. So the whole message travels visually. A polite live region would close
+  it — the pattern is one file away in `app/(app)/w/[workspaceId]/loading.tsx` — but it would speak
+  on every switch, which at ~600 ms is plausibly worse than silence, and a navigation already
+  changes what a screen reader is reading. Left undecided rather than built, because the way to
+  settle it is to hear it, not to reason about it.
+
+  One consequence to know before reopening: mid-transition the outgoing row is both
+  `aria-current="page"` and `aria-disabled="true"`, which reads as "current page, disabled". That
+  is accurate — it is still the current page, and it is no longer a destination — but it is the
+  kind of pairing worth having on paper before someone reads it as a bug.
+
+- **Not extended to the header's Workspace link, deliberately.**
+  [ADR 045](decisions/045-what-the-loading-skeleton-buys.md) says the skeleton stops paying for
+  itself if the destination gets named on the way into the workspace. Putting `useLinkStatus` on
+  that link would do exactly that and would reopen the five points. A conversation row is a
+  different navigation; the header link is the one the ADR is about.
+
+## ~~A unit flake with no name, and nothing to absorb it~~, 27 August 2026
+
+One `pnpm test:coverage` run failed a single test out of 886 while the conversation-switch work was
+being finished. **Which test is not recorded**: the output was piped through `grep` for the summary
+line, so the failing name scrolled past with everything else. Not reproduced since — fifteen runs of
+the file most likely to hold it (`components/chat/conversation-list.test.tsx`, the one being written
+at the time — the wrong file, as it turned out) and four full coverage runs, all green.
+
+The incident is thin. What it exposed is not.
+
+**The unit suite has nothing to absorb a flake.** `vitest.config.ts` sets no `retry`, and `verify`
+runs `pnpm test:coverage` once, with no rerun and no `continue-on-error`. Playwright is configured
+the other way — `retries: process.env.CI ? 2 : 0` — so an E2E flake costs a retry and a unit flake
+costs the pull request. `e2e` also declares `needs: verify`, so one unlucky unit test stops the
+browser suite from running at all.
+
+**The fix is not `retry: 2` on vitest.** That buys green pull requests by discarding the evidence,
+which is the trade this project refuses everywhere else. What was missing is the ability to _name_ a
+failure when it happens: CI prints to a log nobody keeps, and locally the output was thrown away by
+the same command that checked it.
+
+**Half of this is now done: the naming half.** Both vitest configs write a junit report beside the
+default reporter, and `ci.yml` uploads each under `if: ${{ always() }}`. That condition was got wrong
+first: `!cancelled()` was chosen on the belief that it survives a cancelled run, and it does not —
+it skips there exactly as `failure()` does, and only `always()` runs. A job past `timeout-minutes` is
+cancelled, so the hang is precisely the run the first version would have thrown away. `outputFile` is
+not optional either — without it the junit reporter prints to the same stream that lost the last one.
+
+Playwright had to move for this to hold locally. Its `outputDir` defaults to `test-results/`, the
+directory it empties at the start of every run, so `pnpm test:e2e` deleted the report `pnpm test`
+had just written — this entry's own complaint, one command later. It writes to
+`test-results/playwright/` now.
+
+Falsified rather than assumed: a test was broken deliberately, the run's output sent to `/dev/null`,
+and the failing name read back out of the file alone. It reads
+`ConversationList > marks the conversation being opened, and only that one`.
+
+**And then it named the thing, on the first run that failed after it went in — which was not a
+flake.** `lib/usage/client-ip.test.ts > refuses to run without a secret rather than storing the
+address`, read straight out of the artifact. `hashClientIp(ip, secret = process.env.AUTH_SECRET)`
+takes the secret as a defaulted parameter, so passing `undefined` reads the environment rather than
+meaning "none". Any shell that exports `AUTH_SECRET` — every E2E command here does — turned that
+guard green without it holding. Deterministic in both directions once seen, which is exactly why it
+looked random: the runs that failed and the runs that passed were in different shells.
+
+The test now stubs the variable rather than assuming the shell lacks it. **No retry was added and
+none is needed** — the one sighting that started this entry was never a flake, and a retry would
+have hidden a guard that had quietly stopped guarding instead of surfacing it.

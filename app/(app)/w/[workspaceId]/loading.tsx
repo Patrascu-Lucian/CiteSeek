@@ -4,8 +4,15 @@ import { pageShell } from "@/components/ui/page-shell";
  * moving to ~900px: CLS 0.324, a quarter of this route's Lighthouse score. The
  * conversation block is a stand-in for that height, not for the panel. */
 export default function WorkspaceLoading() {
+  // Read by `e2e/workspace-shell.spec.ts`: four other routes render a busy
+  // `main`, so `aria-busy` cannot name this one.
   return (
-    <main id="main" className={pageShell("5xl", "flex-1")} aria-busy="true">
+    <main
+      id="main"
+      className={pageShell("5xl", "flex-1")}
+      aria-busy="true"
+      data-workspace-skeleton=""
+    >
       <p role="status" className="sr-only">
         Loading workspace…
       </p>
