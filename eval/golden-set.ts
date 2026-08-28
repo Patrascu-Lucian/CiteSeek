@@ -354,3 +354,68 @@ export const FOLLOW_UP_SET: readonly FollowUpCase[] = [
     ],
   },
 ];
+
+/** Separate again: these expect something of the *answer*, which nothing else
+ * here does. */
+export type LocalAnswerCase = {
+  question: string;
+  /** The passage the model is handed. Retrieval is not what this measures. */
+  expect: readonly Expectation[];
+  /** Acceptable spellings of the fact. A floor, not a grade — it cannot tell a
+   * value from a negated one, so yes/no questions do not belong here. */
+  answerContains: readonly string[];
+};
+
+/** Answers that are one specific value — where the local model was seen failing:
+ * a marker where a number belongs, or the wrong number (`docs/backlog.md`). */
+export const LOCAL_ANSWER_SET: readonly LocalAnswerCase[] = [
+  {
+    question: "How quickly does someone get back to me if everything is down?",
+    expect: [
+      { file: SUPPORT, quote: "30 minutes for Severity 1, two hours for" },
+    ],
+    answerContains: ["30 minutes", "30-minute"],
+  },
+  {
+    question: "How long do you keep whatever I attach to a ticket?",
+    expect: [{ file: SUPPORT, quote: "90 days after closure" }],
+    answerContains: ["90 days"],
+  },
+  {
+    question: "How much warning do I need to give before it renews?",
+    expect: [
+      { file: SUPPORT, quote: "unless cancelled 30 days before the renewal" },
+    ],
+    answerContains: ["30 days"],
+  },
+  {
+    question: "What do I get back if you miss a target?",
+    expect: [{ file: SUPPORT, quote: "credits 5% of the monthly fee" }],
+    answerContains: ["5%", "5 percent"],
+  },
+  {
+    question: "The boiler died in January. How fast should someone come?",
+    expect: [
+      {
+        file: TENANCY,
+        quote: "Emergency repairs are attended within 24 hours",
+      },
+    ],
+    answerContains: ["24 hours"],
+  },
+  {
+    question: "How much notice do I give to move out?",
+    expect: [{ file: TENANCY, quote: "the landlord gives two months'" }],
+    answerContains: ["two months", "2 months"],
+  },
+  {
+    question: "How much do I have to hand over at the start?",
+    expect: [{ file: TENANCY, quote: "The deposit is five weeks' rent" }],
+    answerContains: ["five weeks", "5 weeks"],
+  },
+  {
+    question: "What hours is the standard plan covered?",
+    expect: [{ file: SUPPORT, quote: "covered 09:00 to 18:00" }],
+    answerContains: ["09:00", "9:00"],
+  },
+];

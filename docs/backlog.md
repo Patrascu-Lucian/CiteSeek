@@ -1347,6 +1347,38 @@ The last of those is fixed ([ADR 033](decisions/033-answering-locally.md)); the 
 the model. Note the shape: it answers correctly only when the question already contains the
 answer, which is the signature of a model doing pattern completion rather than reading.
 
+**Step 1 is done, 28 August 2026: `pnpm eval:local-answers`.** Eight questions whose answer is one
+specific value, the correct passage handed to the model rather than retrieved, so a wrong answer is
+the model's. No provider and no database — free to run, minutes to finish.
+
+**4/8 grounded, 0/8 cited**, and the transcripts are in `eval/local-answers.md`. Two things the
+number alone does not carry:
+
+- The wrong answers are not vague, they are confidently wrong. "Emergency repairs are attended within
+  24 **days**" where the document says hours; "there is no specific number of days mentioned in the
+  passage" where it says 30; the deposit answered correctly and then explained as rent "multiplied by
+  the number of days available for registration", which is arithmetic on nothing.
+- The right answers are mostly the passage read back. "30 minutes for Severity 1, two hours for
+  Severity 2…" is the sentence itself. That is consistent with the pattern-completion reading above
+  rather than against it.
+
+**0/8 cited is the surprise, and it is confounded.** ADR 033 records the worked example fixing marker
+emission, measured in a browser on WebGPU; this harness runs Node, which has no WebGPU and takes
+`cpu`. Same weights, different execution provider. So the citation number is not yet evidence about
+the product — what it is, is a reason to re-measure markers where they actually run. Grounding is the
+number to trust from this run, and it is the one steps 2–4 are for.
+
+**This one is reproducible**, unlike the Gemini rewrite measured the same week: two runs agreed on
+all eight rows, which matches ADR 033 finding `repetition_penalty` byte-for-byte identical. So a
+single run here is evidence, where a single run there was not.
+
+**Two defects in the scorer, both found by running it.** A plain `includes` scored "up to 25% of the
+total cost" as containing "5%" — the cap read as the rate, from the same sentence — so matching is on
+a digit boundary now. And two of the eight were yes/no questions where a value was demanded: one
+answered "No." correctly and scored wrong, the other answered "Yes" incorrectly and scored wrong for
+the wrong reason. Both replaced with value questions, and the type now says such questions do not
+belong.
+
 **1. Score local answers before changing anything.** `eval/golden-set.ts` and
 `scripts/eval-retrieval.mts` already measure recall and MRR over a fixture corpus, and every
 judgement about answer quality so far — including every one in this file — is a transcript and
