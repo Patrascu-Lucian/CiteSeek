@@ -2028,7 +2028,7 @@ nav."
 **Revisit if** the transcript ever becomes a genuine widget — a selection mode, or bulk actions
 across exchanges — where a container owning arrow keys would stop competing with reading.
 
-## The rewrite asks for a query and gets keyword salad, 24 August 2026
+## ~~The rewrite asks for a query and gets keyword salad~~, 24 August 2026
 
 The follow-up rewrite ([ADR 044](decisions/044-rewriting-a-follow-up-only-after-it-fails.md)) works, and
 what it produces against the real model is `"why expenses policy"` and
@@ -2051,6 +2051,70 @@ it: rewrite each follow-up through the model, retrieve with the result, and repo
 the "as asked" and "standalone" columns. That turns 0.70 → 1.00 from a ceiling into a measured
 distance actually traveled, and makes the prompt tunable against evidence rather than taste. Costs
 one paid run per attempt, which is the reason it is filed rather than done inline.
+
+**Done, 28 August 2026, and the number was worth having.** `eval/report.md` now carries a third
+column. Two paid runs against `gemini-embedding-001` and the real chat model, identical in every
+other respect — the golden-set tables are byte-identical between them, so the follow-up section is
+the only thing that moved.
+
+| prompt asks for             | as asked | rewritten | standalone |
+| --------------------------- | -------- | --------- | ---------- |
+| "a standalone search query" | 0.70     | 0.90      | 1.00       |
+| "a standalone question"     | 0.70     | **1.00**  | 1.00       |
+
+So the ceiling is reached rather than approached, and the entry's guess about magnitude was low: the
+old prompt was not merely inelegant, it lost a tenth of the recall the idea is worth. It also had one
+row going backwards — "how much is it?" retrieved at 1.00 as typed and 0.00 after rewriting to "how
+much can be deducted from the deposit at the end". The question form asks "how much is the deposit?"
+and scores 1.00.
+
+Two rows now decline rather than rewrite — `acceptRewrite` rejects a rewrite that gained nothing —
+where before they produced "deposit cat" and "who handles an escalated ticket". Both retrieve at
+1.00 as typed, so nothing is lost, and a decline is the honest outcome where the previous answer was
+a keyword bag that happened to land.
+
+The per-row rewrite text is an example rather than a fixture, because the provider does not repeat
+itself — filed separately below. The mean was 1.00 on both runs of this prompt.
+
+**What this still does not measure.** The golden set holds only the reader's prior turns, and
+production also has the assistant's answers in the history — so the model here has _less_ to recover
+a subject from than it will in the product. The number is a floor on the shipped behavior rather
+than a description of it.
+
+**And it says nothing about how often the rewrite runs.** The route calls it only when retrieval
+returned nothing past the 0.40 floor, and `eval/distances.json` puts one of these ten above that
+floor. The harness rewrites all ten, which is what tuning a prompt needs and is not a claim about
+recall in the product. The report says so now; the first version of this entry did not, and read as
+though the shipped path lifts recall to 1.00 across the set.
+
+## A question form inherits the reader's premise, 28 August 2026
+
+Found reviewing the change above. `"Are resolution times guaranteed for a Severity 3 defect?"` then
+`"why?"` rewrites to **"Why are resolution times guaranteed for a Severity 3 defect?"** — and
+`eval/fixtures/meridian-support-policy.md` says resolution targets are deliberately _not_ contractual
+for Severity 3 and 4. That string is shown to the reader under "Searched for".
+
+**Not a hallucination, and the distinction matters.** Every word is the reader's own, and the
+presupposition is theirs: someone who asks "why?" after "are they guaranteed?" has assumed a yes.
+The model could only decline the premise by knowing an answer it has not retrieved — and the only
+reason it is rewriting at all is that retrieval failed. The hand-written standalone in the golden set
+(`"Why are Severity 3 resolution times not contractual?"`) encodes knowledge of the corpus that no
+rewrite can have.
+
+A prompt line forbidding it — "Never assume the answer to a question the conversation only asked" —
+was written and run against the set. It did not touch the row it was for, and moved one it was not:
+`"and outside them?"` gained "on a Standard plan". Removed rather than kept, because an instruction
+whose only measured effect is somewhere else is a claim the next reader will believe. Worth knowing
+that the eval is sensitive enough to show that at all.
+
+What would actually address it is not a prompt. Either the rendering stops presenting the rewrite as
+a question at all ("Searched for: resolution times, Severity 3, guaranteed" — which is the keyword
+form this entry just measured as worse for retrieval), or the refusal copy names the premise it could
+not confirm. The second is the interesting one and is a copy change, not a model change.
+
+Low priority: the answer itself is unaffected — no answer is generated on this branch at all
+([ADR 011](decisions/011-retrieval-and-citation-strategy.md)), so there is no prose carrying the
+premise and nothing for a citation to attach to. What is at stake is one line of displayed text.
 
 ## ~~The workspace route scores CLS 0.324 while it loads~~, 25 August 2026
 
@@ -2385,3 +2449,27 @@ looked random: the runs that failed and the runs that passed were in different s
 The test now stubs the variable rather than assuming the shell lacks it. **No retry was added and
 none is needed** — the one sighting that started this entry was never a flake, and a retry would
 have hidden a guard that had quietly stopped guarding instead of surfacing it.
+
+## `temperature: 0` does not make the rewrite reproducible, 28 August 2026
+
+Found while measuring the rewrite prompt, and true of every `generateText` call here, not just that
+one. Two runs of an identical prompt against the same corpus disagreed on two of ten rows:
+`"what about the deposit?"` declined once and returned "What about the deposit for a cat?" the other
+time, and `"how much is it?"` differed only by a capital letter.
+
+`lib/ai/rewrite.ts` sets `temperature: 0` and says "the same follow-up has to rewrite to the same
+question, or a bug report cannot be reproduced from it". True as an intent, false as a description of
+the provider — temperature bounds sampling, and nothing here promises determinism across requests.
+The comment now says which of those it is.
+
+**What it costs today is small and worth naming.** Aggregates are stable: recall@3 came out 1.00 on
+both runs, so `eval/report.md`'s headline is a number two people would agree on. A single row's
+rewrite text is not, so quoting one in a document is quoting an example. And a reader reporting "it
+searched for the wrong thing" cannot have that reproduced by asking again, which is the case the
+original comment was written for.
+
+**Not obviously fixable, which is why this is a note rather than a task.** Seeding is not exposed by
+the provider. Caching rewrites by conversation hash would make a report reproducible and would also
+serve a stale rewrite after a document changed. The honest options are to stop asserting
+reproducibility, which is done, or to pin the model version and re-measure the variance — worth
+knowing whether two of ten is typical or was a bad pair of runs.

@@ -23,6 +23,9 @@ import {
 } from "../lib/rag/eval-metrics.ts";
 
 const exportedProvider = process.env.EMBEDDINGS_PROVIDER;
+// Read before `loadLocalEnv`, like the one above: `.env.local` says `fake` for
+// ordinary development, and a file must not be what decides to spend money.
+const exportedChatProvider = process.env.CHAT_PROVIDER;
 const confirmedHost = process.env.EVAL_HOST;
 
 loadLocalEnv();
@@ -52,12 +55,24 @@ if (exportedProvider?.trim().toLowerCase() !== "google") {
   );
 }
 
+// The same argument one model over: a fake chat model scores nothing about the
+// shipped prompt.
+if (exportedChatProvider?.trim().toLowerCase() !== "google") {
+  throw new Error(
+    "Export CHAT_PROVIDER=google. The rewrite column calls the real model, and\n" +
+      "the fake one returns a fixture that would score nothing about the prompt.",
+  );
+}
+
 const { db } = await import("../lib/db/index.ts");
 const { workspaces } = await import("../lib/db/schema.ts");
 const { createQueuedDocument, findDocumentInWorkspace } =
   await import("../lib/documents/queries.ts");
 const { processDocument } = await import("../lib/rag/ingest.ts");
 const { retrieveChunks } = await import("../lib/rag/retrieve.ts");
+// Deferred like the rest: `lib/db/index.ts` throws at load without `DATABASE_URL`,
+// which the guards set. Not a provider concern — `getChatModel` reads env on call.
+const { rewriteQuestion } = await import("../lib/ai/rewrite.ts");
 const { retrieveLexical } = await import("../lib/rag/lexical.ts");
 const { fuse } = await import("../lib/rag/fusion.ts");
 const { RETRIEVAL_LIMIT } = await import("../lib/rag/retrieval-config.ts");
@@ -231,13 +246,16 @@ try {
   }
 
   console.log(
-    `\nRunning ${String(FOLLOW_UP_SET.length * 2)} follow-up queries…`,
+    `\nRunning ${String(FOLLOW_UP_SET.length)} follow-ups: ${String(FOLLOW_UP_SET.length)} rewrites and up to ${String(FOLLOW_UP_SET.length * 3)} retrievals…`,
   );
 
+  let declined = 0;
   const followUps: {
     followUp: string;
     asked: number;
     standalone: number;
+    rewritten: number;
+    rewrittenText: string | null;
     bestAsked: number | null;
   }[] = [];
 
@@ -269,12 +287,48 @@ try {
       scoreOf(one.standalone),
     ]);
 
+    /*
+      `standalone` is written by hand and measures the ceiling; this measures the
+      distance traveled to it. A floor on the shipped behavior rather than a
+      description: the golden set holds only the reader's own prior turns, where
+      production also has the answers.
+    */
+    const rewrite = await rewriteQuestion(
+      [...one.context, one.followUp].map((text) => ({
+        id: crypto.randomUUID(),
+        role: "user" as const,
+        parts: [{ type: "text" as const, text }],
+      })),
+      one.followUp,
+    );
+
+    // Null is shipped behavior too: `acceptRewrite` rejects a rewrite that gained
+    // nothing. Scored as asked, which is what retrieval falls back to.
+    const rewritten = rewrite
+      ? await scoreOf(rewrite.question)
+      : { recall: asked.recall, best: asked.best };
+
+    // `rewriteQuestion` swallows provider errors into the same null: a quota
+    // refusal mid-run would print every remaining row as a decline.
+    if (!rewrite) declined += 1;
+
     followUps.push({
       followUp: one.followUp,
       asked: asked.recall,
       standalone: standalone.recall,
+      rewritten: rewritten.recall,
+      rewrittenText: rewrite?.question ?? null,
       bestAsked: asked.best,
     });
+  }
+
+  // A run that declined most of them measured the provider, not the prompt.
+  if (declined > FOLLOW_UP_SET.length / 2) {
+    throw new Error(
+      `${String(declined)} of ${String(FOLLOW_UP_SET.length)} rewrites returned nothing. ` +
+        "`rewriteQuestion` swallows provider errors, so this is quota or the network " +
+        "as readily as a genuine decline. No report written.",
+    );
   }
 
   const answerable = cases.filter((one) => one.answerable).length;
@@ -322,22 +376,36 @@ try {
     "## Follow-up questions",
     "",
     "Only the last message is embedded, so a follow-up carries nothing to retrieve",
-    "against. Each row is one information need asked twice — as typed, and written",
-    "to stand alone. The right column is the ceiling a rewriting step could reach.",
+    "against. Each row is one information need asked three ways — as typed, written",
+    "by hand to stand alone, and put through the shipped rewrite (ADR 044).",
+    "",
+    "**Standalone is the ceiling; rewritten is the distance traveled to it.** The",
+    "hand-written column is what a perfect rewrite would produce, so it is evidence",
+    "about the idea; the rewritten column is evidence about the prompt.",
+    "",
+    "**Every row is rewritten here; production rewrites almost none of them.** The",
+    "route only calls the rewrite when retrieval returned nothing past the 0.40",
+    "floor, and `distances.json` puts one of these ten above it. So this column",
+    "measures how good the rewrite is when it runs, not how often it runs — which",
+    "is what tuning the prompt needs, and is not a claim about recall in the",
+    "product.",
     "",
     "Vector alone, and the floor is off as it is everywhere above — so a row",
     "scoring 1.00 here can still be refused in the product, where the floor is",
     "0.40. The closest distance for the typed form is in `distances.json`.",
     "",
-    `| follow-up | recall@${String(FOLLOW_UP_K)} as asked | recall@${String(FOLLOW_UP_K)} standalone |`,
-    "| --------- | ----------------- | ------------------- |",
+    `| follow-up | as asked | rewritten | standalone | the rewrite |`,
+    "| --------- | -------- | --------- | ---------- | ----------- |",
     ...followUps.map(
       (row) =>
-        `| ${row.followUp} | ${row.asked.toFixed(2)} | ${row.standalone.toFixed(2)} |`,
+        // Model output: one pipe would shift every column after it.
+        `| ${row.followUp} | ${row.asked.toFixed(2)} | ${row.rewritten.toFixed(2)} | ${row.standalone.toFixed(2)} | ${(row.rewrittenText ?? "_declined_").replaceAll("|", "\\|")} |`,
     ),
     "",
-    `Mean **${mean(followUps.map((row) => row.asked)).toFixed(2)} as asked** against ` +
-      `**${mean(followUps.map((row) => row.standalone)).toFixed(2)} standalone**.`,
+    `Mean **${mean(followUps.map((row) => row.asked)).toFixed(2)} as asked**, ` +
+      `**${mean(followUps.map((row) => row.rewritten)).toFixed(2)} rewritten**, ` +
+      `**${mean(followUps.map((row) => row.standalone)).toFixed(2)} standalone**. ` +
+      `Recall@${String(FOLLOW_UP_K)} throughout.`,
     "",
     "## The relevance floor",
     "",

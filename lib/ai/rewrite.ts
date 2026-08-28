@@ -14,12 +14,16 @@ const MAX_CHARS = 200;
 /** Half of the route's `maxDuration`. */
 const REWRITE_TIMEOUT_MS = 30_000;
 
+/* "Question", not "search query": a query returns keyword bags — `deposit cat` —
+   that embed nowhere near the passage answering them, and it is this string the
+   reader is shown under "Searched for". Recall@3 0.90 against 1.00, in
+   `docs/backlog.md`, which also has what a question form costs in return. */
 const SYSTEM = [
-  "Rewrite the user's last message as a standalone search query.",
+  "Rewrite the user's last message as a standalone question.",
   "Use only words and subjects that already appear in the conversation.",
   "Never introduce a name, number or fact that is not there.",
   "If the last message already stands alone, repeat it unchanged.",
-  "Reply with the query and nothing else.",
+  "Reply with the question and nothing else.",
 ].join(" ");
 
 /** Null where the rewrite gained nothing, so the caller refuses as it would have
@@ -61,21 +65,25 @@ export async function rewriteQuestion(
   // Letting a provider error escape would turn a refusal the reader can act on
   // into a broken stream.
   try {
-    const { text, usage } = await generateText({
+    const { text, usage, finishReason } = await generateText({
       model: getChatModel(),
       system: SYSTEM,
       prompt: history,
-      // A search query, not an answer. `acceptRewrite` discards anything past the
-      // first line and past MAX_CHARS, and paying for those tokens first is a
-      // reader already waiting on a refusal.
-      maxOutputTokens: 64,
-      // The same follow-up has to rewrite to the same query, or a bug report
-      // cannot be reproduced from it.
+      // Questions run longer than the keyword bags this was sized for.
+      // `MAX_CHARS` is the real bound.
+      maxOutputTokens: 96,
+      // Asked for, not delivered: two runs of one prompt disagreed on two of ten
+      // rows (`docs/backlog.md`). Bounds sampling; promises nothing across
+      // requests.
       temperature: 0,
       // Half the route's budget: past this the refusal is worth more than the
       // retry.
       abortSignal: AbortSignal.timeout(REWRITE_TIMEOUT_MS),
     });
+
+    // A cut-off question is still under `MAX_CHARS`, so nothing else rejects it —
+    // and it would be shown to the reader as what we searched for.
+    if (finishReason === "length") return null;
 
     const question = acceptRewrite(text, asked);
     if (question === null) return null;
