@@ -113,14 +113,17 @@ if (!useFake) {
   console.log("\n");
 }
 
+/** Both halves at every count: fewer passages read better and retrieve worse, so
+ * grounding alone would recommend a number that drops the answer. */
+const COUNTS = [1, 2, 3, 4, RETRIEVAL_LIMIT];
+
+type At = { grounded: boolean; retrieved: boolean; answer: string };
+
 type Row = {
   question: string;
-  answer: string;
-  manyAnswer: string;
-  grounded: boolean;
-  groundedMany: boolean;
-  cited: boolean;
-  retrieved: boolean;
+  /** The answering passage handed over — the ceiling retrieval cannot beat. */
+  oracle: { grounded: boolean; cited: boolean; answer: string };
+  at: Map<number, At>;
 };
 
 const rows: Row[] = [];
@@ -149,82 +152,113 @@ async function ask(question: string, sources: readonly ChatSource[]) {
 
 for (const [index, one] of LOCAL_ANSWER_SET.entries()) {
   const started = Date.now();
-  const alone = sourcesFor(one.expect);
 
-  /* The same question twice: with the answering passage alone, and with the
-     eight the router would have retrieved. The first is the ceiling this harness
-     measured before; the second is what a reader gets. */
-  const withDistractors = ranked.get(one.question);
-  const many = withDistractors
-    ? withDistractors.map((entry, marker): ChatSource => ({
-        ...asSource(entry.file, entry.chunk),
-        marker: marker + 1,
-      }))
-    : alone;
+  const oracleSources = sourcesFor(one.expect);
+  const oracle = await ask(one.question, oracleSources);
 
-  const one1 = await ask(one.question, alone);
-  const many1 = await ask(one.question, many);
+  const top = ranked.get(one.question) ?? [];
+  const at = new Map<number, At>();
+
+  for (const count of COUNTS) {
+    const sources = top.slice(0, count).map((entry, marker): ChatSource => ({
+      ...asSource(entry.file, entry.chunk),
+      marker: marker + 1,
+    }));
+
+    // No ranking means `--fake`; scoring the oracle again would invent a sweep.
+    if (sources.length === 0) continue;
+
+    const { answer } = await ask(one.question, sources);
+    at.set(count, {
+      answer,
+      grounded: grounds(answer, one.answerContains),
+      retrieved: sources.some((source) =>
+        one.expect.some((e) => source.quote.includes(e.quote)),
+      ),
+    });
+  }
 
   rows.push({
     question: one.question,
-    answer: one1.answer,
-    manyAnswer: many1.answer,
-    grounded: grounds(one1.answer, one.answerContains),
-    groundedMany: grounds(many1.answer, one.answerContains),
-    cited: one1.cited,
-    // Did retrieval even find it? A miss makes the row retrieval's failure.
-    retrieved: many.some((source) =>
-      one.expect.some((e) => source.quote.includes(e.quote)),
-    ),
+    oracle: {
+      answer: oracle.answer,
+      cited: oracle.cited,
+      grounded: grounds(oracle.answer, one.answerContains),
+    },
+    at,
   });
 
-  const row = rows.at(-1)!;
+  const sweep = COUNTS.map((count) => {
+    const result = at.get(count);
+    if (!result) return "-";
+    return result.grounded ? "o" : result.retrieved ? "x" : "·";
+  }).join("");
   console.log(
-    `  ${String(index + 1)}/${String(LOCAL_ANSWER_SET.length)} one:${row.grounded ? "ok  " : "WRONG"} ${String(RETRIEVAL_LIMIT)}:${row.groundedMany ? "ok  " : "WRONG"} ${row.retrieved ? "" : "(not retrieved) "}${String(Math.round((Date.now() - started) / 1000))}s`,
+    `  ${String(index + 1)}/${String(LOCAL_ANSWER_SET.length)} oracle:${rows.at(-1)!.oracle.grounded ? "ok  " : "WRONG"} sweep:${sweep}  ${String(Math.round((Date.now() - started) / 1000))}s`,
   );
 }
 
 const share = (of: (row: Row) => boolean) =>
   `${String(rows.filter(of).length)}/${String(rows.length)}`;
 
+const rate = (of: (one: At) => boolean, count: number) => {
+  const seen = rows
+    .map((row) => row.at.get(count))
+    .filter((one) => one !== undefined);
+
+  return seen.length === 0
+    ? "-"
+    : `${String(seen.filter(of).length)}/${String(seen.length)}`;
+};
+
 const report = [
   "# Local answers",
   "",
   `Run ${new Date().toISOString().slice(0, 10)} against \`${useFake ? "the fake generator" : "onnx-community/Qwen2.5-0.5B-Instruct"}\`.`,
   "",
-  "Each question is asked twice: with the answering passage alone, and with the",
-  `${String(RETRIEVAL_LIMIT)} the local embedder ranks highest — which is what a reader gets. The`,
-  "first column is a ceiling, the second is the product.",
+  "Local mode end to end: the local embedder ranks the passages, the local model",
+  "answers from them. `oracle` hands the answering passage over instead, so it is",
+  "the ceiling retrieval cannot beat.",
   "",
-  "`grounded` is a substring check against expected spellings of the fact, on a",
-  "digit boundary. A floor, not a grade: it cannot tell a value from a negated",
-  "one. The answers are printed because the failure on record is a shape — a",
-  "marker standing where a number belongs — and a regex for that would measure",
-  "the regex.",
+  "Both halves at every count, because they move in opposite directions — fewer",
+  "passages read better and retrieve worse, so grounding alone would recommend a",
+  "number that drops the answer.",
   "",
-  `**Grounded ${share((row) => row.grounded)} on the passage alone, ` +
-    `${share((row) => row.groundedMany)} on ${String(RETRIEVAL_LIMIT)}. ` +
-    `Cited ${share((row) => row.cited)}.**`,
+  "`grounded` is a substring check on a digit boundary. A floor, not a grade: it",
+  "cannot tell a value from a negated one.",
   "",
-  `| question | alone | ${String(RETRIEVAL_LIMIT)} passages | retrieved |`,
-  "| -------- | ----- | ----------- | --------- |",
-  ...rows.map(
-    (row) =>
-      `| ${row.question} | ${row.grounded ? "yes" : "**no**"} | ${row.groundedMany ? "yes" : "**no**"} | ${row.retrieved ? "yes" : "**no**"} |`,
+  "| passages | grounded | answer retrieved |",
+  "| -------- | -------- | ---------------- |",
+  ...COUNTS.map(
+    (count) =>
+      `| ${String(count)} | ${rate((one) => one.grounded, count)} | ${rate((one) => one.retrieved, count)} |`,
   ),
+  `| oracle | ${share((row) => row.oracle.grounded)} | by construction |`,
   "",
-  "## Answers",
+  `Cited ${share((row) => row.oracle.cited)} on the oracle passage.`,
+  "",
+  "## Per question",
+  "",
+  `| question | ${COUNTS.map(String).join(" | ")} | oracle |`,
+  `| -------- | ${COUNTS.map(() => "-").join(" | ")} | ------ |`,
+  ...rows.map((row) => {
+    const cells = COUNTS.map((count) => {
+      const one = row.at.get(count);
+      if (!one) return "-";
+      return one.grounded ? "yes" : one.retrieved ? "**no**" : "_missed_";
+    });
+    return `| ${row.question} | ${cells.join(" | ")} | ${row.oracle.grounded ? "yes" : "**no**"} |`;
+  }),
+  "",
+  "`_missed_` is retrieval not returning the answering passage at that count;",
+  "**no** is the model having it and not using it.",
+  "",
+  "## Answers, on the oracle passage",
   "",
   ...rows.flatMap((row) => [
     `**${row.question}**`,
     "",
-    "Passage alone:",
-    "",
-    "> " + (row.answer || "_(empty)_").replaceAll("\n", "\n> "),
-    "",
-    `With ${String(RETRIEVAL_LIMIT)}:`,
-    "",
-    "> " + (row.manyAnswer || "_(empty)_").replaceAll("\n", "\n> "),
+    "> " + (row.oracle.answer || "_(empty)_").replaceAll("\n", "\n> "),
     "",
   ]),
 ].join("\n");
@@ -233,6 +267,6 @@ const report = [
 if (!useFake) await writeFile(join(EVAL, "local-answers.md"), report + "\n");
 
 console.log(
-  `\n${share((row) => row.grounded)} alone, ${share((row) => row.groundedMany)} with ${String(RETRIEVAL_LIMIT)}, ${share((row) => row.cited)} cited.` +
+  `\n${COUNTS.map((count) => `${String(count)}:${rate((one) => one.grounded, count)}`).join("  ")}  oracle:${share((row) => row.oracle.grounded)}` +
     (useFake ? " Not written: --fake." : " Written to eval/local-answers.md"),
 );
