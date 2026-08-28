@@ -15,7 +15,16 @@ import { assertDisposableDatabase } from "@/lib/env/disposable-database";
 // Direct writes to `users`, so the integration suite's guard applies here too.
 assertDisposableDatabase(process.env);
 
-const sql = postgres(process.env.DATABASE_URL!);
+// Without it `postgres` falls back to the OS user and fails as "password
+// authentication failed", which reads as a broken database, not an unset variable.
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    "DATABASE_URL is not set, so the signed-in fixture has no database. " +
+      "`playwright.config.ts` loads `.env.test.local`; create one, or export it.",
+  );
+}
+
+const sql = postgres(process.env.DATABASE_URL);
 
 /** Non-secure name because the suite runs over http. Auth.js prefixes it with
  * `__Secure-` once the URL is https, and the cookie would then be ignored. */

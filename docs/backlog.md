@@ -1966,7 +1966,7 @@ reach `"write"` on any workspace, so the chats route's 403 was unreachable and i
 Not done here: rows that predate the rule still sit in the demo, unlisted and unreachable. The ADR
 carries the query to count them before anyone decides whether to delete them.
 
-## The signed-in E2E specs cannot run locally, 21 August 2026
+## ~~The signed-in E2E specs cannot run locally~~, 21 August 2026
 
 Found while adding one. `e2e/signed-in.ts` opens its own database connection from
 `process.env.DATABASE_URL`, and **nothing in the harness puts it there**: `playwright.config.ts`
@@ -1989,8 +1989,17 @@ way `vitest.integration.config.ts` does — one line, and the two harnesses woul
 guess a username. The second is the more general fix and does not preclude the first: a fixture
 that silently connects somewhere unintended is a category of confusion, not one bug.
 
-**Not fixed here** — it predates this branch and belongs in a commit about the harness, not one
-about a layout.
+**Done, both of them, 28 August 2026.** `playwright.config.ts` loads `.env.test.local` then
+`.env.local` in that order — `loadEnvFile` never overwrites, so the disposable URL wins over the one
+pointing at Neon — and `signed-in.ts` refuses to start without `DATABASE_URL` rather than letting
+postgres guess a username. The whole suite now runs from a shell with nothing exported: 150 passed.
+
+The fix exposed a second thing it had been hiding. With the server inheriting `.env.local` it also
+inherited a real `GOOGLE_GENERATIVE_AI_API_KEY`, and an unset provider means the real one — so a
+local run would have spent quota on a suite that asserts "the answer cites [1]", which against a
+real model is a coin toss. `EMBEDDINGS_PROVIDER` and `CHAT_PROVIDER` are pinned to `fake` in
+`webServer.env` beside `USAGE_LIMITS`, which is what CI has always done and had never needed saying
+locally, because locally it never ran.
 
 ## Roving tabindex over the transcript — considered and rejected, 21 August 2026
 
