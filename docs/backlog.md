@@ -1351,8 +1351,23 @@ answer, which is the signature of a model doing pattern completion rather than r
 specific value, the correct passage handed to the model rather than retrieved, so a wrong answer is
 the model's. No provider and no database — free to run, minutes to finish.
 
-**4/8 grounded, 0/8 cited**, and the transcripts are in `eval/local-answers.md`. Two things the
-number alone does not carry:
+**4/8 grounded on the answering passage alone, 2/8 on the eight a reader actually gets, 0/8 cited.**
+Transcripts in `eval/local-answers.md`.
+
+**The passage count halves it, and that settles step 3's first candidate.** The harness asks each
+question twice — once with the answering chunk alone, once with the `RETRIEVAL_LIMIT` chunks the
+local embedder ranks highest, which is the local-mode pipeline end to end and costs nothing to run.
+The right passage was retrieved in **all eight** rows, so this is not retrieval missing: the model
+loses an answer it had when seven distractors sit beside it. "90 days" and "five weeks' rent" both
+flip from right to wrong.
+
+That makes the first figure a ceiling rather than a description — the honest number for the product
+is 2/8. It also says the fix is not a better model first. Eight passages is a lot of context for a
+0.5B, and the cheapest experiment left is a sweep of the count rather than a swap of the weights.
+Not done here: 1 against 8 says the direction, not the knee, and changing a shipped limit on two
+points would be the leap this file keeps recording.
+
+Two things the numbers alone do not carry:
 
 - The wrong answers are not vague, they are confidently wrong. "Emergency repairs are attended within
   24 **days**" where the document says hours; "there is no specific number of days mentioned in the
@@ -1392,10 +1407,12 @@ Qwen3-0.6B, Llama-3.2-1B, Phi-4-mini — plausibly beats it at a similar downloa
 before anyone reaches for size: the **1.5B was already tried** and did not fix marker emission
 (ADR 033), so parameters alone are not the lever. What changed that was the worked example.
 
-**3. Cheap prompt experiments, once (1) can score them.** Two candidates. `RETRIEVAL_LIMIT`
+**3. Cheap prompt experiments, once (1) can score them.** Two candidates. ~~`RETRIEVAL_LIMIT`
 passages plus the rules plus an example is a lot of context for a 0.5B, and fewer passages may
-read better than more. And `markerExample` demonstrates a sentence, not a quantity — "1 days"
-is exactly the failure a numeric exemplar targets.
+read better than more.~~ **Measured: one passage grounds 4/8 where eight grounds 2/8**, with the
+right passage retrieved every time. What is left is the knee — 2, 3, 4 — not the direction. And
+`markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a numeric
+exemplar targets, which stays blocked until markers can be measured where they actually run.
 
 **4. Constrained decoding, last.** Forcing `{ answer, citations }` would make the marker unable
 to stand where a number belongs — the problem
