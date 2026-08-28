@@ -84,6 +84,9 @@ export function chatModelStatus(): ChatModelStatus {
  */
 export function loadChatModel(
   onProgress?: (progress: LoadProgress) => void,
+  // Only `pnpm eval:local-answers` passes anything: Node has no WebGPU, and its
+  // build of transformers.js takes `cpu` where a browser takes `wasm`.
+  device: "webgpu" | "cpu" = "webgpu",
 ): Promise<Generator> {
   if (loading === null) status = "loading";
 
@@ -97,7 +100,7 @@ export function loadChatModel(
         // Named, or transformers.js falls back to `DEFAULT_DEVICE`, which is
         // `wasm` in a browser — and `WebGpuGate` would then be denying a feature
         // that runs without a GPU.
-        device: "webgpu",
+        device,
         // `progress_total`, not `progress`: the latter is per file, so the
         // readout reaches 100% on a 4 KB config before the weights begin.
         progress_callback: (report: {
