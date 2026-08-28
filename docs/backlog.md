@@ -1354,18 +1354,37 @@ the model's. No provider and no database — free to run, minutes to finish.
 **4/8 grounded on the answering passage alone, 2/8 on the eight a reader actually gets, 0/8 cited.**
 Transcripts in `eval/local-answers.md`.
 
-**The passage count halves it, and that settles step 3's first candidate.** The harness asks each
-question twice — once with the answering chunk alone, once with the `RETRIEVAL_LIMIT` chunks the
-local embedder ranks highest, which is the local-mode pipeline end to end and costs nothing to run.
-The right passage was retrieved in **all eight** rows, so this is not retrieval missing: the model
-loses an answer it had when seven distractors sit beside it. "90 days" and "five weeks' rent" both
-flip from right to wrong.
+**Swept 1, 2, 3, 4 and 8, and the passage count is not the lever.** The harness runs local mode end
+to end — local embedder ranks, local model answers — and reports both halves at every count, because
+they move in opposite directions.
 
-That makes the first figure a ceiling rather than a description — the honest number for the product
-is 2/8. It also says the fix is not a better model first. Eight passages is a lot of context for a
-0.5B, and the cheapest experiment left is a sweep of the count rather than a swap of the weights.
-Not done here: 1 against 8 says the direction, not the knee, and changing a shipped limit on two
-points would be the leap this file keeps recording.
+| passages | grounded | answer retrieved |
+| -------- | -------- | ---------------- |
+| 1        | 2/8      | 4/8              |
+| 2        | 3/8      | 6/8              |
+| 3        | 2/8      | 8/8              |
+| 4        | 2/8      | 8/8              |
+| 8        | 2/8      | 8/8              |
+| oracle   | 4/8      | by construction  |
+
+Grounding is flat. What moves is retrieval: at one and two passages the answering chunk is often not
+returned at all, so cutting the count trades a distraction problem for a worse one. 2/8 against 3/8
+is a single row out of eight and is not a knee.
+
+**An earlier version of this entry said "one passage grounds 4/8 where eight grounds 2/8". That was
+wrong**, and wrong in an instructive way: it read the _oracle_ column as "one passage". The oracle
+hands the answering chunk over; top-1 **retrieved** grounds 2/8. Two different quantities under one
+heading, which is the mistake this file has now recorded at least three times.
+
+What survives is narrower and still worth having. At three passages and up the answering chunk is
+retrieved every time, and grounding stays 2/8 while the oracle on the same chunk reaches 4/8 — so
+distraction does cost about two rows, and reducing from eight to three does not buy them back. Any
+distractor seems to cost what seven do. Per-row results are also non-monotonic — one question is
+right at 1–4 and wrong at 8, another right at 1, 2 and 8 and wrong at 3 and 4 — and since two runs
+of this model agreed row for row, that is behavior rather than noise.
+
+So the lever is not the count. It is retrieval good enough that one passage suffices, or a model
+that does not lose an answer sitting in front of it.
 
 Two things the numbers alone do not carry:
 
@@ -1409,8 +1428,7 @@ before anyone reaches for size: the **1.5B was already tried** and did not fix m
 
 **3. Cheap prompt experiments, once (1) can score them.** Two candidates. ~~`RETRIEVAL_LIMIT`
 passages plus the rules plus an example is a lot of context for a 0.5B, and fewer passages may
-read better than more.~~ **Measured: one passage grounds 4/8 where eight grounds 2/8**, with the
-right passage retrieved every time. What is left is the knee — 2, 3, 4 — not the direction. And
+read better than more.~~ **Swept, and it is not the lever — see below.** And
 `markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a numeric
 exemplar targets, which stays blocked until markers can be measured where they actually run.
 
