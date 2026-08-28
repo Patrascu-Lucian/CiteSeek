@@ -54,6 +54,17 @@ jobs:
       - name: Unit tests and coverage thresholds
         run: pnpm test:coverage
 
+      # `!cancelled()`, not `failure()`: a green run's report is what a later
+      # flake gets compared against, and `failure()` also drops the file when a
+      # run is canceled, which is when a hang is the thing worth reading.
+      - name: Upload unit test report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-report
+          path: test-results/unit.junit.xml
+          retention-days: 7
+
       - name: Build
         run: pnpm build
         env:
@@ -133,6 +144,14 @@ jobs:
 
       - name: Integration tests
         run: pnpm test:integration
+
+      - name: Upload integration test report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-test-report
+          path: test-results/integration.junit.xml
+          retention-days: 7
 
   e2e:
     name: Playwright smoke

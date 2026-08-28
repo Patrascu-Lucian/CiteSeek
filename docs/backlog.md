@@ -2332,14 +2332,22 @@ costs the pull request. `e2e` also declares `needs: verify`, so one unlucky unit
 browser suite from running at all.
 
 **The fix is not `retry: 2` on vitest.** That buys green pull requests by discarding the evidence,
-which is the trade this project refuses everywhere else. What is missing is the ability to _name_ a
+which is the trade this project refuses everywhere else. What was missing is the ability to _name_ a
 failure when it happens: CI prints to a log nobody keeps, and locally the output was thrown away by
-the same command that checked it. A second reporter writing a file per run would fix that, and the
-flags matter — `--reporter=default --reporter=junit --outputFile=…`, because the junit reporter
-writes to stdout without `outputFile` and would land in the same discarded stream. Upload it under
-`if: ${{ !cancelled() }}`, which is what the `playwright-report` step already uses: that keeps the
-artifact on a pass as well as a fail, and `failure()` would drop it on a cancelled run — the case
-where a hang is exactly what you wanted to read.
+the same command that checked it.
 
-Worth doing before the next one rather than after, because a second sighting is only worth something
-if it can be compared with the first.
+**Half of this is now done: the naming half.** Both vitest configs write a junit report beside the
+default reporter, and `ci.yml` uploads each under `if: ${{ !cancelled() }}` — the condition the
+`playwright-report` step already uses, which keeps the artifact on a pass as well as a fail.
+`failure()` was rejected: it also drops the file on a canceled run, which is when a hang is the
+thing worth reading. `outputFile` is not optional — without it the junit reporter prints to the same
+stream that lost the last one.
+
+Falsified rather than assumed: a test was broken deliberately, the run's output sent to `/dev/null`,
+and the failing name read back out of the file alone. It reads
+`ConversationList > marks the conversation being opened, and only that one`.
+
+**Still open: the flake itself, and the absorbing half.** This one is unidentified and will stay
+that way — it predates the reporter. No retry has been added and none should be without a measured
+rate to justify it, which is what the next sighting now supplies. A second sighting is only worth
+something if it can be compared with the first, and now it can be.

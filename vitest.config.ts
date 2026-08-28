@@ -11,6 +11,17 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     /*
+      A flake here costs the pull request: nothing retries this suite, and the
+      `e2e` job needs it. The default reporter's output is a stream — CI keeps no
+      log and a local `| grep` threw one away — so the run also writes a file the
+      failure can be read out of afterward. `outputFile` is required; without it
+      the junit reporter prints to the same stream. Uploaded by `ci.yml`.
+    */
+    reporters: [
+      "default",
+      ["junit", { outputFile: "test-results/unit.junit.xml" }],
+    ],
+    /*
       Above Vitest's 5s default, which measured contention rather than
       correctness: the extraction specs do ~225ms of work and run in 1.6s alone,
       but were observed at 8-9s under the full suite. 15s still catches a hang.

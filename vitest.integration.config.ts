@@ -37,6 +37,12 @@ export default defineConfig({
     exclude: ["node_modules/**", ".next/**", "e2e/**"],
     // A shared database is not safe to write from parallel workers.
     fileParallelism: false,
+    // The reason in `vitest.config.ts`: this suite has no retry either, and a
+    // failure has to survive the run that printed it.
+    reporters: [
+      "default",
+      ["junit", { outputFile: "test-results/integration.junit.xml" }],
+    ],
     testTimeout: 30_000,
     hookTimeout: 30_000,
     env: {
