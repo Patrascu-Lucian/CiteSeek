@@ -1,5 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 
+import { loadLocalEnv } from "./lib/env/load-local-env.ts";
+
+// The signed-in specs connect from `DATABASE_URL`, which nothing here set — so
+// they only ever ran in CI. Order matters: `loadEnvFile` never overwrites, so the
+// disposable URL wins over the `.env.local` pointing at Neon.
+loadLocalEnv(".env.test.local");
+loadLocalEnv();
+
 // Overridable so the suite can run while a dev server holds 3000.
 const PORT = Number(process.env.E2E_PORT ?? 3000);
 // `localhost`, not `127.0.0.1`: Next normalizes redirects to the host it was
@@ -36,19 +44,19 @@ export default defineConfig({
   webServer: {
     command: `pnpm start --port ${PORT}`,
     url: baseURL,
-    /*
-      `env` below applies only to a server Playwright spawns, so reusing a stray
-      one attaches without `USAGE_LIMITS=off` and the suite fails on "capacity
-      reached" — a symptom with no visible link to the cause. Three debugging
-      sessions before that was spotted. The trade is a start per run.
-    */
+    // `env` reaches only a server Playwright spawns: a stray one attaches without
+    // it and the suite fails on "capacity reached", with nothing naming the cause.
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
-      // Every spec arrives from one address and CI retries twice, so any honest
-      // cap would fail the suite for being one. `off` does not skip the check —
-      // the queries still run — and integration tests cover the 429 paths.
+      // Every spec arrives from one address, so any honest cap fails the suite.
+      // `off` still runs the queries; integration tests cover the 429 paths.
       USAGE_LIMITS: "off",
+      // Pinned, not inherited: unset means the real provider, and the server now
+      // reads `.env.local`. "The answer cites [1]" against a real model is a coin
+      // toss that spends quota.
+      EMBEDDINGS_PROVIDER: "fake",
+      CHAT_PROVIDER: "fake",
     },
   },
 });
