@@ -229,8 +229,9 @@ test("names the conversation being opened", async ({ page, signedIn }) => {
     uploadThroughput: (750 * 1024) / 8,
   });
 
-  // Both scoped by href. "A row marked itself" would pass on an implementation
-  // that marks every row, which is the defect being fixed.
+  // Scoped by href, or an implementation marking every row would pass. The
+  // throttle is load-bearing: `watchFor` misses an attribute set and cleared
+  // inside one checkpoint.
   const sawOpening = await watchFor(
     page,
     `a[href="${openingHref}"][data-opening]`,

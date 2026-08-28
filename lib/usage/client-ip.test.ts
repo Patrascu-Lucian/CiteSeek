@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   LOCAL_CLIENT_IP,
@@ -8,6 +8,8 @@ import {
 } from "./client-ip";
 
 const SECRET = "test-secret-not-a-real-one";
+
+afterEach(() => vi.unstubAllEnvs());
 
 function headers(values: Record<string, string>): Headers {
   return new Headers(values);
@@ -100,6 +102,11 @@ describe("hashClientIp", () => {
   it("refuses to run without a secret rather than storing the address", () => {
     // A missing secret is a misconfiguration. Falling back to plaintext personal
     // data is not a degradation anyone would choose.
+    //
+    // Arranged, not assumed: the parameter defaults to the environment, so any
+    // shell exporting `AUTH_SECRET` turned this green without the guard holding.
+    vi.stubEnv("AUTH_SECRET", "");
+
     expect(() => hashClientIp("203.0.113.7", undefined)).toThrow(
       /AUTH_SECRET is required/i,
     );

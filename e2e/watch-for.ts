@@ -18,7 +18,8 @@ export async function watchFor(page: Page, selector: string) {
   await page.evaluate((one) => {
     const seen = (window.__seen ??= {});
     // Seeded, because a match already present fires no mutation of its own.
-    seen[one] = document.querySelector(one) !== null;
+    // `||=`, so a second watcher on the same selector cannot un-see the first.
+    seen[one] ||= document.querySelector(one) !== null;
 
     new MutationObserver((records) => {
       if (seen[one]) return;

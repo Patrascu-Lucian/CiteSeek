@@ -12,21 +12,25 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { base, guestSession, median } from "./measure/session.mts";
+
 const LIGHTHOUSE = "lighthouse@12.8.2";
 
-const base = process.env.MEASURE_BASE_URL ?? "http://localhost:3000";
+// Node 24 refuses to spawn a `.cmd` without a shell (CVE-2024-27980), and `npx`
+// is one on Windows. Nowhere else needs it, so nowhere else pays for `q`.
+const SHELL = process.platform === "win32";
+const q = (value: string) => (SHELL ? `"${value}"` : value);
+
+if (SHELL) {
+  // Answered by `q`. Printed on every run it would train the eye to skip
+  // warnings from this script.
+  process.removeAllListeners("warning");
+  process.on("warning", (warning) => {
+    if (!warning.message.includes("shell option")) console.warn(warning);
+  });
+}
+
 const runs = Number(process.env.MEASURE_RUNS ?? "3");
-
-// Catches a typo before three Lighthouse runs discover it.
-new URL(base);
-
-// Node warns that `shell: true` concatenates arguments unescaped. It is right in
-// general and answered below; printed on every run it would train the eye to
-// skip warnings from this script.
-process.removeAllListeners("warning");
-process.on("warning", (warning) => {
-  if (!warning.message.includes("shell option")) console.warn(warning);
-});
 
 if (!Number.isInteger(runs) || runs < 1) {
   throw new Error(
@@ -43,29 +47,10 @@ if (!(TARGETS as readonly string[]).includes(name)) {
   );
 }
 
-/** `/w/*` without a session redirects to sign-in, so an anonymous run would
- * score a different page entirely. */
-async function guest(): Promise<{ url: string; cookie: string }> {
-  if (name === "landing") return { url: base, cookie: "" };
-
-  const response = await fetch(`${base}/demo`, { redirect: "manual" }).catch(
-    (cause: unknown) => {
-      throw new Error(`Cannot reach ${base}.`, { cause });
-    },
-  );
-
-  const cookie = response.headers
-    .getSetCookie()
-    .map((one) => one.split(";")[0])
-    .join("; ");
-  const location = response.headers.get("location");
-
-  if (!cookie || !location) throw new Error("/demo gave no guest session.");
-
-  return { url: new URL(location, base).href, cookie };
-}
-
-const { url, cookie } = await guest();
+/** The landing page is public, so it needs no session and `base` is the page. */
+const session = name === "landing" ? null : await guestSession();
+const url = session?.location ?? base;
+const cookie = session?.cookie ?? "";
 const scratch = mkdtempSync(join(tmpdir(), "citeseek-lh-"));
 
 type Report = {
@@ -83,22 +68,18 @@ function once(index: number): Report {
     [
       "-y",
       LIGHTHOUSE,
-      url,
+      // `tmpdir()` sits under the Windows user profile, which routinely holds a
+      // space, and `url` is `/demo`'s redirect rather than a value chosen here.
+      q(url),
       "--quiet",
-      // Quoted: the value contains a space, and `shell` below would otherwise
-      // hand Lighthouse two arguments and Chrome only the first.
-      '--chrome-flags="--headless=new --no-sandbox"',
-      `--extra-headers=${headers}`,
+      q("--chrome-flags=--headless=new --no-sandbox"),
+      `--extra-headers=${q(headers)}`,
       "--output=json",
-      `--output-path=${output}`,
+      `--output-path=${q(output)}`,
     ],
-    // `shell` because `npx` is a `.cmd` on Windows and will not spawn without
-    // one. Not a hole worth closing: `MEASURE_BASE_URL` is the only value from
-    // outside, and whoever sets it already has this shell. `new URL` above
-    // catches a typo, not an injection — a valid URL can hold `$(…)`.
     {
       env: { ...process.env, CHROME_PATH: chromium.executablePath() },
-      shell: true,
+      shell: SHELL,
     },
   );
 
@@ -107,8 +88,18 @@ function once(index: number): Report {
   try {
     return JSON.parse(readFileSync(output, "utf8")) as Report;
   } catch {
+    // `status` is null when the spawn itself failed, which an exit code alone
+    // says nothing about.
+    const why =
+      result.error?.message ??
+      String(result.stderr ?? "")
+        .trim()
+        .split("\n")
+        .slice(-3)
+        .join("\n");
+
     throw new Error(
-      `Lighthouse produced no report (exit ${String(result.status)}).`,
+      `Lighthouse produced no report (exit ${String(result.status)}).${why ? `\n${why}` : ""}`,
     );
   }
 }
@@ -119,15 +110,6 @@ const CATEGORIES = [
   ["best-practices", "Best practices"],
   ["seo", "SEO"],
 ] as const;
-
-const median = (values: number[]) => {
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-
-  return sorted.length % 2 === 0
-    ? (sorted[middle - 1]! + sorted[middle]!) / 2
-    : sorted[middle]!;
-};
 
 const score = (report: Report, key: string) =>
   Math.round((report.categories[key]?.score ?? 0) * 100);

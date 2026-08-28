@@ -9,11 +9,10 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { brotliCompressSync } from "node:zlib";
 
-/** Local only, unlike `perf:ttft`, which shares this variable: the sizes come
- * from `.next` on disk, so pointing it at production measures a local build under
- * production's name. */
-const base = process.env.MEASURE_BASE_URL ?? "http://localhost:3000";
+import { base, guestSession } from "./measure/session.mts";
 
+// The one script that may not follow `MEASURE_BASE_URL` anywhere: sizes come
+// from `.next` on disk, so production would be measured as a local build.
 if (!/^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(base)) {
   throw new Error(
     `${base} is not local. This reads chunk sizes from \`.next\`.`,
@@ -34,39 +33,10 @@ if (!(name in TARGETS)) {
 
 const path = TARGETS[name as keyof typeof TARGETS];
 
-/** `/demo` mints the guest cookie and redirects; `proxy.ts` sends a
- * credential-less `/w/*` to sign-in, which would measure a different page. */
-async function guestCookie(): Promise<string> {
-  // A production server, not `pnpm dev`: dev appends `?v=…` to every chunk URL,
-  // so none of them resolve on disk.
-  // `cause` because the message is a guess: DNS, TLS and a proxy refusal all
-  // arrive here and none of them is "nothing is listening".
-  const response = await fetch(`${base}/demo`, { redirect: "manual" }).catch(
-    (cause: unknown) => {
-      throw new Error(
-        `Cannot reach ${base}. Run \`pnpm build && pnpm start\` first.`,
-        { cause },
-      );
-    },
-  );
-  const cookie = response.headers
-    .getSetCookie()
-    .map((one) => one.split(";")[0])
-    .join("; ");
-
-  const location = response.headers.get("location");
-  if (!location) throw new Error("/demo did not redirect.");
-
-  // Without a cookie the guarded route redirects to /sign-in, and following it
-  // would size that page under this one's name. `/demo` sends none when the
-  // secret or the database is missing.
-  if (!cookie) throw new Error("/demo set no cookie — is AUTH_SECRET set?");
-
-  return `${cookie}|${new URL(location, base).pathname}`;
-}
-
-const [cookie, demoPath] = (await guestCookie()).split("|") as [string, string];
-const target = path === "/w" ? demoPath : path;
+// A production server, not `pnpm dev`: dev appends `?v=…` to every chunk URL, so
+// none of them resolve on disk.
+const { cookie, location } = await guestSession();
+const target = path === "/w" ? new URL(location).pathname : path;
 
 const response = await fetch(`${base}${target}`, { headers: { cookie } });
 

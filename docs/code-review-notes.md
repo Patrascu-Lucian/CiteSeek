@@ -2626,3 +2626,31 @@ tests, 117 E2E and a production build, green.
   here rendered a fixed state and passed; catching it needed a rerender with a _different_
   `activeChatId`, which is the transition itself. A green suite that only ever asserts still frames
   says nothing about the moment between them.
+
+## The flake that was a guard which had stopped guarding, 28 August 2026
+
+- **Issue**: one unit test failed once, out of 886, and could not be reproduced in nineteen further
+  runs. It was written up as an unidentified flake, and a junit reporter was added so the _next_
+  sighting would name itself. The first failure after that landed named it immediately:
+  `lib/usage/client-ip.test.ts > refuses to run without a secret rather than storing the address`.
+  It was not a flake. It fails whenever `AUTH_SECRET` is set in the environment, and passes whenever
+  it is not — deterministic in both directions.
+
+- **Cause**: `hashClientIp(ip, secret = process.env.AUTH_SECRET)` takes the secret as a **defaulted
+  parameter**, so `hashClientIp(ip, undefined)` does not mean "no secret" — it reads the environment.
+  Every E2E command here exports `AUTH_SECRET`, so a shell that had just run one turned the guard
+  green. The runs that failed and the runs that passed were in different shells, which is the whole
+  of the apparent randomness.
+
+- **Fix**: `vi.stubEnv("AUTH_SECRET", "")` in the test, so the condition it asserts is arranged
+  rather than inherited. Falsified by reverting the stub and watching it go red again with the
+  variable set.
+
+- **Lesson**: **"cannot reproduce" is a claim about the harness, not about the defect.** Nineteen
+  clean runs proved only that nineteen shells lacked a variable. Before calling something a flake,
+  ask what differed between the run that failed and the runs that did not — and the environment is
+  the difference nobody diffs, because it is the one thing not in the repository.
+
+- **And the smaller one, which is the cheaper habit**: a default parameter reading global state
+  means the explicit `undefined` a test passes is not the value the function sees. `f(x, undefined)`
+  looks like it pins the argument and does the opposite.

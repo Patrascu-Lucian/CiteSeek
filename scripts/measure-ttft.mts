@@ -7,7 +7,8 @@
  * Spends provider quota and counts against this project's own rate limiter, so
  * the default target is localhost and production has to be asked for by name.
  */
-const base = process.env.MEASURE_BASE_URL ?? "http://localhost:3000";
+import { base, guestSession, median } from "./measure/session.mts";
+
 const samples = Number(process.env.MEASURE_SAMPLES ?? "4");
 
 if (!Number.isInteger(samples) || samples < 1) {
@@ -20,33 +21,9 @@ if (!Number.isInteger(samples) || samples < 1) {
  * model actually runs. */
 const QUESTION = "What is the expenses policy?";
 
-async function demoSession() {
-  // `cause` because the message is a guess: DNS, TLS and a proxy refusal all
-  // arrive here and none of them is "nothing is listening".
-  const response = await fetch(`${base}/demo`, { redirect: "manual" }).catch(
-    (cause: unknown) => {
-      throw new Error(
-        `Cannot reach ${base}. For localhost, run \`pnpm build && pnpm start\` first.`,
-        { cause },
-      );
-    },
-  );
-
-  const cookie = response.headers
-    .getSetCookie()
-    .map((one) => one.split(";")[0])
-    .join("; ");
-  const location = response.headers.get("location");
-
-  if (!cookie || !location) throw new Error("/demo gave no guest session.");
-
-  return {
-    cookie,
-    workspaceId: new URL(location, base).pathname.split("/")[2]!,
-  };
-}
-
-const { cookie, workspaceId } = await demoSession();
+const { cookie, location } = await guestSession();
+// `/demo` redirects to `/w/<id>`, which is the only place the id is published.
+const workspaceId = new URL(location).pathname.split("/")[2]!;
 
 /** Milliseconds from request start to the first byte of the stream, and to the
  * first `text-delta` in it. */
@@ -106,18 +83,6 @@ async function once(): Promise<{ firstByte: number; firstToken: number }> {
 
   throw new Error("The stream closed before a token arrived.");
 }
-
-/** The midpoint of the two middles on an even count. The default sample size is
- * even, and an index pick returns the upper one — which is the sample a cold
- * start lands in. */
-const median = (values: number[]) => {
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-
-  return sorted.length % 2 === 0
-    ? (sorted[middle - 1]! + sorted[middle]!) / 2
-    : sorted[middle]!;
-};
 
 const runs: { firstByte: number; firstToken: number }[] = [];
 
