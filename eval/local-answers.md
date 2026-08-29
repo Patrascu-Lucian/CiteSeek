@@ -1,41 +1,35 @@
 # Local answers
 
-Run 2026-08-28 against `onnx-community/Qwen2.5-0.5B-Instruct`.
+Run 2026-08-29 against `onnx-community/Qwen2.5-0.5B-Instruct`.
 
 Local mode end to end: the local embedder ranks the passages, the local model
 answers from them. `oracle` hands the answering passage over instead, so it is
 the ceiling retrieval cannot beat.
 
 Both halves at every count, because they move in opposite directions — fewer
-passages read better and retrieve worse, so grounding alone would recommend a
-number that drops the answer.
+passages read better and retrieve worse. `--sweep` re-opens the counts below
+the shipping one; the answer there is that grounding is flat.
 
 `grounded` is a substring check on a digit boundary. A floor, not a grade: it
 cannot tell a value from a negated one.
 
-| passages | grounded | answer retrieved |
-| -------- | -------- | ---------------- |
-| 1 | 2/8 | 4/8 |
-| 2 | 3/8 | 6/8 |
-| 3 | 2/8 | 8/8 |
-| 4 | 2/8 | 8/8 |
-| 8 | 2/8 | 8/8 |
-| oracle | 4/8 | by construction |
-
-Cited 0/8 on the oracle passage.
+| passages | grounded | cited | answer retrieved |
+| -------- | -------- | ----- | ---------------- |
+| 8 | 2/8 | 0/8 | 8/8 |
+| oracle | 4/8 | 0/8 | by construction |
 
 ## Per question
 
-| question | 1 | 2 | 3 | 4 | 8 | oracle |
-| -------- | - | - | - | - | - | ------ |
-| How quickly does someone get back to me if everything is down? | _missed_ | _missed_ | **no** | **no** | yes | yes |
-| How long do you keep whatever I attach to a ticket? | yes | yes | yes | yes | **no** | yes |
-| How much warning do I need to give before it renews? | _missed_ | _missed_ | **no** | **no** | **no** | **no** |
-| What do I get back if you miss a target? | **no** | **no** | **no** | **no** | **no** | **no** |
-| The boiler died in January. How fast should someone come? | _missed_ | **no** | **no** | **no** | **no** | **no** |
-| How much notice do I give to move out? | **no** | yes | yes | **no** | **no** | **no** |
-| How much do I have to hand over at the start? | _missed_ | **no** | **no** | yes | **no** | yes |
-| What hours is the standard plan covered? | yes | yes | **no** | **no** | yes | yes |
+| question | 8 | oracle |
+| -------- | - | ------ |
+| How quickly does someone get back to me if everything is down? | yes | yes |
+| How long do you keep whatever I attach to a ticket? | **no** | yes |
+| How much warning do I need to give before it renews? | **no** | **no** |
+| What do I get back if you miss a target? | **no** | **no** |
+| The boiler died in January. How fast should someone come? | **no** | **no** |
+| How much notice do I give to move out? | **no** | **no** |
+| How much do I have to hand over at the start? | **no** | yes |
+| What hours is the standard plan covered? | yes | yes |
 
 `_missed_` is retrieval not returning the answering passage at that count;
 **no** is the model having it and not using it.
