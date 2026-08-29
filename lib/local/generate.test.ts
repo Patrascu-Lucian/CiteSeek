@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatSource } from "@/lib/ai/types";
 
 const pipeline = vi.hoisted(() => vi.fn());
+const fromPretrained = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
 const env = vi.hoisted(() => ({
   backends: { onnx: { wasm: { wasmPaths: "" } } },
 }));
@@ -13,7 +14,7 @@ const streamerOptions = vi.hoisted(
 vi.mock("@huggingface/transformers", () => ({
   env,
   pipeline,
-  AutoTokenizer: { from_pretrained: () => Promise.resolve({}) },
+  AutoTokenizer: { from_pretrained: fromPretrained },
   TextStreamer: class {
     constructor(
       _tokenizer: unknown,
@@ -53,6 +54,7 @@ const generatingModel = (chunks: string[]) =>
 beforeEach(() => {
   vi.resetModules();
   pipeline.mockReset();
+  fromPretrained.mockClear();
   env.backends.onnx.wasm.wasmPaths = "";
   delete (globalThis as { __citeseekLocalEmbedder?: string })
     .__citeseekLocalEmbedder;
@@ -91,6 +93,32 @@ describe("the local chat model", () => {
     );
   });
 
+  it("loads the model it was asked for", async () => {
+    pipeline.mockResolvedValue(vi.fn());
+    const { loadChatModel } = await import("./generate");
+
+    await loadChatModel(undefined, "cpu", "onnx-community/candidate");
+
+    expect(pipeline).toHaveBeenCalledWith(
+      "text-generation",
+      "onnx-community/candidate",
+      expect.objectContaining({ device: "cpu" }),
+    );
+  });
+
+  it("refuses a second model rather than answering as the first", async () => {
+    // The pipeline is cached, so the second id would label one model's answers
+    // with another's name.
+    pipeline.mockResolvedValue(vi.fn());
+    const { loadChatModel } = await import("./generate");
+
+    await loadChatModel(undefined, "cpu", "onnx-community/a");
+
+    expect(() => loadChatModel(undefined, "cpu", "onnx-community/b")).toThrow(
+      /already loaded/,
+    );
+  });
+
   it("loads the weights once across questions", async () => {
     pipeline.mockResolvedValue(vi.fn());
     const { loadChatModel } = await import("./generate");
@@ -114,6 +142,17 @@ describe("the local chat model", () => {
 });
 
 describe("generateLocally", () => {
+  it("tokenizes with the weights it loaded, not the pinned name", async () => {
+    // A tokenizer from a different model produces plausible garbage, silently.
+    pipeline.mockResolvedValue(generatingModel(["ok"]));
+    const { loadChatModel, generateLocally } = await import("./generate");
+
+    await loadChatModel(undefined, "cpu", "onnx-community/candidate");
+    for await (const _ of generateLocally("when?", [source]));
+
+    expect(fromPretrained).toHaveBeenCalledWith("onnx-community/candidate");
+  });
+
   it("streams the deltas the model emits", async () => {
     pipeline.mockResolvedValue(
       generatingModel(["Within ", "thirty days [1]."]),

@@ -4,7 +4,7 @@
  *
  * Free — no provider, no database. Slow: CPU generation.
  *
- * Usage: pnpm eval:local-answers [--fake]
+ * Usage: pnpm eval:local-answers [--fake] [--model=onnx-community/…]
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -12,7 +12,11 @@ import { join } from "node:path";
 import { LOCAL_ANSWER_SET } from "../eval/golden-set.ts";
 import type { ChatSource } from "../lib/ai/types.ts";
 import { localEmbedder } from "../lib/local/embedder.ts";
-import { loadChatModel, resolveLocalGenerator } from "../lib/local/generate.ts";
+import {
+  LOCAL_CHAT_MODEL,
+  loadChatModel,
+  resolveLocalGenerator,
+} from "../lib/local/generate.ts";
 import { chunkText, type Chunk } from "../lib/rag/chunking.ts";
 import { extractText } from "../lib/rag/extract.ts";
 import { RETRIEVAL_LIMIT } from "../lib/rag/retrieval-config.ts";
@@ -25,6 +29,10 @@ const FIXTURE_FILES = [
 ];
 
 const useFake = process.argv.includes("--fake");
+/** `--model=onnx-community/…` to score a candidate against the pinned one. */
+const model =
+  process.argv.find((one) => one.startsWith("--model="))?.slice(8) ??
+  LOCAL_CHAT_MODEL;
 
 // Read by `resolveLocalGenerator`, and set before it is called.
 if (useFake) {
@@ -102,13 +110,14 @@ function sourcesFor(expect: readonly { file: string; quote: string }[]) {
 
 if (!useFake) {
   // First call wins the module singleton, so `generateLocally` reuses this one.
-  console.log("Loading the model (756 MB on a first run)…");
+  console.log(`Loading ${model} (first run downloads it)…`);
   await loadChatModel(
     ({ loaded, total }) =>
       process.stdout.write(
         `\r  ${String(Math.round((loaded / total) * 100))}%   `,
       ),
     "cpu",
+    model,
   );
   console.log("\n");
 }
@@ -214,7 +223,7 @@ const rate = (of: (one: At) => boolean, count: number) => {
 const report = [
   "# Local answers",
   "",
-  `Run ${new Date().toISOString().slice(0, 10)} against \`${useFake ? "the fake generator" : "onnx-community/Qwen2.5-0.5B-Instruct"}\`.`,
+  `Run ${new Date().toISOString().slice(0, 10)} against \`${useFake ? "the fake generator" : model}\`.`,
   "",
   "Local mode end to end: the local embedder ranks the passages, the local model",
   "answers from them. `oracle` hands the answering passage over instead, so it is",
@@ -263,10 +272,16 @@ const report = [
   ]),
 ].join("\n");
 
-// `--fake` exercises the harness; it must not overwrite a real run's record.
-if (!useFake) await writeFile(join(EVAL, "local-answers.md"), report + "\n");
+// A candidate writes beside the pinned model's record rather than over it.
+const into = useFake
+  ? null
+  : model === LOCAL_CHAT_MODEL
+    ? "local-answers.md"
+    : `local-answers-${model.split("/").pop()!.toLowerCase()}.md`;
+
+if (into) await writeFile(join(EVAL, into), report + "\n");
 
 console.log(
   `\n${COUNTS.map((count) => `${String(count)}:${rate((one) => one.grounded, count)}`).join("  ")}  oracle:${share((row) => row.oracle.grounded)}` +
-    (useFake ? " Not written: --fake." : " Written to eval/local-answers.md"),
+    (into ? ` Written to eval/${into}` : " Not written: --fake."),
 );
