@@ -21,10 +21,17 @@ export default function LocalPage() {
         Documents are parsed, indexed and answered on this machine. Nothing is
         uploaded, and no question reaches a model provider.
       </p>
+      {/* Measured, not hedged (`eval/local-markers.md`). The old wording ended
+          "check the citations", which this page cannot honour: the model almost
+          never emits one. */}
       <p className="text-muted-foreground mt-2 text-sm">
         The model that runs here is small enough to fit in a browser, and it
-        shows: answers are worse than cloud mode, and it sometimes states things
-        your documents do not say. Check the citations.
+        shows. Asked 24 questions about our own sample documents, it reached the
+        right figure 13 times and stated something the documents do not say the
+        rest. <strong>It also almost never cites.</strong> A number in square
+        brackets is usually the model putting a citation marker where a value
+        belongs — read it as a mistake, not a source. Cloud mode cites properly
+        and is the better choice for anything that matters.
       </p>
 
       <div className="mt-6">
