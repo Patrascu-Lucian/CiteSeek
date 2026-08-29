@@ -7,14 +7,18 @@ answers from them. `oracle` hands the answering passage over instead, so it is
 the ceiling retrieval cannot beat.
 
 Both halves at every count, because they move in opposite directions — fewer
-passages read better and retrieve worse. `--sweep` re-opens the counts below
-the shipping one; the answer there is that grounding is flat.
+passages read better and retrieve worse. Three is where they cross: retrieval
+is already perfect and grounding has not yet fallen.
 
 `grounded` is a substring check on a digit boundary. A floor, not a grade: it
 cannot tell a value from a negated one.
 
 | passages | grounded | cited | answer retrieved |
 | -------- | -------- | ----- | ---------------- |
+| 1 | 14/24 | 1/24 | 19/24 |
+| 2 | 15/24 | 2/24 | 22/24 |
+| 3 | 15/24 | 0/24 | 24/24 |
+| 4 | 10/24 | 3/24 | 24/24 |
 | 8 | 11/24 | 1/24 | 24/24 |
 | oracle | 17/24 | 1/24 | by construction |
 
@@ -73,32 +77,32 @@ A refusal is separated because rule 4 forbids citing one.
 
 ## Per question
 
-| question | 8 | oracle |
-| -------- | - | ------ |
-| How quickly does someone get back to me if everything is down? | yes | yes |
-| How long do you keep whatever I attach to a ticket? | **no** | yes |
-| How much warning do I need to give before it renews? | **no** | **no** |
-| What do I get back if you miss a target? | **no** | **no** |
-| The boiler died in January. How fast should someone come? | **no** | **no** |
-| How much notice do I give to move out? | **no** | **no** |
-| How much do I have to hand over at the start? | **no** | yes |
-| What hours is the standard plan covered? | yes | yes |
-| How much force does the press develop? | yes | yes |
-| How loud is it at a metre? | yes | yes |
-| Which oil grade goes in it? | yes | yes |
-| How often does the oil need changing? | **no** | yes |
-| What oil temperature is too hot? | yes | yes |
-| What torque do the die bolts take? | **no** | yes |
-| How thin can a die be reground before it is scrap? | **no** | yes |
-| How far apart can the pressure sensors read before it stops? | yes | yes |
-| What humidity needs a desiccant in storage? | yes | yes |
-| How much can the rent go up by? | yes | yes |
-| How long does the deposit take to be protected? | **no** | **no** |
-| How fast is a non-emergency repair attended? | yes | yes |
-| How long can a guest stay before I have to tell anyone? | **no** | **no** |
-| How much is the extra deposit for a pet? | **no** | yes |
-| How much notice do I give if I am leaving? | **no** | **no** |
-| What is the cap on credits in a month? | yes | yes |
+| question | 1 | 2 | 3 | 4 | 8 | oracle |
+| -------- | - | - | - | - | - | ------ |
+| How quickly does someone get back to me if everything is down? | _missed_ | _missed_ | **no** | **no** | yes | yes |
+| How long do you keep whatever I attach to a ticket? | yes | yes | yes | yes | **no** | yes |
+| How much warning do I need to give before it renews? | _missed_ | _missed_ | **no** | **no** | **no** | **no** |
+| What do I get back if you miss a target? | **no** | **no** | **no** | **no** | **no** | **no** |
+| The boiler died in January. How fast should someone come? | _missed_ | **no** | **no** | **no** | **no** | **no** |
+| How much notice do I give to move out? | **no** | yes | yes | **no** | **no** | **no** |
+| How much do I have to hand over at the start? | _missed_ | **no** | **no** | yes | **no** | yes |
+| What hours is the standard plan covered? | yes | yes | **no** | **no** | yes | yes |
+| How much force does the press develop? | yes | yes | yes | yes | yes | yes |
+| How loud is it at a metre? | yes | yes | yes | yes | yes | yes |
+| Which oil grade goes in it? | yes | yes | yes | yes | yes | yes |
+| How often does the oil need changing? | yes | yes | yes | yes | **no** | yes |
+| What oil temperature is too hot? | yes | yes | yes | yes | yes | yes |
+| What torque do the die bolts take? | _missed_ | yes | yes | **no** | **no** | yes |
+| How thin can a die be reground before it is scrap? | yes | yes | yes | **no** | **no** | yes |
+| How far apart can the pressure sensors read before it stops? | yes | yes | yes | yes | yes | yes |
+| What humidity needs a desiccant in storage? | yes | yes | yes | yes | yes | yes |
+| How much can the rent go up by? | yes | **no** | yes | yes | yes | yes |
+| How long does the deposit take to be protected? | **no** | **no** | yes | **no** | **no** | **no** |
+| How fast is a non-emergency repair attended? | yes | yes | **no** | **no** | yes | yes |
+| How long can a guest stay before I have to tell anyone? | **no** | **no** | **no** | **no** | **no** | **no** |
+| How much is the extra deposit for a pet? | yes | yes | yes | **no** | **no** | yes |
+| How much notice do I give if I am leaving? | **no** | **no** | **no** | **no** | **no** | **no** |
+| What is the cap on credits in a month? | yes | yes | yes | **no** | yes | yes |
 
 `_missed_` is retrieval not returning the answering passage at that count;
 **no** is the model having it and not using it.

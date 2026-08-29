@@ -10,6 +10,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { GOLDEN_SET, LOCAL_ANSWER_SET } from "../eval/golden-set.ts";
+import { cites, grounds } from "../eval/scoring.ts";
 import { NO_RELEVANT_PASSAGES_REPLY } from "../lib/ai/prompt.ts";
 import type { ChatSource } from "../lib/ai/types.ts";
 import { localEmbedder } from "../lib/local/embedder.ts";
@@ -123,8 +124,8 @@ if (!useFake) {
   console.log("\n");
 }
 
-/** The sweep is answered — grounding is flat and the count is not the lever — so
- * it costs three runs to re-confirm it. `--sweep` to re-open it. */
+/** Five counts is five times the generations, so not the default — but it is
+ * what found three passages beating the shipping eight. */
 const COUNTS = process.argv.includes("--sweep")
   ? [1, 2, 3, 4, RETRIEVAL_LIMIT]
   : [RETRIEVAL_LIMIT];
@@ -145,26 +146,11 @@ type Row = {
 
 const rows: Row[] = [];
 
-// Not `includes`: "5%" matched inside "25%", scoring the cap as the rate.
-const grounds = (answer: string, wants: readonly string[]) =>
-  wants.some((want) =>
-    new RegExp(
-      `(?<!\\d)${want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-      "i",
-    ).test(answer),
-  );
-
 async function ask(question: string, sources: readonly ChatSource[]) {
   let answer = "";
   for await (const delta of generate(question, sources)) answer += delta;
 
-  // In range, so a `[9]` against one passage does not count as cited.
-  const cited = [...answer.matchAll(/\[(\d+)\]/g)].some((m) => {
-    const marker = Number(m[1]);
-    return marker >= 1 && marker <= sources.length;
-  });
-
-  return { answer: answer.trim(), cited };
+  return { answer: answer.trim(), cited: cites(answer, sources.length) };
 }
 
 for (const [index, one] of LOCAL_ANSWER_SET.entries()) {
@@ -263,8 +249,8 @@ const report = [
   "the ceiling retrieval cannot beat.",
   "",
   "Both halves at every count, because they move in opposite directions — fewer",
-  "passages read better and retrieve worse. `--sweep` re-opens the counts below",
-  "the shipping one; the answer there is that grounding is flat.",
+  "passages read better and retrieve worse. Three is where they cross: retrieval",
+  "is already perfect and grounding has not yet fallen.",
   "",
   "`grounded` is a substring check on a digit boundary. A floor, not a grade: it",
   "cannot tell a value from a negated one.",

@@ -1373,7 +1373,7 @@ they move in opposite directions.
 
 Grounding is flat. What moves is retrieval: at one and two passages the answering chunk is often not
 returned at all, so cutting the count trades a distraction problem for a worse one. 2/8 against 3/8
-is a single row out of eight and is not a knee.
+is a single row out of eight and is not a turn.
 
 **An earlier version of this entry said "one passage grounds 4/8 where eight grounds 2/8". That was
 wrong**, and wrong in an instructive way: it read the _oracle_ column as "one passage". The oracle
@@ -1456,11 +1456,36 @@ those six had the answer in front of it. That is a distraction cost of a quarter
 is the clearest number this harness has produced — but note the corpus is 25 chunks, so eight
 passages is a third of it. `24/24` says the ranking is not adversarial, not that retrieval is solved.
 
-**So the sweep is re-opened, and step 3 below is not settled after all.** At eight questions the
+**So the sweep was re-opened, and it says the opposite of what eight questions said.** At eight the
 oracle and the eight-passage column were both 2/8, so there was no gap to spend passages on and
-"the count is not the lever" was the honest reading of it. Six rows is a gap. Whether cutting the
-count recovers any of them is the next run, and until it reports, the struck-through item in step 3
-is struck on evidence that no longer covers the question.
+"the count is not the lever" was the honest reading of it. Six rows is a gap, and re-swept over 24:
+
+| passages | grounded  | cited | answer retrieved |
+| -------- | --------- | ----- | ---------------- |
+| 1        | 14/24     | 1/24  | 19/24            |
+| 2        | 15/24     | 2/24  | 22/24            |
+| 3        | **15/24** | 0/24  | **24/24**        |
+| 4        | 10/24     | 3/24  | 24/24            |
+| 8        | 11/24     | 1/24  | 24/24            |
+| oracle   | 17/24     | 1/24  | by construction  |
+
+**Three passages is the best of the five, and the shipping eight is well past it.** At three the
+answering chunk is retrieved every time _and_ grounding is 15/24 — four rows better than eight
+gets, two below the ceiling of handing the answer over. The fourth passage costs five rows. So the
+count is the lever after all, and the earlier finding was not wrong so much as unmeasurable at n=8.
+
+**Both columns the two runs share came out identical** — oracle 17/24, eight passages 11/24 — which
+is the reproducibility check that makes 15 against 11 a result rather than a coin. What is _not_
+solid is exactly where the turn falls: 2 and 3 differ by nothing, and the drop of five rows from 3
+to 4 is a sharper cliff than a smooth curve would give, so this model is very sensitive to what
+else is in its context.
+
+**It does not license changing `RETRIEVAL_LIMIT`, which is shared.** `lib/rag/retrieve.ts` and
+`lib/local/retrieve.ts` read the same 8, and nothing here measures Gemini at three passages —
+cutting cloud mode's context on evidence from a 0.5B model would be exactly the unfounded swap this
+harness exists to prevent. The change worth making is a **local-only** limit, and it needs its own
+ADR: the number that is good for a model that loses answers among distractors is not obviously good
+for one that does not.
 
 **The one citation is the founding defect, not a partial success.** Asked how long deposit
 protection takes, it answered "registered with an approved protection scheme within **[1] weeks** of
@@ -1489,9 +1514,11 @@ Qwen3-0.6B, Llama-3.2-1B, Phi-4-mini — plausibly beats it at a similar downloa
 before anyone reaches for size: the **1.5B was already tried** and did not fix marker emission
 (ADR 033), so parameters alone are not the lever. What changed that was the worked example.
 
-**3. Cheap prompt experiments, once (1) can score them.** Two candidates. ~~`RETRIEVAL_LIMIT`
+**3. Cheap prompt experiments, once (1) can score them.** Two candidates. `RETRIEVAL_LIMIT`
 passages plus the rules plus an example is a lot of context for a 0.5B, and fewer passages may
-read better than more.~~ **Swept, and it is not the lever — see below.** And
+read better than more — **un-struck 29 August 2026: three passages grounds 15/24 where eight
+grounds 11/24, with retrieval unharmed. This is now the cheapest real improvement available, and it
+needs a local-only limit rather than a change to the shared one.** And
 `markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a numeric
 exemplar targets, which stays blocked until markers can be measured where they actually run.
 
