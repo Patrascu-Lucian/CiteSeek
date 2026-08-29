@@ -4,7 +4,7 @@
  *
  * Free — no provider, no database. Slow: CPU generation.
  *
- * Usage: pnpm eval:local-answers [--fake] [--model=onnx-community/…]
+ * Usage: pnpm eval:local-answers [--fake] [--sweep] [--model=onnx-community/…]
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -122,11 +122,18 @@ if (!useFake) {
   console.log("\n");
 }
 
-/** Both halves at every count: fewer passages read better and retrieve worse, so
- * grounding alone would recommend a number that drops the answer. */
-const COUNTS = [1, 2, 3, 4, RETRIEVAL_LIMIT];
+/** The sweep is answered — grounding is flat and the count is not the lever — so
+ * it costs three runs to re-confirm it. `--sweep` to re-open it. */
+const COUNTS = process.argv.includes("--sweep")
+  ? [1, 2, 3, 4, RETRIEVAL_LIMIT]
+  : [RETRIEVAL_LIMIT];
 
-type At = { grounded: boolean; retrieved: boolean; answer: string };
+type At = {
+  grounded: boolean;
+  retrieved: boolean;
+  cited: boolean;
+  answer: string;
+};
 
 type Row = {
   question: string;
@@ -177,9 +184,10 @@ for (const [index, one] of LOCAL_ANSWER_SET.entries()) {
     // No ranking means `--fake`; scoring the oracle again would invent a sweep.
     if (sources.length === 0) continue;
 
-    const { answer } = await ask(one.question, sources);
+    const { answer, cited } = await ask(one.question, sources);
     at.set(count, {
       answer,
+      cited,
       grounded: grounds(answer, one.answerContains),
       retrieved: sources.some((source) =>
         one.expect.some((e) => source.quote.includes(e.quote)),
@@ -230,21 +238,19 @@ const report = [
   "the ceiling retrieval cannot beat.",
   "",
   "Both halves at every count, because they move in opposite directions — fewer",
-  "passages read better and retrieve worse, so grounding alone would recommend a",
-  "number that drops the answer.",
+  "passages read better and retrieve worse. `--sweep` re-opens the counts below",
+  "the shipping one; the answer there is that grounding is flat.",
   "",
   "`grounded` is a substring check on a digit boundary. A floor, not a grade: it",
   "cannot tell a value from a negated one.",
   "",
-  "| passages | grounded | answer retrieved |",
-  "| -------- | -------- | ---------------- |",
+  "| passages | grounded | cited | answer retrieved |",
+  "| -------- | -------- | ----- | ---------------- |",
   ...COUNTS.map(
     (count) =>
-      `| ${String(count)} | ${rate((one) => one.grounded, count)} | ${rate((one) => one.retrieved, count)} |`,
+      `| ${String(count)} | ${rate((one) => one.grounded, count)} | ${rate((one) => one.cited, count)} | ${rate((one) => one.retrieved, count)} |`,
   ),
-  `| oracle | ${share((row) => row.oracle.grounded)} | by construction |`,
-  "",
-  `Cited ${share((row) => row.oracle.cited)} on the oracle passage.`,
+  `| oracle | ${share((row) => row.oracle.grounded)} | ${share((row) => row.oracle.cited)} | by construction |`,
   "",
   "## Per question",
   "",

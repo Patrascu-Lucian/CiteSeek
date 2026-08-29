@@ -1386,6 +1386,12 @@ of this model agreed row for row, that is behavior rather than noise.
 So the lever is not the count. It is retrieval good enough that one passage suffices, or a model
 that does not lose an answer sitting in front of it.
 
+**The sweep is now behind `--sweep`**, since re-confirming it cost three runs of every question: a
+default run is 3.1 minutes against 9.2. `cited` is recorded at every count now rather than only on
+the oracle, and it reads **0/8 at eight passages as well as 0/8 on the oracle** — so the zero is not
+about the count either, and the two candidate explanations left are the CPU-versus-WebGPU device and
+the shape of the question.
+
 Two things the numbers alone do not carry:
 
 - The wrong answers are not vague, they are confidently wrong. "Emergency repairs are attended within
