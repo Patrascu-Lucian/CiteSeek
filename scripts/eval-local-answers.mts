@@ -9,7 +9,8 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { LOCAL_ANSWER_SET } from "../eval/golden-set.ts";
+import { GOLDEN_SET, LOCAL_ANSWER_SET } from "../eval/golden-set.ts";
+import { NO_RELEVANT_PASSAGES_REPLY } from "../lib/ai/prompt.ts";
 import type { ChatSource } from "../lib/ai/types.ts";
 import { localEmbedder } from "../lib/local/embedder.ts";
 import {
@@ -215,6 +216,30 @@ for (const [index, one] of LOCAL_ANSWER_SET.entries()) {
   );
 }
 
+// A marker here would mean the zero above is question shape, not the device.
+const prose: {
+  question: string;
+  answer: string;
+  cited: boolean;
+  refused: boolean;
+}[] = [];
+
+if (!useFake) {
+  const cases = GOLDEN_SET.filter((one) => one.expect.length > 0).slice(0, 8);
+  console.log(`\nProse, ${String(cases.length)} questions…`);
+
+  for (const [index, one] of cases.entries()) {
+    const { answer, cited } = await ask(one.question, sourcesFor(one.expect));
+    // Rule 4 forbids citing a refusal, so an uncited refusal proves nothing.
+    const refused = answer.includes(NO_RELEVANT_PASSAGES_REPLY.slice(0, 40));
+
+    prose.push({ question: one.question, answer, cited, refused });
+    console.log(
+      `  ${String(index + 1)}/${String(cases.length)} ${cited ? "cited  " : "uncited"}${refused ? " (refused)" : ""}`,
+    );
+  }
+}
+
 const share = (of: (row: Row) => boolean) =>
   `${String(rows.filter(of).length)}/${String(rows.length)}`;
 
@@ -252,6 +277,34 @@ const report = [
   ),
   `| oracle | ${share((row) => row.oracle.grounded)} | ${share((row) => row.oracle.cited)} | by construction |`,
   "",
+  ...(prose.length === 0
+    ? []
+    : [
+        "## Prose questions, on the oracle passage",
+        "",
+        "Whether the zero above is the device or the question. These want prose,",
+        "not a value, which is the shape ADR 033 saw markers on — same CPU path.",
+        "A refusal is separated because rule 4 forbids citing one.",
+        "",
+        `**Cited ${String(prose.filter((one) => one.cited).length)}/${String(prose.length)}**` +
+          `, refused ${String(prose.filter((one) => one.refused).length)}/${String(prose.length)}.`,
+        "",
+        "| question | cited | refused |",
+        "| -------- | ----- | ------- |",
+        ...prose.map(
+          (one) =>
+            `| ${one.question} | ${one.cited ? "yes" : "**no**"} | ${one.refused ? "yes" : "no"} |`,
+        ),
+        "",
+        "### Prose answers",
+        "",
+        ...prose.flatMap((one) => [
+          `**${one.question}**`,
+          "",
+          "> " + (one.answer || "_(empty)_").replaceAll("\n", "\n> "),
+          "",
+        ]),
+      ]),
   "## Per question",
   "",
   `| question | ${COUNTS.map(String).join(" | ")} | oracle |`,

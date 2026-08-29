@@ -1389,8 +1389,22 @@ that does not lose an answer sitting in front of it.
 **The sweep is now behind `--sweep`**, since re-confirming it cost three runs of every question: a
 default run is 3.1 minutes against 9.2. `cited` is recorded at every count now rather than only on
 the oracle, and it reads **0/8 at eight passages as well as 0/8 on the oracle** — so the zero is not
-about the count either, and the two candidate explanations left are the CPU-versus-WebGPU device and
-the shape of the question.
+about the count.
+
+**Nor is it the shape of the question, which was the cheap explanation.** Every question in
+`LOCAL_ANSWER_SET` wants one value, and "90 days." has nowhere to put a marker — while ADR 033 saw
+markers on prose. So the harness now also runs eight `GOLDEN_SET` questions, which are deliberately
+phrased away from the documents' words, down the same CPU path. **0/8 cited, 0 refused**, and the
+answers are recorded so this is checkable rather than asserted: several are full sentences — "No, you
+cannot push a ticket up the chain more than once." — with an obvious place for a marker and none in
+them.
+
+That leaves two candidates, and neither is cheap: the CPU-versus-WebGPU device, or a regression since
+ADR 033 measured this. Both need the model running in a browser to tell apart, which is the fork in
+`CI never runs the real local model`. Worth separating there: _measuring_ markers needs a browser
+once, while _regression-testing_ generation needs a small model always — the first is a hand-run tool
+in the family of `eval:retrieval` and `perf:lighthouse`, and does not touch the E2E suite's rule
+about provider networks.
 
 Two things the numbers alone do not carry:
 

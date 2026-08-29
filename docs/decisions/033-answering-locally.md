@@ -58,6 +58,13 @@ size was not the missing ingredient.
 appended after the system prompt, produced `[1]` immediately. At this size
 instruction-following comes from demonstration rather than instruction.
 
+↳ **Contradicted on CPU, 29 August 2026.** `pnpm eval:local-answers` gets **0 of 16**
+cited — eight value questions and eight prose ones, none refused, several answering
+in full sentences. That run is Node on `cpu`; this observation was a browser on
+WebGPU. Same weights, different execution provider, so one of them is not measuring
+what it thinks. Nothing here is withdrawn until it is re-measured in a browser
+(`docs/backlog.md`), but it should not be quoted as current until then.
+
 Without that discovery local mode would have shipped answers with a source list
 attached and nothing linking them — the acceptance criterion failing silently,
 which is the exact shape of defect ADR 011 exists to prevent.
