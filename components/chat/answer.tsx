@@ -66,13 +66,17 @@ export function Answer({
 
   return (
     <CitationProvider value={citations}>
-      <Streamdown
-        parseIncompleteMarkdown
-        className="prose-sm max-w-none [&_ol]:list-decimal [&_ol,&_ul]:my-2 [&_ol,&_ul]:pl-5 [&_p]:my-2 [&_ul]:list-disc"
-        components={MARKDOWN_COMPONENTS}
-      >
-        {linkCitationMarkers(text, sources)}
-      </Streamdown>
+      {/* Read by `scripts/eval-local-markers.mts`: the notices below sit inside
+          the bubble, and it must not record them as the model's words. */}
+      <div data-answer-prose="">
+        <Streamdown
+          parseIncompleteMarkdown
+          className="prose-sm max-w-none [&_ol]:list-decimal [&_ol,&_ul]:my-2 [&_ol,&_ul]:pl-5 [&_p]:my-2 [&_ul]:list-disc"
+          components={MARKDOWN_COMPONENTS}
+        >
+          {linkCitationMarkers(text, sources)}
+        </Streamdown>
+      </div>
 
       {invented.length > 0 ? <InventedMarkers markers={invented} /> : null}
       {groundless ? <NothingCited /> : null}

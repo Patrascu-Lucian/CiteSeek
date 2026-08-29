@@ -575,6 +575,9 @@ Run by hand, never in CI, output committed:
 
 ```bash
 pnpm eval:retrieval    # retrieval quality against eval/golden-set.ts (needs a real key)
+pnpm eval:local        # the local embedder's recall, in Node, no provider
+pnpm eval:local-answers # what the local model answers, in Node on the CPU
+pnpm eval:local-markers # the same questions in a browser on WebGPU
 pnpm demo:shots        # the README screenshots, against a running instance
 pnpm demo:pdf          # regenerates the demo fixture from its HTML source
 pnpm brand:icons       # the app icons, from scripts/brand/mark.svg

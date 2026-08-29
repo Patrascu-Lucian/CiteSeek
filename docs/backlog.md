@@ -1410,6 +1410,40 @@ once, while _regression-testing_ generation needs a small model always — the f
 in the family of `eval:retrieval` and `perf:lighthouse`, and does not touch the E2E suite's rule
 about provider networks.
 
+### Measured in a browser, 29 August 2026: it was never the device
+
+`pnpm eval:local-markers` drives `/local` on WebGPU — real page, real retrieval, a fresh browser per
+question because `useChat` sends the whole history and the Node harness asks each question cold.
+
+|               | browser, WebGPU | Node, CPU, 8 passages |
+| ------------- | --------------- | --------------------- |
+| grounded      | 13/24           | 11/24                 |
+| answers cited | 2/24            | 1/24                  |
+
+**Both chips are the defect, not the fix.** "The oil needs changing every 1 years" and "The torque
+takes 2 Nm", where the manual says 2,000 operating hours and 210 Nm — the marker standing where the
+number belongs, which is [ADR 038](decisions/038-a-citation-that-cannot-be-read-as-content.md)'s
+problem and the same shape as this entry's own opening transcript. Both scored ungrounded, so the
+citation and the wrong answer are one event. **Citations that support the claim they sit in: 0 of
+24** — a reading of two transcripts, not a number any harness produced, which is why it is written
+here rather than in the table.
+
+**ADR 033's "one worked example fixed it" is withdrawn there.** The better reading of all three runs
+is that the example taught the model that a bracketed number is a thing answers contain, not that a
+claim needs a source. Markers appear; they never point.
+
+**The grounding column does _not_ say the device is irrelevant, and an earlier draft of this entry
+claimed it did.** The two runs do not retrieve alike: `lib/local/retrieve.ts` drops anything past
+`maxDistanceFor("local")` _before_ taking `RETRIEVAL_LIMIT`, while `scripts/eval-local-answers.mts`
+takes the top eight with no floor. So the browser answered from some smaller number of passages, and
+this entry's own sweep puts three passages at 15/24 against eight at 11/24 — which brackets the
+browser's 13. Device and passage count are confounded, and 13-against-11 cannot separate them.
+
+Fixing that is cheap and worth doing before the next model comparison: give the Node harness the same
+floor, or have the browser record how many passages each answer actually got. Until then the citation
+result stands on its own — it is zero at every passage count measured, so no floor explains it — and
+the grounding comparison is indicative only.
+
 Two things the numbers alone do not carry:
 
 - The wrong answers are not vague, they are confidently wrong. "Emergency repairs are attended within

@@ -6,6 +6,7 @@ pnpm-lock.yaml
 eval/report.md
 # Same, from `pnpm eval:local-answers` — and it quotes model output verbatim.
 eval/local-answers*.md
+eval/local-markers.md
 .next/
 out/
 build/
