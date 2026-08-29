@@ -443,8 +443,10 @@ where the model runs. Closing it means a regional endpoint or a European provide
 second is the more interesting version of the question ([ADR 025](docs/decisions/025-paying-for-the-model-tier.md)).
 
 **Narrowed, August 2026, not closed.** Local mode answers this outright for anyone who takes it —
-no text leaves the machine at all — but it is opt-in, experimental, and materially worse at
-answering, so it is an escape hatch rather than a fix. The gap stands for the default path.
+no text leaves the machine at all — but it is opt-in and experimental, and now measured rather than
+described: on 24 value questions through the real page it reached the right figure **13 times, and
+cited nothing that supports a claim** ([`eval/local-markers.md`](eval/local-markers.md)). So it is
+an escape hatch rather than a fix, and the gap stands for the default path.
 
 ~~The provider is on a free tier whose terms permit using submitted content for product
 improvement.~~ **Closed, August 2026.** The project runs on the paid tier now, so that content is
