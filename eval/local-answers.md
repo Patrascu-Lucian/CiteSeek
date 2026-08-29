@@ -15,8 +15,8 @@ cannot tell a value from a negated one.
 
 | passages | grounded | cited | answer retrieved |
 | -------- | -------- | ----- | ---------------- |
-| 8 | 2/8 | 0/8 | 8/8 |
-| oracle | 4/8 | 0/8 | by construction |
+| 8 | 11/24 | 1/24 | 24/24 |
+| oracle | 17/24 | 1/24 | by construction |
 
 ## Prose questions, on the oracle passage
 
@@ -83,6 +83,22 @@ A refusal is separated because rule 4 forbids citing one.
 | How much notice do I give to move out? | **no** | **no** |
 | How much do I have to hand over at the start? | **no** | yes |
 | What hours is the standard plan covered? | yes | yes |
+| How much force does the press develop? | yes | yes |
+| How loud is it at a metre? | yes | yes |
+| Which oil grade goes in it? | yes | yes |
+| How often does the oil need changing? | **no** | yes |
+| What oil temperature is too hot? | yes | yes |
+| What torque do the die bolts take? | **no** | yes |
+| How thin can a die be reground before it is scrap? | **no** | yes |
+| How far apart can the pressure sensors read before it stops? | yes | yes |
+| What humidity needs a desiccant in storage? | yes | yes |
+| How much can the rent go up by? | yes | yes |
+| How long does the deposit take to be protected? | **no** | **no** |
+| How fast is a non-emergency repair attended? | yes | yes |
+| How long can a guest stay before I have to tell anyone? | **no** | **no** |
+| How much is the extra deposit for a pet? | **no** | yes |
+| How much notice do I give if I am leaving? | **no** | **no** |
+| What is the cap on credits in a month? | yes | yes |
 
 `_missed_` is retrieval not returning the answering passage at that count;
 **no** is the model having it and not using it.
@@ -126,4 +142,68 @@ A refusal is separated because rule 4 forbids citing one.
 **What hours is the standard plan covered?**
 
 > 09:00 to 18:00 in the customer's registered timezone, Monday to Friday, excluding public holidays in that country.
+
+**How much force does the press develop?**
+
+> 90 kilonewtons
+
+**How loud is it at a metre?**
+
+> 84 dB
+
+**Which oil grade goes in it?**
+
+> ISO VG 46 mineral oil
+
+**How often does the oil need changing?**
+
+> Every 2,000 operating hours or annually.
+
+**What oil temperature is too hot?**
+
+> 70°C
+
+**What torque do the die bolts take?**
+
+> 210 Nm
+
+**How thin can a die be reground before it is scrap?**
+
+> The passage mentions that a die that has been reground below 38 mm thickness must not be refitted. Therefore, the correct answer is that a die that has been regground below 38 mm thickness must not be refitted.
+
+**How far apart can the pressure sensors read before it stops?**
+
+> The pressure sensors can read up to 5 bars before stopping.
+
+**What humidity needs a desiccant in storage?**
+
+> Storage humidity above 60% requires a desiccant in the control cabinet.
+
+**How much can the rent go up by?**
+
+> The rental amount can increase by up to 4% annually.
+
+**How long does the deposit take to be protected?**
+
+> The deposit is five weeks' rent and is registered with an approved protection scheme within [1] weeks of receipt.
+
+**How fast is a non-emergency repair attended?**
+
+> An emergency means loss of heat in winter, loss of water, an unsecured entrance, or anything presenting a risk to health. Non-emergency repairs are attended within 14 days.
+
+**How long can a guest stay before I have to tell anyone?**
+
+> 28 nights
+
+**How much is the extra deposit for a pet?**
+
+> One week's rent
+
+**How much notice do I give if I am leaving?**
+
+> The notice period is specified in the agreement between the landlord and tenant.
+
+**What is the cap on credits in a month?**
+
+> The cap on credits in a month is 25%.
 

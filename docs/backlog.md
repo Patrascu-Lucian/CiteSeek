@@ -1354,6 +1354,10 @@ the model's. No provider and no database — free to run, minutes to finish.
 **4/8 grounded on the answering passage alone, 2/8 on the eight a reader actually gets, 0/8 cited.**
 Transcripts in `eval/local-answers.md`.
 
+↳ **Superseded 29 August 2026 by a 24-question set. Do not quote 2/8.** Everything below this arrow
+is the eight-question run and is kept because the reasoning about it is still right; the fractions
+are not comparable, and the reason is the first finding of the larger set.
+
 **Swept 1, 2, 3, 4 and 8, and the passage count is not the lever.** The harness runs local mode end
 to end — local embedder ranks, local model answers — and reports both halves at every count, because
 they move in opposite directions.
@@ -1432,6 +1436,45 @@ a digit boundary now. And two of the eight were yes/no questions where a value w
 answered "No." correctly and scored wrong, the other answered "Yes" incorrectly and scored wrong for
 the wrong reason. Both replaced with value questions, and the type now says such questions do not
 belong.
+
+### The set grew to 24, 29 August 2026
+
+Eight questions was too few to be a measurement, and the three documents were not evenly asked
+about: `harbourline-equipment-manual.md` contributed **none** and sat in the corpus purely as a
+distractor. Twenty-four now, nine of them the manual's.
+
+**17/24 grounded on the answering passage, 11/24 on the eight a reader gets, 1/24 cited.**
+
+**The composition was the story, not the model.** Six of the manual's nine are answered with the
+bare value — "90 kilonewtons", "210 Nm", "70°C" — while the tenancy and support questions, which
+were the whole of the old set, are where it fails. So 2/8 measured the two hardest documents and
+read as a verdict on the model. The honest summary is that quality depends on how plainly the
+document states the fact, and the corpus was sampled in a way that hid it.
+
+**The answering passage was retrieved for all 24, and grounding still fell by six.** Every one of
+those six had the answer in front of it. That is a distraction cost of a quarter of the set, and it
+is the clearest number this harness has produced — but note the corpus is 25 chunks, so eight
+passages is a third of it. `24/24` says the ranking is not adversarial, not that retrieval is solved.
+
+**So the sweep is re-opened, and step 3 below is not settled after all.** At eight questions the
+oracle and the eight-passage column were both 2/8, so there was no gap to spend passages on and
+"the count is not the lever" was the honest reading of it. Six rows is a gap. Whether cutting the
+count recovers any of them is the next run, and until it reports, the struck-through item in step 3
+is struck on evidence that no longer covers the question.
+
+**The one citation is the founding defect, not a partial success.** Asked how long deposit
+protection takes, it answered "registered with an approved protection scheme within **[1] weeks** of
+receipt" — the marker standing where the number belongs, which is the 14 August transcript
+("Employees receive [1] days") reproduced by a question written this month. So 1/24 is worse news
+than 0/24 would have been, and it is the concrete case for
+[ADR 038](decisions/038-a-citation-that-cannot-be-read-as-content.md) and for step 4 below.
+
+**Grounded is still only a floor, and two rows show why.** "The pressure sensors can read up to 5
+bars before stopping" scores grounded; 5 bar is the disagreement threshold between two sensors, not
+a reading limit. And the deposit answer reaches "five weeks" correctly after explaining it as rent
+"multiplied by the number of days available for registration". Both are right by substring and wrong
+by meaning, which is what a substring check buys and the reason the entailment item is filed
+separately.
 
 **1. Score local answers before changing anything.** `eval/golden-set.ts` and
 `scripts/eval-retrieval.mts` already measure recall and MRR over a fixture corpus, and every
