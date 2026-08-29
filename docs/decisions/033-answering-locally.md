@@ -65,6 +65,37 @@ WebGPU. Same weights, different execution provider, so one of them is not measur
 what it thinks. Nothing here is withdrawn until it is re-measured in a browser
 (`docs/backlog.md`), but it should not be quoted as current until then.
 
+↳ **Re-measured in a browser, 29 August 2026, and withdrawn.** `pnpm eval:local-markers`
+runs the 24-question set through `/local` on WebGPU — real page, real retrieval, one
+browser per question. **Two answers of 24 carry a chip, and both are the defect rather
+than the fix:** "The oil needs changing every 1 years" and "The torque takes 2 Nm",
+where the document says 2,000 operating hours and 210 Nm. The marker is standing where
+the number belongs, which is [ADR 038](038-a-citation-that-cannot-be-read-as-content.md)'s
+failure and the same shape as the founding transcript, "Employees receive [1] days".
+Both scored ungrounded. **Citations that cite something: 0 of 24, on the device this
+paragraph was written on.**
+
+So the worked example did not fix marker emission — it taught the model that a bracketed
+number is a thing that appears in an answer. That reading fits the evidence better than
+the original one and fits the CPU run too, which needs no device to explain it anymore.
+What the example demonstrably changed was that markers appear at all; what it never
+established is that they point at anything.
+
+The device was the last cheap explanation for the citations, and it is gone: zero is zero on
+both providers, at every passage count measured.
+
+**Two full runs are byte identical** — 13/24 and 2/24, and all 32 answer lines the same, down
+to the model's "regground". Greedy decoding reproduces on WebGPU as it does on the CPU, so a
+single run here is evidence.
+
+**Grounding is a different question and this run does not settle it.** 13/24 in the browser
+against 11/24 in Node looks like agreement, and it is not comparable: local retrieval drops
+anything past `maxDistanceFor("local")` before taking `RETRIEVAL_LIMIT`, while the Node
+harness takes the top eight unfiltered. The browser therefore answered from fewer passages,
+and the sweep in `docs/backlog.md` puts three passages at 15/24 and eight at 11/24 — which
+brackets 13. Device and passage count are confounded here, so no claim is made about either
+until the two harnesses retrieve alike.
+
 Without that discovery local mode would have shipped answers with a source list
 attached and nothing linking them — the acceptance criterion failing silently,
 which is the exact shape of defect ADR 011 exists to prevent.

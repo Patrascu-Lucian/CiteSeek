@@ -38,6 +38,7 @@
     "db:usage": "tsx scripts/usage-report.mts",
     "eval:local": "tsx scripts/eval-local-embedder.mts",
     "eval:local-answers": "tsx scripts/eval-local-answers.mts",
+    "eval:local-markers": "tsx scripts/eval-local-markers.mts",
     "onnx:copy": "tsx scripts/copy-onnx-runtime.mts",
     "prebuild": "pnpm onnx:copy",
     "predev": "pnpm onnx:copy"
