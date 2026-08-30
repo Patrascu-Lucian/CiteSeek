@@ -1,6 +1,6 @@
 # Local answers
 
-Run 2026-08-30 against `onnx-community/Qwen2.5-0.5B-Instruct`.
+Run 2026-08-30 against `onnx-community/Qwen2.5-0.5B-Instruct` at `q4`.
 
 Local mode end to end: the local embedder ranks the passages, the local model
 answers from them. `oracle` hands the answering passage over instead, so it is

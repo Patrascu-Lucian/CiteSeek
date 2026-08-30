@@ -86,10 +86,12 @@ describe("the local chat model", () => {
 
     await loadChatModel();
 
+    // `dtype` too: it moved from a literal to a defaulted argument, and the
+    // 756 MB the gate promises is the q4 build's size.
     expect(pipeline).toHaveBeenCalledWith(
       "text-generation",
       "onnx-community/Qwen2.5-0.5B-Instruct",
-      expect.objectContaining({ device: "webgpu" }),
+      expect.objectContaining({ device: "webgpu", dtype: "q4" }),
     );
   });
 
@@ -117,6 +119,31 @@ describe("the local chat model", () => {
     expect(() => loadChatModel(undefined, "cpu", "onnx-community/b")).toThrow(
       /already loaded/,
     );
+  });
+
+  it("refuses a second quantization of the same model", async () => {
+    // int8 answers scored under a q4 heading is the same mislabeling as the
+    // wrong model, and ADR 046 turns on that distinction.
+    pipeline.mockResolvedValue(vi.fn());
+    const { loadChatModel } = await import("./generate");
+
+    await loadChatModel(undefined, "cpu", "onnx-community/a", "int8");
+
+    expect(() =>
+      loadChatModel(undefined, "cpu", "onnx-community/a", "q4"),
+    ).toThrow(/already loaded at int8/);
+  });
+
+  it("lets a later caller ask for whatever is loaded", async () => {
+    // `generateLocally` calls this per question with no arguments. Defaults
+    // rather than "unchanged" would make every question after an eval's
+    // `cpu`/`int8` load throw.
+    pipeline.mockResolvedValue(vi.fn());
+    const { loadChatModel } = await import("./generate");
+
+    await loadChatModel(undefined, "cpu", "onnx-community/a", "int8");
+
+    await expect(loadChatModel()).resolves.toBeDefined();
   });
 
   it("loads the weights once across questions", async () => {
@@ -154,8 +181,9 @@ describe("generateLocally", () => {
   });
 
   it("asks the chat template not to think out loud", async () => {
-    // A reasoning model spends the whole token budget on a `<think>` block, and
-    // the reader watches it stream. Scored 0/24 before this was passed.
+    // A reasoning model spends the whole token budget on a `<think>` block the
+    // reader watches stream. Found while measuring, kept as a product defect —
+    // no candidate was scored with and without it (ADR 046).
     const model = generatingModel(["ok"]);
     pipeline.mockResolvedValue(model);
     const { generateLocally } = await import("./generate");

@@ -79,9 +79,13 @@ export function chatModelStatus(): ChatModelStatus {
   return status;
 }
 
-/** What actually loaded: the tokenizer has to match the weights. Only the eval
- * changes it. */
-let active = LOCAL_CHAT_MODEL;
+/** What actually loaded: the tokenizer has to match the weights, and a second
+ * call asking for anything else is refused below. Only the eval changes it. */
+let active = {
+  model: LOCAL_CHAT_MODEL,
+  device: "webgpu" as "webgpu" | "cpu",
+  dtype: "q4" as "q4" | "q4f16" | "int8" | "uint8" | "fp16" | "fp32",
+};
 
 /**
  * Cached across questions, and cleared on failure — `??=` alone would keep a
@@ -90,24 +94,37 @@ let active = LOCAL_CHAT_MODEL;
  */
 export function loadChatModel(
   onProgress?: (progress: LoadProgress) => void,
-  // Only the eval passes these: Node has no WebGPU, and its build of
-  // transformers.js takes `cpu` where a browser takes `wasm`.
-  device: "webgpu" | "cpu" = "webgpu",
-  // Undefined means "whatever is loaded", which is how `generateLocally` asks.
+  /* Only the eval passes these, and every one is optional because undefined
+     means "whatever is loaded" — which is how `generateLocally` asks, on every
+     question, after the eval may have loaded something other than the defaults. */
+  device?: "webgpu" | "cpu",
   model?: string,
-  // Also the eval's: the CPU provider expands q4 to fp32 at load, so a model it
-  // cannot hold that way can still be screened at int8 (ADR 046).
-  dtype: "q4" | "q4f16" | "int8" | "fp16" = "q4",
+  dtype?: "q4" | "q4f16" | "int8" | "uint8" | "fp16" | "fp32",
 ): Promise<Generator> {
+  const asked = {
+    model: model ?? (loading === null ? LOCAL_CHAT_MODEL : active.model),
+    device: device ?? (loading === null ? "webgpu" : active.device),
+    dtype: dtype ?? (loading === null ? "q4" : active.dtype),
+  };
+
   if (loading === null) {
     status = "loading";
-    active = model ?? LOCAL_CHAT_MODEL;
-  } else if (model !== undefined && model !== active) {
-    // The pipeline is cached, so this would answer as one model under another's
-    // name — a mislabeled measurement.
-    throw new Error(
-      `${active} is already loaded; this process cannot also load ${model}.`,
+    active = asked;
+  } else {
+    /* The pipeline is cached, so a second call naming different arguments would
+       answer as one configuration under another's name — a mislabeled
+       measurement. A dtype or device mismatch does that exactly as a model one
+       does. */
+    const differs = (Object.keys(asked) as (keyof typeof asked)[]).find(
+      (key) => asked[key] !== active[key],
     );
+
+    if (differs) {
+      throw new Error(
+        `${active.model} is already loaded at ${active.dtype}/${active.device}; ` +
+          `this process cannot also load ${asked.model} at ${asked.dtype}/${asked.device}.`,
+      );
+    }
   }
 
   loading ??= import("@huggingface/transformers")
@@ -115,12 +132,12 @@ export function loadChatModel(
       env.backends.onnx.wasm!.wasmPaths = "/onnx/";
       useNodeModelCache(env);
 
-      return pipeline("text-generation", active, {
-        dtype,
+      return pipeline("text-generation", active.model, {
+        dtype: active.dtype,
         // Named, or transformers.js falls back to `DEFAULT_DEVICE`, which is
         // `wasm` in a browser — and `WebGpuGate` would then be denying a feature
         // that runs without a GPU.
-        device,
+        device: active.device,
         // `progress_total`, not `progress`: the latter is per file, so the
         // readout reaches 100% on a 4 KB config before the weights begin.
         progress_callback: (report: {
@@ -159,7 +176,7 @@ let tokenizing: Promise<PreTrainedTokenizer> | null = null;
 async function loadTokenizer(): Promise<PreTrainedTokenizer> {
   const { AutoTokenizer } = await import("@huggingface/transformers");
 
-  tokenizing ??= AutoTokenizer.from_pretrained(active).catch(
+  tokenizing ??= AutoTokenizer.from_pretrained(active.model).catch(
     (cause: unknown) => {
       tokenizing = null;
       throw cause;

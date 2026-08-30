@@ -5,9 +5,9 @@
  * Free — no provider, no database. Slow: CPU generation.
  *
  * Usage: pnpm eval:local-answers [--fake] [--sweep|--counts=3,8]
- *        [--model=onnx-community/…]
+ *        [--model=onnx-community/…] [--dtype=int8]
  */
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { GOLDEN_SET, LOCAL_ANSWER_SET } from "../eval/golden-set.ts";
@@ -42,9 +42,18 @@ const model =
 
 // `q4` is what ships and what every recorded number uses; the report labels any
 // other as not comparable.
-const dtype = (process.argv
-  .find((one) => one.startsWith("--dtype="))
-  ?.slice(8) ?? "q4") as "q4" | "q4f16" | "int8" | "fp16";
+const DTYPES = ["q4", "q4f16", "int8", "uint8", "fp16", "fp32"] as const;
+
+const asked =
+  process.argv.find((one) => one.startsWith("--dtype="))?.slice(8) ?? "q4";
+
+// Checked, not cast: a typo either fails deep inside transformers.js or loads a
+// precision nobody asked for, under a header naming the typo.
+const dtype = DTYPES.find((one) => one === asked);
+
+if (!dtype) {
+  throw new Error(`--dtype must be one of ${DTYPES.join(", ")}, got: ${asked}`);
+}
 
 // Read by `resolveLocalGenerator`, and set before it is called.
 if (useFake) {
@@ -170,18 +179,28 @@ type Row = {
   at: Map<number, At>;
 };
 
-// Written after each answer, so a run killed for memory resumes. Keyed by
-// model, or a candidate would resume onto the pin's answers.
-const PROGRESS = join(EVAL, ".local-answers-progress.json");
+/* Written after each answer, so a run killed for memory resumes. Named for what
+   it holds: two runs differing in either would otherwise share one file, and an
+   int8 resume finished at q4 publishes under a header naming only q4. */
+const PROGRESS = join(
+  EVAL,
+  `.local-answers-progress-${model.split("/").pop()!.toLowerCase()}-${dtype}.json`,
+);
 
-type Saved = { model: string; rows: [string, Row["oracle"], [number, At][]][] };
+type Saved = { rows: [string, Row["oracle"], [number, At][]][] };
 
 const resumed = new Map<string, Row>(
   (
     await readFile(PROGRESS, "utf8")
-      .then((text) => JSON.parse(text) as Saved)
-      .then((saved) => (saved.model === model ? saved.rows : []))
-      .catch(() => [])
+      .then((text) => (JSON.parse(text) as Saved).rows)
+      // Named, not swallowed: a truncated write is an hour of generation, and a
+      // silent discard reads as "it never saved".
+      .catch((cause: unknown) => {
+        if ((cause as { code?: string }).code !== "ENOENT") {
+          console.warn(`Ignoring unreadable ${PROGRESS}: ${String(cause)}`);
+        }
+        return [];
+      })
   ).map(([question, oracle, at]) => [
     question,
     { question, oracle, at: new Map(at) },
@@ -194,14 +213,16 @@ if (resumed.size > 0) {
 
 const rows: Row[] = [];
 
-const saveProgress = () =>
-  writeFile(
-    PROGRESS,
-    JSON.stringify({
-      model,
-      rows: rows.map((row) => [row.question, row.oracle, [...row.at]]),
-    } satisfies Saved),
-  );
+/** Written whole then renamed: a kill during the write is the case this file
+ * exists for, and a truncated one discards every answer in it. */
+const saveProgress = async () => {
+  const body = JSON.stringify({
+    rows: rows.map((row) => [row.question, row.oracle, [...row.at]]),
+  } satisfies Saved);
+
+  await writeFile(`${PROGRESS}.tmp`, body);
+  await rename(`${PROGRESS}.tmp`, PROGRESS);
+};
 
 async function ask(question: string, sources: readonly ChatSource[]) {
   let answer = "";
@@ -363,6 +384,9 @@ const report = [
   "",
   "`grounded` is a substring check on a digit boundary. A floor, not a grade: it",
   "cannot tell a value from a negated one.",
+  "",
+  "`cited` counts a marker in range, not a marker that supports the claim beside",
+  "it — a model can score well here by emitting brackets it cannot justify.",
   "",
   "| passages asked | actually given | grounded | cited | answer retrieved |",
   "| -------------- | -------------- | -------- | ----- | ---------------- |",

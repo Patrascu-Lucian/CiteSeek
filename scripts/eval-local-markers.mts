@@ -6,7 +6,7 @@
  * By hand, never in CI: 884 MB and a GPU. `--limit=N` to smoke-test, `--fresh`
  * to discard a half-finished run instead of resuming it.
  */
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { chromium, type Page } from "@playwright/test";
@@ -64,7 +64,21 @@ const done: Row[] =
         .then((text) => JSON.parse(text) as Progress)
         // A different server is a different corpus: IndexedDB is per origin.
         .then((saved) => (saved.baseUrl === BASE_URL ? saved.rows : []))
-        .catch(() => []);
+        /* Dropped, not carried: editing a question leaves its old row matching
+           nothing, and `rows` only ever grows — 24 stale plus 1 new passes the
+           `< 24` completeness check and publishes a question that no longer
+           exists. */
+        .then((saved) =>
+          saved.filter((row) =>
+            LOCAL_ANSWER_SET.some((one) => one.question === row.question),
+          ),
+        )
+        .catch((cause: unknown) => {
+          if ((cause as { code?: string }).code !== "ENOENT") {
+            console.warn(`Ignoring unreadable ${PROGRESS}: ${String(cause)}`);
+          }
+          return [];
+        });
 
 await mkdir(PROFILE, { recursive: true });
 
@@ -173,7 +187,7 @@ async function setUp() {
   await context.close();
 }
 
-async function ask(question: string): Promise<Row> {
+async function ask(question: string): Promise<Omit<Row, "grounded">> {
   const { context, page } = await openPage();
 
   try {
@@ -214,7 +228,6 @@ async function ask(question: string): Promise<Row> {
       // Chips, not `[n]`: markers become links before rendering, so a bracket
       // never reaches the DOM.
       chips: await bubble.getByRole("button", { name: /citation \d/i }).count(),
-      grounded: false,
     };
   } finally {
     await context.close();
@@ -261,10 +274,16 @@ for (const [index, one] of cases.entries()) {
   rows.push({ ...row, grounded: grounds(row.answer, one.answerContains) });
 
   if (full) {
-    await writeFile(
-      PROGRESS,
-      JSON.stringify({ baseUrl: BASE_URL, rows } satisfies Progress, null, 2),
+    // Whole then renamed: a kill mid-write is what this file exists for, and a
+    // truncated one is discarded silently — an hour of generation.
+    const body = JSON.stringify(
+      { baseUrl: BASE_URL, rows } satisfies Progress,
+      null,
+      2,
     );
+
+    await writeFile(`${PROGRESS}.tmp`, body);
+    await rename(`${PROGRESS}.tmp`, PROGRESS);
   }
 
   console.log(
@@ -315,7 +334,9 @@ const report = [
   ...rows.flatMap((row) => [
     `**${row.question}**`,
     "",
-    `> ${row.answer.replace(/\n+/g, "\n> ")}`,
+    // `replaceAll`, matching `eval-local-answers.mts`: collapsing blank lines
+    // merges two paragraphs, and the two reports are read against each other.
+    "> " + (row.answer || "_(empty)_").replaceAll("\n", "\n> "),
     "",
   ]),
 ].join("\n");
