@@ -7,7 +7,7 @@
  * Usage: pnpm eval:local-answers [--fake] [--sweep|--counts=3,8]
  *        [--model=onnx-community/…]
  */
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { GOLDEN_SET, LOCAL_ANSWER_SET } from "../eval/golden-set.ts";
@@ -39,6 +39,12 @@ const useFake = process.argv.includes("--fake");
 const model =
   process.argv.find((one) => one.startsWith("--model="))?.slice(8) ??
   LOCAL_CHAT_MODEL;
+
+// `q4` is what ships and what every recorded number uses; the report labels any
+// other as not comparable.
+const dtype = (process.argv
+  .find((one) => one.startsWith("--dtype="))
+  ?.slice(8) ?? "q4") as "q4" | "q4f16" | "int8" | "fp16";
 
 // Read by `resolveLocalGenerator`, and set before it is called.
 if (useFake) {
@@ -129,13 +135,13 @@ if (!useFake) {
       ),
     "cpu",
     model,
+    dtype,
   );
   console.log("\n");
 }
 
-/** Each count is another generation per question, and the process holds them
- * all: `--sweep`'s 144 exhausted a 16 GB machine where 48 finished. `--counts=`
- * asks the narrower question instead. */
+/** Each count is another generation per question, and 144 of them outgrow the
+ * memory this machine spares. `--counts=` asks the narrower question. */
 const COUNTS = process.argv.includes("--sweep")
   ? [1, 2, 3, 4, RETRIEVAL_LIMIT]
   : (process.argv
@@ -164,7 +170,38 @@ type Row = {
   at: Map<number, At>;
 };
 
+// Written after each answer, so a run killed for memory resumes. Keyed by
+// model, or a candidate would resume onto the pin's answers.
+const PROGRESS = join(EVAL, ".local-answers-progress.json");
+
+type Saved = { model: string; rows: [string, Row["oracle"], [number, At][]][] };
+
+const resumed = new Map<string, Row>(
+  (
+    await readFile(PROGRESS, "utf8")
+      .then((text) => JSON.parse(text) as Saved)
+      .then((saved) => (saved.model === model ? saved.rows : []))
+      .catch(() => [])
+  ).map(([question, oracle, at]) => [
+    question,
+    { question, oracle, at: new Map(at) },
+  ]),
+);
+
+if (resumed.size > 0) {
+  console.log(`Resuming: ${String(resumed.size)} answers already recorded.`);
+}
+
 const rows: Row[] = [];
+
+const saveProgress = () =>
+  writeFile(
+    PROGRESS,
+    JSON.stringify({
+      model,
+      rows: rows.map((row) => [row.question, row.oracle, [...row.at]]),
+    } satisfies Saved),
+  );
 
 async function ask(question: string, sources: readonly ChatSource[]) {
   let answer = "";
@@ -175,6 +212,18 @@ async function ask(question: string, sources: readonly ChatSource[]) {
 
 for (const [index, one] of LOCAL_ANSWER_SET.entries()) {
   const started = Date.now();
+
+  const already = resumed.get(one.question);
+
+  // Only a run that asked the same counts: resuming a `--counts=3` file into a
+  // default run would report an eight-passage column built from threes.
+  if (already && COUNTS.every((count) => already.at.has(count))) {
+    rows.push(already);
+    console.log(
+      `  ${String(index + 1)}/${String(LOCAL_ANSWER_SET.length)} resumed`,
+    );
+    continue;
+  }
 
   const oracleSources = sourcesFor(one.expect);
   const oracle = await ask(one.question, oracleSources);
@@ -225,6 +274,8 @@ for (const [index, one] of LOCAL_ANSWER_SET.entries()) {
     },
     at,
   });
+
+  if (!useFake) await saveProgress();
 
   const sweep = COUNTS.map((count) => {
     const result = at.get(count);
@@ -290,7 +341,13 @@ const given = (count: number) => {
 const report = [
   "# Local answers",
   "",
-  `Run ${new Date().toISOString().slice(0, 10)} against \`${useFake ? "the fake generator" : model}\`.`,
+  `Run ${new Date().toISOString().slice(0, 10)} against \`${useFake ? "the fake generator" : model}\` at \`${dtype}\`.`,
+  ...(dtype === "q4"
+    ? []
+    : [
+        "",
+        `**Not \`q4\`, so not comparable to the recorded runs.** A screening pass only.`,
+      ]),
   "",
   "Local mode end to end: the local embedder ranks the passages, the local model",
   "answers from them. `oracle` hands the answering passage over instead, so it is",
@@ -376,7 +433,10 @@ const into = useFake
     ? "local-answers.md"
     : `local-answers-${model.split("/").pop()!.toLowerCase()}.md`;
 
-if (into) await writeFile(join(EVAL, into), report + "\n");
+if (into) {
+  await writeFile(join(EVAL, into), report + "\n");
+  await rm(PROGRESS, { force: true });
+}
 
 console.log(
   `\n${COUNTS.map((count) => `${String(count)}:${rate((one) => one.grounded, count)}`).join("  ")}  oracle:${share((row) => row.oracle.grounded)}` +

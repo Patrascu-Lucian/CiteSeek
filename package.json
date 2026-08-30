@@ -37,7 +37,7 @@
     "eval:retrieval": "tsx scripts/eval-retrieval.mts",
     "db:usage": "tsx scripts/usage-report.mts",
     "eval:local": "tsx scripts/eval-local-embedder.mts",
-    "eval:local-answers": "tsx scripts/eval-local-answers.mts",
+    "eval:local-answers": "node --max-old-space-size=8192 --import tsx scripts/eval-local-answers.mts",
     "eval:local-markers": "tsx scripts/eval-local-markers.mts",
     "onnx:copy": "tsx scripts/copy-onnx-runtime.mts",
     "prebuild": "pnpm onnx:copy",

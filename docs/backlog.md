@@ -1563,10 +1563,17 @@ expected quote appears in the answer would turn "it feels worse" into a number. 
 swapping models is argument. [ADR 021](decisions/021-hybrid-retrieval-measured-and-not-shipped.md)
 is the precedent: a measurement killed the obvious answer, and nothing else would have.
 
-**2. Then try a newer small model.** The pin is 2024-vintage. A 2026 1B-class instruct model —
-Qwen3-0.6B, Llama-3.2-1B, Phi-4-mini — plausibly beats it at a similar download. Worth knowing
-before anyone reaches for size: the **1.5B was already tried** and did not fix marker emission
-(ADR 033), so parameters alone are not the lever. What changed that was the worked example.
+~~**2. Then try a newer small model.** The pin is 2024-vintage. A 2026 1B-class instruct model —
+Qwen3-0.6B, Llama-3.2-1B, Phi-4-mini — plausibly beats it at a similar download.~~ **Done, and the
+pin stands — [ADR 046](decisions/046-the-pin-survives-the-search.md), 30 August 2026.**
+gemma-3-270m scores **0/24, including on the oracle**: it answers the system prompt rather than the
+question, and its chat template was checked first so the zero is the model rather than our
+plumbing. Qwen3-0.6B **could not be measured on this machine at all** — the CPU provider expands q4
+to fp32 at load, ~2.4 GB for 0.6B parameters, and it died at ~4.3 GB three times including at int8.
+That is a fact about the rig, not the model, and it bounds the search: anything past ~0.5B at q4
+needs the browser harness taught to take a model. Llama-3.2-1B was not attempted for that reason.
+Worth keeping: the **1.5B was already tried** and did not fix marker emission (ADR 033), so
+parameters alone are not the lever.
 
 **3. Cheap prompt experiments, once (1) can score them.** Two candidates. `RETRIEVAL_LIMIT`
 passages plus the rules plus an example is a lot of context for a 0.5B, and fewer passages may

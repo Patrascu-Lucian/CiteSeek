@@ -153,6 +153,20 @@ describe("generateLocally", () => {
     expect(fromPretrained).toHaveBeenCalledWith("onnx-community/candidate");
   });
 
+  it("asks the chat template not to think out loud", async () => {
+    // A reasoning model spends the whole token budget on a `<think>` block, and
+    // the reader watches it stream. Scored 0/24 before this was passed.
+    const model = generatingModel(["ok"]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [source]));
+
+    expect(model.mock.calls[0]![1]).toMatchObject({
+      tokenizer_kwargs: { enable_thinking: false },
+    });
+  });
+
   it("parses the vocabulary once, not once per question", async () => {
     // 6.7 MB re-parsed per answer, which ran a 24-question eval out of memory.
     pipeline.mockResolvedValue(generatingModel(["ok"]));
