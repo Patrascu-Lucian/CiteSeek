@@ -10,6 +10,16 @@ describe("grounds", () => {
     expect(grounds("credits 5% of the monthly fee", ["5%"])).toBe(true);
   });
 
+  it("guards the trailing edge too, where a wrong answer looks right", () => {
+    // The first fix only stopped a value being read out of a *longer prefix*.
+    // Ten times the interval, and the wrong unit, both scored correct.
+    expect(grounds("every 20000 operating hours", ["2,000", "2000"])).toBe(
+      false,
+    );
+    expect(grounds("the press develops 90 kNm", ["90 kN"])).toBe(false);
+    expect(grounds("every 2,000 operating hours", ["2,000"])).toBe(true);
+  });
+
   it("accepts any of the spellings", () => {
     expect(grounds("about 90 kN of force", ["90 kilonewtons", "90 kN"])).toBe(
       true,
