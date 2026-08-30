@@ -1,26 +1,27 @@
 # Local answers
 
-Run 2026-08-29 against `onnx-community/Qwen2.5-0.5B-Instruct`.
+Run 2026-08-30 against `onnx-community/Qwen2.5-0.5B-Instruct`.
 
 Local mode end to end: the local embedder ranks the passages, the local model
 answers from them. `oracle` hands the answering passage over instead, so it is
 the ceiling retrieval cannot beat.
 
 Both halves at every count, because they move in opposite directions — fewer
-passages read better and retrieve worse. Three is where they cross: retrieval
-is already perfect and grounding has not yet fallen.
+passages read better and retrieve worse.
+
+The distance floor applies before the count, as `lib/local/retrieve.ts` does
+it, so a row's passages are what survived the floor rather than what was asked
+for. Without that these numbers could not predict the browser's, which is the
+confound recorded in ADR 033.
 
 `grounded` is a substring check on a digit boundary. A floor, not a grade: it
 cannot tell a value from a negated one.
 
-| passages | grounded | cited | answer retrieved |
-| -------- | -------- | ----- | ---------------- |
-| 1 | 14/24 | 1/24 | 19/24 |
-| 2 | 15/24 | 2/24 | 22/24 |
-| 3 | 15/24 | 0/24 | 24/24 |
-| 4 | 10/24 | 3/24 | 24/24 |
-| 8 | 11/24 | 1/24 | 24/24 |
-| oracle | 17/24 | 1/24 | by construction |
+| passages asked | actually given | grounded | cited | answer retrieved |
+| -------------- | -------------- | -------- | ----- | ---------------- |
+| 3 | 2.8 avg | 15/24 | 0/24 | 24/24 |
+| 8 | 5.5 avg | 13/24 | 2/24 | 24/24 |
+| oracle | the answering one | 17/24 | 1/24 | by construction |
 
 ## Prose questions, on the oracle passage
 
@@ -77,32 +78,32 @@ A refusal is separated because rule 4 forbids citing one.
 
 ## Per question
 
-| question | 1 | 2 | 3 | 4 | 8 | oracle |
-| -------- | - | - | - | - | - | ------ |
-| How quickly does someone get back to me if everything is down? | _missed_ | _missed_ | **no** | **no** | yes | yes |
-| How long do you keep whatever I attach to a ticket? | yes | yes | yes | yes | **no** | yes |
-| How much warning do I need to give before it renews? | _missed_ | _missed_ | **no** | **no** | **no** | **no** |
-| What do I get back if you miss a target? | **no** | **no** | **no** | **no** | **no** | **no** |
-| The boiler died in January. How fast should someone come? | _missed_ | **no** | **no** | **no** | **no** | **no** |
-| How much notice do I give to move out? | **no** | yes | yes | **no** | **no** | **no** |
-| How much do I have to hand over at the start? | _missed_ | **no** | **no** | yes | **no** | yes |
-| What hours is the standard plan covered? | yes | yes | **no** | **no** | yes | yes |
-| How much force does the press develop? | yes | yes | yes | yes | yes | yes |
-| How loud is it at a metre? | yes | yes | yes | yes | yes | yes |
-| Which oil grade goes in it? | yes | yes | yes | yes | yes | yes |
-| How often does the oil need changing? | yes | yes | yes | yes | **no** | yes |
-| What oil temperature is too hot? | yes | yes | yes | yes | yes | yes |
-| What torque do the die bolts take? | _missed_ | yes | yes | **no** | **no** | yes |
-| How thin can a die be reground before it is scrap? | yes | yes | yes | **no** | **no** | yes |
-| How far apart can the pressure sensors read before it stops? | yes | yes | yes | yes | yes | yes |
-| What humidity needs a desiccant in storage? | yes | yes | yes | yes | yes | yes |
-| How much can the rent go up by? | yes | **no** | yes | yes | yes | yes |
-| How long does the deposit take to be protected? | **no** | **no** | yes | **no** | **no** | **no** |
-| How fast is a non-emergency repair attended? | yes | yes | **no** | **no** | yes | yes |
-| How long can a guest stay before I have to tell anyone? | **no** | **no** | **no** | **no** | **no** | **no** |
-| How much is the extra deposit for a pet? | yes | yes | yes | **no** | **no** | yes |
-| How much notice do I give if I am leaving? | **no** | **no** | **no** | **no** | **no** | **no** |
-| What is the cap on credits in a month? | yes | yes | yes | **no** | yes | yes |
+| question | 3 | 8 | oracle |
+| -------- | - | - | ------ |
+| How quickly does someone get back to me if everything is down? | **no** | yes | yes |
+| How long do you keep whatever I attach to a ticket? | yes | **no** | yes |
+| How much warning do I need to give before it renews? | **no** | **no** | **no** |
+| What do I get back if you miss a target? | **no** | **no** | **no** |
+| The boiler died in January. How fast should someone come? | **no** | **no** | **no** |
+| How much notice do I give to move out? | yes | **no** | **no** |
+| How much do I have to hand over at the start? | **no** | **no** | yes |
+| What hours is the standard plan covered? | **no** | yes | yes |
+| How much force does the press develop? | yes | yes | yes |
+| How loud is it at a metre? | yes | yes | yes |
+| Which oil grade goes in it? | yes | yes | yes |
+| How often does the oil need changing? | yes | **no** | yes |
+| What oil temperature is too hot? | yes | yes | yes |
+| What torque do the die bolts take? | yes | **no** | yes |
+| How thin can a die be reground before it is scrap? | yes | yes | yes |
+| How far apart can the pressure sensors read before it stops? | yes | yes | yes |
+| What humidity needs a desiccant in storage? | yes | yes | yes |
+| How much can the rent go up by? | yes | yes | yes |
+| How long does the deposit take to be protected? | yes | **no** | **no** |
+| How fast is a non-emergency repair attended? | **no** | yes | yes |
+| How long can a guest stay before I have to tell anyone? | **no** | **no** | **no** |
+| How much is the extra deposit for a pet? | yes | yes | yes |
+| How much notice do I give if I am leaving? | **no** | **no** | **no** |
+| What is the cap on credits in a month? | yes | yes | yes |
 
 `_missed_` is retrieval not returning the answering passage at that count;
 **no** is the model having it and not using it.

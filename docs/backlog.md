@@ -1514,6 +1514,26 @@ solid is exactly where the turn falls: 2 and 3 differ by nothing, and the drop o
 to 4 is a sharper cliff than a smooth curve would give, so this model is very sensitive to what
 else is in its context.
 
+↳ **Re-measured under the distance floor, 30 August 2026, and it survives smaller.** Every number
+in the table above was taken with the harness slicing the top eight _unfiltered_, while
+`lib/local/retrieve.ts` drops anything past `maxDistanceFor("local")` **first**. Aligned, and asking
+only the two counts in dispute:
+
+| passages asked | actually given | grounded  | cited | answer retrieved |
+| -------------- | -------------- | --------- | ----- | ---------------- |
+| 3              | 2.8 avg        | **15/24** | 0/24  | 24/24            |
+| 8              | 5.5 avg        | 13/24     | 2/24  | 24/24            |
+| oracle         | —              | 17/24     | 1/24  | by construction  |
+
+**Three still wins, by two rows rather than four.** The floor was already doing half the work the
+proposal claimed credit for: asking for eight yields 5.5, not 8. So the honest version is that
+_fewer passages help, and the product is closer to that regime than the unfiltered sweep implied_.
+
+**And the alignment is what makes the Node harness usable at all.** At eight it now reports 13/24
+grounded and 2/24 cited — the browser's figures exactly, where unfiltered it said 11/24. The
+confound in ADR 033 is closed, so a candidate model can be scored in ten CPU minutes instead of a
+GPU hour.
+
 **It does not license changing `RETRIEVAL_LIMIT`, which is shared.** `lib/rag/retrieve.ts` and
 `lib/local/retrieve.ts` read the same 8, and nothing here measures Gemini at three passages —
 cutting cloud mode's context on evidence from a 0.5B model would be exactly the unfounded swap this
@@ -1550,9 +1570,10 @@ before anyone reaches for size: the **1.5B was already tried** and did not fix m
 
 **3. Cheap prompt experiments, once (1) can score them.** Two candidates. `RETRIEVAL_LIMIT`
 passages plus the rules plus an example is a lot of context for a 0.5B, and fewer passages may
-read better than more — **un-struck 29 August 2026: three passages grounds 15/24 where eight
-grounds 11/24, with retrieval unharmed. This is now the cheapest real improvement available, and it
-needs a local-only limit rather than a change to the shared one.** And
+read better than more — **un-struck 29 August 2026, and re-measured under the floor on the 30th:
+three passages grounds 15/24 where eight grounds 13/24, with retrieval unharmed. Two rows, not the
+four the unfiltered sweep showed. Still the cheapest improvement available, and it needs a
+local-only limit rather than a change to the shared one.** And
 `markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a numeric
 exemplar targets, which stays blocked until markers can be measured where they actually run.
 
