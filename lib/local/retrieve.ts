@@ -1,5 +1,8 @@
 import type { ChatSource, RefusalReason } from "@/lib/ai/types";
-import { maxDistanceFor, RETRIEVAL_LIMIT } from "@/lib/rag/retrieval-config";
+import {
+  LOCAL_RETRIEVAL_LIMIT,
+  maxDistanceFor,
+} from "@/lib/rag/retrieval-config";
 import { cosineSimilarity } from "@/lib/rag/vector";
 
 import { resolveLocalEmbedder, resolveLocalProvider } from "./embedder";
@@ -51,7 +54,7 @@ export async function retrieveLocally(
   const kept = scored
     .filter((one) => one.distance <= floor)
     .sort((a, b) => a.distance - b.distance)
-    .slice(0, RETRIEVAL_LIMIT);
+    .slice(0, LOCAL_RETRIEVAL_LIMIT);
 
   if (kept.length === 0) {
     return { sources: [], refusal: "no_relevant_passages" };

@@ -1575,12 +1575,13 @@ needs the browser harness taught to take a model. Llama-3.2-1B was not attempted
 Worth keeping: the **1.5B was already tried** and did not fix marker emission (ADR 033), so
 parameters alone are not the lever.
 
-**3. Cheap prompt experiments, once (1) can score them.** Two candidates. `RETRIEVAL_LIMIT`
+**3. Cheap prompt experiments, once (1) can score them.** Two candidates. ~~`RETRIEVAL_LIMIT`
 passages plus the rules plus an example is a lot of context for a 0.5B, and fewer passages may
-read better than more — **un-struck 29 August 2026, and re-measured under the floor on the 30th:
-three passages grounds 15/24 where eight grounds 13/24, with retrieval unharmed. Two rows, not the
-four the unfiltered sweep showed. Still the cheapest improvement available, and it needs a
-local-only limit rather than a change to the shared one.** And
+read better than more.~~ **Shipped 30 August 2026 as
+[ADR 047](decisions/047-fewer-passages-for-a-smaller-model.md): `LOCAL_RETRIEVAL_LIMIT = 3`,
+local mode only.** Three grounds 15/24 where eight grounds 13/24, with the answering passage still
+retrieved 24/24 — two rows, not the four the unfiltered sweep showed, because the floor was already
+doing half the work. Gemini keeps eight and is unmeasured at three. And
 `markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a numeric
 exemplar targets, which stays blocked until markers can be measured where they actually run.
 
