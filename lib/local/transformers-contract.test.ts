@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   InterruptableStoppingCriteria,
+  PreTrainedTokenizer,
   StoppingCriteriaList,
 } from "@huggingface/transformers";
 
@@ -43,5 +44,36 @@ describe("the contract generateLocally depends on", () => {
     criteria.interrupt();
 
     expect(list(oneSequence)).toEqual([true]);
+  });
+
+  it("passes chat-template arguments through to the template", () => {
+    // The only check of the argument's name against the library. Necessary, not
+    // sufficient: the pipeline spreading it this far still needs a model.
+    const tokenizer = new PreTrainedTokenizer(
+      {
+        version: "1.0",
+        truncation: null,
+        padding: null,
+        added_tokens: [],
+        normalizer: null,
+        pre_tokenizer: { type: "WhitespaceSplit" },
+        post_processor: null,
+        decoder: null,
+        model: { type: "WordLevel", vocab: { hi: 0 }, unk_token: "hi" },
+      },
+      {
+        chat_template:
+          "{% if enable_thinking %}THINKING{% else %}QUIET{% endif %}",
+      },
+    );
+
+    const render = (kwargs: Record<string, unknown>) =>
+      tokenizer.apply_chat_template([{ role: "user", content: "hi" }], {
+        tokenize: false,
+        ...kwargs,
+      });
+
+    expect(render({ enable_thinking: true })).toBe("THINKING");
+    expect(render({ enable_thinking: false })).toBe("QUIET");
   });
 });

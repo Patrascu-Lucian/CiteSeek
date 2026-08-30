@@ -1607,8 +1607,17 @@ transformers.js does with it.
 **Most of the gap is now closed without a model.** Device selection, the `progress_total`
 filter, the message array being exactly `[system, user]`, the loop detector and the abort call
 are all asserted against the arguments handed to `pipeline` (`lib/local/generate.test.ts`), and
-`lib/local/transformers-contract.test.ts` pins the two library behaviors that were established
+`lib/local/transformers-contract.test.ts` pins the library behaviors that were established
 by reading the bundle rather than by testing it.
+
+**A third one joined them, 30 August 2026: `enable_thinking` reaches the chat template.** A
+`PreTrainedTokenizer` can be built in memory from a vocabulary of one word and a two-branch
+template, so `apply_chat_template` can be asserted against the real library with no download.
+That pins the argument name, which every other test only checks against our own mock — rename
+it upstream and this goes red instead of a reasoning model quietly spending its whole budget on
+a `<think>` block. **Still unproven without a model:** that the pipeline spreads
+`tokenizer_kwargs` into the arguments that method receives. Half the claim, and the half that
+was cheap.
 
 **What is left needs a model, and the real one will not fit.** 756 MB from Hugging Face per run,
 plus WebGPU on a runner with no GPU — the CPU path was measured at over sixty seconds for a

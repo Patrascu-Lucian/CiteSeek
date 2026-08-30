@@ -88,6 +88,11 @@ and a reader would watch it stream. `tokenizer_kwargs: { enable_thinking: false 
 the template through the pipeline; templates without the variable ignore it, so the pin is
 unaffected. Found while measuring, kept because it is a product defect either way.
 
+The forwarding was a claim from reading the bundle. `lib/local/transformers-contract.test.ts`
+now proves the second half of it against the real library — `apply_chat_template` honours the
+argument — using a tokenizer built in memory. That the _pipeline_ passes `tokenizer_kwargs`
+down to it still needs a model, and is filed with the rest of that gap.
+
 **The tokenizer is cached beside the weights.** `AutoTokenizer.from_pretrained` ran on every
 question — a 6.7 MB vocabulary re-parsed per answer, in the product path. Also found while
 measuring; also kept on its own merits.
