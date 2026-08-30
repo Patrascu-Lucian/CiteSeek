@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
+import { assertDisposableDatabase } from "./lib/env/disposable-database.ts";
 import { loadLocalEnv } from "./lib/env/load-local-env.ts";
 
 // The signed-in specs connect from `DATABASE_URL`, which nothing here set — so
@@ -7,6 +8,12 @@ import { loadLocalEnv } from "./lib/env/load-local-env.ts";
 // disposable URL wins over the `.env.local` pointing at Neon.
 loadLocalEnv(".env.test.local");
 loadLocalEnv();
+
+/* Here, not only in `e2e/signed-in.ts`: that runs when a spec imports the
+   fixture and after the server has booted, while the server reads `.env.local`
+   itself. Loading those files is what made a Neon URL reachable from a local
+   run, so the check belongs where the loading happens. */
+assertDisposableDatabase(process.env);
 
 // Overridable so the suite can run while a dev server holds 3000.
 const PORT = Number(process.env.E2E_PORT ?? 3000);
