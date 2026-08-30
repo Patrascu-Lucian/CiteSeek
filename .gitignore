@@ -62,3 +62,4 @@ public/onnx/
 # Chromium profile for `pnpm eval:local-markers`, holding 884 MB of cached weights.
 .local-model-profile/
 eval/.local-markers-progress.json
+eval/.local-answers-progress.json

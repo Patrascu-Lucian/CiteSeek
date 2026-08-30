@@ -95,6 +95,9 @@ export function loadChatModel(
   device: "webgpu" | "cpu" = "webgpu",
   // Undefined means "whatever is loaded", which is how `generateLocally` asks.
   model?: string,
+  // Also the eval's: the CPU provider expands q4 to fp32 at load, so a model it
+  // cannot hold that way can still be screened at int8 (ADR 046).
+  dtype: "q4" | "q4f16" | "int8" | "fp16" = "q4",
 ): Promise<Generator> {
   if (loading === null) {
     status = "loading";
@@ -113,7 +116,7 @@ export function loadChatModel(
       useNodeModelCache(env);
 
       return pipeline("text-generation", active, {
-        dtype: "q4",
+        dtype,
         // Named, or transformers.js falls back to `DEFAULT_DEVICE`, which is
         // `wasm` in a browser — and `WebGpuGate` would then be denying a feature
         // that runs without a GPU.
@@ -226,6 +229,9 @@ export async function* generateLocally(
       do_sample: false,
       streamer,
       stopping_criteria: stopping,
+      // Reaches the chat template: a reasoning model would spend the whole
+      // budget on a `<think>` block the reader watches stream past.
+      tokenizer_kwargs: { enable_thinking: false },
     },
   ).finally(() => {
     finished = true;
