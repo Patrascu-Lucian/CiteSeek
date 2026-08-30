@@ -43,12 +43,16 @@ describe("the local mode page", () => {
   });
 
   it("does not tell the reader to check the citations", () => {
-    // It did, and the same run measured that the model almost never emits one —
-    // advice the page cannot honour is worse than no advice.
+    // It did, and the run measures zero — advice the page cannot honour is
+    // worse than no advice.
+    const cited = /cited (\d+)\/(\d+)/.exec(report);
+
+    expect(cited?.[1], "eval/local-markers.md has no cited total").toBe("0");
+
     render(<LocalPage />);
 
     expect(screen.queryByText(/check the citations/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/almost never cites/i)).toBeInTheDocument();
+    expect(screen.getByText(/does not cite/i)).toBeInTheDocument();
   });
 
   it("keeps the experimental label", () => {

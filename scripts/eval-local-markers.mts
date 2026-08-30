@@ -13,6 +13,7 @@ import { chromium, type Page } from "@playwright/test";
 
 import { LOCAL_ANSWER_SET } from "../eval/golden-set.ts";
 import { grounds } from "../eval/scoring.ts";
+import { LOCAL_RETRIEVAL_LIMIT } from "../lib/rag/retrieval-config.ts";
 
 const BASE_URL = process.env.LOCAL_MARKERS_BASE_URL ?? "http://localhost:3000";
 
@@ -300,9 +301,9 @@ const report = [
   `Run ${new Date().toISOString().slice(0, 10)} against \`${BASE_URL}\`, on WebGPU.`,
   "",
   "The questions and the scorer come from `eval:local-answers`, and retrieval is",
-  "the page's own — so this is that harness's eight-passage row, measured where",
-  "the product runs. The oracle column has no equivalent: the UI has no way to",
-  "hand a passage over.",
+  `the page's own — so this is that harness's ${String(LOCAL_RETRIEVAL_LIMIT)}-passage row, measured`,
+  "where the product runs. The oracle column has no equivalent: the UI has no way",
+  "to hand a passage over.",
   "",
   "Each question is asked in its own browser, because `useChat` sends the whole",
   "history and the CPU harness asks every question cold.",
@@ -312,7 +313,7 @@ const report = [
   "a chip is also the stricter claim, since it resolved to a passage.",
   "",
   `**Grounded ${share((row) => row.grounded)}, cited ${share((row) => row.chips > 0)}.**`,
-  "Compare against the eight-passage row of `eval/local-answers.md`, which is the",
+  `Compare against the ${String(LOCAL_RETRIEVAL_LIMIT)}-passage row of \`eval/local-answers.md\`, the`,
   "same questions on the CPU. The comparison is written up in `docs/backlog.md`",
   "rather than here, because a number copied into two generated files goes stale",
   "in one of them.",
