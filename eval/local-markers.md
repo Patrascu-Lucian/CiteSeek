@@ -1,11 +1,11 @@
 # Local answers, in a browser
 
-Run 2026-08-29 against `http://localhost:3000`, on WebGPU.
+Run 2026-08-30 against `http://localhost:3000`, on WebGPU.
 
 The questions and the scorer come from `eval:local-answers`, and retrieval is
-the page's own — so this is that harness's eight-passage row, measured where
-the product runs. The oracle column has no equivalent: the UI has no way to
-hand a passage over.
+the page's own — so this is that harness's 3-passage row, measured
+where the product runs. The oracle column has no equivalent: the UI has no way
+to hand a passage over.
 
 Each question is asked in its own browser, because `useChat` sends the whole
 history and the CPU harness asks every question cold.
@@ -14,8 +14,8 @@ history and the CPU harness asks every question cold.
 are rewritten into links before rendering, so a bracket never reaches the DOM;
 a chip is also the stricter claim, since it resolved to a passage.
 
-**Grounded 13/24, cited 2/24.**
-Compare against the eight-passage row of `eval/local-answers.md`, which is the
+**Grounded 15/24, cited 0/24.**
+Compare against the 3-passage row of `eval/local-answers.md`, the
 same questions on the CPU. The comparison is written up in `docs/backlog.md`
 rather than here, because a number copied into two generated files goes stale
 in one of them.
@@ -24,26 +24,26 @@ in one of them.
 
 | question | grounded | chips |
 | -------- | -------- | ----- |
-| How quickly does someone get back to me if everything is down? | yes | 0 |
-| How long do you keep whatever I attach to a ticket? | **no** | 0 |
+| How quickly does someone get back to me if everything is down? | **no** | 0 |
+| How long do you keep whatever I attach to a ticket? | yes | 0 |
 | How much warning do I need to give before it renews? | **no** | 0 |
 | What do I get back if you miss a target? | **no** | 0 |
 | The boiler died in January. How fast should someone come? | **no** | 0 |
-| How much notice do I give to move out? | **no** | 0 |
+| How much notice do I give to move out? | yes | 0 |
 | How much do I have to hand over at the start? | **no** | 0 |
-| What hours is the standard plan covered? | yes | 0 |
+| What hours is the standard plan covered? | **no** | 0 |
 | How much force does the press develop? | yes | 0 |
 | How loud is it at a metre? | yes | 0 |
 | Which oil grade goes in it? | yes | 0 |
-| How often does the oil need changing? | **no** | 1 |
+| How often does the oil need changing? | yes | 0 |
 | What oil temperature is too hot? | yes | 0 |
-| What torque do the die bolts take? | **no** | 1 |
+| What torque do the die bolts take? | yes | 0 |
 | How thin can a die be reground before it is scrap? | yes | 0 |
 | How far apart can the pressure sensors read before it stops? | yes | 0 |
 | What humidity needs a desiccant in storage? | yes | 0 |
 | How much can the rent go up by? | yes | 0 |
-| How long does the deposit take to be protected? | **no** | 0 |
-| How fast is a non-emergency repair attended? | yes | 0 |
+| How long does the deposit take to be protected? | yes | 0 |
+| How fast is a non-emergency repair attended? | **no** | 0 |
 | How long can a guest stay before I have to tell anyone? | **no** | 0 |
 | How much is the extra deposit for a pet? | yes | 0 |
 | How much notice do I give if I am leaving? | **no** | 0 |
@@ -56,19 +56,22 @@ Correcting those edits the evidence.
 
 **How quickly does someone get back to me if everything is down?**
 
-> According to the Meridian Software Customer Support Policy, customers receive a standard response time of 30 minutes from ticket creation to the duty engineer.
+> It depends on the severity level of the defect. For defects with a work-around (Severity 4), the defect resolution time is calculated based on the severity level and the specific circumstances of the defect. The defect resolution time is determined by the following factors:
+> 
+> Severity Level: The defect resolution time is calculated based on the severity level. Severity 1 corresponds to immediate action, while Severity 4 corresponds to delayed action.
+> Specific Circumstances: The specific circumstances of the defect determine how long it takes to resolve it. For example, if the defect causes damage to property, it may take longer to resolve it compared to a defect that affects software code. Therefore, the defect resolution time can vary depending on the severity level and the specific circumstances of the defect.
 
 **How long do you keep whatever I attach to a ticket?**
 
-> The ticket system runs to resolution under the plan in force when they were raised.
+> 90 days after closure.
 
 **How much warning do I need to give before it renews?**
 
-> Two months
+> The landlord requires 24 hours' written notice before entering, except in an emergency where entry may be immediate.
 
 **What do I get back if you miss a target?**
 
-> If you miss a target, you receive a credit towards future service costs based on the severity level of the missed target. The amount of the credit depends on the number of months since the last missed target and whether the target was resolved.
+> If you miss a target, you lose up to 25% of the monthly fee per missed target.
 
 **The boiler died in January. How fast should someone come?**
 
@@ -76,23 +79,25 @@ Correcting those edits the evidence.
 
 **How much notice do I give to move out?**
 
-> To determine how much notice you should give to move out, please refer to the following clauses:
-> Notice must be in writing.
-> A notice served by message or spoken in person has no effect, which protects both parties from a disagreement about what was said.
-> Therefore, based on these clauses, you should provide at least one month's notice to move out.
+> Two months'.
 
 **How much do I have to hand over at the start?**
 
-> To determine how much you need to hand over at the start, we need to refer to the relevant section of the property agreement. According to the information provided, the standard terms specify that rent is payable monthly in advance on the first day of each month. Therefore, the amount you should hand over at the start depends on whether you are renting under a standard plan or a premium plan.
-> If you are renting under a standard plan:
-> The amount you should hand over at the start is calculated based on the number of months you intend to rent (e.g., 12 months for a full year).
-> For example, if you plan to rent for 12 months, you should hand over the full amount of rent for those 12 months.
-> If you are renting under a premium plan:
-> The amount you should hand over at the start is calculated based on the number
+> To determine how much you need to hand over at the start, we need to refer to the relevant clause in the property agreement. According to the information provided, the standard term specifies that rent is payable monthly in advance on the first day of each month. Therefore, the amount you should hand over at the start depends on whether you are renting under a fixed-rate lease or a variable-rate option.
+> 
+> If you are renting under a fixed-rate lease:
+> 
+> The amount you should hand over at the start would be the full monthly rent amount specified in the contract.
+> 
+> If you are renting under a variable-rate option:
+> 
+> The amount you should hand over at the start would be the sum of the current month's rent and any additional amounts agreed upon by both parties (e.g., interest charges).
+> 
+> Please consult the specific clauses related to your rental arrangement to ensure accurate information based on your actual situation.
 
 **What hours is the standard plan covered?**
 
-> The standard plan is covered 09:00 to 18:00 in the customer's registered timezone.
+> The standard plan is covered continuously, including weekends and holidays.
 
 **How much force does the press develop?**
 
@@ -108,7 +113,7 @@ Correcting those edits the evidence.
 
 **How often does the oil need changing?**
 
-> The oil needs changing every 1 years.
+> Every 2,000 operating hours or annually.
 
 **What oil temperature is too hot?**
 
@@ -116,11 +121,11 @@ Correcting those edits the evidence.
 
 **What torque do the die bolts take?**
 
-> The torque takes 2 Nm.
+> The torque the die bolts take is 210 Nm.
 
 **How thin can a die be reground before it is scrap?**
 
-> A die that has been regground below 38 mm thickness must not be refitted.
+> The passage mentions that a die that has been regground below 38 mm thickness must not be refitted. Therefore, the correct answer is that a die that has been regground below 38 mm thickness must not be refitted.
 
 **How far apart can the pressure sensors read before it stops?**
 
@@ -132,15 +137,15 @@ Correcting those edits the evidence.
 
 **How much can the rent go up by?**
 
-> According to the information provided in the Larkfield Tenancy Agreement (LTA), the rental amount can increase by up to 4% annually. This is stated directly in the first paragraph of the agreement, which mentions "any increase is capped at the lower of the consumer price index or 4%. "
+> The rental amount can increase by up to 4% annually.
 
 **How long does the deposit take to be protected?**
 
-> The deposit takes 5 weeks to be protected.
+> The deposit is five weeks' rent and is registered with an approved protection scheme within 30 days of receipt.
 
 **How fast is a non-emergency repair attended?**
 
-> emergency repairs are attended within 14 days.
+> An emergency repair must be attended within 24 hours.
 
 **How long can a guest stay before I have to tell anyone?**
 
@@ -152,7 +157,7 @@ Correcting those edits the evidence.
 
 **How much notice do I give if I am leaving?**
 
-> To determine how much notice you should give if you are leaving, refer to the section titled "Notice." This section specifies that a notice must be in writing. Therefore, you should provide a clear and explicit notice to the landlord upon leaving the property.
+> Notice must be in writing.
 
 **What is the cap on credits in a month?**
 

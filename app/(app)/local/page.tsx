@@ -27,11 +27,12 @@ export default function LocalPage() {
       <p className="text-muted-foreground mt-2 text-sm">
         The model that runs here is small enough to fit in a browser, and it
         shows. Asked 24 questions about our own sample documents, it reached the
-        right figure 13 times and stated something the documents do not say the
-        rest. <strong>It also almost never cites.</strong> A number in square
-        brackets is usually the model putting a citation marker where a value
-        belongs — read it as a mistake, not a source. Cloud mode cites properly
-        and is the better choice for anything that matters.
+        right figure 15 times and stated something the documents do not say the
+        rest. <strong>It also does not cite.</strong> It answered all 24 without
+        linking one of them to a passage, and a number in square brackets is the
+        model putting a citation marker where a value belongs — read it as a
+        mistake, not a source. Cloud mode cites properly and is the better
+        choice for anything that matters.
       </p>
 
       <div className="mt-6">

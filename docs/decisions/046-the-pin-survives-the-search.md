@@ -10,7 +10,11 @@ plausibly beats a 2024 0.5B at a similar download.
 That entry also ordered its own work: **score before swapping**, because every judgement
 about local answer quality until then was a transcript and an impression. Scoring now
 exists ([ADR 033](033-answering-locally.md), and `eval/local-answers.md`), and the pinned
-model's numbers are **13/24 grounded, 2/24 cited** at the shipping passage count.
+model's numbers are **13/24 grounded, 2/24 cited** at eight passages, which is what local
+mode shipped when this was written. [ADR 047](047-fewer-passages-for-a-smaller-model.md)
+cut it to three the same day: **15/24 and 0/24**. Every comparison below is at eight, so
+the candidates are scored against each other rather than against the current default — a
+re-run of them at three would be the honest way to reopen the question.
 
 ## Decision
 
