@@ -38,7 +38,9 @@ const FIXTURE_FILES = [
 const useFake = process.argv.includes("--fake");
 /** `--model=onnx-community/…` to score a candidate against the pinned one. */
 const model =
-  process.argv.find((one) => one.startsWith("--model="))?.slice(8) ??
+  // `||`, not `??`: an empty `--model=` is not nullish, and would load "" and
+  // write `local-answers-.md`.
+  process.argv.find((one) => one.startsWith("--model="))?.slice(8) ||
   LOCAL_CHAT_MODEL;
 
 // `q4` is what ships and what every recorded number uses; the report labels any
@@ -164,8 +166,16 @@ const COUNTS = process.argv.includes("--sweep")
       // rather than a configuration the product left behind (ADR 047).
       .map(Number) ?? [LOCAL_RETRIEVAL_LIMIT]);
 
-if (COUNTS.some((one) => !Number.isInteger(one) || one < 1)) {
-  throw new Error(`--counts must be positive integers, got: ${COUNTS.join()}`);
+// Above the pool is not a bigger measurement, it is the same passages under a
+// wider heading.
+if (
+  COUNTS.some(
+    (one) => !Number.isInteger(one) || one < 1 || one > RETRIEVAL_LIMIT,
+  )
+) {
+  throw new Error(
+    `--counts must be integers from 1 to ${String(RETRIEVAL_LIMIT)}, got: ${COUNTS.join()}`,
+  );
 }
 
 type At = {
@@ -455,12 +465,15 @@ const report = [
   ]),
 ].join("\n");
 
-// A candidate writes beside the pinned model's record rather than over it.
+// Model and dtype both, so a candidate or a screening run writes beside the
+// pinned q4 record rather than over it. A test reading that file reads no banner.
+const suffix = dtype === "q4" ? "" : `-${dtype}`;
+
 const into = useFake
   ? null
-  : model === LOCAL_CHAT_MODEL
+  : model === LOCAL_CHAT_MODEL && dtype === "q4"
     ? "local-answers.md"
-    : `local-answers-${model.split("/").pop()!.toLowerCase()}.md`;
+    : `local-answers-${model.split("/").pop()!.toLowerCase()}${suffix}.md`;
 
 if (into) {
   await writeFile(join(EVAL, into), report + "\n");
