@@ -6,7 +6,6 @@ import { AlertCircle } from "lucide-react";
 
 import { signIn } from "@/auth";
 import { getActor } from "@/lib/auth/actor";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -15,6 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+import { SubmitButton } from "./submit-button";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -78,9 +79,7 @@ export default async function SignInPage({
               await signIn("github", { redirectTo: callbackUrl ?? "/w" });
             }}
           >
-            <Button type="submit" className="w-full" size="lg">
-              Continue with GitHub
-            </Button>
+            <SubmitButton>Continue with GitHub</SubmitButton>
           </form>
         </CardContent>
 
