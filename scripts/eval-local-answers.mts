@@ -23,6 +23,7 @@ import {
 import { chunkText, type Chunk } from "../lib/rag/chunking.ts";
 import { extractText } from "../lib/rag/extract.ts";
 import {
+  LOCAL_RETRIEVAL_LIMIT,
   maxDistanceFor,
   RETRIEVAL_LIMIT,
 } from "../lib/rag/retrieval-config.ts";
@@ -106,6 +107,8 @@ if (!useFake) {
         // the browser's (ADR 033).
         .filter((entry) => entry.distance <= maxDistanceFor("local"))
         .sort((a, b) => a.distance - b.distance)
+        // The pool, not the answer's passage count — `COUNTS` slices it below,
+        // and a sweep past this would measure passages the product never sends.
         .slice(0, RETRIEVAL_LIMIT),
     );
   }
@@ -157,7 +160,9 @@ const COUNTS = process.argv.includes("--sweep")
       .find((one) => one.startsWith("--counts="))
       ?.slice(9)
       .split(",")
-      .map(Number) ?? [RETRIEVAL_LIMIT]);
+      // What local mode sends, so a default run measures the shipped path
+      // rather than a configuration the product left behind (ADR 047).
+      .map(Number) ?? [LOCAL_RETRIEVAL_LIMIT]);
 
 if (COUNTS.some((one) => !Number.isInteger(one) || one < 1)) {
   throw new Error(`--counts must be positive integers, got: ${COUNTS.join()}`);

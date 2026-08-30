@@ -3,6 +3,11 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import {
+  LOCAL_RETRIEVAL_LIMIT,
+  RETRIEVAL_LIMIT,
+} from "@/lib/rag/retrieval-config";
+
 import { fakeLocalEmbedding } from "./fake-embedder";
 import { retrieveLocally } from "./retrieve";
 import {
@@ -170,6 +175,26 @@ describe("retrieveLocally", () => {
     );
 
     expect(sources.map((source) => source.chunkId)).not.toContain("c1");
+  });
+
+  it("sends fewer passages than cloud mode, because the model is smaller", async () => {
+    /* Measured: three grounds 15/24 where eight grounds 13/24, with the
+       answering passage still retrieved every time (ADR 047). A shared
+       `RETRIEVAL_LIMIT` here would quietly undo that. */
+    await seed(aDocument(), [
+      aChunk("c1", REIMBURSEMENT),
+      aChunk("c2", RECEIPTS, { index: 1 }),
+      aChunk("c3", "Reimbursement claims need a receipt over ten pounds.", {
+        index: 2,
+      }),
+      aChunk("c4", "Reimbursement is approved by a manager.", { index: 3 }),
+      aChunk("c5", "Reimbursement runs through payroll.", { index: 4 }),
+    ]);
+
+    const { sources } = await retrieveLocally("reimbursement");
+
+    expect(sources).toHaveLength(LOCAL_RETRIEVAL_LIMIT);
+    expect(LOCAL_RETRIEVAL_LIMIT).toBeLessThan(RETRIEVAL_LIMIT);
   });
 
   it("searches across every ready document", async () => {
