@@ -1,6 +1,6 @@
 # Local answers
 
-Run 2026-08-30 against `onnx-community/gemma-3-270m-it-ONNX`.
+Run 2026-08-30 against `onnx-community/gemma-3-270m-it-ONNX` at `q4`.
 
 Local mode end to end: the local embedder ranks the passages, the local model
 answers from them. `oracle` hands the answering passage over instead, so it is

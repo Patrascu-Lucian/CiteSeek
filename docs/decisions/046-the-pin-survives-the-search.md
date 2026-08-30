@@ -16,12 +16,17 @@ model's numbers are **13/24 grounded, 2/24 cited** at the shipping passage count
 
 **Keep `Qwen2.5-0.5B-Instruct`.** Nothing displaced it, and the search stops here.
 
-| model                         | download | grounded  | cited | outcome                   |
-| ----------------------------- | -------- | --------- | ----- | ------------------------- |
-| `Qwen2.5-0.5B-Instruct` (pin) | 756 MB   | **13/24** | 2/24  | stands                    |
-| `gemma-3-270m-it`             | 308 MB   | **0/24**  | 0/24  | measured, unusable        |
-| `Qwen3-0.6B`                  | 877 MB   | —         | —     | exceeds the measuring rig |
-| `Llama-3.2-1B-Instruct`       | 1614 MB  | —         | —     | not attempted, see below  |
+| model                         | download | grounded  | cited     | outcome                   |
+| ----------------------------- | -------- | --------- | --------- | ------------------------- |
+| `Qwen2.5-0.5B-Instruct` (pin) | 756 MB   | **13/24** | 2/24      | stands                    |
+| `gemma-3-270m-it`             | 308 MB   | **0/24**  | **14/24** | measured, unusable        |
+| `Qwen3-0.6B`                  | 877 MB   | —         | —         | exceeds the measuring rig |
+| `Llama-3.2-1B-Instruct`       | 1614 MB  | —         | —         | not attempted, see below  |
+
+`cited` counts answers carrying a marker in range, not answers whose marker supports the
+claim — the distinction [ADR 038](038-a-citation-that-cannot-be-read-as-content.md) exists
+for. gemma's 14 sit in answers that are ungrounded 24 times out of 24, so the column is
+measuring how freely a model emits brackets and nothing better than that.
 
 ## gemma-3-270m answers the prompt instead of the question
 
@@ -37,10 +42,12 @@ calling it the model. Its chat template turns out to handle a system message by 
 it to the first user turn, so the prompt arrives intact. The zero is the model: 270M
 parameters is below the floor for a prompt carrying rules, passages and a worked example.
 
-One detail worth keeping, because it supports [ADR 033](033-answering-locally.md)'s revised
-reading of the worked example: gemma **cited on 3 of 8** prose questions where the pin cites
-0 of 8. It emits markers more readily and answers less. Marker emission and grounding are
-independent capabilities, and buying the first buys nothing of the second.
+One detail worth keeping, because it settles [ADR 033](033-answering-locally.md)'s revised
+reading of the worked example: **gemma emits markers on 14 of 24 value questions and 3 of 8
+prose ones, against the pin's 2 and 0 — while grounding zero of either.** The two
+capabilities are not merely independent; the model that cites seven times as often is the
+one that never answers. Buying marker emission buys nothing of grounding, and this is the
+cleanest evidence in the project that it does not.
 
 ## Qwen3-0.6B could not be measured here, which is not the same as losing
 
