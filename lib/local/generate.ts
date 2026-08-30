@@ -1,3 +1,5 @@
+import type { PreTrainedTokenizer } from "@huggingface/transformers";
+
 import { buildSystemPrompt } from "@/lib/ai/prompt";
 import type { ChatSource } from "@/lib/ai/types";
 
@@ -134,15 +136,34 @@ export function loadChatModel(
       return generate;
     })
     .catch((cause: unknown) => {
-      // Both reset together: a caller offered "try again" has to reach a real
-      // retry, and a gate reading `loading` would otherwise sit on a download
-      // that is not happening.
+      // All three reset together: a caller offered "try again" has to reach a
+      // real retry, a gate reading `loading` would otherwise sit on a download
+      // that is not happening, and a tokenizer outliving its weights would
+      // decode the next model's ids against this one's vocabulary.
       loading = null;
+      tokenizing = null;
       status = "idle";
       throw cause;
     });
 
   return loading;
+}
+
+let tokenizing: Promise<PreTrainedTokenizer> | null = null;
+
+/** Cached beside the weights it has to match: re-read per question it parses a
+ * 6.7 MB vocabulary each time, which ran a 24-question eval out of memory. */
+async function loadTokenizer(): Promise<PreTrainedTokenizer> {
+  const { AutoTokenizer } = await import("@huggingface/transformers");
+
+  tokenizing ??= AutoTokenizer.from_pretrained(active).catch(
+    (cause: unknown) => {
+      tokenizing = null;
+      throw cause;
+    },
+  );
+
+  return tokenizing;
 }
 
 /**
@@ -162,9 +183,9 @@ export async function* generateLocally(
   let resolveNext: (() => void) | null = null;
   let finished = false;
 
-  const { TextStreamer, AutoTokenizer, InterruptableStoppingCriteria } =
+  const { TextStreamer, InterruptableStoppingCriteria } =
     await import("@huggingface/transformers");
-  const tokenizer = await AutoTokenizer.from_pretrained(active);
+  const tokenizer = await loadTokenizer();
 
   /* Stopping the consumer is not enough: `useChat`'s stop only cancels the
      stream, and the model would run on to `max_new_tokens` holding the tab

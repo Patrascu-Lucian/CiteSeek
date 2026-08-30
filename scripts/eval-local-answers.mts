@@ -4,7 +4,8 @@
  *
  * Free — no provider, no database. Slow: CPU generation.
  *
- * Usage: pnpm eval:local-answers [--fake] [--sweep] [--model=onnx-community/…]
+ * Usage: pnpm eval:local-answers [--fake] [--sweep|--counts=3,8]
+ *        [--model=onnx-community/…]
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -21,7 +22,10 @@ import {
 } from "../lib/local/generate.ts";
 import { chunkText, type Chunk } from "../lib/rag/chunking.ts";
 import { extractText } from "../lib/rag/extract.ts";
-import { RETRIEVAL_LIMIT } from "../lib/rag/retrieval-config.ts";
+import {
+  maxDistanceFor,
+  RETRIEVAL_LIMIT,
+} from "../lib/rag/retrieval-config.ts";
 import { cosineSimilarity } from "../lib/rag/vector.ts";
 
 const FIXTURE_FILES = [
@@ -79,9 +83,14 @@ if (!useFake) {
       all
         .map((entry, index) => ({
           ...entry,
-          score: cosineSimilarity(query[0]!, vectors[index]!),
+          distance: 1 - cosineSimilarity(query[0]!, vectors[index]!),
         }))
-        .sort((a, b) => b.score - a.score)
+        // The floor before the slice, which is the order `lib/local/retrieve.ts`
+        // uses. Taking the top eight unfiltered handed the model passages the
+        // product would have dropped, and made these numbers unable to predict
+        // the browser's (ADR 033).
+        .filter((entry) => entry.distance <= maxDistanceFor("local"))
+        .sort((a, b) => a.distance - b.distance)
         .slice(0, RETRIEVAL_LIMIT),
     );
   }
@@ -124,17 +133,28 @@ if (!useFake) {
   console.log("\n");
 }
 
-/** Five counts is five times the generations, so not the default — but it is
- * what found three passages beating the shipping eight. */
+/** Each count is another generation per question, and the process holds them
+ * all: `--sweep`'s 144 exhausted a 16 GB machine where 48 finished. `--counts=`
+ * asks the narrower question instead. */
 const COUNTS = process.argv.includes("--sweep")
   ? [1, 2, 3, 4, RETRIEVAL_LIMIT]
-  : [RETRIEVAL_LIMIT];
+  : (process.argv
+      .find((one) => one.startsWith("--counts="))
+      ?.slice(9)
+      .split(",")
+      .map(Number) ?? [RETRIEVAL_LIMIT]);
+
+if (COUNTS.some((one) => !Number.isInteger(one) || one < 1)) {
+  throw new Error(`--counts must be positive integers, got: ${COUNTS.join()}`);
+}
 
 type At = {
   grounded: boolean;
   retrieved: boolean;
   cited: boolean;
   answer: string;
+  /** What the floor left, which is at most the count asked for. */
+  passages: number;
 };
 
 type Row = {
@@ -168,13 +188,27 @@ for (const [index, one] of LOCAL_ANSWER_SET.entries()) {
       marker: marker + 1,
     }));
 
-    // No ranking means `--fake`; scoring the oracle again would invent a sweep.
-    if (sources.length === 0) continue;
+    // No ranking at all means `--fake`; scoring the oracle again would invent a
+    // sweep. An empty slice under a real ranking is the floor refusing, which is
+    // a result — the product answers `NO_RELEVANT_PASSAGES_REPLY` there.
+    if (top.length === 0) continue;
+
+    if (sources.length === 0) {
+      at.set(count, {
+        answer: NO_RELEVANT_PASSAGES_REPLY,
+        cited: false,
+        grounded: false,
+        retrieved: false,
+        passages: 0,
+      });
+      continue;
+    }
 
     const { answer, cited } = await ask(one.question, sources);
     at.set(count, {
       answer,
       cited,
+      passages: sources.length,
       grounded: grounds(answer, one.answerContains),
       retrieved: sources.some((source) =>
         one.expect.some((e) => source.quote.includes(e.quote)),
@@ -239,6 +273,20 @@ const rate = (of: (one: At) => boolean, count: number) => {
     : `${String(seen.filter(of).length)}/${String(seen.length)}`;
 };
 
+/** The floor drops passages before the count applies, so "8" is a ceiling. */
+const given = (count: number) => {
+  const seen = rows
+    .map((row) => row.at.get(count))
+    .filter((one) => one !== undefined);
+
+  if (seen.length === 0) return "-";
+
+  const total = seen.reduce((sum, one) => sum + one.passages, 0);
+  const refused = seen.filter((one) => one.passages === 0).length;
+
+  return `${(total / seen.length).toFixed(1)} avg${refused > 0 ? `, ${String(refused)} refused` : ""}`;
+};
+
 const report = [
   "# Local answers",
   "",
@@ -249,19 +297,23 @@ const report = [
   "the ceiling retrieval cannot beat.",
   "",
   "Both halves at every count, because they move in opposite directions — fewer",
-  "passages read better and retrieve worse. Three is where they cross: retrieval",
-  "is already perfect and grounding has not yet fallen.",
+  "passages read better and retrieve worse.",
+  "",
+  "The distance floor applies before the count, as `lib/local/retrieve.ts` does",
+  "it, so a row's passages are what survived the floor rather than what was asked",
+  "for. Without that these numbers could not predict the browser's, which is the",
+  "confound recorded in ADR 033.",
   "",
   "`grounded` is a substring check on a digit boundary. A floor, not a grade: it",
   "cannot tell a value from a negated one.",
   "",
-  "| passages | grounded | cited | answer retrieved |",
-  "| -------- | -------- | ----- | ---------------- |",
+  "| passages asked | actually given | grounded | cited | answer retrieved |",
+  "| -------------- | -------------- | -------- | ----- | ---------------- |",
   ...COUNTS.map(
     (count) =>
-      `| ${String(count)} | ${rate((one) => one.grounded, count)} | ${rate((one) => one.cited, count)} | ${rate((one) => one.retrieved, count)} |`,
+      `| ${String(count)} | ${given(count)} | ${rate((one) => one.grounded, count)} | ${rate((one) => one.cited, count)} | ${rate((one) => one.retrieved, count)} |`,
   ),
-  `| oracle | ${share((row) => row.oracle.grounded)} | ${share((row) => row.oracle.cited)} | by construction |`,
+  `| oracle | the answering one | ${share((row) => row.oracle.grounded)} | ${share((row) => row.oracle.cited)} | by construction |`,
   "",
   ...(prose.length === 0
     ? []

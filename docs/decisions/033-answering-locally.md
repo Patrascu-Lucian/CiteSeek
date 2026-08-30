@@ -88,13 +88,18 @@ both providers, at every passage count measured.
 to the model's "regground". Greedy decoding reproduces on WebGPU as it does on the CPU, so a
 single run here is evidence.
 
-**Grounding is a different question and this run does not settle it.** 13/24 in the browser
-against 11/24 in Node looks like agreement, and it is not comparable: local retrieval drops
-anything past `maxDistanceFor("local")` before taking `RETRIEVAL_LIMIT`, while the Node
-harness takes the top eight unfiltered. The browser therefore answered from fewer passages,
-and the sweep in `docs/backlog.md` puts three passages at 15/24 and eight at 11/24 — which
-brackets 13. Device and passage count are confounded here, so no claim is made about either
-until the two harnesses retrieve alike.
+**Grounding looked like agreement and was not comparable**: 13/24 in the browser against 11/24
+in Node, while local retrieval drops anything past `maxDistanceFor("local")` before taking
+`RETRIEVAL_LIMIT` and the Node harness took the top eight unfiltered. Two different pools.
+
+↳ **Resolved 30 August 2026 by giving the harness the same floor.** It now reports **13/24
+grounded and 2/24 cited — the browser's figures exactly**, and the floor turns out to be the
+whole of the difference. Asking for eight passages yields 5.5 on average, which is why the
+report prints what was given beside what was asked for.
+
+The consequence is the useful part: **the CPU harness predicts the product**, so comparing
+candidate models costs ten minutes in Node rather than an hour of GPU time per candidate. That
+is what makes the model search in `docs/backlog.md` affordable at all.
 
 Without that discovery local mode would have shipped answers with a source list
 attached and nothing linking them — the acceptance criterion failing silently,

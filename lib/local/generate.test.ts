@@ -153,6 +153,17 @@ describe("generateLocally", () => {
     expect(fromPretrained).toHaveBeenCalledWith("onnx-community/candidate");
   });
 
+  it("parses the vocabulary once, not once per question", async () => {
+    // 6.7 MB re-parsed per answer, which ran a 24-question eval out of memory.
+    pipeline.mockResolvedValue(generatingModel(["ok"]));
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [source]));
+    for await (const _ of generateLocally("and again?", [source]));
+
+    expect(fromPretrained).toHaveBeenCalledTimes(1);
+  });
+
   it("streams the deltas the model emits", async () => {
     pipeline.mockResolvedValue(
       generatingModel(["Within ", "thirty days [1]."]),
