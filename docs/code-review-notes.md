@@ -2654,3 +2654,59 @@ tests, 117 E2E and a production build, green.
 - **And the smaller one, which is the cheaper habit**: a default parameter reading global state
   means the explicit `undefined` a test passes is not the value the function sees. `f(x, undefined)`
   looks like it pins the argument and does the opposite.
+
+## Blaming the model for a difference version control could explain, 31 August 2026
+
+- **Issue**: an ADR claimed that greedy decoding is only approximately reproducible on WebGPU where
+  it is byte-identical on the CPU. The evidence was two full runs of the browser harness whose
+  transcripts differed: "every 1 year" in one, "every 1 years" in the other. Plausible — a GPU is
+  free to reorder floating-point reductions — and wrong.
+
+- **Cause**: the two artifacts had been edited between runs, and I compared them without checking
+  whether anything besides the model had touched them. Recovering both from dangling git blobs
+  settled it in a minute: they differ in exactly two places, and the second is a
+  double letter appearing in a word the model had misspelled. A generator does not produce the
+  correct spelling and then acquire an extra letter, so the file with the odd spellings is raw.
+
+- **The truth was the stronger claim.** Diffing the answer lines properly: all 32 identical across
+  the two runs. Greedy decoding reproduces on WebGPU exactly as on the CPU, so a single run there
+  is evidence — the opposite of what the ADR said, and better for it.
+
+- **Fix**: the ADR records byte-identical runs; the quotes match the raw transcripts again; and the
+  report generator now prints a line above them saying they are verbatim including the model's own
+  spelling, because correcting that edits the evidence.
+
+- **Lesson**: **before attributing a difference to the system under test, check what else could
+  have produced it.** I reached for a property of GPU arithmetic when the repository had the answer
+  in its object store. Two artifacts differing is not a measurement until you know nothing but the
+  measurement changed.
+
+- **And the design lesson underneath**: a file whose purpose is to record what something said is
+  data, not prose, and it should say so on its face. Tidying a visible error is right everywhere
+  else in a repository — so the artifact has to carry the warning rather than assume the reader
+  knows it is an exception.
+
+- **And the second-order one**: I attributed a difference between two artifacts to the system under
+  test without checking whether anything else had touched them. Version control had the answer the
+  whole time.
+
+## Deferring a bug because it was not ours to cause, 31 August 2026
+
+- **Found by Lucian**: the sign-in page's "Continue with GitHub" button gave no feedback. It starts
+  a server action ending in an OAuth redirect, so the page sits unchanged for a cold function plus a
+  hop, which reads as a dead button and invites a second click.
+
+- **My first answer was to defer it.** `git log` showed the page untouched since milestone 5, so the
+  bug predated the release being prepared, and shipping v1.4.3 would not make it
+  worse. That reasoning is sound and answers the wrong question. He said "but it is a big bug", and
+  he was right: it is the entry point for every account, the fix is thirty lines, and the release
+  was not yet tagged.
+
+- **Fix**: a `useFormStatus` client component — disabled, `aria-busy`, and a label that names where
+  the reader is going, since the next thing that happens is the page being replaced by github.com.
+  Two tests, falsified by stripping the attributes.
+
+- **Lesson**: **"is this a regression?" and "should this ship?" are different questions**, and only
+  the first is answered by blame. Whether the release caused a defect decides who is responsible for
+  it; whether the release should carry the fix depends on severity, cost, and whether the tag is
+  already cut. I had let the cheap question stand in for the expensive one.
