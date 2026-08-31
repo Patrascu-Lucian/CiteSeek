@@ -6,6 +6,7 @@
  *
  * Usage: pnpm eval:local-answers [--fake] [--sweep|--counts=3,8]
  *        [--model=onnx-community/…] [--dtype=int8]
+ *        [--no-citations] [--no-example]
  */
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -63,6 +64,37 @@ if (useFake) {
   (globalThis as { __citeseekLocalEmbedder?: string }).__citeseekLocalEmbedder =
     "fake";
 }
+
+const FLAGS = [
+  "--fake",
+  "--sweep",
+  "--no-citations",
+  "--no-example",
+  "--counts=",
+  "--model=",
+  "--dtype=",
+];
+
+/* A misspelled flag is silently the default, and the default overwrites the
+   pinned record: `--no-cite` would publish a shipped-prompt run under a name
+   claiming otherwise. */
+const unknown = process.argv
+  .slice(2)
+  .filter((one) => one.startsWith("--"))
+  .find((one) => !FLAGS.some((flag) => one === flag || one.startsWith(flag)));
+
+if (unknown) {
+  throw new Error(`Unknown flag ${unknown}. Known: ${FLAGS.join(" ")}`);
+}
+
+/* The experiment behind ADR 049: a 0.5B is told to cite and does not, so the
+   question is whether the instruction is costing it answers. */
+const parts = {
+  cite: !process.argv.includes("--no-citations"),
+  example: !process.argv.includes("--no-example"),
+};
+
+const variant = `${parts.cite ? "" : "-nocite"}${parts.example ? "" : "-noexample"}`;
 
 const EVAL = join(import.meta.dirname, "..", "eval");
 const generate = resolveLocalGenerator();
@@ -199,7 +231,7 @@ type Row = {
    int8 resume finished at q4 publishes under a header naming only q4. */
 const PROGRESS = join(
   EVAL,
-  `.local-answers-progress-${model.split("/").pop()!.toLowerCase()}-${dtype}.json`,
+  `.local-answers-progress-${model.split("/").pop()!.toLowerCase()}-${dtype}${variant}.json`,
 );
 
 type Saved = { rows: [string, Row["oracle"], [number, At][]][] };
@@ -241,7 +273,8 @@ const saveProgress = async () => {
 
 async function ask(question: string, sources: readonly ChatSource[]) {
   let answer = "";
-  for await (const delta of generate(question, sources)) answer += delta;
+  for await (const delta of generate(question, sources, undefined, parts))
+    answer += delta;
 
   return { answer: answer.trim(), cited: cites(answer, sources.length) };
 }
@@ -374,6 +407,25 @@ const given = (count: number) => {
   return `${(total / seen.length).toFixed(1)} avg${refused > 0 ? `, ${String(refused)} refused` : ""}`;
 };
 
+/** Names what survived as well as what went: the worked example is itself a
+ * citation instruction, so "rules removed" alone would describe a prompt that
+ * still demonstrates a marker. */
+function promptBanner() {
+  const removed = [
+    parts.cite ? null : "the three citation rules",
+    parts.example ? null : "the worked example",
+  ].filter((one) => one !== null);
+
+  const kept = parts.cite
+    ? "the citation rules"
+    : "the worked example, which still demonstrates a marker";
+
+  return (
+    `**Not the shipped prompt.** Removed: ${removed.join(" and ")}.` +
+    (removed.length === 2 ? "" : ` Kept: ${kept}.`)
+  );
+}
+
 const report = [
   "# Local answers",
   "",
@@ -384,6 +436,7 @@ const report = [
         "",
         `**Not \`q4\`, so not comparable to the recorded runs.** A screening pass only.`,
       ]),
+  ...(parts.cite && parts.example ? [] : ["", promptBanner()]),
   "",
   "Local mode end to end: the local embedder ranks the passages, the local model",
   "answers from them. `oracle` hands the answering passage over instead, so it is",
@@ -418,7 +471,9 @@ const report = [
         "",
         "Whether the zero above is the device or the question. These want prose,",
         "not a value, which is the shape ADR 033 saw markers on — same CPU path.",
-        "A refusal is separated because rule 4 forbids citing one.",
+        parts.cite
+          ? "A refusal is separated because rule 4 forbids citing one."
+          : "A refusal is separated: the rule forbidding a cited refusal is one of the ones this run removed.",
         "",
         `**Cited ${String(prose.filter((one) => one.cited).length)}/${String(prose.length)}**` +
           `, refused ${String(prose.filter((one) => one.refused).length)}/${String(prose.length)}.`,
@@ -467,13 +522,17 @@ const report = [
 
 // Model and dtype both, so a candidate or a screening run writes beside the
 // pinned q4 record rather than over it. A test reading that file reads no banner.
-const suffix = dtype === "q4" ? "" : `-${dtype}`;
+
+/* Every knob, not a list of the ones that existed when this was written: adding
+   `--no-citations` alone silently overwrote the shipped record once. */
+const asShipped =
+  model === LOCAL_CHAT_MODEL && dtype === "q4" && parts.cite && parts.example;
 
 const into = useFake
   ? null
-  : model === LOCAL_CHAT_MODEL && dtype === "q4"
+  : asShipped
     ? "local-answers.md"
-    : `local-answers-${model.split("/").pop()!.toLowerCase()}${suffix}.md`;
+    : `local-answers-${model.split("/").pop()!.toLowerCase()}${dtype === "q4" ? "" : `-${dtype}`}${variant}.md`;
 
 if (into) {
   await writeFile(join(EVAL, into), report + "\n");

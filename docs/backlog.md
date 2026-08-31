@@ -1583,7 +1583,16 @@ local mode only.** Three grounds 15/24 where eight grounds 13/24, with the answe
 retrieved 24/24 — two rows, not the four the unfiltered sweep showed, because the floor was already
 doing half the work. Gemini keeps eight and is unmeasured at three. And
 `markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a numeric
-exemplar targets, which stays blocked until markers can be measured where they actually run.
+exemplar targets, and it is still open: markers can be measured in a browser now
+(`eval:local-markers`), so what blocks it is someone writing the exemplar, not the measurement.
+
+↳ **The prior question — whether asking at all costs answers — is measured and closed, 31 August
+2026 ([ADR 049](decisions/049-what-asking-a-small-model-to-cite-costs.md)).** Dropping the three
+citation rules and the worked example moves grounding from 15/24 to 16/24. The total understates
+what happened: **five rows change, three gained and two lost**, so the instruction rearranges which
+questions come out right rather than costing answers. The prompt stays shared, and
+`--no-citations` / `--no-example` stay for whoever swaps the pin — the result is about a 0.5B, not
+about small models.
 
 **4. Constrained decoding, last.** Forcing `{ answer, citations }` would make the marker unable
 to stand where a number belongs — the problem
