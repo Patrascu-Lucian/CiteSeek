@@ -2429,7 +2429,7 @@ The test was deleted rather than kept green, and the guard is a Lighthouse run a
 build. Worth re-measuring on production after the next release, since local and deployed disagreed
 on this metric before.
 
-## Largest contentful paint moved 0.4s and nothing else did, 25 August 2026
+## ~~Largest contentful paint moved 0.4s and nothing else did~~, 25 August 2026
 
 Same re-measurement. On the workspace route, LCP went **3.2s → 3.6s** between v1.3.1 and v1.4.0,
 while first contentful paint (0.8s) and speed index (~1.1s) were unchanged, and the client
@@ -2448,6 +2448,50 @@ follow-up run to measure the thing that did not change.
 
 Three runs per build, one machine, one Chrome. 0.4s is small enough to want a fourth and fifth run
 before anyone acts on it, and the numbers are recorded here so that run has something to compare to.
+
+↳ **The runs were taken, 31 August 2026, at v1.4.4 — and the element has a name now.** Six runs
+across two invocations, one local production build: performance 88 every time, LCP **3.7s**, first
+paint 0.9s, speed index 1.2s. The regression is reproducible, not noise, and it did not recover on
+its own across four releases.
+
+**Eighty-eight percent of it is render delay.** Lighthouse's own phase breakdown: TTFB 453 ms, load
+delay 0, load time 0, **render delay 3,253 ms**. Nothing is waiting on the network — the element is
+in the document and is not painted.
+
+**The element is the chat panel's empty state**, `<p class="mt-1 text-sm">` in
+`components/chat/message-list.tsx`: "Answers cite the passages they come from, so you can check
+them." That is inside a client component, so the largest text on the route cannot paint until
+hydration runs. It also explains the shape the entry found puzzling — first paint and speed index
+never moved because the server-rendered shell was never the slow part.
+
+**The one opportunity of any size is `unused-javascript`, ~690 ms.** `server-response-time` is
+295 ms, consistent with the TTFB above.
+
+**What the entry ruled out was ruled out correctly, and for the wrong reason.** Both candidates were
+server-side, and the delay is not. Anything that changes how much JavaScript this route hydrates is
+a candidate; anything that changes server work is not.
+
+↳ **Lighthouse and a real browser disagree, which is worth knowing before anyone optimizes.** Driving
+the same URL through Playwright with _applied_ throttling — 4× CPU, 150 ms latency, 1.6 Mbps — gives
+LCP **1.3s**, and names a different element: the `<h1>`. Lighthouse 12 simulates rather than applies,
+so 3.7s is a projection from its model of the main thread. Both numbers are real measurements of
+different things, and the recorded 3.2 → 3.6 → 3.7 movement lives in the simulated one.
+
+↳ **And the deployed number never moved, which closes this.** Three runs against `citeseek.app`, same
+day and same Lighthouse version: **performance 95, LCP 2.8s**, first paint 0.9s, speed index 1.2s.
+The v1.4.2 release notes record the deployed route at **2.7s** — the same figure inside run-to-run
+noise, four releases earlier.
+
+So the regression is on a local production build and not in front of anyone. `pnpm build && pnpm
+start` on this machine scores 88 where Vercel scores 95, and the gap is the machine: no CDN, a cold
+Node server, and Chrome sharing a laptop with the build that produced it.
+
+**Nothing to fix, and that is the finding.** Optimizing the hydration path would move a number no
+reader has. What the diagnosis is still worth is the next regression: the LCP element on this route
+is chat empty-state copy inside a client component, so it is hydration-bound by construction, and
+anything that grows the client bundle lands here first. Re-measure **deployed** before believing a
+local number — this entry stayed open four releases because the first measurement was taken where
+the problem was not.
 
 ## The CSP issue in Chrome's panel is Zod asking permission, 25 August 2026
 
