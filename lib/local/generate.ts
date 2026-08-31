@@ -186,6 +186,8 @@ async function loadTokenizer(): Promise<PreTrainedTokenizer> {
   return tokenizing;
 }
 
+export type PromptParts = { cite?: boolean; example?: boolean };
+
 /**
  * Streams an answer from the retrieved passages, and only those. The system
  * prompt is `buildSystemPrompt` — the same one the route sends to Gemini — so
@@ -196,6 +198,9 @@ export async function* generateLocally(
   question: string,
   sources: readonly ChatSource[],
   signal?: AbortSignal,
+  /** Only the eval varies these, to measure what each part of the citation
+   * instruction costs a 0.5B in answers. */
+  { cite = true, example = true }: PromptParts = {},
 ): AsyncIterable<string> {
   const generate = await loadChatModel();
 
@@ -237,7 +242,9 @@ export async function* generateLocally(
     [
       {
         role: "system",
-        content: `${buildSystemPrompt(sources)}\n\n${markerExample(sources)}`,
+        content: example
+          ? `${buildSystemPrompt(sources, cite)}\n\n${markerExample(sources)}`
+          : buildSystemPrompt(sources, cite),
       },
       { role: "user", content: question },
     ],
@@ -285,6 +292,7 @@ type LocalGeneratorFn = (
   question: string,
   sources: readonly ChatSource[],
   signal?: AbortSignal,
+  parts?: PromptParts,
 ) => AsyncIterable<string>;
 
 /**
