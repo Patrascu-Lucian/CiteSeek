@@ -233,8 +233,10 @@ export function MessageList({
                   >
                     {/* Not "Searched for" twice: the visible label is hidden
                         from assistive tech, so this one carries the fact. */}
+                    {/* Not "rephrased": local mode joins the previous turn to
+                        this one rather than rewriting it (ADR 048). */}
                     <span className="sr-only">
-                      Your question was rephrased and searched as:{" "}
+                      Your question found nothing, so this searched for:{" "}
                     </span>
                     <span aria-hidden="true">Searched for: </span>
                     {searchedFor}
