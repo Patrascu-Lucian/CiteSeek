@@ -40,9 +40,9 @@ export type ChatMessageMetadata = { searchedFor?: string };
 /**
  * `sources` is written *before* the model's text, so a `[1]` arriving mid-stream
  * has something to resolve against. `refusal` is its mirror — a reason, never
- * prose, so nothing a reader is offered comes from a model. `searchedFor` appears
- * only where a rewrite retrieved what the typed question could not, because a
- * wrong guess has to be visible (ADR 044).
+ * prose, so nothing a reader is offered comes from a model. `searchedFor` is set
+ * only when a second attempt found what the typed question could not, because a
+ * wrong guess has to be visible (ADR 044, ADR 048).
  */
 export type ChatUIMessage = UIMessage<
   ChatMessageMetadata,

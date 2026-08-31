@@ -62,6 +62,14 @@ second on-device generation in front of a reader who is already waiting on a
 WebGPU model, and the cost lands exactly where the experience is worst. Revisit
 if local generation gets fast enough that the second call is not felt.
 
+↳ **Revisited 31 August 2026, on a condition this paragraph did not anticipate.**
+Local generation is no faster. What was wrong is the assumption underneath —
+that recovering a follow-up requires a model at all. Prepending the reader's
+previous turn retrieves the answering passage 10 times in 10 where the follow-up
+alone manages 3, matching the standalone ceiling for one embedding and no
+generation ([ADR 048](048-a-follow-up-that-costs-no-generation.md)). The cost
+this paragraph refused to pay is still refused.
+
 ## Message metadata, not a data part
 
 It was a data part first, written beside `data-sources` before the model's first

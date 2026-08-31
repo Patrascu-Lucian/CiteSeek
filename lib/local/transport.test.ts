@@ -227,3 +227,69 @@ describe("a turn with nothing in it", () => {
     expect(chunks.map((chunk) => chunk.type)).toContain("data-refusal");
   });
 });
+
+describe("a follow-up that carries nothing to search for", () => {
+  const asked = (text: string): ChatUIMessage => ({
+    id: text,
+    role: "user",
+    parts: [{ type: "text", text }],
+  });
+
+  it("retries with the previous turn rather than refusing", async () => {
+    // Measured at 3 of 10 as asked, 10 joined (`pnpm eval:local-followups`).
+    await seed();
+    const transport = new LocalChatTransport(answers);
+
+    const chunks = await collect(
+      await transport.sendMessages({
+        messages: [asked("reimbursement paid within thirty"), asked("how?")],
+      }),
+    );
+
+    expect(chunks.map((chunk) => chunk.type)).toContain("data-sources");
+    expect(chunks.map((chunk) => chunk.type)).not.toContain("data-refusal");
+  });
+
+  it("says what it searched for, so the answer is not attributed to the question asked", async () => {
+    await seed();
+    const transport = new LocalChatTransport(answers);
+
+    const chunks = await collect(
+      await transport.sendMessages({
+        messages: [asked("reimbursement paid within thirty"), asked("how?")],
+      }),
+    );
+
+    expect(
+      chunks.find((chunk) => chunk.type === "message-metadata"),
+    ).toMatchObject({
+      messageMetadata: { searchedFor: "reimbursement paid within thirty how?" },
+    });
+  });
+
+  it("refuses an empty turn rather than re-answering the previous one", async () => {
+    // Without the length guard the retry searches "${earlier} ", which is the
+    // previous question — an answer to a question nobody asked.
+    await seed();
+    const transport = new LocalChatTransport(answers);
+
+    const chunks = await collect(
+      await transport.sendMessages({
+        messages: [asked("reimbursement paid within thirty"), asked("   ")],
+      }),
+    );
+
+    expect(chunks.map((chunk) => chunk.type)).toContain("data-refusal");
+  });
+
+  it("refuses a first message rather than searching a turn that does not exist", async () => {
+    await seed();
+    const transport = new LocalChatTransport(answers);
+
+    const chunks = await collect(
+      await transport.sendMessages({ messages: [asked("how?")] }),
+    );
+
+    expect(chunks.map((chunk) => chunk.type)).toContain("data-refusal");
+  });
+});
