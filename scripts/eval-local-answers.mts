@@ -7,6 +7,7 @@
  * Usage: pnpm eval:local-answers [--fake] [--sweep|--counts=3,8]
  *        [--model=onnx-community/…] [--dtype=int8]
  *        [--no-citations] [--no-example]
+ *        [--placement] [--placement-specimen]
  */
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -70,6 +71,8 @@ const FLAGS = [
   "--sweep",
   "--no-citations",
   "--no-example",
+  "--placement",
+  "--placement-specimen",
   "--counts=",
   "--model=",
   "--dtype=",
@@ -92,9 +95,25 @@ if (unknown) {
 const parts = {
   cite: !process.argv.includes("--no-citations"),
   example: !process.argv.includes("--no-example"),
+  // Specimen implies the line: on its own it would change the filename and
+  // nothing else.
+  placement:
+    process.argv.includes("--placement") ||
+    process.argv.includes("--placement-specimen"),
+  placementSpecimen: process.argv.includes("--placement-specimen"),
 };
 
-const variant = `${parts.cite ? "" : "-nocite"}${parts.example ? "" : "-noexample"}`;
+// Every knob, so a new one inherits the guard instead of quietly overwriting
+// the pinned record — which has happened twice.
+const asShipped =
+  model === LOCAL_CHAT_MODEL &&
+  dtype === "q4" &&
+  parts.cite &&
+  parts.example &&
+  !parts.placement &&
+  !parts.placementSpecimen;
+
+const variant = `${parts.cite ? "" : "-nocite"}${parts.example ? "" : "-noexample"}${parts.placement ? "-placement" : ""}${parts.placementSpecimen ? "-specimen" : ""}`;
 
 const EVAL = join(import.meta.dirname, "..", "eval");
 const generate = resolveLocalGenerator();
@@ -416,14 +435,17 @@ function promptBanner() {
     parts.example ? null : "the worked example",
   ].filter((one) => one !== null);
 
-  const kept = parts.cite
-    ? "the citation rules"
-    : "the worked example, which still demonstrates a marker";
+  const added = parts.placement
+    ? [
+        `a placement line (${parts.placementSpecimen ? "quoting" : "not quoting"} a specimen)`,
+      ]
+    : [];
 
-  return (
-    `**Not the shipped prompt.** Removed: ${removed.join(" and ")}.` +
-    (removed.length === 2 ? "" : ` Kept: ${kept}.`)
-  );
+  return [
+    "**Not the shipped prompt.**",
+    removed.length > 0 ? ` Removed: ${removed.join(" and ")}.` : "",
+    added.length > 0 ? ` Added: ${added.join(" and ")}.` : "",
+  ].join("");
 }
 
 const report = [
@@ -436,7 +458,7 @@ const report = [
         "",
         `**Not \`q4\`, so not comparable to the recorded runs.** A screening pass only.`,
       ]),
-  ...(parts.cite && parts.example ? [] : ["", promptBanner()]),
+  ...(asShipped ? [] : ["", promptBanner()]),
   "",
   "Local mode end to end: the local embedder ranks the passages, the local model",
   "answers from them. `oracle` hands the answering passage over instead, so it is",
@@ -525,9 +547,6 @@ const report = [
 
 /* Every knob, not a list of the ones that existed when this was written: adding
    `--no-citations` alone silently overwrote the shipped record once. */
-const asShipped =
-  model === LOCAL_CHAT_MODEL && dtype === "q4" && parts.cite && parts.example;
-
 const into = useFake
   ? null
   : asShipped

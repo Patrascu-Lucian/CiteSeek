@@ -1204,10 +1204,11 @@ turn for one embedding ([ADR 048](decisions/048-a-follow-up-that-costs-no-genera
 entry warned that deferring this was "a decision about priority, not something the `/local` badge
 covers" — it is no longer deferred in either place.
 
-**The full fix stays open.** Its prerequisite was recorded as met when `retrieveLexical` got a
-tiebreaker, and that was wrong until 22 August 2026: the tiebreaker was `chunks.id`, and ids are
-minted per ingest while the harness re-ingests the corpus on every run. Runs are comparable now
-that ties break on filename and chunk index.
+~~**The full fix stays open.**~~ **Shipped in both modes; see the closure note above.** Its
+prerequisite was recorded as met when `retrieveLexical` got a tiebreaker, and that was wrong until
+22 August 2026: the tiebreaker was `chunks.id`, and ids are minted per ingest while the harness
+re-ingests the corpus on every run. Runs are comparable now that ties break on filename and chunk
+index.
 
 **Measured, 22 August 2026, before building anything.** `FOLLOW_UP_SET` in `eval/golden-set.ts` is
 ten information needs written twice — as a reader types them after a previous turn, and as they
@@ -1485,6 +1486,11 @@ distractor. Twenty-four now, nine of them the manual's.
 
 **17/24 grounded on the answering passage, 11/24 on the eight a reader gets, 1/24 cited.**
 
+↳ **Every oracle figure in this section predates the scorer fix of 30 August 2026** and is one row
+high: `grounds` matched `"5 bar"` inside `"5 bars"` until it guarded the trailing edge. Re-run, the
+oracle reads 16/24. The passage-count columns are unaffected, so the comparisons below stand
+([ADR 050](decisions/050-a-rule-obeyed-as-the-thing-it-forbids.md)).
+
 **The composition was the story, not the model.** Six of the manual's nine are answered with the
 bare value — "90 kilonewtons", "210 Nm", "70°C" — while the tenancy and support questions, which
 were the whole of the old set, are where it fails. So 2/8 measured the two hardest documents and
@@ -1529,7 +1535,7 @@ only the two counts in dispute:
 | -------------- | -------------- | --------- | ----- | ---------------- |
 | 3              | 2.8 avg        | **15/24** | 0/24  | 24/24            |
 | 8              | 5.5 avg        | 13/24     | 2/24  | 24/24            |
-| oracle         | —              | 17/24     | 1/24  | by construction  |
+| oracle         | —              | 16/24     | 1/24  | by construction  |
 
 **Three still wins, by two rows rather than four.** The floor was already doing half the work the
 proposal claimed credit for: asking for eight yields 5.5, not 8. So the honest version is that
@@ -1588,9 +1594,13 @@ read better than more.~~ **Shipped 30 August 2026 as
 local mode only.** Three grounds 15/24 where eight grounds 13/24, with the answering passage still
 retrieved 24/24 — two rows, not the four the unfiltered sweep showed, because the floor was already
 doing half the work. Gemini keeps eight and is unmeasured at three. And
-`markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a numeric
-exemplar targets, and it is still open: markers can be measured in a browser now
-(`eval:local-markers`), so what blocks it is someone writing the exemplar, not the measurement.
+~~`markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a
+numeric exemplar targets.~~ **Tried and rejected, 31 August 2026
+([ADR 050](decisions/050-a-rule-obeyed-as-the-thing-it-forbids.md)).** A line naming where the
+marker goes buys **one citation of 24** and moves grounding not at all — and the citations it
+produces are the form the line forbids: "every [1] operating hours" for 2,000, "For storage over
+three months, [1]" with the marker standing in for the answer. The model writes markers in place
+of numbers while being told not to. Quoting a specimen in the line changes nothing measurable.
 
 ↳ **The prior question — whether asking at all costs answers — is measured and closed, 31 August
 2026 ([ADR 049](decisions/049-what-asking-a-small-model-to-cite-costs.md)).** Dropping the three

@@ -24,7 +24,7 @@ Measured over the 24-question set, with the distance floor applied first as
 | -------- | ----------------- | --------- | ---------------- |
 | 3        | 2.8 avg           | **15/24** | **24/24**        |
 | 8        | 5.5 avg           | 13/24     | 24/24            |
-| oracle   | the answering one | 17/24     | by construction  |
+| oracle   | the answering one | 16/24     | by construction  |
 
 Two rows better, and nothing lost: at three passages the answering chunk is still
 retrieved every time, so the improvement is not bought by refusing more often. Three
