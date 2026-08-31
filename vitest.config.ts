@@ -36,6 +36,9 @@ export default defineConfig({
       "node_modules/**",
       ".next/**",
       "**/*.integration.test.ts",
+      // Downloads 31 MB and runs the real library: `pnpm test:model`, and its own
+      // CI job with a cache.
+      "**/*.model.test.ts",
     ],
     env: {
       // The unit suite never calls a real provider. Setting this here rather

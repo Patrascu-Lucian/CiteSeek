@@ -232,3 +232,39 @@ jobs:
           path: playwright-report
           if-no-files-found: ignore
           retention-days: 7
+
+  # The only job that runs transformers.js for real. Everything else mocks it,
+  # which is why every defect in that code was found by hand in a browser.
+  model:
+    name: Real local model
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # Read by `nodeModelCacheDir`, so the weights land somewhere cacheable
+      # rather than inside `node_modules`.
+      CITESEEK_MODEL_CACHE: ${{ github.workspace }}/.model-cache
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ~31 MB from Hugging Face, once. Keyed on the model id in the test, so a
+      # different model misses rather than silently reusing these weights.
+      - name: Cache the model
+        uses: actions/cache@v4
+        with:
+          path: .model-cache
+          key: model-${{ hashFiles('lib/local/generate.model.test.ts') }}
+
+      - name: Run the model tests
+        run: pnpm test:model

@@ -1620,7 +1620,7 @@ means post-parsing a shape the model was merely asked for.
 support still produces no signal — the marker resolves, the chip opens, the answer looks sourced.
 That needs an entailment check, and it is a separate entry above.
 
-## CI never runs the real local model, 14 August 2026
+## ~~CI never runs the real local model~~, 14 August 2026
 
 Raised by a review of the local-mode slice, and it is the structural reason every defect in that
 code had to be found by hand in a browser rather than by a red test. `e2e/local-chat.spec.ts`
@@ -1657,6 +1657,27 @@ during a real fetch, and that the options object is accepted end to end. The ope
 whether it is downloaded (network in CI, the thing that suite avoids) or vendored (a binary in
 the repository, which `public/onnx` is deliberately not). That choice is the work; the test
 around it is small.
+
+↳ **Done 31 August 2026: downloaded, cached, and the network objection did not survive reading.**
+`pnpm test:model` runs `onnx-community/tiny-random-LlamaForCausalLM-ONNX` at `q4f16` — 31 MB, cold
+run 7.4 s — through the real `loadChatModel` and `generateLocally`, in its own vitest config and its
+own CI job.
+
+**The rule that seemed to forbid it is about Gemini.** `playwright.config.ts` pins the fake
+providers because "against a real model is a coin toss that spends quota". Neither reason reaches
+here: greedy decoding on this stack is byte identical across full runs, and Hugging Face is a static
+file host with no quota — already the one remote host the product's CSP allows
+([ADR 032](decisions/032-the-only-remote-hosts-local-mode-needs.md)).
+
+**Downloaded rather than vendored, on this repository's own precedent.** `public/onnx` is 74 MB that
+is _generated and gitignored_, deliberately not committed; vendoring weights would contradict it,
+while fetching into a cache extends it. `CITESEEK_MODEL_CACHE` already existed for the same purpose,
+so the CI job points it at a workspace directory and `actions/cache` keeps it.
+
+**It found something on its first run.** The abort test asserted an empty answer and got two
+characters: `InterruptableStoppingCriteria` is consulted _after_ each token, so an interrupt before
+the first still yields that one. Measured, one delta against eighty — the guarantee holds, the
+assertion was wrong, and neither could have been learned from the mock.
 
 ## ~~Limits for the default plan, and the paywalls that would replace them~~, 16 August 2026
 
