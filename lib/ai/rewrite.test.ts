@@ -4,7 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { acceptRewrite, rewriteQuestion } from "./rewrite";
 import type { ChatUIMessage } from "./types";
 
-const reply = vi.hoisted(() => ({ text: "", throws: false }));
+type Finish = "stop" | "length";
+
+const reply: { text: string; throws: boolean; finish: Finish } = vi.hoisted(
+  () => ({ text: "", throws: false, finish: "stop" }),
+);
 
 vi.mock("./provider", () => ({
   getChatModel: () =>
@@ -14,7 +18,7 @@ vi.mock("./provider", () => ({
 
         return Promise.resolve({
           content: [{ type: "text" as const, text: reply.text }],
-          finishReason: { unified: "stop" as const, raw: undefined },
+          finishReason: { unified: reply.finish, raw: undefined },
           usage: {
             inputTokens: {
               total: 12,
@@ -78,6 +82,26 @@ describe("acceptRewrite", () => {
 describe("rewriteQuestion", () => {
   beforeEach(() => {
     reply.throws = false;
+    reply.finish = "stop";
+  });
+
+  it("refuses a rewrite the model ran out of room to finish", async () => {
+    // A truncated question is still under `MAX_CHARS` and still reads as a
+    // question, so nothing downstream rejects it — and it would be shown to the
+    // reader as what we searched for.
+    reply.finish = "length";
+    reply.text = "How much is the tenancy deposit for a property with";
+
+    await expect(
+      rewriteQuestion(
+        [
+          user("Is the deposit protected?"),
+          assistant("Yes."),
+          user("how much?"),
+        ],
+        "how much?",
+      ),
+    ).resolves.toBeNull();
   });
 
   // No model call at all: a first message has no earlier turn to recover a

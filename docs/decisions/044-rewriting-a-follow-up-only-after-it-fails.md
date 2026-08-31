@@ -17,6 +17,15 @@ and as they would have to be written to stand alone:
 standalone column being a clean 1.00 means a perfect rewrite recovers all three.
 That is a ceiling, not an estimate. The full table is in `eval/report.md`.
 
+↳ **Amended, 28 August 2026.** The ceiling is now reached rather than assumed: the
+harness scores the shipped rewrite as a third column, and it reads 1.00. Getting
+there took a one-word prompt change — asking for "a standalone question" rather
+than "a standalone search query", which had been returning keyword bags that embed
+nowhere near the passage answering them, and are also what the reader is shown
+under "Searched for". The query form measured 0.90 and sent one row backwards.
+The number remains a floor rather than a description: the eval's history holds
+only the reader's own prior turns, where production also has the answers.
+
 Two things the measurement changed about the plan. Carrying a discriminative term
 does not predict success — `"in writing?"` holds a word straight out of the
 passage it wants and still scores 0.00, while two follow-ups carrying nothing

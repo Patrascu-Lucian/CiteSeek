@@ -1,6 +1,6 @@
 # Retrieval evaluation
 
-Run 2026-08-22 against `gemini-embedding-001`,
+Run 2026-08-28 against `gemini-embedding-001`,
 3 documents, 51 questions
 (41 answerable, 10 not).
 
@@ -39,27 +39,38 @@ alone**, on the same sweep rather than beside it.
 ## Follow-up questions
 
 Only the last message is embedded, so a follow-up carries nothing to retrieve
-against. Each row is one information need asked twice — as typed, and written
-to stand alone. The right column is the ceiling a rewriting step could reach.
+against. Each row is one information need asked three ways — as typed, written
+by hand to stand alone, and put through the shipped rewrite (ADR 044).
+
+**Standalone is the ceiling; rewritten is the distance traveled to it.** The
+hand-written column is what a perfect rewrite would produce, so it is evidence
+about the idea; the rewritten column is evidence about the prompt.
+
+**Every row is rewritten here; production rewrites almost none of them.** The
+route only calls the rewrite when retrieval returned nothing past the 0.40
+floor, and `distances.json` puts one of these ten above it. So this column
+measures how good the rewrite is when it runs, not how often it runs — which
+is what tuning the prompt needs, and is not a claim about recall in the
+product.
 
 Vector alone, and the floor is off as it is everywhere above — so a row
 scoring 1.00 here can still be refused in the product, where the floor is
 0.40. The closest distance for the typed form is in `distances.json`.
 
-| follow-up | recall@3 as asked | recall@3 standalone |
-| --------- | ----------------- | ------------------- |
-| and the fault code? | 1.00 | 1.00 |
-| on premier? | 1.00 | 1.00 |
-| how often? | 1.00 | 1.00 |
-| and the filter? | 1.00 | 1.00 |
-| what about the deposit? | 1.00 | 1.00 |
-| in writing? | 0.00 | 1.00 |
-| how much is it? | 1.00 | 1.00 |
-| why? | 0.00 | 1.00 |
-| who handles it then? | 1.00 | 1.00 |
-| and outside them? | 0.00 | 1.00 |
+| follow-up | as asked | rewritten | standalone | the rewrite |
+| --------- | -------- | --------- | ---------- | ----------- |
+| and the fault code? | 1.00 | 1.00 | 1.00 | What is the fault code? |
+| on premier? | 1.00 | 1.00 | 1.00 | Is support covered at the weekend on premier? |
+| how often? | 1.00 | 1.00 | 1.00 | how often does the press take oil? |
+| and the filter? | 1.00 | 1.00 | 1.00 | What oil does the press take and the filter? |
+| what about the deposit? | 1.00 | 1.00 | 1.00 | What about the deposit for a cat? |
+| in writing? | 0.00 | 1.00 | 1.00 | How much notice must I give to leave in writing? |
+| how much is it? | 1.00 | 1.00 | 1.00 | How much is the deposit? |
+| why? | 0.00 | 1.00 | 1.00 | Why are resolution times guaranteed for a Severity 3 defect? |
+| who handles it then? | 1.00 | 1.00 | 1.00 | _declined_ |
+| and outside them? | 0.00 | 1.00 | 1.00 | What are the coverage hours outside them? |
 
-Mean **0.70 as asked** against **1.00 standalone**.
+Mean **0.70 as asked**, **1.00 rewritten**, **1.00 standalone**. Recall@3 throughout.
 
 ## The relevance floor
 

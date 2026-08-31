@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { FOLLOW_UP_SET, GOLDEN_SET } from "./golden-set";
+import { FOLLOW_UP_SET, GOLDEN_SET, LOCAL_ANSWER_SET } from "./golden-set";
 
 /** A broken quote fails as a retrieval regression rather than as a broken quote.
  * The harness needs a database and real embeddings; this needs neither, so the
@@ -18,6 +18,10 @@ describe.each([
   {
     name: "follow-up",
     expectations: FOLLOW_UP_SET.flatMap((one) => one.expect),
+  },
+  {
+    name: "local-answer",
+    expectations: LOCAL_ANSWER_SET.flatMap((one) => one.expect),
   },
 ])("the $name set", ({ expectations }) => {
   it("quotes every passage verbatim", () => {
@@ -44,13 +48,15 @@ describe.each([
   });
 });
 
-describe("the two sets together", () => {
+describe("the sets together", () => {
   it("has no quote that another quote contains", () => {
     // Reword a fixture and the longer quote fails loudly, while the shorter one
     // keeps matching a passage that no longer means what it was chosen for.
-    const quotes = [...GOLDEN_SET, ...FOLLOW_UP_SET].flatMap((one) =>
-      one.expect.map((e) => e.quote),
-    );
+    const quotes = [
+      ...GOLDEN_SET,
+      ...FOLLOW_UP_SET,
+      ...LOCAL_ANSWER_SET,
+    ].flatMap((one) => one.expect.map((e) => e.quote));
 
     for (const quote of quotes) {
       expect(
@@ -69,6 +75,44 @@ describe("the golden set", () => {
 
     expect(unanswerable.length).toBeGreaterThanOrEqual(10);
     expect(GOLDEN_SET.length).toBeGreaterThanOrEqual(40);
+  });
+});
+
+describe("the local-answer set", () => {
+  it("accepts at least one spelling the document actually uses", () => {
+    // The alternates are there for how a model might write the value, so they
+    // need not appear. If none does, the case scores 0 forever and reads as a
+    // model failure rather than a case that asks for wording nobody wrote.
+    for (const one of LOCAL_ANSWER_SET) {
+      const sources = one.expect.map((e) => text(e.file));
+
+      expect(
+        one.answerContains.filter((spelling) =>
+          sources.some((source) => source.includes(spelling)),
+        ),
+        one.question,
+      ).not.toEqual([]);
+    }
+  });
+
+  it("asks only questions the corpus answers", () => {
+    // Grounding is the measurement, so an unanswerable case scores a floor the
+    // report has no column for.
+    for (const one of LOCAL_ANSWER_SET) {
+      expect(one.expect.length, one.question).toBeGreaterThan(0);
+      expect(one.answerContains.length, one.question).toBeGreaterThan(0);
+    }
+  });
+
+  it("covers all three fixtures", () => {
+    // The manual was a pure distractor for the first eight questions: the score
+    // moved with two documents and the third only competed for retrieval.
+    const files = new Set(
+      LOCAL_ANSWER_SET.flatMap((one) => one.expect).map((e) => e.file),
+    );
+
+    expect(files.size).toBe(3);
+    expect(LOCAL_ANSWER_SET.length).toBeGreaterThanOrEqual(20);
   });
 });
 

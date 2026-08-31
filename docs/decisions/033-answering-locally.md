@@ -58,6 +58,49 @@ size was not the missing ingredient.
 appended after the system prompt, produced `[1]` immediately. At this size
 instruction-following comes from demonstration rather than instruction.
 
+↳ **Contradicted on CPU, 29 August 2026.** `pnpm eval:local-answers` gets **0 of 16**
+cited — eight value questions and eight prose ones, none refused, several answering
+in full sentences. That run is Node on `cpu`; this observation was a browser on
+WebGPU. Same weights, different execution provider, so one of them is not measuring
+what it thinks. Nothing here is withdrawn until it is re-measured in a browser
+(`docs/backlog.md`), but it should not be quoted as current until then.
+
+↳ **Re-measured in a browser, 29 August 2026, and withdrawn.** `pnpm eval:local-markers`
+runs the 24-question set through `/local` on WebGPU — real page, real retrieval, one
+browser per question. **Two answers of 24 carry a chip, and both are the defect rather
+than the fix:** "The oil needs changing every 1 years" and "The torque takes 2 Nm",
+where the document says 2,000 operating hours and 210 Nm. The marker is standing where
+the number belongs, which is [ADR 038](038-a-citation-that-cannot-be-read-as-content.md)'s
+failure and the same shape as the founding transcript, "Employees receive [1] days".
+Both scored ungrounded. **Citations that cite something: 0 of 24, on the device this
+paragraph was written on.**
+
+So the worked example did not fix marker emission — it taught the model that a bracketed
+number is a thing that appears in an answer. That reading fits the evidence better than
+the original one and fits the CPU run too, which needs no device to explain it anymore.
+What the example demonstrably changed was that markers appear at all; what it never
+established is that they point at anything.
+
+The device was the last cheap explanation for the citations, and it is gone: zero is zero on
+both providers, at every passage count measured.
+
+**Two full runs are byte identical** — 13/24 and 2/24, and all 32 answer lines the same, down
+to the model's "regground". Greedy decoding reproduces on WebGPU as it does on the CPU, so a
+single run here is evidence.
+
+**Grounding looked like agreement and was not comparable**: 13/24 in the browser against 11/24
+in Node, while local retrieval drops anything past `maxDistanceFor("local")` before taking
+`RETRIEVAL_LIMIT` and the Node harness took the top eight unfiltered. Two different pools.
+
+↳ **Resolved 30 August 2026 by giving the harness the same floor.** It now reports **13/24
+grounded and 2/24 cited — the browser's figures exactly**, and the floor turns out to be the
+whole of the difference. Asking for eight passages yields 5.5 on average, which is why the
+report prints what was given beside what was asked for.
+
+The consequence is the useful part: **the CPU harness predicts the product**, so comparing
+candidate models costs ten minutes in Node rather than an hour of GPU time per candidate. That
+is what makes the model search in `docs/backlog.md` affordable at all.
+
 Without that discovery local mode would have shipped answers with a source list
 attached and nothing linking them — the acceptance criterion failing silently,
 which is the exact shape of defect ADR 011 exists to prevent.

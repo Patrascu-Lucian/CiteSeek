@@ -354,3 +354,170 @@ export const FOLLOW_UP_SET: readonly FollowUpCase[] = [
     ],
   },
 ];
+
+/** Separate again: these expect something of the *answer*, which nothing else
+ * here does. */
+export type LocalAnswerCase = {
+  question: string;
+  /** The passage the model is handed. Retrieval is not what this measures. */
+  expect: readonly Expectation[];
+  /** Acceptable spellings of the fact. A floor, not a grade — it cannot tell a
+   * value from a negated one, so yes/no questions do not belong here. */
+  answerContains: readonly string[];
+};
+
+/** Answers that are one specific value — where the local model was seen failing:
+ * a marker where a number belongs, or the wrong number (`docs/backlog.md`). */
+export const LOCAL_ANSWER_SET: readonly LocalAnswerCase[] = [
+  {
+    question: "How quickly does someone get back to me if everything is down?",
+    expect: [
+      { file: SUPPORT, quote: "30 minutes for Severity 1, two hours for" },
+    ],
+    answerContains: ["30 minutes", "30-minute"],
+  },
+  {
+    question: "How long do you keep whatever I attach to a ticket?",
+    expect: [{ file: SUPPORT, quote: "90 days after closure" }],
+    answerContains: ["90 days"],
+  },
+  {
+    question: "How much warning do I need to give before it renews?",
+    expect: [
+      { file: SUPPORT, quote: "unless cancelled 30 days before the renewal" },
+    ],
+    answerContains: ["30 days"],
+  },
+  {
+    question: "What do I get back if you miss a target?",
+    expect: [{ file: SUPPORT, quote: "credits 5% of the monthly fee" }],
+    answerContains: ["5%", "5 percent"],
+  },
+  {
+    question: "The boiler died in January. How fast should someone come?",
+    expect: [
+      {
+        file: TENANCY,
+        quote: "Emergency repairs are attended within 24 hours",
+      },
+    ],
+    answerContains: ["24 hours"],
+  },
+  {
+    question: "How much notice do I give to move out?",
+    expect: [{ file: TENANCY, quote: "the landlord gives two months'" }],
+    answerContains: ["two months", "2 months"],
+  },
+  {
+    question: "How much do I have to hand over at the start?",
+    expect: [{ file: TENANCY, quote: "The deposit is five weeks' rent" }],
+    answerContains: ["five weeks", "5 weeks"],
+  },
+  {
+    question: "What hours is the standard plan covered?",
+    expect: [{ file: SUPPORT, quote: "covered 09:00 to 18:00" }],
+    answerContains: ["09:00", "9:00"],
+  },
+
+  // The manual, which until now contributed only distractors.
+  {
+    question: "How much force does the press develop?",
+    expect: [{ file: MANUAL, quote: "The press develops 90 kilonewtons" }],
+    answerContains: ["90 kilonewtons", "90 kN"],
+  },
+  {
+    question: "How loud is it at a metre?",
+    expect: [{ file: MANUAL, quote: "measures 84 dB at one metre" }],
+    answerContains: ["84 dB", "84dB"],
+  },
+  {
+    question: "Which oil grade goes in it?",
+    expect: [{ file: MANUAL, quote: "Use ISO VG 46 mineral oil" }],
+    answerContains: ["ISO VG 46", "VG 46"],
+  },
+  {
+    question: "How often does the oil need changing?",
+    expect: [
+      { file: MANUAL, quote: "every 2,000 operating hours or annually" },
+    ],
+    answerContains: ["2,000", "2000"],
+  },
+  {
+    question: "What oil temperature is too hot?",
+    expect: [{ file: MANUAL, quote: "above 70" }],
+    answerContains: ["70°C", "70 °C", "70 degrees"],
+  },
+  {
+    question: "What torque do the die bolts take?",
+    expect: [{ file: MANUAL, quote: "four M16 bolts torqued to 210 Nm" }],
+    answerContains: ["210 Nm", "210Nm"],
+  },
+  {
+    question: "How thin can a die be reground before it is scrap?",
+    expect: [
+      { file: MANUAL, quote: "reground below 38 mm thickness must not be" },
+    ],
+    answerContains: ["38 mm", "38mm"],
+  },
+  {
+    question: "How far apart can the pressure sensors read before it stops?",
+    expect: [
+      { file: MANUAL, quote: "indicates a pressure sensor disagreement" },
+    ],
+    answerContains: ["5 bar", "5bar"],
+  },
+  {
+    question: "What humidity needs a desiccant in storage?",
+    expect: [
+      { file: MANUAL, quote: "humidity above 60% requires a desiccant" },
+    ],
+    answerContains: ["60%", "60 %"],
+  },
+
+  {
+    question: "How much can the rent go up by?",
+    expect: [
+      {
+        file: TENANCY,
+        quote: "capped at the lower of the consumer price index or 4%",
+      },
+    ],
+    answerContains: ["4%", "4 %"],
+  },
+  {
+    question: "How long does the deposit take to be protected?",
+    expect: [{ file: TENANCY, quote: "scheme within 30 days of receipt" }],
+    answerContains: ["30 days"],
+  },
+  {
+    question: "How fast is a non-emergency repair attended?",
+    expect: [
+      { file: TENANCY, quote: "Non-emergency repairs are attended within 14" },
+    ],
+    answerContains: ["14 days"],
+  },
+  {
+    question: "How long can a guest stay before I have to tell anyone?",
+    expect: [
+      { file: TENANCY, quote: "14 consecutive nights require notification" },
+    ],
+    answerContains: ["14 consecutive nights", "14 nights", "14 consecutive"],
+  },
+  {
+    question: "How much is the extra deposit for a pet?",
+    expect: [
+      { file: TENANCY, quote: "of one week's rent, which is registered" },
+    ],
+    answerContains: ["one week", "1 week"],
+  },
+  {
+    question: "How much notice do I give if I am leaving?",
+    expect: [{ file: TENANCY, quote: "The tenant gives one month's" }],
+    answerContains: ["one month", "1 month"],
+  },
+  {
+    question: "What is the cap on credits in a month?",
+    expect: [{ file: SUPPORT, quote: "capped at 25% in any calendar month" }],
+    answerContains: ["25%", "25 %"],
+  },
+];

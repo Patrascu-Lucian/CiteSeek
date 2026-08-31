@@ -1,6 +1,6 @@
 {
   "name": "citeseek",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.17.0",
@@ -37,6 +37,8 @@
     "eval:retrieval": "tsx scripts/eval-retrieval.mts",
     "db:usage": "tsx scripts/usage-report.mts",
     "eval:local": "tsx scripts/eval-local-embedder.mts",
+    "eval:local-answers": "node --max-old-space-size=8192 --import tsx scripts/eval-local-answers.mts",
+    "eval:local-markers": "tsx scripts/eval-local-markers.mts",
     "onnx:copy": "tsx scripts/copy-onnx-runtime.mts",
     "prebuild": "pnpm onnx:copy",
     "predev": "pnpm onnx:copy"

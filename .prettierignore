@@ -4,6 +4,9 @@ pnpm-lock.yaml
 # number changing width re-pads the column — noise in the diff between two runs,
 # which is the only thing this file is read for.
 eval/report.md
+# Same, from `pnpm eval:local-answers` — and it quotes model output verbatim.
+eval/local-answers*.md
+eval/local-markers.md
 .next/
 out/
 build/

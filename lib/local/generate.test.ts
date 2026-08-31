@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatSource } from "@/lib/ai/types";
 
 const pipeline = vi.hoisted(() => vi.fn());
+const fromPretrained = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
 const env = vi.hoisted(() => ({
   backends: { onnx: { wasm: { wasmPaths: "" } } },
 }));
@@ -13,7 +14,7 @@ const streamerOptions = vi.hoisted(
 vi.mock("@huggingface/transformers", () => ({
   env,
   pipeline,
-  AutoTokenizer: { from_pretrained: () => Promise.resolve({}) },
+  AutoTokenizer: { from_pretrained: fromPretrained },
   TextStreamer: class {
     constructor(
       _tokenizer: unknown,
@@ -53,6 +54,7 @@ const generatingModel = (chunks: string[]) =>
 beforeEach(() => {
   vi.resetModules();
   pipeline.mockReset();
+  fromPretrained.mockClear();
   env.backends.onnx.wasm.wasmPaths = "";
   delete (globalThis as { __citeseekLocalEmbedder?: string })
     .__citeseekLocalEmbedder;
@@ -84,11 +86,64 @@ describe("the local chat model", () => {
 
     await loadChatModel();
 
+    // `dtype` too: it moved from a literal to a defaulted argument, and the
+    // 756 MB the gate promises is the q4 build's size.
     expect(pipeline).toHaveBeenCalledWith(
       "text-generation",
       "onnx-community/Qwen2.5-0.5B-Instruct",
-      expect.objectContaining({ device: "webgpu" }),
+      expect.objectContaining({ device: "webgpu", dtype: "q4" }),
     );
+  });
+
+  it("loads the model it was asked for", async () => {
+    pipeline.mockResolvedValue(vi.fn());
+    const { loadChatModel } = await import("./generate");
+
+    await loadChatModel(undefined, "cpu", "onnx-community/candidate");
+
+    expect(pipeline).toHaveBeenCalledWith(
+      "text-generation",
+      "onnx-community/candidate",
+      expect.objectContaining({ device: "cpu" }),
+    );
+  });
+
+  it("refuses a second model rather than answering as the first", async () => {
+    // The pipeline is cached, so the second id would label one model's answers
+    // with another's name.
+    pipeline.mockResolvedValue(vi.fn());
+    const { loadChatModel } = await import("./generate");
+
+    await loadChatModel(undefined, "cpu", "onnx-community/a");
+
+    expect(() => loadChatModel(undefined, "cpu", "onnx-community/b")).toThrow(
+      /already loaded/,
+    );
+  });
+
+  it("refuses a second quantization of the same model", async () => {
+    // int8 answers scored under a q4 heading is the same mislabeling as the
+    // wrong model, and ADR 046 turns on that distinction.
+    pipeline.mockResolvedValue(vi.fn());
+    const { loadChatModel } = await import("./generate");
+
+    await loadChatModel(undefined, "cpu", "onnx-community/a", "int8");
+
+    expect(() =>
+      loadChatModel(undefined, "cpu", "onnx-community/a", "q4"),
+    ).toThrow(/already loaded at int8/);
+  });
+
+  it("lets a later caller ask for whatever is loaded", async () => {
+    // `generateLocally` calls this per question with no arguments. Defaults
+    // rather than "unchanged" would make every question after an eval's
+    // `cpu`/`int8` load throw.
+    pipeline.mockResolvedValue(vi.fn());
+    const { loadChatModel } = await import("./generate");
+
+    await loadChatModel(undefined, "cpu", "onnx-community/a", "int8");
+
+    await expect(loadChatModel()).resolves.toBeDefined();
   });
 
   it("loads the weights once across questions", async () => {
@@ -114,6 +169,43 @@ describe("the local chat model", () => {
 });
 
 describe("generateLocally", () => {
+  it("tokenizes with the weights it loaded, not the pinned name", async () => {
+    // A tokenizer from a different model produces plausible garbage, silently.
+    pipeline.mockResolvedValue(generatingModel(["ok"]));
+    const { loadChatModel, generateLocally } = await import("./generate");
+
+    await loadChatModel(undefined, "cpu", "onnx-community/candidate");
+    for await (const _ of generateLocally("when?", [source]));
+
+    expect(fromPretrained).toHaveBeenCalledWith("onnx-community/candidate");
+  });
+
+  it("asks the chat template not to think out loud", async () => {
+    // A reasoning model spends the whole token budget on a `<think>` block the
+    // reader watches stream. Found while measuring, kept as a product defect —
+    // no candidate was scored with and without it (ADR 046).
+    const model = generatingModel(["ok"]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [source]));
+
+    expect(model.mock.calls[0]![1]).toMatchObject({
+      tokenizer_kwargs: { enable_thinking: false },
+    });
+  });
+
+  it("parses the vocabulary once, not once per question", async () => {
+    // 6.7 MB re-parsed per answer, which ran a 24-question eval out of memory.
+    pipeline.mockResolvedValue(generatingModel(["ok"]));
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [source]));
+    for await (const _ of generateLocally("and again?", [source]));
+
+    expect(fromPretrained).toHaveBeenCalledTimes(1);
+  });
+
   it("streams the deltas the model emits", async () => {
     pipeline.mockResolvedValue(
       generatingModel(["Within ", "thirty days [1]."]),

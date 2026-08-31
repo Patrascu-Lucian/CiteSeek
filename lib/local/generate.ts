@@ -1,3 +1,5 @@
+import type { PreTrainedTokenizer } from "@huggingface/transformers";
+
 import { buildSystemPrompt } from "@/lib/ai/prompt";
 import type { ChatSource } from "@/lib/ai/types";
 
@@ -77,6 +79,14 @@ export function chatModelStatus(): ChatModelStatus {
   return status;
 }
 
+/** What actually loaded: the tokenizer has to match the weights, and a second
+ * call asking for anything else is refused below. Only the eval changes it. */
+let active = {
+  model: LOCAL_CHAT_MODEL,
+  device: "webgpu" as "webgpu" | "cpu",
+  dtype: "q4" as "q4" | "q4f16" | "int8" | "uint8" | "fp16" | "fp32",
+};
+
 /**
  * Cached across questions, and cleared on failure — `??=` alone would keep a
  * rejected promise and make every retry fail instantly (the same defect the
@@ -84,20 +94,50 @@ export function chatModelStatus(): ChatModelStatus {
  */
 export function loadChatModel(
   onProgress?: (progress: LoadProgress) => void,
+  /* Only the eval passes these, and every one is optional because undefined
+     means "whatever is loaded" — which is how `generateLocally` asks, on every
+     question, after the eval may have loaded something other than the defaults. */
+  device?: "webgpu" | "cpu",
+  model?: string,
+  dtype?: "q4" | "q4f16" | "int8" | "uint8" | "fp16" | "fp32",
 ): Promise<Generator> {
-  if (loading === null) status = "loading";
+  const asked = {
+    model: model ?? (loading === null ? LOCAL_CHAT_MODEL : active.model),
+    device: device ?? (loading === null ? "webgpu" : active.device),
+    dtype: dtype ?? (loading === null ? "q4" : active.dtype),
+  };
+
+  if (loading === null) {
+    status = "loading";
+    active = asked;
+  } else {
+    /* The pipeline is cached, so a second call naming different arguments would
+       answer as one configuration under another's name — a mislabeled
+       measurement. A dtype or device mismatch does that exactly as a model one
+       does. */
+    const differs = (Object.keys(asked) as (keyof typeof asked)[]).find(
+      (key) => asked[key] !== active[key],
+    );
+
+    if (differs) {
+      throw new Error(
+        `${active.model} is already loaded at ${active.dtype}/${active.device}; ` +
+          `this process cannot also load ${asked.model} at ${asked.dtype}/${asked.device}.`,
+      );
+    }
+  }
 
   loading ??= import("@huggingface/transformers")
     .then(({ env, pipeline }) => {
       env.backends.onnx.wasm!.wasmPaths = "/onnx/";
       useNodeModelCache(env);
 
-      return pipeline("text-generation", LOCAL_CHAT_MODEL, {
-        dtype: "q4",
+      return pipeline("text-generation", active.model, {
+        dtype: active.dtype,
         // Named, or transformers.js falls back to `DEFAULT_DEVICE`, which is
         // `wasm` in a browser — and `WebGpuGate` would then be denying a feature
         // that runs without a GPU.
-        device: "webgpu",
+        device: active.device,
         // `progress_total`, not `progress`: the latter is per file, so the
         // readout reaches 100% on a 4 KB config before the weights begin.
         progress_callback: (report: {
@@ -116,15 +156,34 @@ export function loadChatModel(
       return generate;
     })
     .catch((cause: unknown) => {
-      // Both reset together: a caller offered "try again" has to reach a real
-      // retry, and a gate reading `loading` would otherwise sit on a download
-      // that is not happening.
+      // All three reset together: a caller offered "try again" has to reach a
+      // real retry, a gate reading `loading` would otherwise sit on a download
+      // that is not happening, and a tokenizer outliving its weights would
+      // decode the next model's ids against this one's vocabulary.
       loading = null;
+      tokenizing = null;
       status = "idle";
       throw cause;
     });
 
   return loading;
+}
+
+let tokenizing: Promise<PreTrainedTokenizer> | null = null;
+
+/** Cached beside the weights it has to match: re-read per question it parses a
+ * 6.7 MB vocabulary each time, which ran a 24-question eval out of memory. */
+async function loadTokenizer(): Promise<PreTrainedTokenizer> {
+  const { AutoTokenizer } = await import("@huggingface/transformers");
+
+  tokenizing ??= AutoTokenizer.from_pretrained(active.model).catch(
+    (cause: unknown) => {
+      tokenizing = null;
+      throw cause;
+    },
+  );
+
+  return tokenizing;
 }
 
 /**
@@ -144,9 +203,9 @@ export async function* generateLocally(
   let resolveNext: (() => void) | null = null;
   let finished = false;
 
-  const { TextStreamer, AutoTokenizer, InterruptableStoppingCriteria } =
+  const { TextStreamer, InterruptableStoppingCriteria } =
     await import("@huggingface/transformers");
-  const tokenizer = await AutoTokenizer.from_pretrained(LOCAL_CHAT_MODEL);
+  const tokenizer = await loadTokenizer();
 
   /* Stopping the consumer is not enough: `useChat`'s stop only cancels the
      stream, and the model would run on to `max_new_tokens` holding the tab
@@ -187,6 +246,9 @@ export async function* generateLocally(
       do_sample: false,
       streamer,
       stopping_criteria: stopping,
+      // Reaches the chat template: a reasoning model would spend the whole
+      // budget on a `<think>` block the reader watches stream past.
+      tokenizer_kwargs: { enable_thinking: false },
     },
   ).finally(() => {
     finished = true;

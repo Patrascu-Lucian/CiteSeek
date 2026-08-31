@@ -1347,6 +1347,214 @@ The last of those is fixed ([ADR 033](decisions/033-answering-locally.md)); the 
 the model. Note the shape: it answers correctly only when the question already contains the
 answer, which is the signature of a model doing pattern completion rather than reading.
 
+**Step 1 is done, 28 August 2026: `pnpm eval:local-answers`.** Eight questions whose answer is one
+specific value, the correct passage handed to the model rather than retrieved, so a wrong answer is
+the model's. No provider and no database — free to run, minutes to finish.
+
+**4/8 grounded on the answering passage alone, 2/8 on the eight a reader actually gets, 0/8 cited.**
+Transcripts in `eval/local-answers.md`.
+
+↳ **Superseded 29 August 2026 by a 24-question set. Do not quote 2/8.** Everything below this arrow
+is the eight-question run and is kept because the reasoning about it is still right; the fractions
+are not comparable, and the reason is the first finding of the larger set.
+
+**Swept 1, 2, 3, 4 and 8, and the passage count is not the lever.** The harness runs local mode end
+to end — local embedder ranks, local model answers — and reports both halves at every count, because
+they move in opposite directions.
+
+| passages | grounded | answer retrieved |
+| -------- | -------- | ---------------- |
+| 1        | 2/8      | 4/8              |
+| 2        | 3/8      | 6/8              |
+| 3        | 2/8      | 8/8              |
+| 4        | 2/8      | 8/8              |
+| 8        | 2/8      | 8/8              |
+| oracle   | 4/8      | by construction  |
+
+Grounding is flat. What moves is retrieval: at one and two passages the answering chunk is often not
+returned at all, so cutting the count trades a distraction problem for a worse one. 2/8 against 3/8
+is a single row out of eight and is not a turn.
+
+**An earlier version of this entry said "one passage grounds 4/8 where eight grounds 2/8". That was
+wrong**, and wrong in an instructive way: it read the _oracle_ column as "one passage". The oracle
+hands the answering chunk over; top-1 **retrieved** grounds 2/8. Two different quantities under one
+heading, which is the mistake this file has now recorded at least three times.
+
+What survives is narrower and still worth having. At three passages and up the answering chunk is
+retrieved every time, and grounding stays 2/8 while the oracle on the same chunk reaches 4/8 — so
+distraction does cost about two rows, and reducing from eight to three does not buy them back. Any
+distractor seems to cost what seven do. Per-row results are also non-monotonic — one question is
+right at 1–4 and wrong at 8, another right at 1, 2 and 8 and wrong at 3 and 4 — and since two runs
+of this model agreed row for row, that is behavior rather than noise.
+
+So the lever is not the count. It is retrieval good enough that one passage suffices, or a model
+that does not lose an answer sitting in front of it.
+
+**The sweep is now behind `--sweep`**, since re-confirming it cost three runs of every question: a
+default run is 3.1 minutes against 9.2. `cited` is recorded at every count now rather than only on
+the oracle, and it reads **0/8 at eight passages as well as 0/8 on the oracle** — so the zero is not
+about the count.
+
+**Nor is it the shape of the question, which was the cheap explanation.** Every question in
+`LOCAL_ANSWER_SET` wants one value, and "90 days." has nowhere to put a marker — while ADR 033 saw
+markers on prose. So the harness now also runs eight `GOLDEN_SET` questions, which are deliberately
+phrased away from the documents' words, down the same CPU path. **0/8 cited, 0 refused**, and the
+answers are recorded so this is checkable rather than asserted: several are full sentences — "No, you
+cannot push a ticket up the chain more than once." — with an obvious place for a marker and none in
+them.
+
+That leaves two candidates, and neither is cheap: the CPU-versus-WebGPU device, or a regression since
+ADR 033 measured this. Both need the model running in a browser to tell apart, which is the fork in
+`CI never runs the real local model`. Worth separating there: _measuring_ markers needs a browser
+once, while _regression-testing_ generation needs a small model always — the first is a hand-run tool
+in the family of `eval:retrieval` and `perf:lighthouse`, and does not touch the E2E suite's rule
+about provider networks.
+
+### Measured in a browser, 29 August 2026: it was never the device
+
+`pnpm eval:local-markers` drives `/local` on WebGPU — real page, real retrieval, a fresh browser per
+question because `useChat` sends the whole history and the Node harness asks each question cold.
+
+|               | browser, WebGPU | Node, CPU, 8 passages |
+| ------------- | --------------- | --------------------- |
+| grounded      | 13/24           | 11/24                 |
+| answers cited | 2/24            | 1/24                  |
+
+**Both chips are the defect, not the fix.** "The oil needs changing every 1 years" and "The torque
+takes 2 Nm", where the manual says 2,000 operating hours and 210 Nm — the marker standing where the
+number belongs, which is [ADR 038](decisions/038-a-citation-that-cannot-be-read-as-content.md)'s
+problem and the same shape as this entry's own opening transcript. Both scored ungrounded, so the
+citation and the wrong answer are one event. **Citations that support the claim they sit in: 0 of
+24** — a reading of two transcripts, not a number any harness produced, which is why it is written
+here rather than in the table.
+
+**ADR 033's "one worked example fixed it" is withdrawn there.** The better reading of all three runs
+is that the example taught the model that a bracketed number is a thing answers contain, not that a
+claim needs a source. Markers appear; they never point.
+
+**The grounding column does _not_ say the device is irrelevant, and an earlier draft of this entry
+claimed it did.** The two runs do not retrieve alike: `lib/local/retrieve.ts` drops anything past
+`maxDistanceFor("local")` _before_ taking `RETRIEVAL_LIMIT`, while `scripts/eval-local-answers.mts`
+takes the top eight with no floor. So the browser answered from some smaller number of passages, and
+this entry's own sweep puts three passages at 15/24 against eight at 11/24 — which brackets the
+browser's 13. Device and passage count are confounded, and 13-against-11 cannot separate them.
+
+Fixing that is cheap and worth doing before the next model comparison: give the Node harness the same
+floor, or have the browser record how many passages each answer actually got. Until then the citation
+result stands on its own — it is zero at every passage count measured, so no floor explains it — and
+the grounding comparison is indicative only.
+
+Two things the numbers alone do not carry:
+
+- The wrong answers are not vague, they are confidently wrong. "Emergency repairs are attended within
+  24 **days**" where the document says hours; "there is no specific number of days mentioned in the
+  passage" where it says 30; the deposit answered correctly and then explained as rent "multiplied by
+  the number of days available for registration", which is arithmetic on nothing.
+- The right answers are mostly the passage read back. "30 minutes for Severity 1, two hours for
+  Severity 2…" is the sentence itself. That is consistent with the pattern-completion reading above
+  rather than against it.
+
+**0/8 cited is the surprise, and it is confounded.** ADR 033 records the worked example fixing marker
+emission, measured in a browser on WebGPU; this harness runs Node, which has no WebGPU and takes
+`cpu`. Same weights, different execution provider. So the citation number is not yet evidence about
+the product — what it is, is a reason to re-measure markers where they actually run. Grounding is the
+number to trust from this run, and it is the one steps 2–4 are for.
+
+**This one is reproducible**, unlike the Gemini rewrite measured the same week: two runs agreed on
+all eight rows, which matches ADR 033 finding `repetition_penalty` byte-for-byte identical. So a
+single run here is evidence, where a single run there was not.
+
+**Two defects in the scorer, both found by running it.** A plain `includes` scored "up to 25% of the
+total cost" as containing "5%" — the cap read as the rate, from the same sentence — so matching is on
+a digit boundary now. And two of the eight were yes/no questions where a value was demanded: one
+answered "No." correctly and scored wrong, the other answered "Yes" incorrectly and scored wrong for
+the wrong reason. Both replaced with value questions, and the type now says such questions do not
+belong.
+
+### The set grew to 24, 29 August 2026
+
+Eight questions was too few to be a measurement, and the three documents were not evenly asked
+about: `harbourline-equipment-manual.md` contributed **none** and sat in the corpus purely as a
+distractor. Twenty-four now, nine of them the manual's.
+
+**17/24 grounded on the answering passage, 11/24 on the eight a reader gets, 1/24 cited.**
+
+**The composition was the story, not the model.** Six of the manual's nine are answered with the
+bare value — "90 kilonewtons", "210 Nm", "70°C" — while the tenancy and support questions, which
+were the whole of the old set, are where it fails. So 2/8 measured the two hardest documents and
+read as a verdict on the model. The honest summary is that quality depends on how plainly the
+document states the fact, and the corpus was sampled in a way that hid it.
+
+**The answering passage was retrieved for all 24, and grounding still fell by six.** Every one of
+those six had the answer in front of it. That is a distraction cost of a quarter of the set, and it
+is the clearest number this harness has produced — but note the corpus is 25 chunks, so eight
+passages is a third of it. `24/24` says the ranking is not adversarial, not that retrieval is solved.
+
+**So the sweep was re-opened, and it says the opposite of what eight questions said.** At eight the
+oracle and the eight-passage column were both 2/8, so there was no gap to spend passages on and
+"the count is not the lever" was the honest reading of it. Six rows is a gap, and re-swept over 24:
+
+| passages | grounded  | cited | answer retrieved |
+| -------- | --------- | ----- | ---------------- |
+| 1        | 14/24     | 1/24  | 19/24            |
+| 2        | 15/24     | 2/24  | 22/24            |
+| 3        | **15/24** | 0/24  | **24/24**        |
+| 4        | 10/24     | 3/24  | 24/24            |
+| 8        | 11/24     | 1/24  | 24/24            |
+| oracle   | 17/24     | 1/24  | by construction  |
+
+**Three passages is the best of the five, and the shipping eight is well past it.** At three the
+answering chunk is retrieved every time _and_ grounding is 15/24 — four rows better than eight
+gets, two below the ceiling of handing the answer over. The fourth passage costs five rows. So the
+count is the lever after all, and the earlier finding was not wrong so much as unmeasurable at n=8.
+
+**Both columns the two runs share came out identical** — oracle 17/24, eight passages 11/24 — which
+is the reproducibility check that makes 15 against 11 a result rather than a coin. What is _not_
+solid is exactly where the turn falls: 2 and 3 differ by nothing, and the drop of five rows from 3
+to 4 is a sharper cliff than a smooth curve would give, so this model is very sensitive to what
+else is in its context.
+
+↳ **Re-measured under the distance floor, 30 August 2026, and it survives smaller.** Every number
+in the table above was taken with the harness slicing the top eight _unfiltered_, while
+`lib/local/retrieve.ts` drops anything past `maxDistanceFor("local")` **first**. Aligned, and asking
+only the two counts in dispute:
+
+| passages asked | actually given | grounded  | cited | answer retrieved |
+| -------------- | -------------- | --------- | ----- | ---------------- |
+| 3              | 2.8 avg        | **15/24** | 0/24  | 24/24            |
+| 8              | 5.5 avg        | 13/24     | 2/24  | 24/24            |
+| oracle         | —              | 17/24     | 1/24  | by construction  |
+
+**Three still wins, by two rows rather than four.** The floor was already doing half the work the
+proposal claimed credit for: asking for eight yields 5.5, not 8. So the honest version is that
+_fewer passages help, and the product is closer to that regime than the unfiltered sweep implied_.
+
+**And the alignment is what makes the Node harness usable at all.** At eight it now reports 13/24
+grounded and 2/24 cited — the browser's figures exactly, where unfiltered it said 11/24. The
+confound in ADR 033 is closed, so a candidate model can be scored in ten CPU minutes instead of a
+GPU hour.
+
+**It does not license changing `RETRIEVAL_LIMIT`, which is shared.** `lib/rag/retrieve.ts` and
+`lib/local/retrieve.ts` read the same 8, and nothing here measures Gemini at three passages —
+cutting cloud mode's context on evidence from a 0.5B model would be exactly the unfounded swap this
+harness exists to prevent. The change worth making is a **local-only** limit, and it needs its own
+ADR: the number that is good for a model that loses answers among distractors is not obviously good
+for one that does not.
+
+**The one citation is the founding defect, not a partial success.** Asked how long deposit
+protection takes, it answered "registered with an approved protection scheme within **[1] weeks** of
+receipt" — the marker standing where the number belongs, which is the 14 August transcript
+("Employees receive [1] days") reproduced by a question written this month. So 1/24 is worse news
+than 0/24 would have been, and it is the concrete case for
+[ADR 038](decisions/038-a-citation-that-cannot-be-read-as-content.md) and for step 4 below.
+
+**Grounded is still only a floor, and two rows show why.** "The pressure sensors can read up to 5
+bars before stopping" scores grounded; 5 bar is the disagreement threshold between two sensors, not
+a reading limit. And the deposit answer reaches "five weeks" correctly after explaining it as rent
+"multiplied by the number of days available for registration". Both are right by substring and wrong
+by meaning, which is what a substring check buys and the reason the entailment item is filed
+separately.
+
 **1. Score local answers before changing anything.** `eval/golden-set.ts` and
 `scripts/eval-retrieval.mts` already measure recall and MRR over a fixture corpus, and every
 judgement about answer quality so far — including every one in this file — is a transcript and
@@ -1355,15 +1563,27 @@ expected quote appears in the answer would turn "it feels worse" into a number. 
 swapping models is argument. [ADR 021](decisions/021-hybrid-retrieval-measured-and-not-shipped.md)
 is the precedent: a measurement killed the obvious answer, and nothing else would have.
 
-**2. Then try a newer small model.** The pin is 2024-vintage. A 2026 1B-class instruct model —
-Qwen3-0.6B, Llama-3.2-1B, Phi-4-mini — plausibly beats it at a similar download. Worth knowing
-before anyone reaches for size: the **1.5B was already tried** and did not fix marker emission
-(ADR 033), so parameters alone are not the lever. What changed that was the worked example.
+~~**2. Then try a newer small model.** The pin is 2024-vintage. A 2026 1B-class instruct model —
+Qwen3-0.6B, Llama-3.2-1B, Phi-4-mini — plausibly beats it at a similar download.~~ **Done, and the
+pin stands — [ADR 046](decisions/046-the-pin-survives-the-search.md), 30 August 2026.**
+gemma-3-270m scores **0/24, including on the oracle**: it answers the system prompt rather than the
+question, and its chat template was checked first so the zero is the model rather than our
+plumbing. Qwen3-0.6B **could not be measured on this machine at all** — the CPU provider expands q4
+to fp32 at load, ~2.4 GB for 0.6B parameters, and it died at ~4.3 GB three times including at int8.
+That is a fact about the rig, not the model, and it bounds the search: anything past ~0.5B at q4
+needs the browser harness taught to take a model. Llama-3.2-1B was not attempted for that reason.
+Worth keeping: the **1.5B was already tried** and did not fix marker emission (ADR 033), so
+parameters alone are not the lever.
 
-**3. Cheap prompt experiments, once (1) can score them.** Two candidates. `RETRIEVAL_LIMIT`
+**3. Cheap prompt experiments, once (1) can score them.** Two candidates. ~~`RETRIEVAL_LIMIT`
 passages plus the rules plus an example is a lot of context for a 0.5B, and fewer passages may
-read better than more. And `markerExample` demonstrates a sentence, not a quantity — "1 days"
-is exactly the failure a numeric exemplar targets.
+read better than more.~~ **Shipped 30 August 2026 as
+[ADR 047](decisions/047-fewer-passages-for-a-smaller-model.md): `LOCAL_RETRIEVAL_LIMIT = 3`,
+local mode only.** Three grounds 15/24 where eight grounds 13/24, with the answering passage still
+retrieved 24/24 — two rows, not the four the unfiltered sweep showed, because the floor was already
+doing half the work. Gemini keeps eight and is unmeasured at three. And
+`markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a numeric
+exemplar targets, which stays blocked until markers can be measured where they actually run.
 
 **4. Constrained decoding, last.** Forcing `{ answer, citations }` would make the marker unable
 to stand where a number belongs — the problem
@@ -1387,8 +1607,17 @@ transformers.js does with it.
 **Most of the gap is now closed without a model.** Device selection, the `progress_total`
 filter, the message array being exactly `[system, user]`, the loop detector and the abort call
 are all asserted against the arguments handed to `pipeline` (`lib/local/generate.test.ts`), and
-`lib/local/transformers-contract.test.ts` pins the two library behaviors that were established
+`lib/local/transformers-contract.test.ts` pins the library behaviors that were established
 by reading the bundle rather than by testing it.
+
+**A third one joined them, 30 August 2026: `enable_thinking` reaches the chat template.** A
+`PreTrainedTokenizer` can be built in memory from a vocabulary of one word and a two-branch
+template, so `apply_chat_template` can be asserted against the real library with no download.
+That pins the argument name, which every other test only checks against our own mock — rename
+it upstream and this goes red instead of a reasoning model quietly spending its whole budget on
+a `<think>` block. **Still unproven without a model:** that the pipeline spreads
+`tokenizer_kwargs` into the arguments that method receives. Half the claim, and the half that
+was cheap.
 
 **What is left needs a model, and the real one will not fit.** 756 MB from Hugging Face per run,
 plus WebGPU on a runner with no GPU — the CPU path was measured at over sixty seconds for a
@@ -1966,7 +2195,7 @@ reach `"write"` on any workspace, so the chats route's 403 was unreachable and i
 Not done here: rows that predate the rule still sit in the demo, unlisted and unreachable. The ADR
 carries the query to count them before anyone decides whether to delete them.
 
-## The signed-in E2E specs cannot run locally, 21 August 2026
+## ~~The signed-in E2E specs cannot run locally~~, 21 August 2026
 
 Found while adding one. `e2e/signed-in.ts` opens its own database connection from
 `process.env.DATABASE_URL`, and **nothing in the harness puts it there**: `playwright.config.ts`
@@ -1989,8 +2218,17 @@ way `vitest.integration.config.ts` does — one line, and the two harnesses woul
 guess a username. The second is the more general fix and does not preclude the first: a fixture
 that silently connects somewhere unintended is a category of confusion, not one bug.
 
-**Not fixed here** — it predates this branch and belongs in a commit about the harness, not one
-about a layout.
+**Done, both of them, 28 August 2026.** `playwright.config.ts` loads `.env.test.local` then
+`.env.local` in that order — `loadEnvFile` never overwrites, so the disposable URL wins over the one
+pointing at Neon — and `signed-in.ts` refuses to start without `DATABASE_URL` rather than letting
+postgres guess a username. The whole suite now runs from a shell with nothing exported: 150 passed.
+
+The fix exposed a second thing it had been hiding. With the server inheriting `.env.local` it also
+inherited a real `GOOGLE_GENERATIVE_AI_API_KEY`, and an unset provider means the real one — so a
+local run would have spent quota on a suite that asserts "the answer cites [1]", which against a
+real model is a coin toss. `EMBEDDINGS_PROVIDER` and `CHAT_PROVIDER` are pinned to `fake` in
+`webServer.env` beside `USAGE_LIMITS`, which is what CI has always done and had never needed saying
+locally, because locally it never ran.
 
 ## Roving tabindex over the transcript — considered and rejected, 21 August 2026
 
@@ -2019,7 +2257,7 @@ nav."
 **Revisit if** the transcript ever becomes a genuine widget — a selection mode, or bulk actions
 across exchanges — where a container owning arrow keys would stop competing with reading.
 
-## The rewrite asks for a query and gets keyword salad, 24 August 2026
+## ~~The rewrite asks for a query and gets keyword salad~~, 24 August 2026
 
 The follow-up rewrite ([ADR 044](decisions/044-rewriting-a-follow-up-only-after-it-fails.md)) works, and
 what it produces against the real model is `"why expenses policy"` and
@@ -2042,6 +2280,70 @@ it: rewrite each follow-up through the model, retrieve with the result, and repo
 the "as asked" and "standalone" columns. That turns 0.70 → 1.00 from a ceiling into a measured
 distance actually traveled, and makes the prompt tunable against evidence rather than taste. Costs
 one paid run per attempt, which is the reason it is filed rather than done inline.
+
+**Done, 28 August 2026, and the number was worth having.** `eval/report.md` now carries a third
+column. Two paid runs against `gemini-embedding-001` and the real chat model, identical in every
+other respect — the golden-set tables are byte-identical between them, so the follow-up section is
+the only thing that moved.
+
+| prompt asks for             | as asked | rewritten | standalone |
+| --------------------------- | -------- | --------- | ---------- |
+| "a standalone search query" | 0.70     | 0.90      | 1.00       |
+| "a standalone question"     | 0.70     | **1.00**  | 1.00       |
+
+So the ceiling is reached rather than approached, and the entry's guess about magnitude was low: the
+old prompt was not merely inelegant, it lost a tenth of the recall the idea is worth. It also had one
+row going backwards — "how much is it?" retrieved at 1.00 as typed and 0.00 after rewriting to "how
+much can be deducted from the deposit at the end". The question form asks "how much is the deposit?"
+and scores 1.00.
+
+Two rows now decline rather than rewrite — `acceptRewrite` rejects a rewrite that gained nothing —
+where before they produced "deposit cat" and "who handles an escalated ticket". Both retrieve at
+1.00 as typed, so nothing is lost, and a decline is the honest outcome where the previous answer was
+a keyword bag that happened to land.
+
+The per-row rewrite text is an example rather than a fixture, because the provider does not repeat
+itself — filed separately below. The mean was 1.00 on both runs of this prompt.
+
+**What this still does not measure.** The golden set holds only the reader's prior turns, and
+production also has the assistant's answers in the history — so the model here has _less_ to recover
+a subject from than it will in the product. The number is a floor on the shipped behavior rather
+than a description of it.
+
+**And it says nothing about how often the rewrite runs.** The route calls it only when retrieval
+returned nothing past the 0.40 floor, and `eval/distances.json` puts one of these ten above that
+floor. The harness rewrites all ten, which is what tuning a prompt needs and is not a claim about
+recall in the product. The report says so now; the first version of this entry did not, and read as
+though the shipped path lifts recall to 1.00 across the set.
+
+## A question form inherits the reader's premise, 28 August 2026
+
+Found reviewing the change above. `"Are resolution times guaranteed for a Severity 3 defect?"` then
+`"why?"` rewrites to **"Why are resolution times guaranteed for a Severity 3 defect?"** — and
+`eval/fixtures/meridian-support-policy.md` says resolution targets are deliberately _not_ contractual
+for Severity 3 and 4. That string is shown to the reader under "Searched for".
+
+**Not a hallucination, and the distinction matters.** Every word is the reader's own, and the
+presupposition is theirs: someone who asks "why?" after "are they guaranteed?" has assumed a yes.
+The model could only decline the premise by knowing an answer it has not retrieved — and the only
+reason it is rewriting at all is that retrieval failed. The hand-written standalone in the golden set
+(`"Why are Severity 3 resolution times not contractual?"`) encodes knowledge of the corpus that no
+rewrite can have.
+
+A prompt line forbidding it — "Never assume the answer to a question the conversation only asked" —
+was written and run against the set. It did not touch the row it was for, and moved one it was not:
+`"and outside them?"` gained "on a Standard plan". Removed rather than kept, because an instruction
+whose only measured effect is somewhere else is a claim the next reader will believe. Worth knowing
+that the eval is sensitive enough to show that at all.
+
+What would actually address it is not a prompt. Either the rendering stops presenting the rewrite as
+a question at all ("Searched for: resolution times, Severity 3, guaranteed" — which is the keyword
+form this entry just measured as worse for retrieval), or the refusal copy names the premise it could
+not confirm. The second is the interesting one and is a copy change, not a model change.
+
+Low priority: the answer itself is unaffected — no answer is generated on this branch at all
+([ADR 011](decisions/011-retrieval-and-citation-strategy.md)), so there is no prose carrying the
+premise and nothing for a citation to attach to. What is at stake is one line of displayed text.
 
 ## ~~The workspace route scores CLS 0.324 while it loads~~, 25 August 2026
 
@@ -2376,3 +2678,27 @@ looked random: the runs that failed and the runs that passed were in different s
 The test now stubs the variable rather than assuming the shell lacks it. **No retry was added and
 none is needed** — the one sighting that started this entry was never a flake, and a retry would
 have hidden a guard that had quietly stopped guarding instead of surfacing it.
+
+## `temperature: 0` does not make the rewrite reproducible, 28 August 2026
+
+Found while measuring the rewrite prompt, and true of every `generateText` call here, not just that
+one. Two runs of an identical prompt against the same corpus disagreed on two of ten rows:
+`"what about the deposit?"` declined once and returned "What about the deposit for a cat?" the other
+time, and `"how much is it?"` differed only by a capital letter.
+
+`lib/ai/rewrite.ts` sets `temperature: 0` and says "the same follow-up has to rewrite to the same
+question, or a bug report cannot be reproduced from it". True as an intent, false as a description of
+the provider — temperature bounds sampling, and nothing here promises determinism across requests.
+The comment now says which of those it is.
+
+**What it costs today is small and worth naming.** Aggregates are stable: recall@3 came out 1.00 on
+both runs, so `eval/report.md`'s headline is a number two people would agree on. A single row's
+rewrite text is not, so quoting one in a document is quoting an example. And a reader reporting "it
+searched for the wrong thing" cannot have that reproduced by asking again, which is the case the
+original comment was written for.
+
+**Not obviously fixable, which is why this is a note rather than a task.** Seeding is not exposed by
+the provider. Caching rewrites by conversation hash would make a report reproducible and would also
+serve a stale rewrite after a document changed. The honest options are to stop asserting
+reproducibility, which is done, or to pin the model version and re-measure the variance — worth
+knowing whether two of ten is typical or was a bad pair of runs.

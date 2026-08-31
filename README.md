@@ -443,8 +443,11 @@ where the model runs. Closing it means a regional endpoint or a European provide
 second is the more interesting version of the question ([ADR 025](docs/decisions/025-paying-for-the-model-tier.md)).
 
 **Narrowed, August 2026, not closed.** Local mode answers this outright for anyone who takes it —
-no text leaves the machine at all — but it is opt-in, experimental, and materially worse at
-answering, so it is an escape hatch rather than a fix. The gap stands for the default path.
+no text leaves the machine at all — but it is opt-in and experimental, and now measured rather than
+described. The scores are in [`eval/local-markers.md`](eval/local-markers.md) and stated on the
+`/local` page itself, which a test keeps tied to that file; repeating them here would leave two
+copies to go stale separately. So it is an escape hatch rather than a fix, and the gap stands for
+the default path.
 
 ~~The provider is on a free tier whose terms permit using submitted content for product
 improvement.~~ **Closed, August 2026.** The project runs on the paid tier now, so that content is
@@ -575,6 +578,9 @@ Run by hand, never in CI, output committed:
 
 ```bash
 pnpm eval:retrieval    # retrieval quality against eval/golden-set.ts (needs a real key)
+pnpm eval:local        # the local embedder's recall, in Node, no provider
+pnpm eval:local-answers # what the local model answers, in Node on the CPU
+pnpm eval:local-markers # the same questions in a browser on WebGPU
 pnpm demo:shots        # the README screenshots, against a running instance
 pnpm demo:pdf          # regenerates the demo fixture from its HTML source
 pnpm brand:icons       # the app icons, from scripts/brand/mark.svg
