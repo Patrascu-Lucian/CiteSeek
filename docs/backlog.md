@@ -1155,7 +1155,7 @@ style with a `title`; a footnote under the answer naming how many markers did no
 counting them and treating a high rate as a signal about the model rather than the answer.
 Any of them needs a decision about whether this is addressed to the reader or to us.
 
-## Follow-up questions retrieve nothing, 12 August 2026
+## ~~Follow-up questions retrieve nothing~~, 12 August 2026
 
 Same session. "Where did he use React?" answered; "where?" and "at which company?" both
 refused, because `questionFrom` embeds the last message alone and a two-word follow-up carries
@@ -1197,6 +1197,12 @@ not the conversation"_, which the rewrite ([ADR 044](decisions/044-rewriting-a-f
 made false: a follow-up that retrieves nothing is now expanded from the conversation and searched
 again. The copy says so, and still asks for the subject — because the expansion can miss, and that
 is the case a reader is looking at when they read it.
+
+↳ **Closed 31 August 2026.** The full fix reached both modes: cloud rewrites with a model
+([ADR 044](decisions/044-rewriting-a-follow-up-only-after-it-fails.md)), local joins the previous
+turn for one embedding ([ADR 048](decisions/048-a-follow-up-that-costs-no-generation.md)). The
+entry warned that deferring this was "a decision about priority, not something the `/local` badge
+covers" — it is no longer deferred in either place.
 
 **The full fix stays open.** Its prerequisite was recorded as met when `retrieveLexical` got a
 tiebreaker, and that was wrong until 22 August 2026: the tiebreaker was `chunks.id`, and ids are
