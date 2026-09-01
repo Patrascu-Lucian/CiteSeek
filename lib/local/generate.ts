@@ -308,11 +308,12 @@ export function localGeneratorIsFake(): boolean {
   );
 }
 
-export function resolveLocalGenerator(): LocalGeneratorFn {
+export function resolveLocalGenerator(): LocalGenerator {
   return localGeneratorIsFake() ? fakeGenerator : generateLocally;
 }
 
-type LocalGeneratorFn = (
+/** Streams the answer for a question, given the passages retrieval kept. */
+export type LocalGenerator = (
   question: string,
   sources: readonly ChatSource[],
   signal?: AbortSignal,

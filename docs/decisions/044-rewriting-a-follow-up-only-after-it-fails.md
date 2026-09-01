@@ -66,7 +66,7 @@ if local generation gets fast enough that the second call is not felt.
 Local generation is no faster. What was wrong is the assumption underneath —
 that recovering a follow-up requires a model at all. Prepending the reader's
 previous turn retrieves the answering passage 10 times in 10 where the follow-up
-alone manages 3, matching the standalone ceiling for one embedding and no
+alone manages 3, matching the standalone ceiling for a second scan and no
 generation ([ADR 048](048-a-follow-up-that-costs-no-generation.md)). The cost
 this paragraph refused to pay is still refused.
 

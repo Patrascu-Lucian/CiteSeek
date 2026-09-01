@@ -76,8 +76,9 @@ finding.**
 of a larger model. The specimen is a flag rather than a source edit because the
 first attempt at this comparison could not be reproduced.
 
-**The oracle figure of 17/24 was inflated** and reads 16/24 now wherever it
-appears. The grounding comparisons in
+**The oracle figure of 17/24 was inflated** and reads 16/24 in every current
+figure; the backlog's historical tables keep the number they were graded with,
+annotated as such. The grounding comparisons in
 [ADR 046](046-the-pin-survives-the-search.md) and
 [ADR 047](047-fewer-passages-for-a-smaller-model.md) stand: they use the three-
 and eight-passage columns, which did not move.

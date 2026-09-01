@@ -110,15 +110,12 @@ const parts = {
   placementSpecimen: process.argv.includes("--placement-specimen"),
 };
 
-// Every knob, so a new one inherits the guard instead of quietly overwriting
-// the pinned record — which has happened twice.
-const asShipped =
-  model === LOCAL_CHAT_MODEL &&
-  dtype === "q4" &&
-  parts.cite &&
-  parts.example &&
-  !parts.placement &&
-  !parts.placementSpecimen;
+const shippedPrompt =
+  parts.cite && parts.example && !parts.placement && !parts.placementSpecimen;
+
+// Every knob, so a new one inherits the write guard instead of quietly
+// overwriting the pinned record — which has happened twice.
+const asShipped = model === LOCAL_CHAT_MODEL && dtype === "q4" && shippedPrompt;
 
 const variant = `${parts.cite ? "" : "-nocite"}${parts.example ? "" : "-noexample"}${parts.placement ? "-placement" : ""}${parts.placementSpecimen ? "-specimen" : ""}`;
 
@@ -465,7 +462,7 @@ const report = [
         "",
         `**Not \`q4\`, so not comparable to the recorded runs.** A screening pass only.`,
       ]),
-  ...(asShipped ? [] : ["", promptBanner()]),
+  ...(shippedPrompt ? [] : ["", promptBanner()]),
   "",
   "Local mode end to end: the local embedder ranks the passages, the local model",
   "answers from them. `oracle` hands the answering passage over instead, so it is",
@@ -549,11 +546,8 @@ const report = [
   ]),
 ].join("\n");
 
-// Model and dtype both, so a candidate or a screening run writes beside the
-// pinned q4 record rather than over it. A test reading that file reads no banner.
-
-/* Every knob, not a list of the ones that existed when this was written: adding
-   `--no-citations` alone silently overwrote the shipped record once. */
+// Model and dtype in the name, so a candidate or a screening run writes beside
+// the pinned q4 record rather than over it.
 const into = useFake
   ? null
   : asShipped
