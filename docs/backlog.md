@@ -1660,8 +1660,9 @@ around it is small.
 
 ↳ **Done 31 August 2026: downloaded, cached, and the network objection did not survive reading.**
 `pnpm test:model` runs `onnx-community/tiny-random-LlamaForCausalLM-ONNX` at `q4f16` — 31 MB, cold
-run 7.4 s — through the real `loadChatModel` and `generateLocally`, in its own vitest config and its
-own CI job.
+run 7.4 s — through the real `loadChatModel` and `generateLocally`, in its own vitest config and
+its own workflow. Its own workflow rather than a job in `ci.yml`, because `paths` filters a trigger
+and not a job: inside CI it would fetch 31 MB for every documentation branch.
 
 **The rule that seemed to forbid it is about Gemini.** `playwright.config.ts` pins the fake
 providers because "against a real model is a coin toss that spends quota". Neither reason reaches
