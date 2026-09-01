@@ -2710,3 +2710,36 @@ tests, 117 E2E and a production build, green.
   the first is answered by blame. Whether the release caused a defect decides who is responsible for
   it; whether the release should carry the fix depends on severity, cost, and whether the tag is
   already cut. I had let the cheap question stand in for the expensive one.
+
+## A comment that borrowed a hazard from another stream, 1 September 2026
+
+- **Issue**: local mode writes the joined question as `message-metadata`, and I justified that with
+  a comment naming a defect — "a data part written here arrives before the `start` that opens the
+  message, and builds a second one". Review checked it against `ai@7.0.77` rather than taking it at
+  face value, and the hazard cannot occur in this stream.
+
+- **Cause**: the mechanism is real, in the cloud route, where ADR 044 documents it in detail. Local
+  mode's stream has no `start` chunk to arrive ahead of: `createUIMessageStream` never emits one,
+  and only the merged `toUIMessageStream` in the route supplies it. I carried the reason across with
+  the pattern.
+
+- **The code was right for a different reason.** The cloud rewrite lands in the same metadata field,
+  so `message-list` renders both from one branch. That is a coupling worth a comment; the hazard was
+  a sentence that would send the next reader hunting for a chunk nothing writes.
+
+- **Lesson**: **a comment naming a defect is a claim about the runtime, and it has to be true of the
+  runtime it sits in.** Borrowing a rationale is how a plausible sentence outlives the condition
+  that made it plausible — and the more precisely it names a mechanism, the longer the next reader
+  spends looking for it.
+
+- **And a phrase that spread faster than its own correction**: the retry was described as costing
+  "one embedding" in a code comment, in ADR 044, in the backlog, and in the title of ADR 048 — whose
+  own body already corrected it to a second IndexedDB read and cosine scan. Correcting a claim in
+  the document that makes it is not the same as correcting it, and a title is the copy most likely
+  to be quoted onward.
+
+- **The same review's cheaper catch**: four prompt knobs shipped behind eval flags with no test
+  setting any of them. Every one defaults to the shipped value, so the coverage gates stayed green
+  on a point of headroom and nothing looked wrong. A branch nothing runs is a branch nothing pins —
+  including the blank line separating the placement rule from the worked example, which ADR 050 had
+  to retract a conclusion over. It has a test now, and halving that newline turns it red.

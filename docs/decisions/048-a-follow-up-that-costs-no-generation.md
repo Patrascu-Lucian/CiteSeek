@@ -1,4 +1,4 @@
-# 048 — A follow-up local mode can answer, for one embedding
+# 048 — A follow-up local mode can answer, without a generation
 
 ## Context
 

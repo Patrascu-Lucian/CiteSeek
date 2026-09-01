@@ -1200,7 +1200,7 @@ is the case a reader is looking at when they read it.
 
 ↳ **Closed 31 August 2026.** The full fix reached both modes: cloud rewrites with a model
 ([ADR 044](decisions/044-rewriting-a-follow-up-only-after-it-fails.md)), local joins the previous
-turn for one embedding ([ADR 048](decisions/048-a-follow-up-that-costs-no-generation.md)). The
+turn and searches again ([ADR 048](decisions/048-a-follow-up-that-costs-no-generation.md)). The
 entry warned that deferring this was "a decision about priority, not something the `/local` badge
 covers" — it is no longer deferred in either place.
 
