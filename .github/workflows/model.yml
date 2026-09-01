@@ -1,0 +1,69 @@
+name: Model
+
+# Its own workflow because `paths` filters a trigger, not a job: inside `ci.yml`
+# this would fetch 31 MB and hold a runner for every documentation branch.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "lib/local/**"
+      - "lib/ai/prompt.ts"
+      - "vitest.model.config.ts"
+      - ".github/workflows/model.yml"
+
+concurrency:
+  group: model-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  model:
+    name: Real local model
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Read by `nodeModelCacheDir`, so the weights land somewhere cacheable
+      # rather than inside `node_modules`.
+      CITESEEK_MODEL_CACHE: ${{ github.workspace }}/.model-cache
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Restore and save split, rather than `actions/cache`: its post-step writes
+      # even when the job failed, so a run that died mid-download would persist a
+      # partial cache that the next run reads as a hit.
+      - name: Restore the model
+        id: model-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .model-cache
+          key: model-${{ hashFiles('lib/local/generate.model.test.ts') }}
+          restore-keys: model-
+
+      - name: Run the model tests
+        run: pnpm test:model
+
+      # Hashed on the whole test file, so an unrelated edit re-downloads 31 MB.
+      # `restore-keys` makes that a near-miss restore rather than a cold fetch,
+      # which is the trade taken instead of tracking the model id separately.
+      - name: Save the model
+        if: ${{ success() && steps.model-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .model-cache
+          key: model-${{ hashFiles('lib/local/generate.model.test.ts') }}
