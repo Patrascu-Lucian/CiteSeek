@@ -84,7 +84,14 @@ const FLAGS = [
 const unknown = process.argv
   .slice(2)
   .filter((one) => one.startsWith("--"))
-  .find((one) => !FLAGS.some((flag) => one === flag || one.startsWith(flag)));
+  // `startsWith` only for the `=`-suffixed ones: applied to all of them it lets
+  // any longer string through, which is the direction a fat-finger goes.
+  .find(
+    (one) =>
+      !FLAGS.some((flag) =>
+        flag.endsWith("=") ? one.startsWith(flag) : one === flag,
+      ),
+  );
 
 if (unknown) {
   throw new Error(`Unknown flag ${unknown}. Known: ${FLAGS.join(" ")}`);

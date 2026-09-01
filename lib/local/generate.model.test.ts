@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import type { ChatSource } from "@/lib/ai/types";
 
-import { generateLocally, loadChatModel } from "./generate";
+import { generateLocally, loadChatModel, type LoadProgress } from "./generate";
 
 /** The real transformers.js, where `generate.test.ts` mocks it. `tiny-random`
  * answers nonsense on purpose: nothing here asserts on prose. */
@@ -27,29 +27,28 @@ const collect = async (signal?: AbortSignal) => {
   return answer;
 };
 
+const progress: LoadProgress[] = [];
+
 // 31 MB on a cold cache, then nothing. CI restores it; a developer running this
 // locally pays once.
 describe("against the real library", { timeout: 300_000 }, () => {
-  it("reports bytes while the weights are actually being fetched", async () => {
-    const seen: { loaded: number; total: number }[] = [];
+  // A hook, so a failed load skips the tests below rather than leaving them to
+  // reach `loadChatModel()` with no arguments — the shipped 756 MB on webgpu.
+  beforeAll(async () => {
+    await loadChatModel((one) => progress.push(one), "cpu", TINY, "q4f16");
+  });
 
-    await loadChatModel(
-      (progress) => seen.push(progress),
-      "cpu",
-      TINY,
-      "q4f16",
-    );
-
-    // `progress_total`, not `progress`: the filter is ours, and a cached run
-    // reports nothing, so this asserts the shape rather than the count.
-    expect(seen.every((one) => one.total > 0)).toBe(true);
-    expect(seen.every((one) => one.loaded <= one.total)).toBe(true);
+  it("reports bytes in a shape the readout can divide", () => {
+    // Not "reports bytes": CI restores the cache, so a warm run reports none.
+    // What has to hold either way is that a report is usable when it comes.
+    expect(progress.every((one) => one.total > 0)).toBe(true);
+    expect(progress.every((one) => one.loaded <= one.total)).toBe(true);
   });
 
   it("streams deltas that a mock cannot have staged", async () => {
     const answer = await collect();
 
-    expect(typeof answer).toBe("string");
+    expect(answer.length).toBeGreaterThan(0);
   });
 
   it("stops when the signal aborts, rather than running to max_new_tokens", async () => {
@@ -61,6 +60,7 @@ describe("against the real library", { timeout: 300_000 }, () => {
     const stopped = await collect(controller.signal);
     const whole = await collect();
 
+    expect(whole.length).toBeGreaterThan(20);
     expect(stopped.length).toBeLessThan(whole.length / 4);
   });
 });
