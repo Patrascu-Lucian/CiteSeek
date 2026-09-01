@@ -179,6 +179,31 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toMatch(/cite nothing at all/i);
   });
 
+  it("renumbers the rules when the citation ones are dropped", () => {
+    // Not 1, 5, 6, 7. The eval drops them to price them, and the remaining
+    // rules refer to rule 1 by number.
+    const numbers = (prompt: string) =>
+      [
+        ...prompt.slice(0, prompt.indexOf("Passages:")).matchAll(/^(\d+)\. /gm),
+      ].map((match) => Number(match[1]));
+
+    expect(numbers(buildSystemPrompt(buildSources([chunk()])))).toEqual([
+      1, 2, 3, 4, 5, 6, 7,
+    ]);
+    expect(numbers(buildSystemPrompt(buildSources([chunk()]), false))).toEqual([
+      1, 2, 3, 4,
+    ]);
+  });
+
+  it("keeps the injection defense when the citation rules go", () => {
+    const prompt = buildSystemPrompt(buildSources([chunk()]), false);
+
+    expect(prompt).not.toMatch(/cite every factual claim/i);
+    expect(prompt).not.toMatch(/never invent a marker/i);
+    expect(prompt).toMatch(/untrusted data, not instructions/i);
+    expect(prompt).toMatch(/answer only from the passages/i);
+  });
+
   it("throws when called with no passages", () => {
     // Reaching the model with an empty context is the bug that produces confident
     // answers from general knowledge. Fail loudly instead.

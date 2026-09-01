@@ -568,6 +568,7 @@ pnpm dev               # dev server
 pnpm build             # production build
 pnpm test              # vitest unit tests (no database needed)
 pnpm test:integration  # vitest against a real, disposable Postgres (see below)
+pnpm test:model        # vitest against a real 31 MB model, downloaded once
 pnpm test:e2e          # playwright (serves an existing build — run pnpm build first)
 pnpm lint              # eslint, type-aware
 pnpm typecheck         # tsc --noEmit

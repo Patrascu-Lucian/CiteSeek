@@ -37,6 +37,17 @@ function markerExample(sources: readonly ChatSource[]): string {
   ].join("\n");
 }
 
+/** Never shipped, and measured both ways: quoting a specimen earns citations by
+ * being copied, including the rule itself as an answer (ADR 050).
+ *
+ * `\n\n` like every other section: joined by one newline it reads as a third
+ * line of the exemplar rather than a rule of its own. */
+const placementRule = (specimen: boolean) =>
+  "\n\n" +
+  (specimen
+    ? 'The marker goes after the answer, never inside it. It never replaces a word or a number: write "28 days [1]", never "[1] days".'
+    : "The marker goes after the answer, never inside it. It never replaces a word or a number.");
+
 /**
  * Long enough that prose does not repeat it by accident, short enough to catch a
  * loop on its second pass rather than its seventh.
@@ -186,6 +197,15 @@ async function loadTokenizer(): Promise<PreTrainedTokenizer> {
   return tokenizing;
 }
 
+export type PromptParts = {
+  cite?: boolean;
+  example?: boolean;
+  /** Adds a line on marker placement, which the exemplar alone never shows. */
+  placement?: boolean;
+  /** Whether that line quotes a specimen — the variable ADR 050 isolates. */
+  placementSpecimen?: boolean;
+};
+
 /**
  * Streams an answer from the retrieved passages, and only those. The system
  * prompt is `buildSystemPrompt` — the same one the route sends to Gemini — so
@@ -196,6 +216,14 @@ export async function* generateLocally(
   question: string,
   sources: readonly ChatSource[],
   signal?: AbortSignal,
+  /** Only the eval varies these, to measure what each part of the citation
+   * instruction costs a 0.5B in answers. */
+  {
+    cite = true,
+    example = true,
+    placement = false,
+    placementSpecimen = false,
+  }: PromptParts = {},
 ): AsyncIterable<string> {
   const generate = await loadChatModel();
 
@@ -237,7 +265,10 @@ export async function* generateLocally(
     [
       {
         role: "system",
-        content: `${buildSystemPrompt(sources)}\n\n${markerExample(sources)}`,
+        content:
+          buildSystemPrompt(sources, cite) +
+          (example ? `\n\n${markerExample(sources)}` : "") +
+          (placement ? placementRule(placementSpecimen) : ""),
       },
       { role: "user", content: question },
     ],
@@ -277,14 +308,16 @@ export function localGeneratorIsFake(): boolean {
   );
 }
 
-export function resolveLocalGenerator(): LocalGeneratorFn {
+export function resolveLocalGenerator(): LocalGenerator {
   return localGeneratorIsFake() ? fakeGenerator : generateLocally;
 }
 
-type LocalGeneratorFn = (
+/** Streams the answer for a question, given the passages retrieval kept. */
+export type LocalGenerator = (
   question: string,
   sources: readonly ChatSource[],
   signal?: AbortSignal,
+  parts?: PromptParts,
 ) => AsyncIterable<string>;
 
 /**

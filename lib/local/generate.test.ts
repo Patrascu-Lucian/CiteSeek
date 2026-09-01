@@ -277,6 +277,56 @@ describe("generateLocally", () => {
     expect(system).not.toMatch(/office closes at six/i);
   });
 
+  it("drops the citation rules and the example together, when asked", async () => {
+    const model = generatingModel(["ok"]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [source], undefined, {
+      cite: false,
+      example: false,
+    }));
+
+    const system = (model.mock.calls[0]![0] as { content: string }[])[0]!
+      .content;
+    expect(system).not.toMatch(/cite every factual claim/i);
+    expect(system).not.toMatch(/citation format/i);
+    // The passages still arrive: this measures the instruction, not the context.
+    expect(system).toContain("Reimbursement is paid within thirty days");
+  });
+
+  it("sets the placement rule off as its own section, not a third example line", async () => {
+    // Joined by one newline it read as the exemplar continuing, and the model
+    // answered with the rule (ADR 050).
+    const model = generatingModel(["ok"]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [source], undefined, {
+      placement: true,
+    }));
+
+    const system = (model.mock.calls[0]![0] as { content: string }[])[0]!
+      .content;
+    expect(system).toMatch(/\[1\]\n\nThe marker goes after the answer/);
+    expect(system).not.toContain("28 days");
+  });
+
+  it("quotes a specimen only under the specimen variant", async () => {
+    const model = generatingModel(["ok"]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+
+    for await (const _ of generateLocally("when?", [source], undefined, {
+      placement: true,
+      placementSpecimen: true,
+    }));
+
+    const system = (model.mock.calls[0]![0] as { content: string }[])[0]!
+      .content;
+    expect(system).toContain('write "28 days [1]", never "[1] days"');
+  });
+
   it("skips a chunk's opening fragment, which is not a sentence", async () => {
     // Chunks are cut on character offsets, so one usually starts mid-sentence.
     // Demonstrating that fragment made the model answer with a fragment.

@@ -1,6 +1,6 @@
 {
   "name": "citeseek",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.17.0",
@@ -24,6 +24,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:model": "vitest run --config vitest.model.config.ts",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -37,6 +38,7 @@
     "eval:retrieval": "tsx scripts/eval-retrieval.mts",
     "db:usage": "tsx scripts/usage-report.mts",
     "eval:local": "tsx scripts/eval-local-embedder.mts",
+    "eval:local-followups": "tsx scripts/eval-local-followups.mts",
     "eval:local-answers": "node --max-old-space-size=8192 --import tsx scripts/eval-local-answers.mts",
     "eval:local-markers": "tsx scripts/eval-local-markers.mts",
     "onnx:copy": "tsx scripts/copy-onnx-runtime.mts",

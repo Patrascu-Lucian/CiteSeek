@@ -1155,7 +1155,7 @@ style with a `title`; a footnote under the answer naming how many markers did no
 counting them and treating a high rate as a signal about the model rather than the answer.
 Any of them needs a decision about whether this is addressed to the reader or to us.
 
-## Follow-up questions retrieve nothing, 12 August 2026
+## ~~Follow-up questions retrieve nothing~~, 12 August 2026
 
 Same session. "Where did he use React?" answered; "where?" and "at which company?" both
 refused, because `questionFrom` embeds the last message alone and a two-word follow-up carries
@@ -1198,10 +1198,17 @@ made false: a follow-up that retrieves nothing is now expanded from the conversa
 again. The copy says so, and still asks for the subject — because the expansion can miss, and that
 is the case a reader is looking at when they read it.
 
-**The full fix stays open.** Its prerequisite was recorded as met when `retrieveLexical` got a
-tiebreaker, and that was wrong until 22 August 2026: the tiebreaker was `chunks.id`, and ids are
-minted per ingest while the harness re-ingests the corpus on every run. Runs are comparable now
-that ties break on filename and chunk index.
+↳ **Closed 31 August 2026.** The full fix reached both modes: cloud rewrites with a model
+([ADR 044](decisions/044-rewriting-a-follow-up-only-after-it-fails.md)), local joins the previous
+turn and searches again ([ADR 048](decisions/048-a-follow-up-that-costs-no-generation.md)). The
+entry warned that deferring this was "a decision about priority, not something the `/local` badge
+covers" — it is no longer deferred in either place.
+
+~~**The full fix stays open.**~~ **Shipped in both modes; see the closure note above.** Its
+prerequisite was recorded as met when `retrieveLexical` got a tiebreaker, and that was wrong until
+22 August 2026: the tiebreaker was `chunks.id`, and ids are minted per ingest while the harness
+re-ingests the corpus on every run. Runs are comparable now that ties break on filename and chunk
+index.
 
 **Measured, 22 August 2026, before building anything.** `FOLLOW_UP_SET` in `eval/golden-set.ts` is
 ten information needs written twice — as a reader types them after a previous turn, and as they
@@ -1479,6 +1486,11 @@ distractor. Twenty-four now, nine of them the manual's.
 
 **17/24 grounded on the answering passage, 11/24 on the eight a reader gets, 1/24 cited.**
 
+↳ **Every oracle figure in this section predates the scorer fix of 30 August 2026** and is one row
+high: `grounds` matched `"5 bar"` inside `"5 bars"` until it guarded the trailing edge. Re-run, the
+oracle reads 16/24. The passage-count columns are unaffected, so the comparisons below stand
+([ADR 050](decisions/050-a-rule-obeyed-as-the-thing-it-forbids.md)).
+
 **The composition was the story, not the model.** Six of the manual's nine are answered with the
 bare value — "90 kilonewtons", "210 Nm", "70°C" — while the tenancy and support questions, which
 were the whole of the old set, are where it fails. So 2/8 measured the two hardest documents and
@@ -1523,7 +1535,7 @@ only the two counts in dispute:
 | -------------- | -------------- | --------- | ----- | ---------------- |
 | 3              | 2.8 avg        | **15/24** | 0/24  | 24/24            |
 | 8              | 5.5 avg        | 13/24     | 2/24  | 24/24            |
-| oracle         | —              | 17/24     | 1/24  | by construction  |
+| oracle         | —              | 16/24     | 1/24  | by construction  |
 
 **Three still wins, by two rows rather than four.** The floor was already doing half the work the
 proposal claimed credit for: asking for eight yields 5.5, not 8. So the honest version is that
@@ -1582,8 +1594,21 @@ read better than more.~~ **Shipped 30 August 2026 as
 local mode only.** Three grounds 15/24 where eight grounds 13/24, with the answering passage still
 retrieved 24/24 — two rows, not the four the unfiltered sweep showed, because the floor was already
 doing half the work. Gemini keeps eight and is unmeasured at three. And
-`markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a numeric
-exemplar targets, which stays blocked until markers can be measured where they actually run.
+~~`markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a
+numeric exemplar targets.~~ **Tried and rejected, 31 August 2026
+([ADR 050](decisions/050-a-rule-obeyed-as-the-thing-it-forbids.md)).** A line naming where the
+marker goes buys **one citation of 24** and moves grounding not at all — and the citations it
+produces are the form the line forbids: "every [1] operating hours" for 2,000, "For storage over
+three months, [1]" with the marker standing in for the answer. The model writes markers in place
+of numbers while being told not to. Quoting a specimen in the line changes nothing measurable.
+
+↳ **The prior question — whether asking at all costs answers — is measured and closed, 31 August
+2026 ([ADR 049](decisions/049-what-asking-a-small-model-to-cite-costs.md)).** Dropping the three
+citation rules and the worked example moves grounding from 15/24 to 16/24. The total understates
+what happened: **five rows change, three gained and two lost**, so the instruction rearranges which
+questions come out right rather than costing answers. The prompt stays shared, and
+`--no-citations` / `--no-example` stay for whoever swaps the pin — the result is about a 0.5B, not
+about small models.
 
 **4. Constrained decoding, last.** Forcing `{ answer, citations }` would make the marker unable
 to stand where a number belongs — the problem
@@ -1595,7 +1620,7 @@ means post-parsing a shape the model was merely asked for.
 support still produces no signal — the marker resolves, the chip opens, the answer looks sourced.
 That needs an entailment check, and it is a separate entry above.
 
-## CI never runs the real local model, 14 August 2026
+## ~~CI never runs the real local model~~, 14 August 2026
 
 Raised by a review of the local-mode slice, and it is the structural reason every defect in that
 code had to be found by hand in a browser rather than by a red test. `e2e/local-chat.spec.ts`
@@ -1632,6 +1657,28 @@ during a real fetch, and that the options object is accepted end to end. The ope
 whether it is downloaded (network in CI, the thing that suite avoids) or vendored (a binary in
 the repository, which `public/onnx` is deliberately not). That choice is the work; the test
 around it is small.
+
+↳ **Done 31 August 2026: downloaded, cached, and the network objection did not survive reading.**
+`pnpm test:model` runs `onnx-community/tiny-random-LlamaForCausalLM-ONNX` at `q4f16` — 31 MB, cold
+run 7.4 s — through the real `loadChatModel` and `generateLocally`, in its own vitest config and
+its own workflow. Its own workflow rather than a job in `ci.yml`, because `paths` filters a trigger
+and not a job: inside CI it would fetch 31 MB for every documentation branch.
+
+**The rule that seemed to forbid it is about Gemini.** `playwright.config.ts` pins the fake
+providers because "against a real model is a coin toss that spends quota". Neither reason reaches
+here: greedy decoding on this stack is byte identical across full runs, and Hugging Face is a static
+file host with no quota — already the one remote host the product's CSP allows
+([ADR 032](decisions/032-the-only-remote-hosts-local-mode-needs.md)).
+
+**Downloaded rather than vendored, on this repository's own precedent.** `public/onnx` is 74 MB that
+is _generated and gitignored_, deliberately not committed; vendoring weights would contradict it,
+while fetching into a cache extends it. `CITESEEK_MODEL_CACHE` already existed for the same purpose,
+so the CI job points it at a workspace directory and `actions/cache` keeps it.
+
+**It found something on its first run.** The abort test asserted an empty answer and got two
+characters: `InterruptableStoppingCriteria` is consulted _after_ each token, so an interrupt before
+the first still yields that one. Measured, one delta against eighty — the guarantee holds, the
+assertion was wrong, and neither could have been learned from the mock.
 
 ## ~~Limits for the default plan, and the paywalls that would replace them~~, 16 August 2026
 
@@ -2404,7 +2451,7 @@ The test was deleted rather than kept green, and the guard is a Lighthouse run a
 build. Worth re-measuring on production after the next release, since local and deployed disagreed
 on this metric before.
 
-## Largest contentful paint moved 0.4s and nothing else did, 25 August 2026
+## ~~Largest contentful paint moved 0.4s and nothing else did~~, 25 August 2026
 
 Same re-measurement. On the workspace route, LCP went **3.2s → 3.6s** between v1.3.1 and v1.4.0,
 while first contentful paint (0.8s) and speed index (~1.1s) were unchanged, and the client
@@ -2423,6 +2470,50 @@ follow-up run to measure the thing that did not change.
 
 Three runs per build, one machine, one Chrome. 0.4s is small enough to want a fourth and fifth run
 before anyone acts on it, and the numbers are recorded here so that run has something to compare to.
+
+↳ **The runs were taken, 31 August 2026, at v1.4.4 — and the element has a name now.** Six runs
+across two invocations, one local production build: performance 88 every time, LCP **3.7s**, first
+paint 0.9s, speed index 1.2s. The regression is reproducible, not noise, and it did not recover on
+its own across four releases.
+
+**Eighty-eight percent of it is render delay.** Lighthouse's own phase breakdown: TTFB 453 ms, load
+delay 0, load time 0, **render delay 3,253 ms**. Nothing is waiting on the network — the element is
+in the document and is not painted.
+
+**The element is the chat panel's empty state**, `<p class="mt-1 text-sm">` in
+`components/chat/message-list.tsx`: "Answers cite the passages they come from, so you can check
+them." That is inside a client component, so the largest text on the route cannot paint until
+hydration runs. It also explains the shape the entry found puzzling — first paint and speed index
+never moved because the server-rendered shell was never the slow part.
+
+**The one opportunity of any size is `unused-javascript`, ~690 ms.** `server-response-time` is
+295 ms, consistent with the TTFB above.
+
+**What the entry ruled out was ruled out correctly, and for the wrong reason.** Both candidates were
+server-side, and the delay is not. Anything that changes how much JavaScript this route hydrates is
+a candidate; anything that changes server work is not.
+
+↳ **Lighthouse and a real browser disagree, which is worth knowing before anyone optimizes.** Driving
+the same URL through Playwright with _applied_ throttling — 4× CPU, 150 ms latency, 1.6 Mbps — gives
+LCP **1.3s**, and names a different element: the `<h1>`. Lighthouse 12 simulates rather than applies,
+so 3.7s is a projection from its model of the main thread. Both numbers are real measurements of
+different things, and the recorded 3.2 → 3.6 → 3.7 movement lives in the simulated one.
+
+↳ **And the deployed number never moved, which closes this.** Three runs against `citeseek.app`, same
+day and same Lighthouse version: **performance 95, LCP 2.8s**, first paint 0.9s, speed index 1.2s.
+The v1.4.2 release notes record the deployed route at **2.7s** — the same figure inside run-to-run
+noise, four releases earlier.
+
+So the regression is on a local production build and not in front of anyone. `pnpm build && pnpm
+start` on this machine scores 88 where Vercel scores 95, and the gap is the machine: no CDN, a cold
+Node server, and Chrome sharing a laptop with the build that produced it.
+
+**Nothing to fix, and that is the finding.** Optimizing the hydration path would move a number no
+reader has. What the diagnosis is still worth is the next regression: the LCP element on this route
+is chat empty-state copy inside a client component, so it is hydration-bound by construction, and
+anything that grows the client bundle lands here first. Re-measure **deployed** before believing a
+local number — this entry stayed open four releases because the first measurement was taken where
+the problem was not.
 
 ## The CSP issue in Chrome's panel is Zod asking permission, 25 August 2026
 

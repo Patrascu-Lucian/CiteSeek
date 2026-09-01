@@ -12,14 +12,8 @@ import {
   type ChatUIMessage,
 } from "@/lib/ai/types";
 
+import type { LocalGenerator } from "./generate";
 import { retrieveLocally } from "./retrieve";
-
-/** Streams the answer for a question, given the passages retrieval kept. */
-export type LocalGenerator = (
-  question: string,
-  sources: Awaited<ReturnType<typeof retrieveLocally>>["sources"],
-  signal?: AbortSignal,
-) => AsyncIterable<string>;
 
 /**
  * The local half of ADR 011's ordering: sources are written **before**
@@ -32,10 +26,38 @@ export function localAnswerStream(
   question: string,
   generate: LocalGenerator,
   signal?: AbortSignal,
+  /** The reader's previous turn. Null on a first message, which has none. */
+  earlier: string | null = null,
 ): ReadableStream<UIMessageChunk> {
   return createUIMessageStream<ChatUIMessage>({
     execute: async ({ writer }) => {
-      const { sources, refusal } = await retrieveLocally(question);
+      let { sources, refusal } = await retrieveLocally(question);
+      let asked = question;
+
+      // A follow-up carries nothing to match: joining the previous turn takes
+      // retrieval from 3 of 10 to 10, at the cost of a second scan (ADR 048).
+      if (
+        refusal === "no_relevant_passages" &&
+        earlier !== null &&
+        question.length > 0
+      ) {
+        const joined = `${earlier} ${question}`;
+        const second = await retrieveLocally(joined);
+
+        if (second.sources.length > 0) {
+          ({ sources, refusal } = second);
+          // The model gets it too. Retrieval matched on the joined text, and
+          // "how often?" alone is the input a 0.5B grounds worst.
+          asked = joined;
+
+          // Metadata, not a data part: the cloud rewrite lands in the same
+          // field and `message-list` renders both from one branch.
+          writer.write({
+            type: "message-metadata",
+            messageMetadata: { searchedFor: joined },
+          });
+        }
+      }
 
       if (refusal) {
         // The same shape a real answer takes, so the client has one code path,
@@ -65,7 +87,7 @@ export function localAnswerStream(
 
       writer.write({ type: "text-start", id: "0" });
 
-      for await (const delta of generate(question, sources, signal)) {
+      for await (const delta of generate(asked, sources, signal)) {
         writer.write({ type: "text-delta", id: "0", delta });
       }
 
@@ -96,6 +118,8 @@ export class LocalChatTransport implements ChatTransport<ChatUIMessage> {
         questionFrom(messages) ?? "",
         this.generate,
         abortSignal,
+        // The turn before this one, which is what a follow-up leans on.
+        questionFrom(messages.slice(0, -1)),
       ),
     );
   }

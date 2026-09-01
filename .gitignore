@@ -63,3 +63,6 @@ public/onnx/
 .local-model-profile/
 eval/.local-markers-progress.json*
 eval/.local-answers-progress-*.json*
+
+# Model weights for the CI `model` job; the local default is ~/.cache.
+.model-cache/

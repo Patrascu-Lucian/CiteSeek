@@ -274,7 +274,8 @@ export const GOLDEN_SET: readonly GoldenCase[] = [
 
 /** Separate from `GOLDEN_SET`, or every previously recorded number moves. */
 export type FollowUpCase = {
-  /** The turns before it, for a rewriting step to read. Not embedded today. */
+  /** The turns before it: read by a rewriting step, and the last one is
+   * embedded with the follow-up by `eval:local-followups` (ADR 048). */
   context: readonly string[];
   followUp: string;
   standalone: string;
