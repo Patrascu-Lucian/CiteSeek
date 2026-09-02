@@ -3,9 +3,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { signOut } from "@/auth";
+import { signIn, signOut } from "@/auth";
 
 import { GUEST_COOKIE_NAME } from "./cookies";
+import { AUTH_PROVIDERS } from "./providers";
 
 /**
  * Two kinds of session, and not one operation: a signed-in user has a `sessions`
@@ -29,4 +30,20 @@ export async function leaveDemoAction(): Promise<void> {
   cookieStore.delete(GUEST_COOKIE_NAME);
 
   redirect("/");
+}
+
+/**
+ * Adding a provider to the account already signed in, which is what makes
+ * linking safe: Auth.js attaches it to the current session rather than adopting
+ * an account on a matching email, so no provider is trusted to say who someone
+ * is (ADR 051).
+ */
+export async function linkProviderAction(provider: string): Promise<void> {
+  // A server action is a public endpoint: the bound argument is encrypted, but
+  // the action itself can be called with anything.
+  if (!AUTH_PROVIDERS.some(({ id }) => id === provider)) {
+    throw new Error(`Unknown sign-in provider ${provider}.`);
+  }
+
+  await signIn(provider, { redirectTo: "/account" });
 }
