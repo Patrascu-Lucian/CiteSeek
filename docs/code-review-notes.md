@@ -2743,3 +2743,64 @@ tests, 117 E2E and a production build, green.
   on a point of headroom and nothing looked wrong. A branch nothing runs is a branch nothing pins —
   including the blank line separating the placement rule from the worked example, which ADR 050 had
   to retract a conclusion over. It has a test now, and halving that newline turns it red.
+
+## The fourth correction is not a fix, 1 September 2026
+
+- **Issue**: the README's test table said 888 unit tests; the suite had 927. Found while reading
+  the milestone state, not by any check — nothing in the repo compares the two.
+
+- **Cause, and the part worth recording**: `git log` shows the same table corrected by hand in
+  #161, #248 and #255. Three fixes, each one correct, each one lasting until the next commit that
+  added a test. A number nothing verifies drifts at exactly the rate the project is worked on.
+
+- **Two more claims failed the same way.** The README said local mode "sometimes answers citing
+  nothing at all", where the measurement is 0 of 24 — always, not sometimes — and said the
+  difficulty ahead was that "the reader has no way to see" it, which the `/local` page had already
+  fixed by publishing the numbers. The prose was written when both were true and outlived them.
+
+- **Fix**: the counts are checked against the JUnit artifact each suite already writes, in the job
+  that produced it. A Vitest test could not do this — asserting the suite's own size from inside
+  the suite changes the number it asserts, so the check has to read something written after
+  collection.
+
+- **Lesson**: **when a fact has been corrected three times, the fix is not a fourth correction.**
+  The repeated edit is the signal that the claim needs a mechanism rather than an author. I nearly
+  shipped the fourth one, and it would have been wrong again within a week.
+
+- **And a smaller one, from my own code**: the first version of the checker built its pattern with
+  `new RegExp` from a template string, and one collapsed escape turned it into an alternation that
+  matched every line and captured nothing — so it reported the README's count as `undefined`
+  against a table that was correct. Splitting the markdown row on `|` needs no escaping and cannot
+  fail that way. A check that can report a false failure is worse than the drift it guards.
+
+## The same comment defect, one slice after writing it down, 2 September 2026
+
+- **Issue**: the count checker read the JUnit root's `tests` attribute, and I explained the choice
+  with _"the root total, not a sum: a file that fails to collect still contributes a
+  `<testsuite>`, so summing would read a broken run as a smaller one."_ Review checked Vitest's
+  reporter instead of the comment. The root attribute **is** the sum —
+  `stats.tests += file.tasks.length` — and a file that fails to load contributes one synthetic
+  task rather than its real count, so the total reads low exactly as described. The comment named
+  a protection the code does not have.
+
+- **What actually holds**: the test step runs first and fails, so CI never reaches the check. That
+  is ordering in the workflow, not a property of the attribute.
+
+- **The part worth recording is that this is the second time in two days.** The previous entry is
+  about a comment that borrowed a hazard from the cloud stream into local mode. Same shape: a
+  confident sentence about a mechanism, plausible, unverified, and wrong in the direction that
+  makes the code look better than it is. Writing the lesson down did not prevent the repeat.
+
+- **Fix**: the comment is deleted. Reading a documented attribute needs no justification, and the
+  honest version — "the test step fails first" — is visible in the workflow.
+
+- **Lesson**: **a comment claiming a defense has to be checked like a test would be.** The class I
+  keep hitting is not carelessness about facts in general; it is specifically the sentence that
+  explains why a choice is _safe_, which is the one kind of comment I write without opening the
+  source it describes.
+
+- **Also caught, and cheaper**: the count check was placed between the model test run and the
+  `Save the model` step, which is gated on `success()`. A stale README would have failed the job
+  before the save and discarded the 31 MB the run had just downloaded — and the commit that adds a
+  model test is precisely the one that both busts the cache key and moves the count, so it would
+  re-fetch on every push until the docs caught up. The check now runs after the save.

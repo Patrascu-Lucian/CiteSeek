@@ -1,6 +1,6 @@
 {
   "name": "citeseek",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.17.0",
@@ -25,6 +25,7 @@
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:model": "vitest run --config vitest.model.config.ts",
+    "check:test-counts": "tsx scripts/check-test-counts.mts",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
