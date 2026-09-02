@@ -6,8 +6,14 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /** A client component because `useFormStatus` reads the enclosing form: the
- * action redirects to GitHub, and the page sat unchanged until it did. */
-export function SubmitButton({ children }: { children: React.ReactNode }) {
+ * action redirects away, and the page sat unchanged until it did. */
+export function SubmitButton({
+  children,
+  pendingLabel,
+}: {
+  children: React.ReactNode;
+  pendingLabel: string;
+}) {
   const { pending } = useFormStatus();
 
   return (
@@ -24,7 +30,7 @@ export function SubmitButton({ children }: { children: React.ReactNode }) {
             aria-hidden="true"
             className="size-4 shrink-0 animate-spin"
           />
-          Taking you to GitHub…
+          {pendingLabel}
         </>
       ) : (
         children
