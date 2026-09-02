@@ -49,7 +49,7 @@ jobs:
       # partial cache that the next run reads as a hit.
       - name: Restore the model
         id: model-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: .model-cache
           key: model-${{ hashFiles('lib/local/generate.model.test.ts') }}
@@ -63,7 +63,7 @@ jobs:
       # which is the trade taken instead of tracking the model id separately.
       - name: Save the model
         if: ${{ success() && steps.model-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: .model-cache
           key: model-${{ hashFiles('lib/local/generate.model.test.ts') }}
