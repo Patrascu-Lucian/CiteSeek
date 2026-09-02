@@ -1,7 +1,7 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import NextAuth from "next-auth";
-import GitHub from "next-auth/providers/github";
 
+import { AUTH_PROVIDERS } from "@/lib/auth/providers";
 import { db } from "@/lib/db";
 import { accounts, sessions, users, verificationTokens } from "@/lib/db/schema";
 import { getOrCreatePersonalWorkspace } from "@/lib/workspaces/personal";
@@ -23,11 +23,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     sessionsTable: sessions,
     verificationTokensTable: verificationTokens,
   }),
-  providers: [
-    // Reads AUTH_GITHUB_ID and AUTH_GITHUB_SECRET from the environment by
-    // convention -- Auth.js v5 looks them up rather than taking arguments.
-    GitHub,
-  ],
+  // Reads AUTH_<PROVIDER>_ID and _SECRET from the environment by convention,
+  // per request rather than at import -- so CI builds with neither set.
+  providers: AUTH_PROVIDERS.map(({ provider }) => provider),
   // Database sessions rather than JWT: a session can then be revoked server-side
   // by deleting a row, which a stateless token cannot offer. The cost is one
   // query per request, which is acceptable when the app is already hitting the

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 
 import { signIn } from "@/auth";
+import { AUTH_PROVIDERS } from "@/lib/auth/providers";
 import { getActor } from "@/lib/auth/actor";
 import {
   Card,
@@ -73,14 +74,21 @@ export default async function SignInPage({
             </div>
           ) : null}
 
-          <form
-            action={async () => {
-              "use server";
-              await signIn("github", { redirectTo: callbackUrl ?? "/w" });
-            }}
-          >
-            <SubmitButton>Continue with GitHub</SubmitButton>
-          </form>
+          {AUTH_PROVIDERS.map(({ id, label }) => (
+            // One form each: `useFormStatus` reports the enclosing form, so a
+            // shared form would spin both buttons on either click.
+            <form
+              key={id}
+              action={async () => {
+                "use server";
+                await signIn(id, { redirectTo: callbackUrl ?? "/w" });
+              }}
+            >
+              <SubmitButton pendingLabel={`Taking you to ${label}…`}>
+                Continue with {label}
+              </SubmitButton>
+            </form>
+          ))}
         </CardContent>
 
         <CardFooter className="flex-col items-start gap-2">

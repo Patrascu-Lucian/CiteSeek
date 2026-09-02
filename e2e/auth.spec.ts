@@ -348,14 +348,35 @@ test.describe("ending a session", () => {
 });
 
 test.describe("sign-in page", () => {
-  test("offers GitHub and links to the demo", async ({ page }) => {
+  test("offers both providers and links to the demo", async ({ page }) => {
     await page.goto("/sign-in");
 
     await expect(
       page.getByRole("button", { name: /continue with github/i }),
     ).toBeVisible();
     await expect(
+      page.getByRole("button", { name: /continue with google/i }),
+    ).toBeVisible();
+    await expect(
       page.getByRole("link", { name: /try the demo/i }),
+    ).toBeVisible();
+  });
+
+  test("announces a failed sign-in without losing either provider", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in?error=OAuthAccountNotLinked");
+
+    // Scoped to `main`: Next injects its route announcer as a page-level
+    // `role="alert"`, so an unscoped lookup is always ambiguous here.
+    await expect(page.getByRole("main").getByRole("alert")).toContainText(
+      /already registered/i,
+    );
+    await expect(
+      page.getByRole("button", { name: /continue with github/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /continue with google/i }),
     ).toBeVisible();
   });
 
