@@ -67,3 +67,9 @@ jobs:
         with:
           path: .model-cache
           key: model-${{ hashFiles('lib/local/generate.model.test.ts') }}
+
+      # After the save: failing here first would discard the 31 MB this run just
+      # fetched, and the commit that adds a model test is the one that both
+      # misses the cache and moves the count.
+      - name: The README's model count
+        run: pnpm check:test-counts Model test-results/model.junit.xml

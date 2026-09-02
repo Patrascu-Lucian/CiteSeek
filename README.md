@@ -148,9 +148,10 @@ reasoning.
 > by the same character offsets the server path uses — proven by an end-to-end test asserting the
 > panel opens with **zero** requests to the API. The cost is stated before anything is fetched:
 > two model downloads totalling 884 MB, cached afterwards, and answers around two to three seconds
-> each, five at worst. They are also visibly worse. A model small enough to run in a tab sometimes states things
-> the documents do not say, and sometimes answers citing nothing at all — the page says so before
-> you start, because a privacy guarantee is not a reason to oversell the thing delivering it.
+> each, five at worst. They are also measurably worse, and the page says the measurement before
+> you start: asked 24 questions about the sample documents it reached the right figure 15 times,
+> and cited a passage in none of them. A privacy guarantee is not a reason to oversell the thing
+> delivering it.
 >
 > The shape of the work is in [`docs/strategy-plan.md`](docs/strategy-plan.md), a snapshot
 > written at the start and deliberately not maintained — where it and the built result differ,
@@ -520,10 +521,17 @@ in. Tracked in [`docs/backlog.md`](docs/backlog.md).
 **In-browser inference shipped** — it is described in [What works
 today](#what-works-today), and it answered the residency gap by making it a choice rather than by
 narrowing it. What it leaves open is answer quality rather than plumbing, and the sharpest piece
-is this: a model that fits in a tab sometimes answers **citing nothing at all**, which the reader
-has no way to see. Counting citations is trivial; the difficulty is that an uncited answer is
-_correct_ when it is a refusal, so a flat warning would fire on the honest case as often as the
-fabricated one. Telling those apart is the next work on that path.
+is this: a model that fits in a tab answers **citing nothing at all** — not sometimes, but in all
+24 questions of [`eval/local-answers.md`](eval/local-answers.md), at the three passages it ships
+with. The page says so in those numbers, so the gap is no longer that the reader cannot see it.
+
+Three prompt-level attempts to earn a citation have now failed in three different ways
+([ADR 049](docs/decisions/049-what-asking-a-small-model-to-cite-costs.md),
+[ADR 050](docs/decisions/050-a-rule-obeyed-as-the-thing-it-forbids.md)), which leaves two paths.
+A better small model is the untried one, and the harness screens candidates already. Constrained
+decoding is the other, and it is parked deliberately: local mode's citation _defect_ rate is zero
+only because its citation rate is zero, so forcing markers would manufacture the failure
+[ADR 038](docs/decisions/038-a-citation-that-cannot-be-read-as-content.md) exists to prevent.
 
 Separately, the gap [ADR 020](docs/decisions/020-measuring-the-relevance-floor.md) measured: the
 floor cannot separate answerable questions from unanswerable ones on distance alone, so retrieval
@@ -662,9 +670,10 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 888   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 927   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 198   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 150   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
+| Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
 
