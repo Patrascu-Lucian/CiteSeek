@@ -2793,3 +2793,39 @@ the provider. Caching rewrites by conversation hash would make a report reproduc
 serve a stale rewrite after a document changed. The honest options are to stop asserting
 reproducibility, which is done, or to pin the model version and re-measure the variance — worth
 knowing whether two of ten is typical or was a bad pair of runs.
+
+## `actions/cache` v6 shipped with its save path unexercised, 2 September 2026
+
+Found reviewing Dependabot [#295](https://github.com/Patrascu-Lucian/CiteSeek/pull/295), which took
+`actions/cache` from v4 to v6 in `.github/workflows/model.yml`. Merged on six green checks, and the
+green covers half the diff.
+
+**The job log proves the restore and says nothing about the save.** `actions/cache/restore@v6` hit
+the primary key and reported "Cache restored successfully"; the run then went straight to post-job
+cleanup. The save step is `if: success() && steps.model-cache.outputs.cache-hit != 'true'`, so a
+primary-key hit skips it. `actions/cache/save@v6` has never run.
+
+**The unexercised half is the one carrying the reasoning.** The restore/save split exists because
+`actions/cache`'s own post-step writes even when the job failed, persisting a partial cache the next
+run reads as a hit. That guarantee lives entirely in the step that has not executed.
+
+**Two changes in v6 land on exactly that path.** v6.0.0 migrated the action to ESM. v6.1.0's release
+notes name handling a cache write error under a read-only token, and a save-only warning change —
+and `model.yml` runs `permissions: contents: read` with save-only. Not evidence of a defect; it is
+the intersection where one would show up.
+
+**Merged deliberately rather than tested first, because the blast radius is a slow job.** A broken
+save is either red on the next pull request touching `lib/local/**`, revertible in one line, or a
+silent no-op that costs a refetch — 14,780,418 B at 65 MB/s in the run above. Forcing a miss would
+have meant a commit on the Dependabot branch, which stops Dependabot managing it, or a throwaway
+pull request. Neither is worth a slow job.
+
+**The trigger**: the key is `model-${{ hashFiles('lib/local/generate.model.test.ts') }}`, so the
+save step runs only when that one file changes. Next time it does, read the model job's log for a
+successful save, and confirm the run after it restores from what v6 wrote. Until then this is
+recorded rather than open.
+
+**One number to check while there.** The comment above the save step says an unrelated edit
+"re-downloads 31 MB", and the restore log reports 14 MB transferred before `unzstd`. Probably
+compressed against extracted, but the save log prints the size it uploads, so the run that closes
+this entry is also the one that settles which number the comment should carry.
