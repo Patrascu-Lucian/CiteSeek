@@ -47,6 +47,15 @@ describe("the privacy page", () => {
     }
   });
 
+  it("names both sign-in providers, not only the first one", () => {
+    // Google reaches this list by two routes and the page named only one, so
+    // signing in with Google was processing the page did not disclose.
+    render(<PrivacyPage />);
+
+    expect(screen.getByText(/GitHub or Google/)).toBeInTheDocument();
+    expect(screen.getByText(/whichever you sign in with/i)).toBeInTheDocument();
+  });
+
   it("states the region and the retention window", () => {
     render(<PrivacyPage />);
 

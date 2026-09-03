@@ -151,8 +151,9 @@ export default function PrivacyPage() {
             <strong>Neon</strong> — hosts the database.
           </li>
           <li>
-            <strong>GitHub</strong> — only if you sign in with it, and only to
-            confirm who you are.
+            <strong>GitHub or Google</strong> — whichever you sign in with, and
+            only to confirm who you are. Signing in with Google puts Google on
+            this list twice, for two unrelated reasons.
           </li>
         </ul>
       </Section>
