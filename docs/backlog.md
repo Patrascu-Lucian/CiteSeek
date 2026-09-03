@@ -2829,3 +2829,36 @@ recorded rather than open.
 "re-downloads 31 MB", and the restore log reports 14 MB transferred before `unzstd`. Probably
 compressed against extracted, but the save log prints the size it uploads, so the run that closes
 this entry is also the one that settles which number the comment should carry.
+
+## `/account` cannot own its own sign-in failure, 3 September 2026
+
+Found planning the copy for a failed provider link. `OAuthAccountNotLinked` is thrown for two
+different situations, and the plan assumed each page could state the meaning true where it is:
+`/sign-in` for the cold case, `/account` for a link attempted from a session.
+
+**`/account` never receives the error.** `@auth/core@0.41.3`'s `src/index.ts` builds the failure
+redirect as:
+
+```ts
+const pageKind = (isAuthError && error.kind) || "error";
+const pagePath =
+  config.pages?.[pageKind] ?? `${config.basePath}/${pageKind.toLowerCase()}`;
+const url = `${internalRequest.url.origin}${pagePath}?${params}`;
+```
+
+`OAuthAccountNotLinked extends SignInError`, and `SignInError.kind = "signIn"`, so the redirect
+resolves to `pages.signIn` — `/sign-in` here. `redirectTo: "/account"` governs where a _successful_
+sign-in lands and nothing else, and `params` carries only `error` (plus `code` for credentials), so
+the callbackUrl that would identify the account flow is dropped.
+
+**Nor can the server action catch it.** `linkProviderAction` redirects the browser to the provider
+and is finished; the throw happens later, in the `/api/auth/callback/:provider` handler.
+
+So the copy on `/sign-in` has to be true of both situations, which is what shipped: it names the way
+through rather than the cause. The two throw sites are `handle-login.ts:188` (signed in, that
+provider account belongs to another user) and `:250` (not signed in, the address already exists).
+
+**What would let each page speak for itself**: a custom `pages.signIn` that reads a marker set before
+the OAuth hop — a short-lived cookie, since the querystring does not survive. Worth doing only if a
+reader is observed getting lost, and worth knowing that it is a cookie's worth of work rather than a
+config option.

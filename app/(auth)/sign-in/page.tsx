@@ -21,8 +21,10 @@ import { SubmitButton } from "./submit-button";
 export const metadata: Metadata = { title: "Sign in" };
 
 const ERROR_MESSAGES: Record<string, string> = {
+  // One code, two situations, and `/account` cannot own its half: Auth.js sends
+  // every sign-in failure here (docs/backlog.md). True of both, then.
   OAuthAccountNotLinked:
-    "That email is already registered with a different sign-in method.",
+    "That sign-in method is already tied to a different account. Sign in the way you did before, then add this one from your account page.",
   AccessDenied: "Sign-in was canceled or access was denied.",
   Configuration:
     "Sign-in is not configured correctly. This is a problem on our side.",
