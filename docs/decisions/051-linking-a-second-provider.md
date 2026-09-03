@@ -83,6 +83,14 @@ belonging to someone else, and an email already registered. Because linking retu
 and cold sign-in returns to `/sign-in`, each page can state the meaning that is true where it is,
 without parsing anything Auth.js does not distinguish.
 
+↳ **That last sentence is wrong, and was corrected on 3 September 2026 before any copy was written
+on it.** `redirectTo` governs where a _successful_ sign-in lands and nothing else. Auth.js builds a
+failure redirect from `config.pages[error.kind]`, and `OAuthAccountNotLinked extends SignInError`
+whose `kind` is `"signIn"` — so every sign-in failure goes to `pages.signIn`, and the params carry
+only `error`. `/account` never receives the error and cannot speak for its own half. The copy on
+`/sign-in` is true of both situations instead; `docs/backlog.md` holds the mechanism and what a
+per-page message would actually cost.
+
 **No migration.** `accounts` is keyed on `(provider, provider_account_id)` with `user_id` a plain
 cascading foreign key, so one user row already holds many providers. `listSignInMethods` and
 `PROVIDER_LABELS` already read them, and the label map already contains Google.

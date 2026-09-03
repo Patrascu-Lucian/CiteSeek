@@ -369,9 +369,11 @@ test.describe("sign-in page", () => {
 
     // Scoped to `main`: Next injects its route announcer as a page-level
     // `role="alert"`, so an unscoped lookup is always ambiguous here.
-    await expect(page.getByRole("main").getByRole("alert")).toContainText(
-      /already registered/i,
-    );
+    const alert = page.getByRole("main").getByRole("alert");
+
+    await expect(alert).toContainText(/already tied to a different account/i);
+    // The half that makes it a refusal rather than an explanation.
+    await expect(alert).toContainText(/add this one from your account page/i);
     await expect(
       page.getByRole("button", { name: /continue with github/i }),
     ).toBeVisible();
