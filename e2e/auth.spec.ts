@@ -371,7 +371,7 @@ test.describe("sign-in page", () => {
     // `role="alert"`, so an unscoped lookup is always ambiguous here.
     const alert = page.getByRole("main").getByRole("alert");
 
-    await expect(alert).toContainText(/already tied to a different account/i);
+    await expect(alert).toContainText(/already registered with a different/i);
     // The half that makes it a refusal rather than an explanation.
     await expect(alert).toContainText(/add this one from your account page/i);
     await expect(

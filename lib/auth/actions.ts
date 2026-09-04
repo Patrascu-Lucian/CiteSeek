@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { signIn, signOut } from "@/auth";
 
+import { getActor } from "./actor";
 import { GUEST_COOKIE_NAME } from "./cookies";
 import { AUTH_PROVIDERS } from "./providers";
 
@@ -43,6 +44,12 @@ export async function linkProviderAction(provider: string): Promise<void> {
   // the action itself can be called with anything.
   if (!AUTH_PROVIDERS.some(({ id }) => id === provider)) {
     throw new Error(`Unknown sign-in provider ${provider}.`);
+  }
+
+  // Without this, linking degrades to an ordinary sign-in.
+  const actor = await getActor();
+  if (actor?.type !== "user") {
+    throw new Error("Linking a provider needs a signed-in session.");
   }
 
   await signIn(provider, { redirectTo: "/account" });
