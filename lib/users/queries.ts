@@ -23,7 +23,8 @@ export async function listSignInMethods(
   return db
     .select({ provider: accounts.provider })
     .from(accounts)
-    .where(eq(accounts.userId, userId));
+    .where(eq(accounts.userId, userId))
+    .orderBy(accounts.provider);
 }
 
 /**

@@ -31,6 +31,18 @@ here, not in the current branch.
   Not needed for any milestone as scoped: the exit criterion is a stranger reaching a cited answer
   in two minutes, which they do as a guest with no sign-in at all.
 
+  ↳ **Shipped 3 September 2026, and two claims above were wrong.**
+  [ADR 051](decisions/051-linking-a-second-provider.md) took the third option this entry did not
+  list: linking from a session the reader is already in, which needs no trust assumption at all.
+
+  Linking automatically on a verified email is **not** "only safe because both providers verify" —
+  `@auth/core`'s GitHub provider resolves the address as
+  `(emails.find((e) => e.primary) ?? emails[0]).email` and never reads the `verified` flag its own
+  type declares. That design would have rested on a guarantee nothing checks.
+
+  And `OAuthAccountNotLinked` has not read as "your account is broken" since the error map shipped;
+  it was already explained, just with no way through. It now names one.
+
 - **Coverage thresholds in `vitest.config.ts`.** ~~The bar is ≥90% for `lib/rag` and
   `lib/ai`.~~ Done in Milestone 1 — both thresholds are enforced now that the directories
   have real content.
@@ -159,6 +171,13 @@ here, not in the current branch.
   Worth filing upstream with the reproduction above.
 
 ## Deployment
+
+- **A provider's secrets have to exist before the release that ships its button**, which is an
+  ordering the pipeline does not enforce. Google sign-in is on `develop` and reaches a reader only
+  when `main` moves for v1.5.0; with `AUTH_GOOGLE_ID` unset in production that merge publishes a
+  button nobody can use. The provider config resolves per request, so nothing fails at build time
+  and nothing is red — the first evidence is a reader clicking it. Set the variables in Vercel
+  first, then release.
 
 - ~~**Nothing ties a schema change to a production migration.**~~ Closed in Milestone 3 — see
   `docs/decisions/015-schema-drift.md`. Neither of the two options recorded below was taken:
@@ -515,11 +534,12 @@ each of these is reversible and therefore safe to defer.
   sending domain Resend needs before a contact form can send anything, and the same sender that
   has magic-link sign-in parked above.
 
-  The old host redirects rather than disappearing: `cite-seek.vercel.app` answers **307** to the
+  The old host redirects rather than disappearing: `cite-seek.vercel.app` answers **308** to the
   same path on `citeseek.app`. 307/308 rather than 302/301 because the older pair lets a client
   rewrite the method, and a permanent redirect is cached hard enough that a mistake outlives the
-  fix — which is why it stayed temporary until a real sign-in confirmed the move. It did, so the
-  remaining step is promoting it to **308**.
+  fix — which is why it stayed temporary until a real sign-in confirmed the move. It did, and the
+  promotion to **308** has since been made — verified 4 September 2026 on both `/sign-in` and
+  `/api/auth/callback/google`.
 
   **A domain move breaks anything that registered the old origin with a third party**, which no
   redirect can repair: GitHub's OAuth App has one callback URL, it does not follow a redirect,

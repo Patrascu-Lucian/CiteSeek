@@ -46,6 +46,19 @@ describe("a user with two providers", () => {
     ]);
   });
 
+  it("returns them in a stable order, whatever order they were linked in", async () => {
+    // Rendered as a sentence on the account page, so unordered rows reorder
+    // between loads and read as a bug.
+    const user = await createTestUser(db);
+    await link(user.id, "google");
+    await link(user.id, "github");
+
+    expect(await listSignInMethods(user.id)).toEqual([
+      { provider: "github" },
+      { provider: "google" },
+    ]);
+  });
+
   it("keeps one workspace, because linking is not a new account", async () => {
     // What the design rests on: Auth.js returns before `events.createUser` when
     // it links, so no second workspace is provisioned. The event is idempotent

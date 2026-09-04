@@ -114,8 +114,9 @@ function UserAccount({
             <h2>Ending your session</h2>
           </CardTitle>
           <CardDescription>
-            Signing out leaves everything where it is. Sign back in with the
-            same provider and your documents and conversations will be waiting.
+            Signing out leaves everything where it is. Sign back in with any of
+            the methods above and your documents and conversations will be
+            waiting.
           </CardDescription>
         </CardHeader>
         <CardContent>

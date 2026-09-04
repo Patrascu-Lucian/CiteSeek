@@ -512,8 +512,8 @@ the same one, and why only they have to name what to delete
 ([ADR 039](docs/decisions/039-the-default-plan-s-ceiling.md)). Both sets of numbers are guesses
 until there is traffic.
 
-Email magic-link sign-in is deferred until an email sender is configured — GitHub OAuth and
-guest mode both work. The demo workspace is read-only by design, so uploading requires signing
+Email magic-link sign-in is deferred until an email sender is configured — GitHub, Google and
+guest mode all work. The demo workspace is read-only by design, so uploading requires signing
 in. Tracked in [`docs/backlog.md`](docs/backlog.md).
 
 ## What's next
@@ -671,7 +671,7 @@ Playwright smoke suite all gate every pull request.
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
 | Unit        | 932   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
-| Integration | 201   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
+| Integration | 202   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 151   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
