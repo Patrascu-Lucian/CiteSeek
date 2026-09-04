@@ -2882,3 +2882,20 @@ provider account belongs to another user) and `:250` (not signed in, the address
 the OAuth hop — a short-lived cookie, since the querystring does not survive. Worth doing only if a
 reader is observed getting lost, and worth knowing that it is a cookie's worth of work rather than a
 config option.
+
+## Nothing unlinks a provider, 4 September 2026
+
+Raised in review of the v1.5.0 diff. The Sign-in methods card adds and never removes. Someone who
+links the wrong Google account — the work one rather than the personal one — has no way back short
+of "Delete your account", which cascades their documents and conversations with it.
+
+The card's own copy invites the question: _"Any of these reaches the same account."_ A reader who
+takes that in will look for the inverse.
+
+**Deliberately not built yet, because the invariant is the work.** Removing the last provider makes
+an account unreachable — no session to link from, and the sign-in page cannot adopt it, which is the
+whole point of [ADR 051](decisions/051-linking-a-second-provider.md). So an unlink control has to
+refuse when one method is left, and refusing is a state the card does not currently have.
+
+Worth doing when a second reader has actually linked two providers. Until then it is a control for
+a situation nobody is in, and the failure it prevents costs one extra sign-in rather than any data.

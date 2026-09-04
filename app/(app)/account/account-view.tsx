@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DeleteAccountDialog } from "@/components/account/delete-account-dialog";
+import { SubmitButton } from "@/components/auth/submit-button";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -182,9 +183,12 @@ function SignInMethods({
 
         {linkable.map(({ id, label }) => (
           <form key={id} action={linkProviderAction.bind(null, id)}>
-            <Button type="submit" variant="outline">
+            <SubmitButton
+              variant="outline"
+              pendingLabel={`Taking you to ${label}…`}
+            >
               Add {label}
-            </Button>
+            </SubmitButton>
           </form>
         ))}
       </CardContent>

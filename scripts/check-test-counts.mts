@@ -13,9 +13,15 @@ if (!layer || !report) {
   );
 }
 
-const ran = /<testsuites[^>]*\btests="(\d+)"/.exec(
-  await readFile(report, "utf8"),
-)?.[1];
+// ENOENT means the report is absent by design, not that this is broken.
+const xml = await readFile(report, "utf8").catch((cause: unknown) => {
+  if ((cause as { code?: string }).code !== "ENOENT") throw cause;
+  throw new Error(
+    `No report at ${report}. Playwright writes its JUnit file only under CI=1, so a local run leaves none.`,
+  );
+});
+
+const ran = /<testsuites[^>]*\btests="(\d+)"/.exec(xml)?.[1];
 
 if (ran === undefined) {
   throw new Error(`No <testsuites tests="..."> in ${report}.`);

@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 
 import { signIn } from "@/auth";
+import { SubmitButton } from "@/components/auth/submit-button";
+import { Button } from "@/components/ui/button";
 import { AUTH_PROVIDERS } from "@/lib/auth/providers";
 import { getActor } from "@/lib/auth/actor";
 import {
@@ -16,15 +18,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-import { SubmitButton } from "./submit-button";
-
 export const metadata: Metadata = { title: "Sign in" };
 
+/** Only reachable signed in — Auth.js throws it from the branch that needs a
+ * session (`handle-login` :188) — so the reader was linking, not signing in. */
+const LINK_FAILED =
+  "That account is already connected to a different CiteSeek account, so it was not added. Your existing sign-in methods are unchanged.";
+
 const ERROR_MESSAGES: Record<string, string> = {
-  // One code, two situations, and `/account` cannot own its half: Auth.js sends
-  // every sign-in failure here (docs/backlog.md). True of both, then.
   OAuthAccountNotLinked:
-    "That sign-in method is already tied to a different account. Sign in the way you did before, then add this one from your account page.",
+    "That email is already registered with a different sign-in method. Sign in the way you did before, then add this one from your account page.",
   AccessDenied: "Sign-in was canceled or access was denied.",
   Configuration:
     "Sign-in is not configured correctly. This is a problem on our side.",
@@ -36,15 +39,18 @@ export default async function SignInPage({
   searchParams: Promise<{ error?: string; callbackUrl?: string }>;
 }) {
   const actor = await getActor();
-  // Already signed in: go to their workspace, not back to the landing page.
-  // Sending them to "/" produced a loop -- the landing CTA points here, so
-  // clicking "Get started" bounced straight back and looked like a dead button.
-  if (actor?.type === "user") redirect("/w");
-
   const { error, callbackUrl } = await searchParams;
-  const errorMessage = error
-    ? (ERROR_MESSAGES[error] ?? "Something went wrong signing you in.")
-    : null;
+  const signedIn = actor?.type === "user";
+
+  // Not "/": the landing CTA points here, so that looped. Not on an error
+  // either: a failed link arrives signed in, and redirecting swallowed it.
+  if (signedIn && !error) redirect("/w");
+
+  const errorMessage = !error
+    ? null
+    : signedIn && error === "OAuthAccountNotLinked"
+      ? LINK_FAILED
+      : (ERROR_MESSAGES[error] ?? "Something went wrong signing you in.");
 
   return (
     <main
@@ -76,21 +82,28 @@ export default async function SignInPage({
             </div>
           ) : null}
 
-          {AUTH_PROVIDERS.map(({ id, label }) => (
-            // One form each: `useFormStatus` reports the enclosing form, so a
-            // shared form would spin both buttons on either click.
-            <form
-              key={id}
-              action={async () => {
-                "use server";
-                await signIn(id, { redirectTo: callbackUrl ?? "/w" });
-              }}
-            >
-              <SubmitButton pendingLabel={`Taking you to ${label}…`}>
-                Continue with {label}
-              </SubmitButton>
-            </form>
-          ))}
+          {/* Signed in, so the failure was a link and not a sign-in. */}
+          {signedIn ? (
+            <Button asChild variant="outline" className="w-full" size="lg">
+              <Link href="/account">Back to your account</Link>
+            </Button>
+          ) : (
+            AUTH_PROVIDERS.map(({ id, label }) => (
+              // One form each: `useFormStatus` reports the enclosing form, so a
+              // shared form would spin both buttons on either click.
+              <form
+                key={id}
+                action={async () => {
+                  "use server";
+                  await signIn(id, { redirectTo: callbackUrl ?? "/w" });
+                }}
+              >
+                <SubmitButton pendingLabel={`Taking you to ${label}…`}>
+                  Continue with {label}
+                </SubmitButton>
+              </form>
+            ))
+          )}
         </CardContent>
 
         <CardFooter className="flex-col items-start gap-2">

@@ -10,17 +10,20 @@ import { Button } from "@/components/ui/button";
 export function SubmitButton({
   children,
   pendingLabel,
+  variant,
 }: {
   children: React.ReactNode;
   pendingLabel: string;
+  variant?: React.ComponentProps<typeof Button>["variant"];
 }) {
   const { pending } = useFormStatus();
 
   return (
     <Button
       type="submit"
-      className="w-full"
-      size="lg"
+      variant={variant}
+      className={variant ? undefined : "w-full"}
+      size={variant ? undefined : "lg"}
       disabled={pending}
       aria-busy={pending || undefined}
     >

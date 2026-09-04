@@ -158,7 +158,7 @@ export default function PrivacyPage() {
         </ul>
       </Section>
 
-      <Section title="What Google may do with it">
+      <Section title="What Google may do with your documents">
         <p>
           This deployment runs on Google&rsquo;s <strong>paid tier</strong>,
           billed from an account in the EEA. Under those terms Google does not
