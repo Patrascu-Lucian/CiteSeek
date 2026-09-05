@@ -2899,3 +2899,27 @@ refuse when one method is left, and refusing is a state the card does not curren
 
 Worth doing when a second reader has actually linked two providers. Until then it is a control for
 a situation nobody is in, and the failure it prevents costs one extra sign-in rather than any data.
+
+## Deferred from the v1.5.0 review: two mechanisms, not defects, 5 September 2026
+
+Both were raised twice and are left deliberately.
+
+**A provider button renders whether or not its credentials exist.** Filtering `AUTH_PROVIDERS` on
+`process.env[...]` would turn "wrong order, silent" into "wrong order, the button is absent", which
+a preview shows you — the same argument as the `trustHost` outage, where production was the first
+place the code ever ran. Not taken now because `auth.ts` builds its provider list from the same
+constant, so an unset id would stop a provider being _configured_ and not merely offered, and the
+E2E suite asserts the Google button is visible. Doing it means deciding what the test environment
+sets, which is a change to make on its own rather than inside a release.
+
+↳ **And `.env.example` oversells previews.** It says Google "accepts several authorized redirect
+URIs on one client, so preview deployments can be added instead of needing a second client". True
+per URI, but Vercel preview URLs carry a per-deploy hash and Google does not accept wildcards, so
+there is no finite set to register — only a stable per-branch alias would work. GitHub has the same
+limitation for the same reason, so previews have never had a working OAuth round trip here.
+
+**`/account` is outside the axe sweep.** It needs a session, and the sweep in `e2e/a11y.spec.ts`
+runs anonymously. The page grew again this release — a second `<dl>`, a stack of forms, a button
+carrying `aria-busy` — so the untested surface is larger than when this was first noted.
+`e2e/link-provider.spec.ts` established the signed-in pattern, so the cost is now a few lines rather
+than a fixture.

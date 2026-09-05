@@ -46,10 +46,11 @@ export async function linkProviderAction(provider: string): Promise<void> {
     throw new Error(`Unknown sign-in provider ${provider}.`);
   }
 
-  // Without this, linking degrades to an ordinary sign-in.
+  // Not a throw: sessions are database rows and revoking one is supported, so
+  // "left /account open until it expired" is a state the design creates.
   const actor = await getActor();
   if (actor?.type !== "user") {
-    throw new Error("Linking a provider needs a signed-in session.");
+    redirect("/sign-in?callbackUrl=/account");
   }
 
   await signIn(provider, { redirectTo: "/account" });

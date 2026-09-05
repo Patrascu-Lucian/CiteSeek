@@ -149,8 +149,8 @@ reasoning.
 > panel opens with **zero** requests to the API. The cost is stated before anything is fetched:
 > two model downloads totalling 884 MB, cached afterwards, and answers around two to three seconds
 > each, five at worst. They are also measurably worse, and the page says the measurement before
-> you start: asked 24 questions about the sample documents it reached the right figure 15 times,
-> and cited a passage in none of them. A privacy guarantee is not a reason to oversell the thing
+> you start: asked 24 questions about the sample documents, its answer contained the right figure
+> 15 times, and cited a passage in none of them. A privacy guarantee is not a reason to oversell the thing
 > delivering it.
 >
 > The shape of the work is in [`docs/strategy-plan.md`](docs/strategy-plan.md), a snapshot
@@ -670,9 +670,9 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 937   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 941   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 202   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
-| E2E         | 155   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
+| E2E         | 157   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.

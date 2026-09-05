@@ -26,9 +26,10 @@ export default function LocalPage() {
           never emits one. */}
       <p className="text-muted-foreground mt-2 text-sm">
         The model that runs here is small enough to fit in a browser, and it
-        shows. Asked 24 questions about our own sample documents, it reached the
-        right figure 15 times and stated something the documents do not say the
-        rest. <strong>It also does not cite.</strong> It answered all 24 without
+        shows. Asked 24 questions about our own sample documents, its answer
+        contained the right figure 15 times and did not produce it the rest —
+        sometimes hedging, sometimes quoting a neighbouring number.{" "}
+        <strong>It also does not cite.</strong> It answered all 24 without
         linking one of them to a passage, and a number in square brackets is the
         model putting a citation marker where a value belongs — read it as a
         mistake, not a source. Cloud mode cites properly and is the better

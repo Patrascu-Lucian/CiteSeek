@@ -45,6 +45,36 @@ test.describe("a provider link that fails", () => {
   });
 });
 
+test.describe("a link the reader cancelled", () => {
+  test("says nothing was added, not that signing in went wrong", async ({
+    page,
+    signedIn,
+  }) => {
+    // What Google actually sends on Cancel. `AccessDenied` never fires here:
+    // it needs a `signIn` callback, and this app defines none.
+    await page.goto("/sign-in?error=OAuthCallbackError");
+
+    const alert = page.getByRole("main").getByRole("alert");
+
+    await expect(alert).toContainText(/nothing was added/i);
+    await expect(alert).not.toContainText(/went wrong/i);
+    expect(signedIn.userId).toBeTruthy();
+  });
+
+  test("stops calling itself a sign-in page", async ({ page, signedIn }) => {
+    // The `h1` is the page's accessible name, and this reader has an account.
+    await page.goto("/sign-in?error=OAuthCallbackError");
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      /adding a sign-in method/i,
+    );
+    await expect(page.getByRole("link", { name: /try the demo/i })).toHaveCount(
+      0,
+    );
+    expect(signedIn.userId).toBeTruthy();
+  });
+});
+
 test.describe("the sign-in methods card", () => {
   test("offers only what is not linked yet", async ({ page, signedIn }) => {
     await signedIn.sql`
