@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getActor } from "@/lib/auth/actor";
+import { AUTH_PROVIDERS } from "@/lib/auth/providers";
 import { listSignInMethods, providerLabel } from "@/lib/users/queries";
 
 import { AccountView } from "./account-view";
@@ -22,6 +23,7 @@ export default async function AccountPage() {
   if (actor.type === "guest") return <AccountView kind="guest" />;
 
   const methods = await listSignInMethods(actor.id);
+  const linked = new Set(methods.map((method) => method.provider));
 
   return (
     <AccountView
@@ -29,6 +31,9 @@ export default async function AccountPage() {
       name={actor.name}
       email={actor.email}
       providers={methods.map((method) => providerLabel(method.provider))}
+      linkable={AUTH_PROVIDERS.filter(({ id }) => !linked.has(id)).map(
+        ({ id, label }) => ({ id, label }),
+      )}
     />
   );
 }

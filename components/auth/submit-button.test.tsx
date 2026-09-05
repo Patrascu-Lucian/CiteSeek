@@ -17,7 +17,11 @@ import { SubmitButton } from "./submit-button";
 describe("the sign-in button", () => {
   it("reads as its label until the form is submitted", () => {
     status.pending = false;
-    render(<SubmitButton>Continue with GitHub</SubmitButton>);
+    render(
+      <SubmitButton pendingLabel="Taking you to GitHub…">
+        Continue with GitHub
+      </SubmitButton>,
+    );
 
     const button = screen.getByRole("button", {
       name: /continue with github/i,
@@ -31,7 +35,11 @@ describe("the sign-in button", () => {
     // The action ends in a redirect to GitHub. Silence here read as a dead
     // button and invited a second submission.
     status.pending = true;
-    render(<SubmitButton>Continue with GitHub</SubmitButton>);
+    render(
+      <SubmitButton pendingLabel="Taking you to GitHub…">
+        Continue with GitHub
+      </SubmitButton>,
+    );
 
     const button = screen.getByRole("button", {
       name: /taking you to github/i,
@@ -39,5 +47,21 @@ describe("the sign-in button", () => {
 
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute("aria-busy", "true");
+  });
+});
+
+describe("a second provider", () => {
+  it("names the provider it is taking you to, not the first one", () => {
+    // A shared label said "GitHub" on the Google button.
+    status.pending = true;
+    render(
+      <SubmitButton pendingLabel="Taking you to Google…">
+        Continue with Google
+      </SubmitButton>,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /taking you to google/i }),
+    ).toBeDisabled();
   });
 });

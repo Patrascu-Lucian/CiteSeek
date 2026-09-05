@@ -23,7 +23,8 @@ export async function listSignInMethods(
   return db
     .select({ provider: accounts.provider })
     .from(accounts)
-    .where(eq(accounts.userId, userId));
+    .where(eq(accounts.userId, userId))
+    .orderBy(accounts.provider);
 }
 
 /**
@@ -39,5 +40,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 export function providerLabel(provider: string): string {
-  return PROVIDER_LABELS[provider] ?? provider;
+  return Object.hasOwn(PROVIDER_LABELS, provider)
+    ? PROVIDER_LABELS[provider]!
+    : provider;
 }

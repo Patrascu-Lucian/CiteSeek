@@ -31,6 +31,18 @@ here, not in the current branch.
   Not needed for any milestone as scoped: the exit criterion is a stranger reaching a cited answer
   in two minutes, which they do as a guest with no sign-in at all.
 
+  ↳ **Shipped 3 September 2026, and two claims above were wrong.**
+  [ADR 051](decisions/051-linking-a-second-provider.md) took the third option this entry did not
+  list: linking from a session the reader is already in, which needs no trust assumption at all.
+
+  Linking automatically on a verified email is **not** "only safe because both providers verify" —
+  `@auth/core`'s GitHub provider resolves the address as
+  `(emails.find((e) => e.primary) ?? emails[0]).email` and never reads the `verified` flag its own
+  type declares. That design would have rested on a guarantee nothing checks.
+
+  And `OAuthAccountNotLinked` has not read as "your account is broken" since the error map shipped;
+  it was already explained, just with no way through. It now names one.
+
 - **Coverage thresholds in `vitest.config.ts`.** ~~The bar is ≥90% for `lib/rag` and
   `lib/ai`.~~ Done in Milestone 1 — both thresholds are enforced now that the directories
   have real content.
@@ -159,6 +171,13 @@ here, not in the current branch.
   Worth filing upstream with the reproduction above.
 
 ## Deployment
+
+- **A provider's secrets have to exist before the release that ships its button**, which is an
+  ordering the pipeline does not enforce. Google sign-in is on `develop` and reaches a reader only
+  when `main` moves for v1.5.0; with `AUTH_GOOGLE_ID` unset in production that merge publishes a
+  button nobody can use. The provider config resolves per request, so nothing fails at build time
+  and nothing is red — the first evidence is a reader clicking it. Set the variables in Vercel
+  first, then release.
 
 - ~~**Nothing ties a schema change to a production migration.**~~ Closed in Milestone 3 — see
   `docs/decisions/015-schema-drift.md`. Neither of the two options recorded below was taken:
@@ -515,11 +534,12 @@ each of these is reversible and therefore safe to defer.
   sending domain Resend needs before a contact form can send anything, and the same sender that
   has magic-link sign-in parked above.
 
-  The old host redirects rather than disappearing: `cite-seek.vercel.app` answers **307** to the
+  The old host redirects rather than disappearing: `cite-seek.vercel.app` answers **308** to the
   same path on `citeseek.app`. 307/308 rather than 302/301 because the older pair lets a client
   rewrite the method, and a permanent redirect is cached hard enough that a mistake outlives the
-  fix — which is why it stayed temporary until a real sign-in confirmed the move. It did, so the
-  remaining step is promoting it to **308**.
+  fix — which is why it stayed temporary until a real sign-in confirmed the move. It did, and the
+  promotion to **308** has since been made — verified 4 September 2026 on both `/sign-in` and
+  `/api/auth/callback/google`.
 
   **A domain move breaks anything that registered the old origin with a third party**, which no
   redirect can repair: GitHub's OAuth App has one callback URL, it does not follow a redirect,
@@ -2793,3 +2813,113 @@ the provider. Caching rewrites by conversation hash would make a report reproduc
 serve a stale rewrite after a document changed. The honest options are to stop asserting
 reproducibility, which is done, or to pin the model version and re-measure the variance — worth
 knowing whether two of ten is typical or was a bad pair of runs.
+
+## `actions/cache` v6 shipped with its save path unexercised, 2 September 2026
+
+Found reviewing Dependabot [#295](https://github.com/Patrascu-Lucian/CiteSeek/pull/295), which took
+`actions/cache` from v4 to v6 in `.github/workflows/model.yml`. Merged on six green checks, and the
+green covers half the diff.
+
+**The job log proves the restore and says nothing about the save.** `actions/cache/restore@v6` hit
+the primary key and reported "Cache restored successfully"; the run then went straight to post-job
+cleanup. The save step is `if: success() && steps.model-cache.outputs.cache-hit != 'true'`, so a
+primary-key hit skips it. `actions/cache/save@v6` has never run.
+
+**The unexercised half is the one carrying the reasoning.** The restore/save split exists because
+`actions/cache`'s own post-step writes even when the job failed, persisting a partial cache the next
+run reads as a hit. That guarantee lives entirely in the step that has not executed.
+
+**Two changes in v6 land on exactly that path.** v6.0.0 migrated the action to ESM. v6.1.0's release
+notes name handling a cache write error under a read-only token, and a save-only warning change —
+and `model.yml` runs `permissions: contents: read` with save-only. Not evidence of a defect; it is
+the intersection where one would show up.
+
+**Merged deliberately rather than tested first, because the blast radius is a slow job.** A broken
+save is either red on the next pull request touching `lib/local/**`, revertible in one line, or a
+silent no-op that costs a refetch — 14,780,418 B at 65 MB/s in the run above. Forcing a miss would
+have meant a commit on the Dependabot branch, which stops Dependabot managing it, or a throwaway
+pull request. Neither is worth a slow job.
+
+**The trigger**: the key is `model-${{ hashFiles('lib/local/generate.model.test.ts') }}`, so the
+save step runs only when that one file changes. Next time it does, read the model job's log for a
+successful save, and confirm the run after it restores from what v6 wrote. Until then this is
+recorded rather than open.
+
+**One number to check while there.** The comment above the save step says an unrelated edit
+"re-downloads 31 MB", and the restore log reports 14 MB transferred before `unzstd`. Probably
+compressed against extracted, but the save log prints the size it uploads, so the run that closes
+this entry is also the one that settles which number the comment should carry.
+
+## `/account` cannot own its own sign-in failure, 3 September 2026
+
+Found planning the copy for a failed provider link. `OAuthAccountNotLinked` is thrown for two
+different situations, and the plan assumed each page could state the meaning true where it is:
+`/sign-in` for the cold case, `/account` for a link attempted from a session.
+
+**`/account` never receives the error.** `@auth/core@0.41.3`'s `src/index.ts` builds the failure
+redirect as:
+
+```ts
+const pageKind = (isAuthError && error.kind) || "error";
+const pagePath =
+  config.pages?.[pageKind] ?? `${config.basePath}/${pageKind.toLowerCase()}`;
+const url = `${internalRequest.url.origin}${pagePath}?${params}`;
+```
+
+`OAuthAccountNotLinked extends SignInError`, and `SignInError.kind = "signIn"`, so the redirect
+resolves to `pages.signIn` — `/sign-in` here. `redirectTo: "/account"` governs where a _successful_
+sign-in lands and nothing else, and `params` carries only `error` (plus `code` for credentials), so
+the callbackUrl that would identify the account flow is dropped.
+
+**Nor can the server action catch it.** `linkProviderAction` redirects the browser to the provider
+and is finished; the throw happens later, in the `/api/auth/callback/:provider` handler.
+
+So the copy on `/sign-in` has to be true of both situations, which is what shipped: it names the way
+through rather than the cause. The two throw sites are `handle-login.ts:188` (signed in, that
+provider account belongs to another user) and `:250` (not signed in, the address already exists).
+
+**What would let each page speak for itself**: a custom `pages.signIn` that reads a marker set before
+the OAuth hop — a short-lived cookie, since the querystring does not survive. Worth doing only if a
+reader is observed getting lost, and worth knowing that it is a cookie's worth of work rather than a
+config option.
+
+## Nothing unlinks a provider, 4 September 2026
+
+Raised in review of the v1.5.0 diff. The Sign-in methods card adds and never removes. Someone who
+links the wrong Google account — the work one rather than the personal one — has no way back short
+of "Delete your account", which cascades their documents and conversations with it.
+
+The card's own copy invites the question: _"Any of these reaches the same account."_ A reader who
+takes that in will look for the inverse.
+
+**Deliberately not built yet, because the invariant is the work.** Removing the last provider makes
+an account unreachable — no session to link from, and the sign-in page cannot adopt it, which is the
+whole point of [ADR 051](decisions/051-linking-a-second-provider.md). So an unlink control has to
+refuse when one method is left, and refusing is a state the card does not currently have.
+
+Worth doing when a second reader has actually linked two providers. Until then it is a control for
+a situation nobody is in, and the failure it prevents costs one extra sign-in rather than any data.
+
+## Deferred from the v1.5.0 review: two mechanisms, not defects, 5 September 2026
+
+Both were raised twice and are left deliberately.
+
+**A provider button renders whether or not its credentials exist.** Filtering `AUTH_PROVIDERS` on
+`process.env[...]` would turn "wrong order, silent" into "wrong order, the button is absent", which
+a preview shows you — the same argument as the `trustHost` outage, where production was the first
+place the code ever ran. Not taken now because `auth.ts` builds its provider list from the same
+constant, so an unset id would stop a provider being _configured_ and not merely offered, and the
+E2E suite asserts the Google button is visible. Doing it means deciding what the test environment
+sets, which is a change to make on its own rather than inside a release.
+
+↳ **And `.env.example` oversells previews.** It says Google "accepts several authorized redirect
+URIs on one client, so preview deployments can be added instead of needing a second client". True
+per URI, but Vercel preview URLs carry a per-deploy hash and Google does not accept wildcards, so
+there is no finite set to register — only a stable per-branch alias would work. GitHub has the same
+limitation for the same reason, so previews have never had a working OAuth round trip here.
+
+**`/account` is outside the axe sweep.** It needs a session, and the sweep in `e2e/a11y.spec.ts`
+runs anonymously. The page grew again this release — a second `<dl>`, a stack of forms, a button
+carrying `aria-busy` — so the untested surface is larger than when this was first noted.
+`e2e/link-provider.spec.ts` established the signed-in pattern, so the cost is now a few lines rather
+than a fixture.

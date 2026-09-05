@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 
 import { signIn } from "@/auth";
+import { SubmitButton } from "@/components/auth/submit-button";
+import { Button } from "@/components/ui/button";
+import { AUTH_PROVIDERS } from "@/lib/auth/providers";
 import { getActor } from "@/lib/auth/actor";
 import {
   Card,
@@ -15,14 +18,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-import { SubmitButton } from "./submit-button";
-
 export const metadata: Metadata = { title: "Sign in" };
 
+/** A reader with a session did not come here to sign in — they came from
+ * "Add a method" on `/account` — so the same code means something else. */
+const LINKING_MESSAGES: Record<string, string> = {
+  OAuthAccountNotLinked:
+    "That account is already connected to a different CiteSeek account, so it was not added. Your existing sign-in methods are unchanged.",
+  OAuthCallbackError:
+    "That was cancelled, so nothing was added. Your existing sign-in methods are unchanged.",
+};
+
+/* `OAuthCallbackError`, not `AccessDenied`: the latter is thrown only when the
+   app's own `signIn` callback refuses, and this app defines no callbacks. */
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthAccountNotLinked:
-    "That email is already registered with a different sign-in method.",
-  AccessDenied: "Sign-in was canceled or access was denied.",
+    "That email is already registered with a different sign-in method. Sign in the way you did before, then add this one from your account page.",
+  OAuthCallbackError:
+    "Sign-in was cancelled, or the provider turned it down. Nothing changed.",
   Configuration:
     "Sign-in is not configured correctly. This is a problem on our side.",
 };
@@ -33,15 +46,24 @@ export default async function SignInPage({
   searchParams: Promise<{ error?: string; callbackUrl?: string }>;
 }) {
   const actor = await getActor();
-  // Already signed in: go to their workspace, not back to the landing page.
-  // Sending them to "/" produced a loop -- the landing CTA points here, so
-  // clicking "Get started" bounced straight back and looked like a dead button.
-  if (actor?.type === "user") redirect("/w");
-
   const { error, callbackUrl } = await searchParams;
-  const errorMessage = error
-    ? (ERROR_MESSAGES[error] ?? "Something went wrong signing you in.")
-    : null;
+  const signedIn = actor?.type === "user";
+
+  // Not "/": the landing CTA points here, so that looped. Not on an error
+  // either: a failed link arrives signed in, and redirecting swallowed it.
+  if (signedIn && !error) redirect("/w");
+
+  // `Object.hasOwn`, because `error` is attacker-supplied: a plain lookup of
+  // `__proto__` or `toString` returns something `??` does not treat as absent,
+  // and React throws on a non-string child.
+  const said = (map: Record<string, string>) =>
+    Object.hasOwn(map, error ?? "") ? map[error!] : undefined;
+
+  const errorMessage = !error
+    ? null
+    : ((signedIn ? said(LINKING_MESSAGES) : undefined) ??
+      said(ERROR_MESSAGES) ??
+      "Something went wrong signing you in.");
 
   return (
     <main
@@ -50,11 +72,17 @@ export default async function SignInPage({
     >
       <Card className="w-full max-w-md">
         <CardHeader>
+          {/* The `h1` is this page's accessible name, and a reader who arrives
+              signed in did not come here to sign in. */}
           <CardTitle asChild className="text-xl">
-            <h1>Sign in to CiteSeek</h1>
+            <h1>
+              {signedIn ? "Adding a sign-in method" : "Sign in to CiteSeek"}
+            </h1>
           </CardTitle>
           <CardDescription>
-            Upload your own documents and keep your chat history.
+            {signedIn
+              ? "This did not change how you sign in today."
+              : "Upload your own documents and keep your chat history."}
           </CardDescription>
         </CardHeader>
 
@@ -73,29 +101,45 @@ export default async function SignInPage({
             </div>
           ) : null}
 
-          <form
-            action={async () => {
-              "use server";
-              await signIn("github", { redirectTo: callbackUrl ?? "/w" });
-            }}
-          >
-            <SubmitButton>Continue with GitHub</SubmitButton>
-          </form>
+          {/* Signed in, so the failure was a link and not a sign-in. */}
+          {signedIn ? (
+            <Button asChild variant="outline" className="w-full" size="lg">
+              <Link href="/account">Back to your account</Link>
+            </Button>
+          ) : (
+            AUTH_PROVIDERS.map(({ id, label }) => (
+              // One form each: `useFormStatus` reports the enclosing form, so a
+              // shared form would spin both buttons on either click.
+              <form
+                key={id}
+                action={async () => {
+                  "use server";
+                  await signIn(id, { redirectTo: callbackUrl ?? "/w" });
+                }}
+              >
+                <SubmitButton block pendingLabel={`Taking you to ${label}…`}>
+                  Continue with {label}
+                </SubmitButton>
+              </form>
+            ))
+          )}
         </CardContent>
 
-        <CardFooter className="flex-col items-start gap-2">
-          <p className="text-muted-foreground text-sm">
-            Just looking around?{" "}
-            <Link
-              href="/demo"
-              prefetch={false}
-              className="text-foreground underline underline-offset-4"
-            >
-              Try the demo
-            </Link>{" "}
-            — no account needed.
-          </p>
-        </CardFooter>
+        {signedIn ? null : (
+          <CardFooter className="flex-col items-start gap-2">
+            <p className="text-muted-foreground text-sm">
+              Just looking around?{" "}
+              <Link
+                href="/demo"
+                prefetch={false}
+                className="text-foreground underline underline-offset-4"
+              >
+                Try the demo
+              </Link>{" "}
+              — no account needed.
+            </p>
+          </CardFooter>
+        )}
       </Card>
     </main>
   );

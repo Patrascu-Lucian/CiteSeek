@@ -33,7 +33,14 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  reporter: process.env.CI
+    ? [
+        ["github"],
+        ["html", { open: "never" }],
+        // Read by `check:test-counts`.
+        ["junit", { outputFile: "test-results/e2e.junit.xml" }],
+      ]
+    : "list",
   use: {
     baseURL,
     // Coupled to `retries` above: `on-first-retry` produces nothing locally,

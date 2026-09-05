@@ -10,6 +10,7 @@ import { AccountView } from "./account-view";
 vi.mock("@/lib/auth/actions", () => ({
   signOutAction: vi.fn(),
   leaveDemoAction: vi.fn(),
+  linkProviderAction: vi.fn(),
 }));
 
 /**
@@ -26,6 +27,7 @@ const user = {
   name: "Ada Lovelace",
   email: "ada@example.com",
   providers: ["GitHub"],
+  linkable: [{ id: "google", label: "Google" }],
 } as const;
 
 describe("AccountView — a signed-in user", () => {
@@ -40,7 +42,15 @@ describe("AccountView — a signed-in user", () => {
   it("says a field is absent rather than rendering a blank row", () => {
     // GitHub accounts can withhold both. A silent empty cell reads as a bug in
     // the page rather than as an absent value.
-    render(<AccountView kind="user" name={null} email={null} providers={[]} />);
+    render(
+      <AccountView
+        kind="user"
+        name={null}
+        email={null}
+        providers={[]}
+        linkable={[]}
+      />,
+    );
 
     expect(screen.getAllByText(/not provided/i)).toHaveLength(3);
   });
@@ -76,10 +86,16 @@ describe("AccountView — a signed-in user", () => {
     // identical if the markup were a pile of divs.
     const { container } = render(<AccountView {...user} />);
 
-    const list = container.querySelector("dl");
-    expect(list).not.toBeNull();
-    expect(within(list!).getAllByRole("term")).toHaveLength(3);
-    expect(within(list!).getAllByRole("definition")).toHaveLength(3);
+    // Across every list, not the first one: the sign-in row moved to its own
+    // card, and which card holds a pair is not what this is asserting.
+    const lists = [...container.querySelectorAll("dl")];
+
+    expect(
+      lists.flatMap((list) => within(list).getAllByRole("term")),
+    ).toHaveLength(3);
+    expect(
+      lists.flatMap((list) => within(list).getAllByRole("definition")),
+    ).toHaveLength(3);
   });
 });
 
@@ -120,6 +136,38 @@ describe("AccountView — a guest", () => {
 
     expect(
       screen.getByRole("button", { name: /leave the demo/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("linking a second provider", () => {
+  it("offers the ones not linked yet, and does not re-offer the current one", () => {
+    render(<AccountView {...user} />);
+
+    expect(
+      screen.getByRole("button", { name: /add google/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /add github/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers nothing to add once every provider is linked", () => {
+    render(
+      <AccountView {...user} providers={["GitHub", "Google"]} linkable={[]} />,
+    );
+
+    expect(screen.queryByRole("button", { name: /^add /i })).toBeNull();
+    expect(screen.getByText("GitHub, Google")).toBeInTheDocument();
+  });
+
+  it("says linking attaches to this session, not to a matching email", () => {
+    // The reason the card exists rather than the sign-in page adopting an
+    // account on a shared address (ADR 051).
+    render(<AccountView {...user} />);
+
+    expect(
+      screen.getByText(/links it to the session you are in/i),
     ).toBeInTheDocument();
   });
 });

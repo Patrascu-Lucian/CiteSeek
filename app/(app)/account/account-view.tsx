@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DeleteAccountDialog } from "@/components/account/delete-account-dialog";
+import { SubmitButton } from "@/components/auth/submit-button";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,7 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { leaveDemoAction, signOutAction } from "@/lib/auth/actions";
+import {
+  leaveDemoAction,
+  linkProviderAction,
+  signOutAction,
+} from "@/lib/auth/actions";
 import { pageShell } from "@/components/ui/page-shell";
 
 /**
@@ -26,6 +31,8 @@ export type AccountViewProps =
       /** Already resolved — this component does no lookups. `readonly` so a caller
        * can pass a frozen literal without a cast. */
       providers: readonly string[];
+      /** The providers not linked yet, resolved by the page for the same reason. */
+      linkable: readonly { id: string; label: string }[];
     };
 
 export function AccountView(props: AccountViewProps) {
@@ -74,6 +81,7 @@ function UserAccount({
   name,
   email,
   providers,
+  linkable,
 }: Extract<AccountViewProps, { kind: "user" }>) {
   return (
     <>
@@ -95,14 +103,11 @@ function UserAccount({
 
             <dt className="text-muted-foreground">Email</dt>
             <dd>{email ?? <NotProvided />}</dd>
-
-            <dt className="text-muted-foreground">Signs in with</dt>
-            <dd>
-              {providers.length > 0 ? providers.join(", ") : <NotProvided />}
-            </dd>
           </dl>
         </CardContent>
       </Card>
+
+      <SignInMethods providers={providers} linkable={linkable} />
 
       <Card className="mt-6">
         <CardHeader>
@@ -110,8 +115,9 @@ function UserAccount({
             <h2>Ending your session</h2>
           </CardTitle>
           <CardDescription>
-            Signing out leaves everything where it is. Sign back in with the
-            same provider and your documents and conversations will be waiting.
+            Signing out leaves everything where it is. Sign back in with any of
+            the methods above and your documents and conversations will be
+            waiting.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -145,6 +151,48 @@ function UserAccount({
         </CardContent>
       </Card>
     </>
+  );
+}
+
+function SignInMethods({
+  providers,
+  linkable,
+}: Pick<
+  Extract<AccountViewProps, { kind: "user" }>,
+  "providers" | "linkable"
+>) {
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle asChild className="text-lg">
+          <h2>Sign-in methods</h2>
+        </CardTitle>
+        <CardDescription>
+          Any of these reaches the same account. Adding one from here links it
+          to the session you are in, so it never depends on two services
+          agreeing about your email address.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <dl className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-[10rem_1fr]">
+          <dt className="text-muted-foreground">Signs in with</dt>
+          <dd>
+            {providers.length > 0 ? providers.join(", ") : <NotProvided />}
+          </dd>
+        </dl>
+
+        {linkable.map(({ id, label }) => (
+          <form key={id} action={linkProviderAction.bind(null, id)}>
+            <SubmitButton
+              variant="outline"
+              pendingLabel={`Taking you to ${label}…`}
+            >
+              Add {label}
+            </SubmitButton>
+          </form>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
