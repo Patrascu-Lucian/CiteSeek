@@ -11,10 +11,13 @@ export function SubmitButton({
   children,
   pendingLabel,
   variant,
+  /** The sign-in page's one big button; the account card's sit in a row. */
+  block = false,
 }: {
   children: React.ReactNode;
   pendingLabel: string;
   variant?: React.ComponentProps<typeof Button>["variant"];
+  block?: boolean;
 }) {
   const { pending } = useFormStatus();
 
@@ -22,8 +25,8 @@ export function SubmitButton({
     <Button
       type="submit"
       variant={variant}
-      className={variant ? undefined : "w-full"}
-      size={variant ? undefined : "lg"}
+      className={block ? "w-full" : undefined}
+      size={block ? "lg" : undefined}
       disabled={pending}
       aria-busy={pending || undefined}
     >
