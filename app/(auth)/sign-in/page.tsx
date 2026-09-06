@@ -160,8 +160,12 @@ export default async function SignInPage({
                   className="border-input focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
                 />
                 <SubmitButton block variant="outline" pendingLabel="Sending…">
-                  Email me a sign-in link
+                  Continue with email
                 </SubmitButton>
+                <p className="text-muted-foreground text-xs">
+                  No password, and no GitHub or Google account needed — we send
+                  a link that signs you in.
+                </p>
               </form>
             </>
           )}
