@@ -161,6 +161,30 @@ describe("linking a second provider", () => {
     expect(screen.getByText("GitHub, Google")).toBeInTheDocument();
   });
 
+  it("shows a reader who has only ever used a link how they sign in", () => {
+    // The case this exists for: magic link writes no `accounts` row, so this
+    // reader used to see "Signs in with — Not provided".
+    render(
+      <AccountView
+        {...user}
+        providers={["Email link"]}
+        linkable={[
+          { id: "github", label: "GitHub" },
+          { id: "google", label: "Google" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Email link")).toBeInTheDocument();
+    expect(screen.queryAllByText(/not provided/i)).toHaveLength(0);
+    expect(
+      screen.getByRole("button", { name: /add github/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /add google/i }),
+    ).toBeInTheDocument();
+  });
+
   it("says linking attaches to this session, not to a matching email", () => {
     // The reason the card exists rather than the sign-in page adopting an
     // account on a shared address (ADR 051).
