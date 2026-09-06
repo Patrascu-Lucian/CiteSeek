@@ -91,8 +91,9 @@ export default function PrivacyPage() {
       <Section title="Where it is stored">
         <p>
           The application runs in Frankfurt (Vercel <code>fra1</code>) and the
-          database is a Neon Postgres instance in the same region. Both are
-          pinned in configuration rather than left to a default.
+          database is a Neon Postgres instance in the same region. Sign-in
+          emails are sent from Paris (Scaleway <code>fr-par</code>). All three
+          are pinned in configuration rather than left to a default.
         </p>
       </Section>
 
@@ -154,6 +155,12 @@ export default function PrivacyPage() {
             <strong>GitHub or Google</strong> — whichever you sign in with, and
             only to confirm who you are. Signing in with Google puts Google on
             this list twice, for two unrelated reasons.
+          </li>
+          <li>
+            <strong>Scaleway</strong> — receives your email address in order to
+            send you a sign-in link, and only when you ask for one. Its
+            Transactional Email service runs in Paris, and its data processing
+            agreement commits to storing personal data in the European Union.
           </li>
         </ul>
       </Section>
