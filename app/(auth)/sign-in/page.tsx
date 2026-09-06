@@ -123,6 +123,48 @@ export default async function SignInPage({
               </form>
             ))
           )}
+
+          {signedIn ? null : (
+            <>
+              {/* aria-hidden on the rule, because "or" is the whole content and
+                  a separator announced as one says nothing a reader needs. */}
+              <div
+                aria-hidden="true"
+                className="text-muted-foreground flex items-center gap-3 text-xs"
+              >
+                <span className="border-border flex-1 border-t" />
+                or
+                <span className="border-border flex-1 border-t" />
+              </div>
+
+              <form
+                action={async (formData: FormData) => {
+                  "use server";
+                  await signIn("scaleway", {
+                    email: formData.get("email"),
+                    redirectTo: callbackUrl ?? "/w",
+                  });
+                }}
+                className="space-y-2"
+              >
+                <label htmlFor="email" className="text-sm font-medium">
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  className="border-input focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                />
+                <SubmitButton block variant="outline" pendingLabel="Sending…">
+                  Email me a sign-in link
+                </SubmitButton>
+              </form>
+            </>
+          )}
         </CardContent>
 
         {signedIn ? null : (
