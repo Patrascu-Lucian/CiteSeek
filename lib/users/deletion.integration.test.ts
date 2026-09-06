@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { usageEvents, users } from "@/lib/db/schema";
+import { usageEvents, users, verificationTokens } from "@/lib/db/schema";
 import {
   cleanupTestRows,
   clearUsageEvents,
@@ -75,5 +75,71 @@ describe("deleteUserAccount", () => {
         .from(usageEvents)
         .where(eq(usageEvents.actorId, theirs)),
     ).toHaveLength(1);
+  });
+});
+describe("deleteUserAccount and the sign-in tokens", () => {
+  const link = (identifier: string) =>
+    db.insert(verificationTokens).values({
+      identifier,
+      token: `tok-${crypto.randomUUID()}`,
+      expires: new Date(Date.now() + 600_000),
+    });
+
+  const tokensFor = (identifier: string) =>
+    db
+      .select({ token: verificationTokens.token })
+      .from(verificationTokens)
+      .where(eq(verificationTokens.identifier, identifier));
+
+  it("takes the unspent links with it", async () => {
+    // No foreign key reaches this table — the identifier is an address, because
+    // no user exists when the first link is asked for. So nothing cascades, and
+    // the privacy page promises deletion removes everything.
+    const user = await createTestUser(db);
+    const email = `erase-${user.id}@example.test`;
+    await db.update(users).set({ email }).where(eq(users.id, user.id));
+    await link(email);
+
+    await deleteUserAccount(user.id);
+
+    expect(await tokensFor(email)).toEqual([]);
+  });
+
+  it("matches an identifier that differs in case from the stored address", async () => {
+    // Auth.js lowercases an identifier before storing it; an OAuth profile
+    // supplies `users.email` untouched. Anyone who used GitHub before a link
+    // has the two in different cases, and an exact match would leave a live
+    // credential behind after erasure.
+    const user = await createTestUser(db);
+    const stored = `Erase-Mixed-${user.id}@Example.test`;
+    await db.update(users).set({ email: stored }).where(eq(users.id, user.id));
+    await link(stored.toLowerCase());
+
+    await deleteUserAccount(user.id);
+
+    expect(await tokensFor(stored.toLowerCase())).toEqual([]);
+  });
+
+  it("leaves another address's links alone", async () => {
+    const mine = await createTestUser(db, "mine");
+    const email = `erase-mine-${mine.id}@example.test`;
+    const theirs = `erase-theirs-${mine.id}@example.test`;
+    await db.update(users).set({ email }).where(eq(users.id, mine.id));
+    await link(email);
+    await link(theirs);
+
+    await deleteUserAccount(mine.id);
+
+    expect(await tokensFor(theirs)).toHaveLength(1);
+    await db
+      .delete(verificationTokens)
+      .where(eq(verificationTokens.identifier, theirs));
+  });
+
+  it("still deletes an account whose provider withheld an address", async () => {
+    // GitHub can. `users.email` is nullable, and erasure must not depend on it.
+    const user = await createTestUser(db);
+
+    expect(await deleteUserAccount(user.id)).toBe(true);
   });
 });
