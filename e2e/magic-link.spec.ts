@@ -97,7 +97,7 @@ test.describe("asking for a link", () => {
 
     await expect(page.getByLabel(/email address/i)).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /email me a sign-in link/i }),
+      page.getByRole("button", { name: /continue with email/i }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: /continue with github/i }),

@@ -24,6 +24,8 @@ export default function CheckYourEmailPage() {
           <CardTitle asChild className="text-xl">
             <h1>Check your email</h1>
           </CardTitle>
+          {/* The same sentence whether that address has an account —
+              otherwise this page tells a stranger who is registered. */}
           <CardDescription>
             A sign-in link is on its way to the address you entered.
           </CardDescription>
@@ -41,10 +43,7 @@ export default function CheckYourEmailPage() {
             </Link>
             .
           </p>
-          {/* Says nothing happened rather than nothing was sent: an address with
-              no account still gets a link, and saying otherwise here would tell
-              a stranger which addresses are registered. */}
-          <p>You can close this tab. Nothing else is waiting on it.</p>
+          <p>You can safely close this page.</p>
         </CardContent>
       </Card>
     </main>
