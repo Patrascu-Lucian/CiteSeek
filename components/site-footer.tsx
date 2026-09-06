@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { REPOSITORY_URL } from "@/lib/links";
 import { pageShell } from "@/components/ui/page-shell";
 
 /**
@@ -14,41 +13,25 @@ export function SiteFooter() {
   return (
     <footer className="border-border/60 mt-auto border-t">
       <div className={pageShell("5xl", "text-muted-foreground py-8 text-sm")}>
-        {/*
-          Names spelled out: "Privacy" alone could be a setting. Labeled for what
-          it holds, since a landmark whose name does not describe its contents is
-          worse than an unnamed one.
-
-          Two columns at every width above a phone, including desktop — a single
-          row of four was the old layout and `flex-wrap` stranded a lone name on
-          its own line at the widths in between.
-
-          Two nested groups rather than four children flowing into a grid: the
-          split is what a reader recognises — the project, then the policies —
-          and it survives a fifth link, where `grid-flow-col` over two rows would
-          silently regroup and `nth-child` styling would point at the wrong one.
-        */}
+        {/* Two columns above a phone: one row of names was the old layout and
+          `flex-wrap` stranded a lone one in between. Nested groups rather than a
+          flat grid, so adding a link cannot regroup the columns. */}
         <nav
-          aria-label="About this project"
+          aria-label="This project"
           className="grid grid-cols-1 gap-3 sm:grid-cols-2"
         >
           <div className="flex flex-col gap-3">
-            {/* About and Contact first: they are what this landmark is named
-              for, and the two anyone actually clicks. */}
             <Link href="/about" className="hover:text-foreground underline">
               About
             </Link>
-            {/* The privacy page promises somewhere to send an erasure request,
-              and until this link existed that promise pointed at nothing. A
-              repository rather than a form, which would need a sender and spam
-              handling to do what issues already do. */}
-            <a
-              href={REPOSITORY_URL}
-              className="hover:text-foreground underline"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <Link href="/contact" className="hover:text-foreground underline">
               Contact
+            </Link>
+            {/* A plain anchor: /local needs the headers its own response
+              carries, and a client navigation keeps the previous page's
+              (ADR 028). */}
+            <a href="/local" className="hover:text-foreground underline">
+              Local mode (Experimental)
             </a>
           </div>
 
@@ -65,24 +48,6 @@ export function SiteFooter() {
             </Link>
           </div>
         </nav>
-
-        {/*
-          Its own row rather than joining the nav above: that landmark is named
-          for pages about the project, and a route the reader can use does not
-          belong under it.
-
-          A plain anchor, not <Link> — /local needs the WASM directives its own
-          response carries, and a client-side navigation would leave whichever
-          page the reader came from governing it (ADR 028). This footer renders
-          on every route, so a <Link> here would break local mode from all of
-          them rather than from one page.
-        */}
-        <p className="mt-3 flex flex-wrap items-center gap-2">
-          <a href="/local" className="hover:text-foreground underline">
-            Local mode
-          </a>
-          <span>(Experimental)</span>
-        </p>
 
         <div className="border-border/60 mt-6 border-t pt-6">
           {/* The repository is public with no license file, so everything is

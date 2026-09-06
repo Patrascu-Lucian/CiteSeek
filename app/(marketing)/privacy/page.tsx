@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { REPOSITORY_URL } from "@/lib/links";
 import { pageShell } from "@/components/ui/page-shell";
 
 export const metadata: Metadata = {
@@ -217,18 +216,12 @@ export default function PrivacyPage() {
 
       <Section title="Contact">
         <p>
-          This is a portfolio project rather than a company. Questions and
-          erasure requests go through{" "}
-          <a
-            href={REPOSITORY_URL}
-            className="underline"
-            target="_blank"
-            rel="noreferrer"
-          >
-            the repository
-          </a>
-          , which is linked in the footer of every page. You can also delete
-          everything yourself from the{" "}
+          Every way to reach this project, and to act without reaching it, is on
+          the{" "}
+          <Link href="/contact" className="underline">
+            contact page
+          </Link>
+          . You can delete everything yourself from the{" "}
           <Link href="/account" className="underline">
             account page
           </Link>{" "}
