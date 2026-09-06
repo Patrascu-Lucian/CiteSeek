@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const exhausted = vi.hoisted(() => vi.fn().mockResolvedValue(false));
+const record = vi.hoisted(() => vi.fn());
+
+// Reaches `lib/db` through the counting query, which a unit test has no
+// database for. What it decides is covered by the integration suite.
+vi.mock("@/lib/usage/sign-in-links", () => ({
+  signInLinksExhausted: exhausted,
+  recordSignInLink: record,
+}));
+
 import { scalewayEmail } from "./email-provider";
 
 type Params = Parameters<
@@ -13,6 +23,9 @@ const send = (overrides: Partial<Params> = {}) => {
     identifier: "reader@example.com",
     url: "https://citeseek.app/api/auth/callback/scaleway?token=raw&email=reader%40example.com",
     provider: { ...provider, apiKey: "test-key" },
+    request: new Request("https://citeseek.app/api/auth/signin/scaleway", {
+      headers: { "x-forwarded-for": "203.0.113.7" },
+    }),
     ...overrides,
   } as Params);
 };
@@ -27,6 +40,10 @@ const sent = () => {
 };
 
 beforeEach(() => {
+  // `clientIpHash` refuses to hash without it, which is the guard working.
+  process.env.AUTH_SECRET ??= "test-secret";
+  exhausted.mockReset().mockResolvedValue(false);
+  record.mockReset();
   process.env.SCALEWAY_PROJECT_ID = "proj-1";
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
 });
@@ -85,6 +102,23 @@ describe("the Scaleway email provider", () => {
 
     await expect(send()).rejects.toThrow(/SCALEWAY_PROJECT_ID/);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not send once the caller has spent their allowance", async () => {
+    exhausted.mockResolvedValue(true);
+
+    await expect(send()).rejects.toThrow(/too many/i);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("counts the request before spending it, not after", async () => {
+    // A provider that is slow or failing would otherwise be a way to send more
+    // than the allowance.
+    await send();
+
+    expect(record.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(fetch).mock.invocationCallOrder[0]!,
+    );
   });
 
   it("reports a refused send without repeating the address or the link", async () => {

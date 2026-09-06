@@ -325,13 +325,14 @@ export type Chat = typeof chats.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 
-/**
- * What was spent, and by whom. Append-only, and the source for four questions at
- * different scales — the rate limit, the personal cap, the global cap, and the
- * usage dashboard — all of which are `where actor = ? and created_at > ?` over
- * the same rows. Pruned on a retention window; see `lib/usage/queries.ts`.
- */
-export const usageKind = pgEnum("usage_kind", ["chat", "embedding"]);
+/** Append-only. Four questions at different scales — rate limit, personal cap,
+ * global cap, dashboard — are all `where actor = ? and created_at > ?`. */
+/** `sign_in_link` is the only kind an unauthenticated caller can cause. */
+export const usageKind = pgEnum("usage_kind", [
+  "chat",
+  "embedding",
+  "sign_in_link",
+]);
 
 export const usageEvents = pgTable(
   "usage_events",

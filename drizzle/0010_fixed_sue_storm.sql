@@ -1,0 +1,1 @@
+ALTER TYPE "public"."usage_kind" ADD VALUE 'sign_in_link';
