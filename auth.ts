@@ -38,6 +38,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/sign-in",
     error: "/sign-in",
+    verifyRequest: "/check-your-email",
   },
   /*
     **Not blanket trust of a client-supplied Host.** Vercel's proxy terminates TLS
