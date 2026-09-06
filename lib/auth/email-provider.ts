@@ -1,5 +1,11 @@
 import type { EmailConfig, EmailUserConfig } from "next-auth/providers/email";
 
+import { clientIpHash } from "@/lib/usage/client-ip";
+import {
+  recordSignInLink,
+  signInLinksExhausted,
+} from "@/lib/usage/sign-in-links";
+
 const SEND_URL =
   "https://api.scaleway.com/transactional-email/v1alpha1/regions/fr-par/emails";
 
@@ -46,10 +52,22 @@ export function scalewayEmail(config: EmailUserConfig = {}): EmailConfig {
     name: "Email",
     maxAge: MAX_AGE_SECONDS,
 
-    async sendVerificationRequest({ identifier, url, provider }) {
+    async sendVerificationRequest({ identifier, url, provider, request }) {
       if (!process.env.SCALEWAY_PROJECT_ID) {
         throw new Error("SCALEWAY_PROJECT_ID is not set; no email was sent.");
       }
+
+      // Here rather than in a route: Auth.js owns `/api/auth/*`, and this is
+      // the line that spends money. A limit anywhere else has another way in.
+      const ipHash = clientIpHash(request.headers);
+
+      if (await signInLinksExhausted(ipHash)) {
+        // Thrown, so Auth.js refuses the sign-in rather than reporting a link
+        // it never sent. The reader is not told which limit they met.
+        throw new Error("Too many sign-in links requested.");
+      }
+
+      await recordSignInLink(ipHash);
 
       const response = await fetch(SEND_URL, {
         method: "POST",
