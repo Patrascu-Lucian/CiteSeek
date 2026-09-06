@@ -2804,3 +2804,34 @@ tests, 117 E2E and a production build, green.
   before the save and discarded the 31 MB the run had just downloaded — and the commit that adds a
   model test is precisely the one that both busts the cache key and moves the count, so it would
   re-fetch on every push until the docs caught up. The check now runs after the save.
+
+## A vendor fact inferred from a dropdown, 6 September 2026
+
+- **Issue**: the backlog entry recording the email-sender decision claimed "Scaleway caps API key
+  lifetime at one year — there is no non-expiring option", and built a consequence on it: a dated
+  outage, a canary check worth building, and an argument for the credentials ADR that magic link
+  carries an ongoing cost OAuth does not. Review checked Scaleway's IAM documentation. Keys **do not
+  expire unless an expiry is set**; the ceiling is an Organization-level maximum credential duration,
+  a setting on our account.
+
+- **Cause**: I read the console's "API keys in this Organization can be valid for up to 1 year",
+  which is true, and reported it as a property of the vendor, which it is not. The dropdown offered
+  nothing longer because of a setting I had not looked for.
+
+- **Where it happened is the point.** That sentence sits in the commit whose entire argument is that
+  vendor claims must be read from primary sources — the same commit that disqualifies Resend by
+  quoting its documentation and clears Scaleway by quoting Article 11 of its DPA. Two facts checked
+  properly, one inferred from a UI, in one file.
+
+- **Fix**: the entry states what is true and records the expiry as a decision of ours that is still
+  open, with what each option costs. The argument aimed at the credentials ADR is gone, because the
+  premise it rested on was the false one.
+
+- **Lesson**: **a console tells you what your account is configured to do, not what the product can
+  do.** The two are the same sentence from the inside and different facts, and only the second one
+  belongs in a document that argues about vendors. The tell is available in advance: I could not
+  have quoted a source for the claim, and every other claim in that commit had one.
+
+- **And the shape it shares with the rest of this file**: the check I applied to the residency
+  question — read the primary source, quote it — was right there, already running, and I did not
+  apply it to the sentence in the next paragraph.
