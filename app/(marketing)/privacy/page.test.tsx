@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { SiteFooter } from "@/components/site-footer";
@@ -40,10 +40,23 @@ describe("the privacy page", () => {
     // A subprocessor list that omits one is worse than none.
     render(<PrivacyPage />);
 
-    // `getAllByText`: some are named twice on purpose — the hosting section
-    // says where things run, the processor list says who receives what.
-    for (const name of [/Google \(Gemini API\)/, /Vercel/, /Neon/, /GitHub/]) {
-      expect(screen.getAllByText(name).length).toBeGreaterThan(0);
+    // Scoped to the section, not the page: several are named twice on purpose —
+    // the hosting section says where things run — so a page-wide search reports
+    // a processor as listed when only the other mention survives.
+    const listed = within(
+      screen
+        .getByRole("heading", { name: /who else processes it/i })
+        .closest("section")!,
+    );
+
+    for (const name of [
+      /Google \(Gemini API\)/,
+      /Vercel/,
+      /Neon/,
+      /GitHub/,
+      /Scaleway/,
+    ]) {
+      expect(listed.getAllByText(name).length).toBeGreaterThan(0);
     }
   });
 
