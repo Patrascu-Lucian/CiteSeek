@@ -2923,3 +2923,40 @@ runs anonymously. The page grew again this release — a second `<dl>`, a stack 
 carrying `aria-busy` — so the untested surface is larger than when this was first noted.
 `e2e/link-provider.spec.ts` established the signed-in pattern, so the cost is now a few lines rather
 than a fixture.
+
+## Resend fails the residency rule, 6 September 2026
+
+Run as the first step of the email-sender work, before opening an account, because the answer
+decides the vendor.
+
+**Region selection does not move stored data.** From Resend's own documentation
+(`resend.com/docs/dashboard/domains/regions`):
+
+> Region selection controls where your emails are routed and sent from. It does not control where
+> customer data is stored. All account data, including email metadata, logs, and API records, is
+> stored in the United States regardless of the sending region you select.
+
+So `eu-west-1` dispatches from Ireland while message content, delivery logs and account records sit
+in the US. A GDPR Article 28 DPA is pre-signed for every account, which covers the lawful basis and
+not the location.
+
+**That is disqualifying here, and specifically on the half this project does pin.** The privacy page
+claims Frankfurt for the application and the database, "pinned in configuration rather than left to
+a default", and the README is careful that "EU-hosted" is exact about **storage** and silent about
+where the model runs. Resend fails the storage half. A magic-link email carries an address and a
+sign-in URL, so the stored message content is personal data.
+
+**Consequence: the Auth.js Resend provider stops applying**, and with it the plan's assumption that
+the provider is four lines. `sendVerificationRequest` is a `fetch`, so a hand-written provider
+against an EU vendor's REST API is roughly fifteen lines — the cost is a provider function and a
+test, not a redesign.
+
+**Candidates, none yet verified to primary sources.** Scaleway Transactional Email (French, Paris
+`fr-par`, 300 emails/month then €0.25/1,000, REST API and SMTP) reads as the closest fit. Brevo and
+Mailjet are the other EU-domiciled options. Whichever is chosen, the check to run before opening an
+account is the same one Resend failed: **where is message content stored**, in writing, and does the
+DPA name an EU region — not merely an EU sending endpoint.
+
+**And the same question is owed to Vercel and Neon.** Both are pinned to Frankfurt in configuration,
+which is what the page claims and is true. Neither claim was ever tested the way this one was, and
+the test turned out to matter.
