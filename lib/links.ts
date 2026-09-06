@@ -1,7 +1,7 @@
 /**
- * External destinations, in one place. The repository is the **interim** contact
- * route the privacy page has to name — a repo going private would take the
- * policy's contact route with it. Replaced by `/contact` once a domain exists.
+ * External destinations, in one place. `/contact` is the route the policy names
+ * now, but the repository is still what that page sends people to: the domain
+ * sends mail and cannot receive it, so there is no address to publish yet.
  */
 export const REPOSITORY_URL = "https://github.com/Patrascu-Lucian/CiteSeek";
 

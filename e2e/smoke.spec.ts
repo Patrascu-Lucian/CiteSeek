@@ -383,13 +383,14 @@ test.describe("the footer", () => {
     await page.goto("/");
 
     const links = await page
-      .getByRole("navigation", { name: /about this project/i })
+      .getByRole("navigation", { name: /^this project$/i })
       .getByRole("link")
       .allInnerTexts();
 
     expect(links).toEqual([
       "About",
       "Contact",
+      "Local mode (Experimental)",
       "Privacy Policy",
       "Terms of Service",
     ]);
@@ -402,7 +403,7 @@ test.describe("the footer", () => {
    */
   async function footerRows(page: Page) {
     const boxes = await page
-      .getByRole("navigation", { name: /about this project/i })
+      .getByRole("navigation", { name: /^this project$/i })
       .getByRole("link")
       .evaluateAll((links) =>
         links.map((link) => link.getBoundingClientRect().y),
@@ -415,14 +416,15 @@ test.describe("the footer", () => {
     await page.setViewportSize({ width: 375, height: 800 });
     await page.goto("/");
 
-    expect(await footerRows(page)).toBe(4);
+    expect(await footerRows(page)).toBe(5);
   });
 
   test("pairs them into two columns on a tablet", async ({ page }) => {
     await page.setViewportSize({ width: 700, height: 900 });
     await page.goto("/");
 
-    expect(await footerRows(page)).toBe(2);
+    // Three rows, not two columns' worth: the count is the taller column.
+    expect(await footerRows(page)).toBe(3);
   });
 
   test("groups the project left and the policies flush right", async ({
@@ -435,7 +437,7 @@ test.describe("the footer", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
 
-    const nav = page.getByRole("navigation", { name: /about this project/i });
+    const nav = page.getByRole("navigation", { name: /^this project$/i });
     const edges = async (name: string) => {
       const box = (await nav
         .getByRole("link", { name, exact: true })
@@ -456,15 +458,16 @@ test.describe("the footer", () => {
     expect(privacy.left).toBeGreaterThan(about.left);
   });
 
-  test("keeps two columns on a desktop, rather than one row of four", async ({
+  test("keeps two columns on a desktop, rather than one row of five", async ({
     page,
   }) => {
-    // Deliberate, and the reason this is asserted at a width where a single row
-    // would fit: four names across was the old layout and was not wanted back.
+    // Asserted at a width where a single row would fit, because a row of names
+    // was the old layout and was not wanted back. The count is the taller
+    // column: three sit left of two since local mode joined them.
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
 
-    expect(await footerRows(page)).toBe(2);
+    expect(await footerRows(page)).toBe(3);
   });
 });
 

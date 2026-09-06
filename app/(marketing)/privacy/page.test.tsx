@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { SiteFooter } from "@/components/site-footer";
 import { REPOSITORY_URL } from "@/lib/links";
 
+import ContactPage from "../contact/page";
 import PrivacyPage from "./page";
 import TermsPage from "../terms/page";
 
@@ -202,14 +203,15 @@ describe("the terms page", () => {
 });
 
 describe("the contact route the policy promises", () => {
-  it("links somewhere real for an erasure request", () => {
-    // This sentence shipped once while no repository link existed anywhere in
-    // the app — a policy promising a route to nothing.
+  it("sends the reader to a page of ours, not straight to a third party", () => {
+    // One route to change when an address exists, rather than every page that
+    // promises one. This sentence shipped once pointing at nothing at all.
     render(<PrivacyPage />);
 
-    expect(
-      screen.getByRole("link", { name: /the repository/i }),
-    ).toHaveAttribute("href", REPOSITORY_URL);
+    expect(screen.getByRole("link", { name: /contact page/i })).toHaveAttribute(
+      "href",
+      "/contact",
+    );
   });
 
   it("is reachable from the footer on every page", () => {
@@ -217,8 +219,36 @@ describe("the contact route the policy promises", () => {
 
     expect(screen.getByRole("link", { name: /contact/i })).toHaveAttribute(
       "href",
-      REPOSITORY_URL,
+      "/contact",
     );
+  });
+
+  it("names a route that actually reaches somebody", () => {
+    // The page exists to hold an address it does not have yet, so what it names
+    // has to be checked rather than assumed present.
+    render(<ContactPage />);
+
+    expect(
+      screen.getByRole("link", { name: /the repository/i }),
+    ).toHaveAttribute("href", REPOSITORY_URL);
+  });
+
+  it("says deletion needs no request at all", () => {
+    // The fastest answer to the question this page exists for, and the only one
+    // that does not depend on somebody reading a message.
+    render(<ContactPage />);
+
+    expect(screen.getByRole("link", { name: /account page/i })).toHaveAttribute(
+      "href",
+      "/account",
+    );
+    expect(screen.getByText(/no copy is kept/i)).toBeInTheDocument();
+  });
+
+  it("says local mode's documents are beyond any request", () => {
+    render(<ContactPage />);
+
+    expect(screen.getByText(/never reached a server/i)).toBeInTheDocument();
   });
 });
 
@@ -228,10 +258,10 @@ describe("the way into local mode", () => {
     // by typing the URL or reading the privacy policy.
     render(<SiteFooter />);
 
-    expect(screen.getByRole("link", { name: "Local mode" })).toHaveAttribute(
-      "href",
-      "/local",
-    );
-    expect(screen.getByText("(Experimental)")).toBeInTheDocument();
+    // One link, so the qualifier is part of what a reader clicks and what a
+    // screen reader announces as the destination.
+    expect(
+      screen.getByRole("link", { name: "Local mode (Experimental)" }),
+    ).toHaveAttribute("href", "/local");
   });
 });
