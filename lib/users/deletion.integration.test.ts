@@ -135,7 +135,7 @@ describe("deleteUserAccount and the sign-in tokens", () => {
     await deleteUserAccount(mine.id);
 
     expect(await tokensFor(theirs)).toHaveLength(1);
-    // Cleanup is `clearVerificationTokens` in `afterEach`, not a last line here:
+    // Cleanup is `clearVerificationTokens` in `beforeEach`, not a last line here:
     // a failing assertion above would have leaked the row.
   });
 

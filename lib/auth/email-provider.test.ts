@@ -130,13 +130,20 @@ describe("the Scaleway email provider", () => {
     expect(sent().body.html).not.toContain("<script>");
   });
 
-  it("sweeps expired tokens even for a caller it is about to refuse", async () => {
-    // The refused caller still gets a token row written, so this is exactly the
-    // traffic the sweep exists for.
+  it("sweeps for an admitted caller", async () => {
+    await send();
+
+    expect(prune).toHaveBeenCalled();
+  });
+
+  it("does not sweep for a caller it refused, so the allowance paces it", async () => {
+    // Above the admission check an anonymous caller sets the sweep's pace — the
+    // gate is process-global, not per-caller. The rows a refused caller leaves
+    // are collected by the next admitted one, anywhere.
     admit.mockResolvedValue(false);
 
     await expect(send()).rejects.toThrow();
-    expect(prune).toHaveBeenCalled();
+    expect(prune).not.toHaveBeenCalled();
   });
 
   it("sends anyway when the sweep fails, because housekeeping is not the sign-in", async () => {

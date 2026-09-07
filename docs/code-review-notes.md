@@ -2908,3 +2908,50 @@ tests, 117 E2E and a production build, green.
 
 - **And the shape it shares with the entry above**: the milestone's opening act was disqualifying a
   vendor for a residency claim stronger than its source. The page then made one.
+
+## A helper's trade-off belongs to the host it was written for, 7 September 2026
+
+- **Issue**: `atMostEvery` claims its window only after the work resolves, and `sweeps.test.ts` pins
+  that deliberately — "the gate advancing on failure would skip the sweep until the next window, and
+  this endpoint is only polled while a document is processing." I reused the helper to host a new
+  sweep on the sign-in send and never re-read that reasoning. On the new host the inverse holds: the
+  caller is anonymous, arrival is attacker-paced, and a sweep that kept failing would be retried by
+  every request rather than once a window. The sweep also sat above the throttle, so nothing had
+  rate-limited it yet.
+
+- **Cause**: the helper's comment reads as a property of the helper. It is a property of the helper
+  _plus the endpoint it was written against_, and the sentence naming the endpoint was right there.
+  I read it as justification for the existing behavior rather than as a statement of the conditions
+  the behavior depends on.
+
+- **Fix**: the sweep moved below the admission check, so the allowance paces it, and the failure is
+  swallowed inside the work so the window is claimed either way. Both are one line. The unit test
+  that asserted the old ordering was inverted rather than deleted — a refused caller sweeping nothing
+  is now the property worth pinning.
+
+- **Lesson**: **a documented trade-off is scoped to the conditions that made it a good trade, and
+  reuse is where those change silently.** The tell is mechanical: if a comment justifying a design
+  names a specific caller, adding a second caller invalidates the comment until someone checks.
+
+## The falsification that could not have failed, 7 September 2026
+
+- **Issue**: review pointed out that the throttle's error code and the copy the reader sees live in
+  two files with nothing binding them — delete the `AccessDenied` entry from the sign-in page's map
+  and the whole suite stays green. I wrote the E2E test, then falsified it by deleting the map entry
+  and re-running. **It passed.** Which would have meant my new test was worthless.
+
+- **Cause**: Playwright's `webServer` runs `pnpm start`, which serves the prebuilt `.next`. Editing a
+  source file changes nothing until `pnpm build` runs again. The falsification ran against bytes that
+  still contained the entry I had just deleted.
+
+- **Fix**: rebuild, re-run, and it fails with `"Something went wrong signing you in."` — the fallback,
+  which is exactly what review predicted. The test is real. Nothing about the test changed.
+
+- **And a second stale artifact in the same hour**: `CI=1 pnpm test:e2e --reporter=list` writes no
+  JUnit file, because `--reporter` replaces the config's reporter list rather than adding to it. So
+  `check-test-counts` compared the README against a report from a previous day — a run whose 163
+  tests were all `skipped`. Same shape as the entry above it in this file, one day later.
+
+- **Lesson**: **a green falsification is a result about the harness, not about the test.** When
+  breaking the code on purpose does not break the test, the first hypothesis is that the break never
+  reached the thing under test — and for anything served from a build artifact, it usually has not.

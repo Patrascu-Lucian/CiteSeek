@@ -92,26 +92,6 @@ export async function countRequestsSince(
   return row?.total ?? 0;
 }
 
-/** Filtered by kind: a guest on the demo shares an `ipHash` with a stranger
- * asking for links, and either would spend the other's allowance. */
-export async function countSignInLinksSince(
-  ipHash: string,
-  since: Date,
-): Promise<number> {
-  const [row] = await db
-    .select({ total: count() })
-    .from(usageEvents)
-    .where(
-      and(
-        eq(usageEvents.ipHash, ipHash),
-        eq(usageEvents.kind, "sign_in_link"),
-        gte(usageEvents.createdAt, since),
-      ),
-    );
-
-  return row?.total ?? 0;
-}
-
 /** The only query whose cost grows with total traffic, and it runs on every
  * admitted request — so it stays on `usage_events_created_at_idx` and applies
  * the kind as a filter over the day's rows rather than asking for an index. */
