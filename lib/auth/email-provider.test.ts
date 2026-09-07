@@ -1,14 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const exhausted = vi.hoisted(() => vi.fn().mockResolvedValue(false));
-const record = vi.hoisted(() => vi.fn());
+const admit = vi.hoisted(() => vi.fn().mockResolvedValue(true));
+const prune = vi.hoisted(() => vi.fn().mockResolvedValue(0));
+
+vi.mock("@/lib/auth/verification-tokens", () => ({
+  pruneVerificationTokens: prune,
+}));
+
+// The gate is `atMostEvery`, whose hourly window is per process — under test it
+// would let the first case sweep and silence every one after it. `sweeps.ts`
+// has its own tests for the gate.
+vi.mock("@/lib/sweeps", () => ({
+  pruneExpiredTokens: (work: () => Promise<unknown>) => work(),
+}));
 
 // Reaches `lib/db` through the counting query, which a unit test has no
 // database for. What it decides is covered by the integration suite.
-vi.mock("@/lib/usage/sign-in-links", () => ({
-  signInLinksExhausted: exhausted,
-  recordSignInLink: record,
-}));
+vi.mock("@/lib/usage/sign-in-links", () => ({ admitSignInLink: admit }));
 
 import { scalewayEmail } from "./email-provider";
 
@@ -42,8 +50,8 @@ const sent = () => {
 beforeEach(() => {
   // `clientIpHash` refuses to hash without it, which is the guard working.
   process.env.AUTH_SECRET ??= "test-secret";
-  exhausted.mockReset().mockResolvedValue(false);
-  record.mockReset();
+  admit.mockReset().mockResolvedValue(true);
+  prune.mockReset().mockResolvedValue(0);
   process.env.SCALEWAY_PROJECT_ID = "proj-1";
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
 });
@@ -104,11 +112,54 @@ describe("the Scaleway email provider", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("refuses to send with no key, rather than spending the allowance on a 401", async () => {
+    const provider = scalewayEmail();
+
+    await expect(
+      send({
+        provider: { ...provider, apiKey: undefined },
+      }),
+    ).rejects.toThrow(/AUTH_SCALEWAY_KEY/);
+    expect(admit).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("escapes the link rather than trusting how Auth.js built it", async () => {
+    await send({ url: 'https://citeseek.app/cb?token=a"><script>x</script>' });
+
+    expect(sent().body.html).not.toContain("<script>");
+  });
+
+  it("sweeps expired tokens even for a caller it is about to refuse", async () => {
+    // The refused caller still gets a token row written, so this is exactly the
+    // traffic the sweep exists for.
+    admit.mockResolvedValue(false);
+
+    await expect(send()).rejects.toThrow();
+    expect(prune).toHaveBeenCalled();
+  });
+
+  it("sends anyway when the sweep fails, because housekeeping is not the sign-in", async () => {
+    prune.mockRejectedValue(new Error("no database"));
+
+    await expect(send()).resolves.toBeUndefined();
+    expect(fetch).toHaveBeenCalled();
+  });
+
   it("does not send once the caller has spent their allowance", async () => {
-    exhausted.mockResolvedValue(true);
+    admit.mockResolvedValue(false);
 
     await expect(send()).rejects.toThrow(/too many/i);
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("refuses with a client-safe code, not one that says the app is broken", async () => {
+    // Any error Auth.js does not recognize becomes `Configuration`, whose copy
+    // reads "this is a problem on our side" — false, and it buries a real outage
+    // among ordinary throttling.
+    admit.mockResolvedValue(false);
+
+    await expect(send()).rejects.toMatchObject({ type: "AccessDenied" });
   });
 
   it("counts the request before spending it, not after", async () => {
@@ -116,7 +167,7 @@ describe("the Scaleway email provider", () => {
     // than the allowance.
     await send();
 
-    expect(record.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(admit.mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(fetch).mock.invocationCallOrder[0]!,
     );
   });
@@ -131,6 +182,18 @@ describe("the Scaleway email provider", () => {
     } as unknown as Response);
 
     await expect(send()).rejects.toThrow(/403 permission denied/);
-    await expect(send()).rejects.not.toThrow(/reader@example\.com/);
+    // Not `rejects.not.toThrow(address)`, which passes against any message
+    // that happens not to contain it — including one no implementation could
+    // produce. The URL is checked too: it is the half carrying a credential.
+    let message = "";
+    try {
+      await send();
+    } catch (cause) {
+      message = (cause as Error).message;
+    }
+
+    expect(message).toContain("403 permission denied");
+    expect(message).not.toContain("reader@example.com");
+    expect(message).not.toContain("token=raw");
   });
 });

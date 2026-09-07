@@ -1,4 +1,4 @@
-import { and, count, eq, gte, lt, sql, sum } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lt, sql, sum } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import type { usageKind } from "@/lib/db/schema";
@@ -14,6 +14,20 @@ export const RETENTION_DAYS = 30;
 /** Derived, not retyped: the pgEnum is the list, and a second copy here would
  * compile while the migration and the union disagreed. */
 export type UsageKind = (typeof usageKind.enumValues)[number];
+
+/** Exhaustive on purpose: a new kind will not compile until someone says whether
+ * it costs a provider call, which is the unit every limit in `config.ts` is
+ * denominated in. `sign_in_link` makes none — counted, it would let sign-in
+ * spend the demo's chat quota and the app-wide ceiling. */
+const COSTS_A_PROVIDER_CALL: Record<UsageKind, boolean> = {
+  chat: true,
+  embedding: true,
+  sign_in_link: false,
+};
+
+const BILLED_KINDS = Object.keys(COSTS_A_PROVIDER_CALL).filter(
+  (kind) => COSTS_A_PROVIDER_CALL[kind as UsageKind],
+) as UsageKind[];
 
 /** `"anonymous"` is not an `ActorType`: it has no session and no workspace, and
  * the only thing identifying it is the hash it is also counted by. Widened here
@@ -70,6 +84,7 @@ export async function countRequestsSince(
         "actorId" in key
           ? eq(usageEvents.actorId, key.actorId)
           : eq(usageEvents.ipHash, key.ipHash),
+        inArray(usageEvents.kind, BILLED_KINDS),
         gte(usageEvents.createdAt, since),
       ),
     );
@@ -77,8 +92,6 @@ export async function countRequestsSince(
   return row?.total ?? 0;
 }
 
-/** The only query whose cost grows with total traffic, and it runs on every
- * admitted request — hence unkeyed, on `usage_events_created_at_idx`. */
 /** Filtered by kind: a guest on the demo shares an `ipHash` with a stranger
  * asking for links, and either would spend the other's allowance. */
 export async function countSignInLinksSince(
@@ -99,11 +112,19 @@ export async function countSignInLinksSince(
   return row?.total ?? 0;
 }
 
+/** The only query whose cost grows with total traffic, and it runs on every
+ * admitted request — so it stays on `usage_events_created_at_idx` and applies
+ * the kind as a filter over the day's rows rather than asking for an index. */
 export async function countAllRequestsSince(since: Date): Promise<number> {
   const [row] = await db
     .select({ total: count() })
     .from(usageEvents)
-    .where(gte(usageEvents.createdAt, since));
+    .where(
+      and(
+        inArray(usageEvents.kind, BILLED_KINDS),
+        gte(usageEvents.createdAt, since),
+      ),
+    );
 
   return row?.total ?? 0;
 }

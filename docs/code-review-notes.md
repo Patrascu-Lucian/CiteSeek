@@ -2835,3 +2835,76 @@ tests, 117 E2E and a production build, green.
 - **And the shape it shares with the rest of this file**: the check I applied to the residency
   question — read the primary source, quote it — was right there, already running, and I did not
   apply it to the sentence in the next paragraph.
+
+## A test that pinned the half that worked, 7 September 2026
+
+- **Issue**: ADR 053 states that `sign_in_link` is filtered out of the usage counts "without that, a
+  guest asking the demo questions shares an `ipHash` with a stranger asking for links, and either
+  would exhaust the other's allowance". Only one of those two directions was implemented.
+  `countSignInLinksSince` filtered on kind; `countRequestsSince` and `countAllRequestsSince` did not.
+  So chat did not spend the link allowance, but links spent the chat allowance — and the app-wide
+  ceiling, where five addresses at full throttle would have closed the demo to every guest and seven
+  would have refused chat to signed-in users.
+
+- **Cause**: I wrote the filter where I was working. The new query got the new predicate; the two
+  existing queries were never opened, because nothing about writing `countSignInLinksSince` requires
+  reading them.
+
+- **The integration test made it worse rather than catching it.** I wrote one case — "does not spend
+  the allowance on a guest asking the demo questions" — and it passes, because it tests the direction
+  that works. A green test named after the property gave the ADR's claim a second signature.
+
+- **Fix**: both counters filter, and the classification is a `Record<UsageKind, boolean>` rather than
+  a list, so a new kind does not compile until someone says whether it costs a provider call. The new
+  test asserts both counters against a caller holding link rows _and_ one chat row, so it fails at 6
+  if the filter goes and at 0 if the counter breaks.
+
+- **Lesson**: **a claim with the word "either" in it needs two tests, and the one you will write is
+  the one you were already thinking about.** The asymmetry was visible in the ADR sentence itself —
+  it names two directions — and the test file names one. Reading the ADR against the test list would
+  have found this without reading any code.
+
+## The throw stopped the mail, not the row, 7 September 2026
+
+- **Issue**: the sign-in throttle refuses by throwing from `sendVerificationRequest`. Auth.js's
+  `send-token.js` invokes `adapter.createVerificationToken(...)` and the provider's send, then awaits
+  both with `Promise.all`. The adapter call has already started, so a refused request still wrote a
+  `verification_tokens` row holding the address in the clear. Nothing pruned that table: Auth.js
+  deletes a token when the link is _clicked_, and account deletion reaches only rows whose identifier
+  is a current user's address. Unclicked links, links for addresses that never became accounts, and
+  every refused attempt accumulated with no bound, writable by an unauthenticated caller.
+
+- **Cause**: I reasoned carefully about _where_ the throttle belongs — inside the provider, because
+  Auth.js owns `/api/auth/*` and the send is the line that spends money — and that reasoning is still
+  right. What I never asked is what the rest of the request does once my part throws. I treated the
+  callback as the whole operation because it was the whole of my code.
+
+- **Fix**: expired rows are swept, and the sweep rides the sign-in send rather than the existing
+  document-upload host, because the callers who fill that table never upload anything. The refused
+  row is accepted rather than prevented — refusing earlier means a check outside the provider, which
+  is the thing the design rejected — and a 15-minute expiry makes it collectable almost immediately.
+
+- **Lesson**: **throwing out of a library callback aborts your work, not the library's.** The
+  question to ask of any hook is what the caller had already set in motion before it called you, and
+  the answer is in the caller's source, which took one file to read.
+
+## The page contradicted its own ADR, in the same branch, 7 September 2026
+
+- **Issue**: ADR 052 reads Scaleway's DPA Article 11.2.2 precisely and says the careful thing —
+  storage outside the EU is permitted _with prior notice_, so this is a commitment with notice and
+  not a guarantee, and "never leaves the EU" is not supportable. It then asserts that nothing on the
+  privacy page says it. The privacy page said the data processing agreement "commits to storing
+  personal data in the European Union", and both files shipped in the same branch.
+
+- **Cause**: the page's sentence was written first, from the same research, before the ADR forced the
+  clause to be read word by word. The ADR improved on it and nobody went back.
+
+- **Fix**: the page carries the ADR's formulation, plus a sentence naming what it is not. A test pins
+  both the new wording and the _absence_ of the old, so the stronger claim cannot return quietly.
+
+- **Lesson**: **an ADR that says "nothing on the page claims X" is asserting something about another
+  file, and that is a claim to check, not to write.** The sentence was in the ADR precisely because it
+  was the risk worth naming — which made it the one line most worth verifying against the page.
+
+- **And the shape it shares with the entry above**: the milestone's opening act was disqualifying a
+  vendor for a residency claim stronger than its source. The page then made one.
