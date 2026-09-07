@@ -3010,6 +3010,9 @@ of this reaches the privacy page.
 long delivery logs holding recipient addresses are retained. Location was the disqualifying test and
 it passes; retention is a claim the privacy page will need to make.
 
+↳ **Decided in [ADR 052](decisions/052-a-sender-chosen-on-where-the-mail-is-stored.md)**, which
+carries the reading of Article 11 and what the privacy page may claim on it.
+
 ## The sending key expires because this Organization says so, 6 September 2026
 
 **Scaleway keys do not expire unless an expiry is set.** The one-year ceiling in our console is an
