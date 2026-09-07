@@ -18,11 +18,15 @@ const FROM = { name: "CiteSeek", email: "no-reply@mail.citeseek.app" };
  * bearer credential sitting in an inbox, and nobody needs a day to click it. */
 const MAX_AGE_SECONDS = 15 * 60;
 
-/** Subclassed for the `type`, which is what `isClientError` reads. `@auth/core`
- * is not a direct dependency and next-auth re-exports only the base class, so
- * the code is set rather than imported. Any other error becomes `Configuration`
- * — "this is a problem on our side" — which is a lie told to a throttled
- * reader, and hides real outages from the operator among ordinary throttling. */
+/** Subclassed for the `type`, which is what `isClientError` reads — any other
+ * error becomes `Configuration`, "this is a problem on our side", which is a lie
+ * told to a throttled reader and hides real outages among ordinary throttling.
+ * `@auth/core` is not a direct dependency and next-auth re-exports only the base
+ * class, so the code is set rather than imported.
+ *
+ * Inheriting `kind` from `AuthError` sends this to `pages.error`, where the real
+ * `AccessDenied` extends `SignInError` and lands on `pages.signIn`. Both are
+ * `/sign-in` here; if they ever diverge this arrives somewhere its copy is not. */
 class TooManyLinks extends AuthError {
   static type = "AccessDenied";
 }
@@ -75,12 +79,6 @@ export function scalewayEmail(config: EmailUserConfig = {}): EmailConfig {
         throw new Error("AUTH_SCALEWAY_KEY is not set; no email was sent.");
       }
 
-      // Before the throttle, because a refused request still writes a token row
-      // — Auth.js starts the adapter write and the send together — so the
-      // callers who fill that table are exactly the ones this must run for.
-      // Swallowed: housekeeping must never refuse somebody's sign-in.
-      await pruneExpiredTokens(pruneVerificationTokens).catch(() => undefined);
-
       // Here rather than in a route: Auth.js owns `/api/auth/*`, and this is
       // the line that spends money. A limit anywhere else has another way in.
       const ipHash = clientIpHash(request.headers);
@@ -91,6 +89,14 @@ export function scalewayEmail(config: EmailUserConfig = {}): EmailConfig {
         // The reader is not told the threshold, only that it was reached.
         throw new TooManyLinks("Too many sign-in links requested.");
       }
+
+      // Below the admission check: arrival here is bounded by the allowance, so
+      // an anonymous caller cannot pace the sweep. Swallowed inside the work
+      // rather than around the gate, or a sweep that throws leaves the window
+      // unclaimed and every later request retries it.
+      await pruneExpiredTokens(() =>
+        pruneVerificationTokens().catch(() => undefined),
+      );
 
       const response = await fetch(SEND_URL, {
         method: "POST",

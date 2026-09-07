@@ -66,6 +66,7 @@ vi.mock("@/lib/sweeps", async (importOriginal) => {
     atMostEvery,
     sweepStaleDocuments: atMostEvery(60_000, () => clock.at),
     pruneOldUsage: atMostEvery(60 * 60_000, () => clock.at),
+    pruneExpiredTokens: atMostEvery(60 * 60_000, () => clock.at),
   };
 });
 

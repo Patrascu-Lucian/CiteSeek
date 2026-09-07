@@ -15,8 +15,13 @@ import {
   tooLargeMessage,
   validateUpload,
 } from "@/lib/documents/validation";
+import { pruneVerificationTokens } from "@/lib/auth/verification-tokens";
 import { processDocument } from "@/lib/rag/ingest";
-import { pruneOldUsage, sweepStaleDocuments } from "@/lib/sweeps";
+import {
+  pruneExpiredTokens,
+  pruneOldUsage,
+  sweepStaleDocuments,
+} from "@/lib/sweeps";
 import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
 import { pruneUsageEvents, recordUsage } from "@/lib/usage/queries";
@@ -43,6 +48,11 @@ export async function GET(
   // seconds, which made each of these a write per poll.
   await sweepStaleDocuments(failStaleProcessing);
   await pruneOldUsage(pruneUsageEvents);
+  // Second host for the same gate: the sign-in path sweeps only when someone
+  // asks for a link, which leaves the last rows uncollected once it goes quiet.
+  await pruneExpiredTokens(() =>
+    pruneVerificationTokens().catch(() => undefined),
+  );
 
   return NextResponse.json({
     documents: await listDocuments(auth.workspaceId),

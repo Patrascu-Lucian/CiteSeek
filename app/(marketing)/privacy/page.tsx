@@ -76,7 +76,8 @@ export default function PrivacyPage() {
             <strong>Sign-in links</strong> — asking for one stores your address,
             a hash of the link and an expiry, so the link can be checked when
             you click it. It lasts 15 minutes; the row is deleted when the link
-            is used, and expired rows are swept whether or not anyone clicked.
+            is used, and expired rows are cleared out as later requests arrive,
+            clicked or not.
           </li>
           <li>
             <strong>Usage counts</strong> — how many provider calls were made
@@ -99,9 +100,10 @@ export default function PrivacyPage() {
         <p>
           The application runs in Frankfurt (Vercel <code>fra1</code>) and the
           database is a Neon Postgres instance in the same region, both pinned
-          in configuration rather than left to a default. Where each
-          sub-processor stores what we send it is a separate question from where
-          we send it, and it is answered one by one in the list below.
+          in configuration rather than left to a default. Where a sub-processor
+          stores what we send it is a separate question from where we send it —
+          the sender is the one where the two differ, and its entry below says
+          so.
         </p>
       </Section>
 

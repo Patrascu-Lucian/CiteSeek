@@ -90,8 +90,19 @@ throttling. `AccessDenied` is the one client-safe code that fits. `isClientError
 and the send together and then `Promise.all`s them, so throwing from `sendVerificationRequest`
 stops the mail and not the row. Refusing earlier would mean a check outside the provider, which is
 the thing this decision rejected — so the row is accepted and `pruneVerificationTokens` collects it
-once it expires, fifteen minutes later. That sweep rides the sign-in send itself, because the
-callers who fill that table never upload a document and so never reach `pruneOldUsage`'s host.
+once it expires, fifteen minutes later.
+
+**That sweep runs below the admission check, not above it.** Above, an anonymous caller paces it: the
+gate is process-global rather than per-caller, and `atMostEvery` claims its window only once the work
+resolves, so a failing sweep would be retried by every request. Below, arrival is already bounded by
+the allowance, and the failure is swallowed inside the work so the window is claimed either way.
+Refused callers therefore sweep nothing, which costs nothing — the rows they leave are collected by
+the next caller who is admitted, anywhere.
+
+**And it has a second host**, `POST /api/w/:id/documents`, sharing one gate. The sign-in path alone
+strands the last rows: whoever asks for the final link leaves one that expires with no later request
+to collect it. Neither host bounds the tail on a deployment that has gone entirely quiet, which is
+why the privacy page says rows are cleared as later requests arrive rather than naming a schedule.
 
 **Rotating `AUTH_SECRET` resets every allowance**, because the hash changes. The same trade guest
 cookies already make, recorded in the `usage_events` schema comment.

@@ -382,6 +382,21 @@ test.describe("sign-in page", () => {
     ).toBeVisible();
   });
 
+  test("tells a throttled reader to wait, not that the app is broken", async ({
+    page,
+  }) => {
+    // The only code the sign-in link throttle throws, and the code and its copy
+    // sit in two files: delete the map entry and every other test still passes.
+    await page.goto("/sign-in?error=AccessDenied");
+
+    const alert = page.getByRole("main").getByRole("alert");
+
+    await expect(alert).toContainText(/too many sign-in links/i);
+    // The half that makes it a way out rather than a refusal.
+    await expect(alert).toContainText(/GitHub or Google/i);
+    await expect(alert).not.toContainText(/problem on our side/i);
+  });
+
   test("is reachable by keyboard from the landing page", async ({ page }) => {
     await page.goto("/");
 
