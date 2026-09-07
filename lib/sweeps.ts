@@ -35,3 +35,8 @@ export const sweepStaleDocuments = atMostEvery(60_000);
 
 /** Retention is counted in days. */
 export const pruneOldUsage = atMostEvery(60 * 60_000);
+
+/** Rides the sign-in send, which is the only request the callers who fill that
+ * table ever make — they never upload a document, so `pruneOldUsage`'s host
+ * never sees them. */
+export const pruneExpiredTokens = atMostEvery(60 * 60_000);

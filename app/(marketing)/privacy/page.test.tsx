@@ -70,6 +70,68 @@ describe("the privacy page", () => {
     expect(screen.getByText(/whichever you sign in with/i)).toBeInTheDocument();
   });
 
+  it("states the sender's obligation without overstating it", () => {
+    // ADR 052 reads Article 11.2.2 as a notification duty, not a prohibition —
+    // and the page shipped in the same branch claiming the stronger version. A
+    // residency claim stronger than its source is what this milestone opened by
+    // disqualifying a vendor over.
+    render(<PrivacyPage />);
+
+    expect(screen.getByText(/tell us in advance/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/not a guarantee that data never leaves/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/commits to storing personal data in the European/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not answer 'where is it stored' with a sending region", () => {
+    // The distinction the whole vendor check turns on: Resend would have passed
+    // a page that treats "sent from Paris" as a storage answer.
+    render(<PrivacyPage />);
+
+    const stored = within(
+      screen
+        .getByRole("heading", { name: /where it is stored/i })
+        .closest("section")!,
+    );
+
+    expect(stored.queryByText(/Scaleway/)).not.toBeInTheDocument();
+    expect(
+      stored.getByText(/separate question from where we send it/i),
+    ).toBeInTheDocument();
+  });
+
+  it("describes an account that no provider vouched for", () => {
+    // With an email link there is no provider and no profile name, and the page
+    // described only the provider case for a whole milestone.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/you type the address yourself/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/if you use one at all/i)).toBeInTheDocument();
+  });
+
+  it("discloses the sign-in link row, and how long it lives", () => {
+    // A table holding an address in the clear that nothing on the page named.
+    render(<PrivacyPage />);
+
+    expect(screen.getByText(/a hash of the link/i)).toBeInTheDocument();
+    expect(screen.getByText(/lasts 15 minutes/i)).toBeInTheDocument();
+  });
+
+  it("says which record deletion cannot reach", () => {
+    // Keyed on a hash of the address, not on the account, so "every usage
+    // record" was a promise the code does not keep.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/cannot reach is the count of sign-in links/i),
+    ).toBeInTheDocument();
+  });
+
   it("states the region and the retention window", () => {
     render(<PrivacyPage />);
 

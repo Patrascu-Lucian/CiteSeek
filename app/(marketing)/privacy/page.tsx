@@ -52,8 +52,10 @@ export default function PrivacyPage() {
       <Section title="What is stored">
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <strong>Your account</strong> — the email address and profile name
-            your sign-in provider gives us, and a session record.
+            <strong>Your account</strong> — your email address, a profile name
+            if a sign-in provider supplied one, and a session record. With an
+            email link you type the address yourself and there is no provider
+            and no name.
           </li>
           <li>
             <strong>Extracted text</strong> — when you upload a document, it is
@@ -69,6 +71,12 @@ export default function PrivacyPage() {
           <li>
             <strong>Conversations</strong> — your questions, the answers, and
             which passages each answer cited.
+          </li>
+          <li>
+            <strong>Sign-in links</strong> — asking for one stores your address,
+            a hash of the link and an expiry, so the link can be checked when
+            you click it. It lasts 15 minutes; the row is deleted when the link
+            is used, and expired rows are swept whether or not anyone clicked.
           </li>
           <li>
             <strong>Usage counts</strong> — how many provider calls were made
@@ -90,9 +98,10 @@ export default function PrivacyPage() {
       <Section title="Where it is stored">
         <p>
           The application runs in Frankfurt (Vercel <code>fra1</code>) and the
-          database is a Neon Postgres instance in the same region. Sign-in
-          emails are sent from Paris (Scaleway <code>fr-par</code>). All three
-          are pinned in configuration rather than left to a default.
+          database is a Neon Postgres instance in the same region, both pinned
+          in configuration rather than left to a default. Where each
+          sub-processor stores what we send it is a separate question from where
+          we send it, and it is answered one by one in the list below.
         </p>
       </Section>
 
@@ -151,15 +160,19 @@ export default function PrivacyPage() {
             <strong>Neon</strong> — hosts the database.
           </li>
           <li>
-            <strong>GitHub or Google</strong> — whichever you sign in with, and
-            only to confirm who you are. Signing in with Google puts Google on
-            this list twice, for two unrelated reasons.
+            <strong>GitHub or Google</strong> — whichever you sign in with, if
+            you use one at all, and only to confirm who you are. An email link
+            uses neither. Signing in with Google puts Google on this list twice,
+            for two unrelated reasons.
           </li>
           <li>
             <strong>Scaleway</strong> — receives your email address in order to
             send you a sign-in link, and only when you ask for one. Its
-            Transactional Email service runs in Paris, and its data processing
-            agreement commits to storing personal data in the European Union.
+            Transactional Email service sends from Paris (<code>fr-par</code>),
+            and its data processing agreement places its services in the
+            European Union by default and obliges it to tell us in advance
+            before storing personal data outside it. That is a commitment with
+            notice, not a guarantee that data never leaves.
           </li>
         </ul>
       </Section>
@@ -189,9 +202,13 @@ export default function PrivacyPage() {
         <p>
           Deleting a document removes its text, its passages and their
           embeddings. Deleting your account removes the account, its workspaces,
-          every document in them, every conversation, and every usage record —
-          in one operation, with no soft-delete and no recovery window. You can
-          do it yourself from the{" "}
+          every document in them, every conversation, every usage record
+          belonging to it, and any unused sign-in link for its address — in one
+          operation, with no soft-delete and no recovery window. The one record
+          it cannot reach is the count of sign-in links requested, which is kept
+          against a hash of the network address rather than an account, and is
+          deleted on the same 30-day schedule regardless. You can do it yourself
+          from the{" "}
           <Link href="/account" className="underline">
             account page
           </Link>

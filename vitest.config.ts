@@ -9,6 +9,11 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    /* Externalized, `next-auth/lib/env.js` resolves `next/server` through Node
+       rather than Vite and misses Next's exports map. Inlining it is what lets a
+       unit test import `AuthError`, whose subclass carries the client-safe code
+       a throttled sign-in is refused with. */
+    server: { deps: { inline: ["next-auth"] } },
     setupFiles: ["./vitest.setup.ts"],
     /*
       A flake here costs the pull request: nothing retries this suite, and the

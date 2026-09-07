@@ -57,9 +57,17 @@ an allowance, so a colleague signing in can spend somebody else's. The alternati
 recipient — trades that for letting an attacker deny sign-in to a named person, which is worse:
 one is a stranger inconvenienced, the other is a targeted lockout.
 
-**A new `usage_kind`.** `sign_in_link` joins `chat` and `embedding`, and the count filters on it —
-without that, a guest asking the demo questions shares an `ipHash` with a stranger asking for links,
-and either would exhaust the other's allowance. An integration test pins this specific case.
+**A new `usage_kind`.** `sign_in_link` joins `chat` and `embedding`, and **every** count over
+`usage_events` filters on kind — a guest asking the demo questions shares an `ipHash` with a
+stranger asking for links, and either would otherwise exhaust the other's allowance.
+
+↳ **Only one direction of that was true when it shipped, and it was the harmless one.** The link
+count filtered; the chat counters did not. So five link requests spent five of a guest's eight
+questions a minute, and `countAllRequestsSince` — the app-wide ceiling — counted them too, which
+made seven addresses at full throttle enough to refuse chat to signed-in users. That ceiling is
+denominated in provider calls, and a sign-in link makes none.
+`COSTS_A_PROVIDER_CALL` in `lib/usage/queries.ts` is now exhaustive over the enum, so a new kind
+does not compile until someone says which side it falls on.
 
 **`actor_type` becomes `"anonymous"`, with the hash as the id.** Both columns are `notNull` and this
 caller has no other identity. `UsageActor` is widened for recording only; `lib/auth`'s actor type is
@@ -71,6 +79,19 @@ untouched, so nothing downstream can start treating `"anonymous"` as something a
 is not told which limit they met — naming the threshold would tell a script exactly how to pace
 itself. That is a departure from `lib/usage`, whose refusals are structured and rendered, and the
 reason is that this caller is as likely to be a script as a person.
+
+**It carries `AccessDenied`, which had to be chosen deliberately.** Auth.js substitutes
+`Configuration` for any error it does not recognize, and `/sign-in` words that as "this is a problem
+on our side" — false when someone asked for a sixth link, and it hides a real outage among ordinary
+throttling. `AccessDenied` is the one client-safe code that fits. `isClientError` tests
+`instanceof AuthError`, so the type is set on a subclass rather than matched by string.
+
+**A refused request still writes a verification token.** `send-token.js` starts the adapter write
+and the send together and then `Promise.all`s them, so throwing from `sendVerificationRequest`
+stops the mail and not the row. Refusing earlier would mean a check outside the provider, which is
+the thing this decision rejected — so the row is accepted and `pruneVerificationTokens` collects it
+once it expires, fifteen minutes later. That sweep rides the sign-in send itself, because the
+callers who fill that table never upload a document and so never reach `pruneOldUsage`'s host.
 
 **Rotating `AUTH_SECRET` resets every allowance**, because the hash changes. The same trade guest
 cookies already make, recorded in the `usage_events` schema comment.

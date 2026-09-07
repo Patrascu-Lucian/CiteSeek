@@ -5,6 +5,7 @@ import { usageEvents, users, verificationTokens } from "@/lib/db/schema";
 import {
   cleanupTestRows,
   clearUsageEvents,
+  clearVerificationTokens,
   createTestClient,
   createTestUser,
 } from "@/lib/db/test-helpers";
@@ -16,16 +17,19 @@ const { client, db } = createTestClient();
 beforeAll(async () => {
   await cleanupTestRows(db);
   await clearUsageEvents(db);
+  await clearVerificationTokens(db);
 });
 
 beforeEach(async () => {
   await cleanupTestRows(db);
   await clearUsageEvents(db);
+  await clearVerificationTokens(db);
 });
 
 afterAll(async () => {
   await cleanupTestRows(db);
   await clearUsageEvents(db);
+  await clearVerificationTokens(db);
   await client.end();
 });
 
@@ -131,9 +135,8 @@ describe("deleteUserAccount and the sign-in tokens", () => {
     await deleteUserAccount(mine.id);
 
     expect(await tokensFor(theirs)).toHaveLength(1);
-    await db
-      .delete(verificationTokens)
-      .where(eq(verificationTokens.identifier, theirs));
+    // Cleanup is `clearVerificationTokens` in `afterEach`, not a last line here:
+    // a failing assertion above would have leaked the row.
   });
 
   it("still deletes an account whose provider withheld an address", async () => {

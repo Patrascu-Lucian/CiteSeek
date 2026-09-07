@@ -29,13 +29,15 @@ const LINKING_MESSAGES: Record<string, string> = {
     "That was cancelled, so nothing was added. Your existing sign-in methods are unchanged.",
 };
 
-/* `OAuthCallbackError`, not `AccessDenied`: the latter is thrown only when the
-   app's own `signIn` callback refuses, and this app defines no callbacks. */
+/* `AccessDenied` reaches here from one place only — the sign-in link throttle
+   in `lib/auth/email-provider.ts`. No `signIn` callback exists to raise it. */
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthAccountNotLinked:
     "That email is already registered with a different sign-in method. Sign in the way you did before, then add this one from your account page.",
   OAuthCallbackError:
     "Sign-in was cancelled, or the provider turned it down. Nothing changed.",
+  AccessDenied:
+    "Too many sign-in links have been requested from here recently. Wait a little and try again, or sign in with GitHub or Google.",
   Configuration:
     "Sign-in is not configured correctly. This is a problem on our side.",
 };
@@ -140,8 +142,14 @@ export default async function SignInPage({
               <form
                 action={async (formData: FormData) => {
                   "use server";
+                  // `required` is the browser's, not ours: a direct POST sends
+                  // no field, and next-auth stringifies null to "null" for the
+                  // normalizer to throw on — reported as our misconfiguration.
+                  const email = formData.get("email");
+                  if (typeof email !== "string" || !email) return;
+
                   await signIn("scaleway", {
-                    email: formData.get("email"),
+                    email,
                     redirectTo: callbackUrl ?? "/w",
                   });
                 }}

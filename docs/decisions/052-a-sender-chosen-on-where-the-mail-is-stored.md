@@ -67,6 +67,21 @@ That precision is the whole reason to write it down. It is the difference betwee
 page may claim and what it may not: _"never leaves the EU"_ is not supportable, and nothing on the
 page says it.
 
+## What a link does to an address nothing verified
+
+[ADR 051](051-linking-a-second-provider.md) records that `@auth/core`'s GitHub provider resolves the
+profile email as `(emails.find((e) => e.primary) ?? emails[0]).email` and never reads `verified`. So
+`users.email` can hold an address its owner never confirmed.
+
+A sign-in link is the first thing in this system that proves control of an address: the token goes to
+the inbox, and `users.email` is unique, so whoever reads that inbox signs into **that** account.
+
+Said deliberately, because it cuts both ways. It is a repair, in that the person who actually holds
+the address can now reach the account bearing it, where before only the GitHub credential could. It
+is not a fix for the weakness underneath — the two then share one account — and the remedy for that
+is the one ADR 051 already chose: never treat a provider's claim about an email as identity. Nothing
+here hands the link user anything the provider user did not already have.
+
 ## Consequences
 
 **The provider is ours.** `lib/auth/email-provider.ts` is one `fetch` against the REST API — the
