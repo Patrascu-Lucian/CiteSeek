@@ -154,11 +154,11 @@ describe("linking a second provider", () => {
 
   it("offers nothing to add once every provider is linked", () => {
     render(
-      <AccountView {...user} providers={["GitHub", "Google"]} linkable={[]} />,
+      <AccountView {...user} providers={["Google", "GitHub"]} linkable={[]} />,
     );
 
     expect(screen.queryByRole("button", { name: /^add /i })).toBeNull();
-    expect(screen.getByText("GitHub, Google")).toBeInTheDocument();
+    expect(screen.getByText("Google, GitHub")).toBeInTheDocument();
   });
 
   it("shows a reader who has only ever used a link how they sign in", () => {
