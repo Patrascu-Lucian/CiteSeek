@@ -94,15 +94,18 @@ once it expires, fifteen minutes later.
 
 **That sweep runs below the admission check, not above it.** Above, an anonymous caller paces it: the
 gate is process-global rather than per-caller, and `atMostEvery` claims its window only once the work
-resolves, so a failing sweep would be retried by every request. Below, arrival is already bounded by
-the allowance, and the failure is swallowed inside the work so the window is claimed either way.
-Refused callers therefore sweep nothing, which costs nothing — the rows they leave are collected by
-the next caller who is admitted, anywhere.
+resolves, so a failing sweep would be retried by every request. Below, arrival is bounded by the
+allowance, and the failure is swallowed _inside_ the work — `swallowFailures` in `lib/sweeps.ts` —
+so the window is claimed either way. Refused callers therefore sweep nothing, which costs nothing:
+the rows they leave are collected by the next caller who is admitted, anywhere.
 
-**And it has a second host**, `POST /api/w/:id/documents`, sharing one gate. The sign-in path alone
-strands the last rows: whoever asks for the final link leaves one that expires with no later request
-to collect it. Neither host bounds the tail on a deployment that has gone entirely quiet, which is
-why the privacy page says rows are cleared as later requests arrive rather than naming a schedule.
+**And it has a second host**, the `GET` on `/api/w/:id/documents`, sharing one gate. The sign-in path
+alone strands the last rows: whoever asks for the final link leaves one that expires with no later
+request to collect it. That host is bounded by authorization rather than by an allowance — it is a
+signed-in workspace read — so "the allowance paces the sweep" is true of the sign-in path only, and
+the swallow is what the two have in common. Neither host bounds the tail on a deployment that has
+gone entirely quiet, which is why the privacy page says rows are cleared as later requests arrive
+rather than naming a schedule.
 
 **Rotating `AUTH_SECRET` resets every allowance**, because the hash changes. The same trade guest
 cookies already make, recorded in the `usage_events` schema comment.

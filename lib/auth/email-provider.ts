@@ -2,7 +2,7 @@ import { AuthError } from "next-auth";
 import type { EmailConfig, EmailUserConfig } from "next-auth/providers/email";
 
 import { pruneVerificationTokens } from "@/lib/auth/verification-tokens";
-import { pruneExpiredTokens } from "@/lib/sweeps";
+import { pruneExpiredTokens, swallowFailures } from "@/lib/sweeps";
 import { clientIpHash } from "@/lib/usage/client-ip";
 import { admitSignInLink } from "@/lib/usage/sign-in-links";
 
@@ -91,12 +91,8 @@ export function scalewayEmail(config: EmailUserConfig = {}): EmailConfig {
       }
 
       // Below the admission check: arrival here is bounded by the allowance, so
-      // an anonymous caller cannot pace the sweep. Swallowed inside the work
-      // rather than around the gate, or a sweep that throws leaves the window
-      // unclaimed and every later request retries it.
-      await pruneExpiredTokens(() =>
-        pruneVerificationTokens().catch(() => undefined),
-      );
+      // an anonymous caller cannot pace the sweep.
+      await pruneExpiredTokens(swallowFailures(pruneVerificationTokens));
 
       const response = await fetch(SEND_URL, {
         method: "POST",

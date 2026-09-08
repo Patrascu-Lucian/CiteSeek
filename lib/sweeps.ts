@@ -29,6 +29,14 @@ export function atMostEvery(
   };
 }
 
+/** Swallowed *inside* the work rather than around the gate: `atMostEvery` claims
+ * its window only once the work resolves, so a sweep that keeps failing would be
+ * retried by every request that arrives. Housekeeping must also never refuse the
+ * operation it rides on. */
+export const swallowFailures =
+  (work: () => Promise<unknown>) => (): Promise<unknown> =>
+    work().catch(() => undefined);
+
 /** Documents are presumed dead only after 10 minutes, so a minute of extra
  * latency before one is marked failed is immaterial. */
 export const sweepStaleDocuments = atMostEvery(60_000);

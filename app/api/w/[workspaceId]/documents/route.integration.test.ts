@@ -14,10 +14,12 @@ import type { Actor } from "@/lib/auth/actor";
 import {
   cleanupTestRows,
   clearUsageEvents,
+  clearVerificationTokens,
   createTestClient,
   createTestUser,
   createTestWorkspace,
 } from "@/lib/db/test-helpers";
+import { verificationTokens } from "@/lib/db/schema";
 import type * as DocumentQueries from "@/lib/documents/queries";
 import {
   createQueuedDocument,
@@ -61,9 +63,11 @@ vi.mock("@/lib/documents/queries", async (importOriginal) => ({
 const clock = vi.hoisted(() => ({ at: 0 }));
 
 vi.mock("@/lib/sweeps", async (importOriginal) => {
-  const { atMostEvery } = await importOriginal<typeof Sweeps>();
+  const { atMostEvery, swallowFailures } =
+    await importOriginal<typeof Sweeps>();
   return {
     atMostEvery,
+    swallowFailures,
     sweepStaleDocuments: atMostEvery(60_000, () => clock.at),
     pruneOldUsage: atMostEvery(60 * 60_000, () => clock.at),
     pruneExpiredTokens: atMostEvery(60 * 60_000, () => clock.at),
@@ -363,5 +367,28 @@ describe("GET /documents — housekeeping on a polled path", () => {
     await poll();
 
     expect(sweeps.failStaleProcessing).toHaveBeenCalledTimes(2);
+  });
+
+  it("collects a sign-in link nobody came back for", async () => {
+    // The second host, and the reason there is one: the sign-in path sweeps only
+    // when somebody asks for a link, so the last rows sit there once it goes
+    // quiet. Nothing here writes a token — this route is on the other side of
+    // the app from Auth.js.
+    const workspace = await signedInWorkspace();
+    const { GET } = await import("./route");
+
+    await clearVerificationTokens(db);
+    await db.insert(verificationTokens).values({
+      identifier: "abandoned@example.test",
+      token: "token-abandoned",
+      expires: new Date(Date.now() - 60_000),
+    });
+
+    clock.at += 3_600_000;
+    await GET(new Request("http://test/api/documents"), {
+      params: Promise.resolve({ workspaceId: workspace.id }),
+    });
+
+    expect(await db.select().from(verificationTokens)).toEqual([]);
   });
 });
