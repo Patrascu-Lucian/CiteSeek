@@ -46,16 +46,36 @@ describe("a user with two providers", () => {
     ]);
   });
 
-  it("returns them in a stable order, whatever order they were linked in", async () => {
+  it("returns them in the order the provider list sets, not alphabetically", async () => {
     // Rendered as a sentence on the account page, so unordered rows reorder
-    // between loads and read as a bug.
+    // between loads and read as a bug. Alphabetical was the old rule and is
+    // indistinguishable from this one whenever the two happen to agree — they
+    // disagree here, which is what makes the assertion worth making.
     const user = await createTestUser(db);
     await link(user.id, "google");
     await link(user.id, "github");
 
     expect(await listSignInMethods(user.id)).toEqual([
-      { provider: "github" },
       { provider: "google" },
+      { provider: "github" },
+    ]);
+  });
+
+  it("puts the email link after every provider, wherever it sorts", async () => {
+    // It is not in `AUTH_PROVIDERS` and must not be — nothing signs in "with
+    // email" through `signIn(id)` — so it has no index to rank by.
+    const user = await createTestUser(db);
+    await link(user.id, "github");
+    await link(user.id, "google");
+    await db
+      .update(users)
+      .set({ emailVerified: new Date() })
+      .where(eq(users.id, user.id));
+
+    expect(await listSignInMethods(user.id)).toEqual([
+      { provider: "google" },
+      { provider: "github" },
+      { provider: "email" },
     ]);
   });
 
