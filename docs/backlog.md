@@ -16,6 +16,9 @@ here, not in the current branch.
   this stays parked until a contact form or magic-link actually needs one — a second auth path
   nobody has asked for is not worth the subprocessor entry on the privacy page.
 
+  ↳ **Not Resend, 6 September 2026.** It fails the residency rule — see _"Resend fails the
+  residency rule"_ below. The sender is Scaleway Transactional Email, and the account exists.
+
 - **Google sign-in, if this is ever commercialized.** GitHub OAuth is a _developer_ credential:
   the right signal for a portfolio project read by engineers, the wrong one for a customer who has
   never made a GitHub account. Google is the highest-coverage consumer provider and costs no new
@@ -531,8 +534,11 @@ each of these is reversible and therefore safe to defer.
   ~~**Waiting on a domain deliberately, because one purchase unblocks three parked items**~~ —
   **`citeseek.app` was bought on 4 August 2026**, so all three are unblocked: an address on a
   domain you control rather than a personal inbox scraped off a public page, the verified
-  sending domain Resend needs before a contact form can send anything, and the same sender that
-  has magic-link sign-in parked above.
+  sending domain a transactional sender needs before a contact form can send anything, and the
+  same sender that has magic-link sign-in parked above.
+
+  ↳ **The sender is Scaleway, not Resend, 6 September 2026.** See _"Resend fails the residency
+  rule"_ — Resend stores message content in the US whichever region it sends from.
 
   The old host redirects rather than disappearing: `cite-seek.vercel.app` answers **308** to the
   same path on `citeseek.app`. 307/308 rather than 302/301 because the older pair lets a client
@@ -2923,3 +2929,135 @@ runs anonymously. The page grew again this release — a second `<dl>`, a stack 
 carrying `aria-busy` — so the untested surface is larger than when this was first noted.
 `e2e/link-provider.spec.ts` established the signed-in pattern, so the cost is now a few lines rather
 than a fixture.
+
+## Resend fails the residency rule, 6 September 2026
+
+Run as the first step of the email-sender work, before any account was opened, because the answer
+decided the vendor. It did: the account is with Scaleway, for the reasons below.
+
+**Region selection does not move stored data.** From Resend's own documentation
+(`resend.com/docs/dashboard/domains/regions`):
+
+> Region selection controls where your emails are routed and sent from. It does not control where
+> customer data is stored. All account data, including email metadata, logs, and API records, is
+> stored in the United States regardless of the sending region you select.
+
+So `eu-west-1` dispatches from Ireland while message content, delivery logs and account records sit
+in the US. A GDPR Article 28 DPA is pre-signed for every account, which binds the
+processor's obligations and says nothing about where it processes.
+
+**That is disqualifying here, and specifically on the half this project does pin.** The privacy page
+claims Frankfurt for the application and the database, "pinned in configuration rather than left to
+a default", and the README is careful that "EU-hosted" is exact about **storage** and silent about
+where the model runs. Resend fails the storage half. A magic-link email carries an address and a
+sign-in URL, so the stored message content is personal data.
+
+**Consequence: the Auth.js Resend provider stops applying.** `sendVerificationRequest` is a
+`fetch`, so a hand-written provider against an EU vendor's REST API is roughly fifteen lines — a
+provider function and a test, not a redesign. The entry above estimated "a few lines" for an email
+provider and that still holds; the "four lines" figure belongs to
+[ADR 051](decisions/051-linking-a-second-provider.md) and is about adding an **OAuth** provider,
+which is a different job.
+
+**SMTP was considered and not chosen.** `@auth/core` ships a generic `providers/nodemailer`
+alongside `providers/resend`, and Scaleway offers SMTP, so configuration could have replaced the
+hand-written provider. The reason not to is dependency rather than effort: `nodemailer` is an
+_optional_ peer of `next-auth@5.0.0-beta.32` and is not installed here, so the SMTP path adds a
+runtime dependency where a `fetch` adds none — and short-lived serverless functions are a poor fit
+for holding an SMTP connection.
+
+**Candidates, none yet verified to primary sources.** Scaleway Transactional Email (French, Paris
+`fr-par`, 300 emails/month then €0.25/1,000, REST API and SMTP) reads as the closest fit. Brevo and
+Mailjet are the other EU-domiciled options. Whichever is chosen, the check to run before opening an
+account is the same one Resend failed: **where is message content stored**, in writing, and does the
+DPA name an EU region — not merely an EU sending endpoint.
+
+**And the same question is owed to Vercel and Neon**, where it has not been asked. `vercel.json`
+pins `"regions": ["fra1"]`, so that half is at least visible in the repository. Neon's region is
+not: it lives in their console, and the only `eu-central-1` in this tree is a fake connection
+string in a test. So the privacy page's "pinned in configuration" is verifiable for one of the two
+and taken on trust for the other — which is the shape of claim this entry just disqualified a
+vendor over.
+
+↳ **Scaleway passes the same check, on its DPA rather than a support answer, 6 September 2026.**
+Article 11 of `DPA_2024_ENG`:
+
+> 11.1. Scaleway Services are located within the European Union by default. When the Services are
+> offered in several regions or availability zones, it is up to the Client to select the location of
+> its choice during the order.
+>
+> 11.2.2. not to transmit, disseminate or store Personal Data in a country outside the European
+> Union, without having expressly informed the Client in advance
+
+**Read it precisely: 11.2.2 is a notification duty, not a prohibition.** Non-EU storage is
+permitted _with prior notice_, so this is not a guarantee that data never leaves the EU. The
+difference from Resend is still decisive without overstating it — Resend states unconditionally
+that data is stored in the US; Scaleway contractually cannot move it without telling us first, and
+defaults to the EU. Standard Contractual Clauses appear in 11.2.3 as a fallback for a transfer that
+would have to be disclosed anyway, rather than as cover for routine storage abroad.
+
+The distinction matters because this entry feeds the privacy page, and "never leaves the EU" is the
+version we could not support.
+
+Corroborating, and **read from a summary rather than the list itself, so treat the countries as
+unconfirmed**: the sub-processor list appears to name none for Transactional Email, which would mean
+it runs on Scaleway's own infrastructure, and the US-headquartered entries (Equinix, Iron Mountain,
+Digital Realty) are colocation providers whose processing is in the EU — a US parent with EU
+processing, which is the distinction the check exists to make. Re-read the list directly before any
+of this reaches the privacy page.
+
+**What the DPA does not settle**, and is worth one support question rather than blocking on: how
+long delivery logs holding recipient addresses are retained. Location was the disqualifying test and
+it passes; retention is a claim the privacy page will need to make.
+
+↳ **Decided in [ADR 052](decisions/052-a-sender-chosen-on-where-the-mail-is-stored.md)**, which
+carries the reading of Article 11 and what the privacy page may claim on it.
+
+## The sending key expires because this Organization says so, 6 September 2026
+
+**Scaleway keys do not expire unless an expiry is set.** The one-year ceiling in our console is an
+Organization-level _maximum credential duration_ — a setting on this Organization, not a limit of
+the vendor's. It applies to keys created after it is set and can be removed.
+
+**So the expiry is a decision we made, and it is still open.** The key generated on 6 September 2026 stops
+working on **6 September 2027** unless something changes. Two ways out, and they are not equal:
+
+- **Remove the ceiling and reissue without an expiry.** Rotation becomes deliberate rather than
+  scheduled. The cost is a long-lived credential on the sign-in path.
+- **Keep the expiry and add something that notices.** Honest only with monitoring; without it, this
+  is a scheduled outage with a twelve-month fuse.
+
+**What fails is sign-in, and it fails quietly.** No build breaks, no test turns red, no deploy is
+involved. The first symptom is a reader who requests a magic link and never receives one — which
+looks to them like a broken product and to us like nothing at all. Same shape as
+_"A provider's secrets have to exist before the release that ships its button"_ above: a correctness
+property no gate in this repository can observe, because the thing that changes is outside it.
+
+**Not an argument against magic link.** A vendor-imposed timer would have been a real cost to weigh
+in the credentials ADR; a setting of our own is not. Nothing here counts against the path.
+
+**What would catch it if the expiry stays**: a scheduled send to a mailbox we own, alerting on
+failure. Not built; recorded so the option is on the table rather than reinvented during an outage.
+
+## Shipping magic link makes the privacy page's processor list wrong, 6 September 2026
+
+Raised in review of the vendor entries above, and it is the reason this path was parked in the first
+place — the Milestone 0 entry called it "not worth the subprocessor entry on the privacy page".
+The entry is now worth it, and it is still owed.
+
+`app/(marketing)/privacy/page.tsx` names four processors — Google, Vercel, Neon, GitHub-or-Google —
+and closes at `:207` with:
+
+> Nothing is sold or shared beyond the processors listed above.
+
+Scaleway would be the fifth. Ship the sender before the list grows and that sentence is false: the
+fourth claim on a user-facing page to outlive the code it described, which Milestone 6 made an exit
+criterion and this release has already corrected three of.
+
+`page.test.tsx:39-48` pins exactly the four names, so the page and its test change in one commit —
+the rule that has held since Milestone 6. Planned as slice 6 of the milestone; recorded here because
+the ordering is what matters: **the list grows in the same release the sender starts sending, not
+after it.**
+
+Also outstanding for that slice, and not answerable from the DPA: how long Scaleway retains delivery
+logs holding recipient addresses. The page states a retention window, so it needs a number.

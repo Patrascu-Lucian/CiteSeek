@@ -29,13 +29,15 @@ const LINKING_MESSAGES: Record<string, string> = {
     "That was cancelled, so nothing was added. Your existing sign-in methods are unchanged.",
 };
 
-/* `OAuthCallbackError`, not `AccessDenied`: the latter is thrown only when the
-   app's own `signIn` callback refuses, and this app defines no callbacks. */
+/* `AccessDenied` reaches here from one place only — the sign-in link throttle
+   in `lib/auth/email-provider.ts`. No `signIn` callback exists to raise it. */
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthAccountNotLinked:
     "That email is already registered with a different sign-in method. Sign in the way you did before, then add this one from your account page.",
   OAuthCallbackError:
     "Sign-in was cancelled, or the provider turned it down. Nothing changed.",
+  AccessDenied:
+    "Too many sign-in links have been requested from here recently. Wait a little and try again, or sign in with GitHub or Google.",
   Configuration:
     "Sign-in is not configured correctly. This is a problem on our side.",
 };
@@ -122,6 +124,58 @@ export default async function SignInPage({
                 </SubmitButton>
               </form>
             ))
+          )}
+
+          {signedIn ? null : (
+            <>
+              {/* aria-hidden on the rule, because "or" is the whole content and
+                  a separator announced as one says nothing a reader needs. */}
+              <div
+                aria-hidden="true"
+                className="text-muted-foreground flex items-center gap-3 text-xs"
+              >
+                <span className="border-border flex-1 border-t" />
+                or
+                <span className="border-border flex-1 border-t" />
+              </div>
+
+              <form
+                action={async (formData: FormData) => {
+                  "use server";
+                  // `required` is the browser's, not ours: a direct POST sends
+                  // no field, and next-auth stringifies null to "null" for the
+                  // normalizer to throw on — reported as our misconfiguration.
+                  const email = formData.get("email");
+                  if (typeof email !== "string" || !email) return;
+
+                  await signIn("scaleway", {
+                    email,
+                    redirectTo: callbackUrl ?? "/w",
+                  });
+                }}
+                className="space-y-2"
+              >
+                <label htmlFor="email" className="text-sm font-medium">
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  className="border-input focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                />
+                <SubmitButton block variant="outline" pendingLabel="Sending…">
+                  Continue with email
+                </SubmitButton>
+                <p className="text-muted-foreground text-xs">
+                  No password, and no GitHub or Google account needed — we send
+                  a link that signs you in.
+                </p>
+              </form>
+            </>
           )}
         </CardContent>
 

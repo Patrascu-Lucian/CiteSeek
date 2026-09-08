@@ -3,7 +3,7 @@ import { eq, like } from "drizzle-orm";
 import postgres from "postgres";
 
 import * as schema from "./schema";
-import { usageEvents, users, workspaces } from "./schema";
+import { usageEvents, users, verificationTokens, workspaces } from "./schema";
 
 /** Integration suites write to a real database, so rows are prefixed and removed.
  * A suite inventing its own prefix leaves rows the next run depends on. */
@@ -48,6 +48,15 @@ export async function cleanupTestRows(db: TestDatabase): Promise<void> {
  * wrong answer rather than noise. */
 export async function clearUsageEvents(db: TestDatabase): Promise<void> {
   await db.delete(usageEvents);
+}
+
+/** Also uncovered by `cleanupTestRows`: the identifier is an address, so there is
+ * no prefixed name to match and no user to cascade from. Scoped to the domain the
+ * suites use, because a leaked row here is an email address. */
+export async function clearVerificationTokens(db: TestDatabase): Promise<void> {
+  await db
+    .delete(verificationTokens)
+    .where(like(verificationTokens.identifier, "%@example.test"));
 }
 
 /** Throws if the operation unexpectedly succeeds, so a silently-passing constraint

@@ -1,6 +1,7 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import NextAuth from "next-auth";
 
+import { scalewayEmail } from "@/lib/auth/email-provider";
 import { AUTH_PROVIDERS } from "@/lib/auth/providers";
 import { db } from "@/lib/db";
 import { accounts, sessions, users, verificationTokens } from "@/lib/db/schema";
@@ -23,9 +24,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     sessionsTable: sessions,
     verificationTokensTable: verificationTokens,
   }),
-  // Reads AUTH_<PROVIDER>_ID and _SECRET from the environment by convention,
-  // per request rather than at import -- so CI builds with neither set.
-  providers: AUTH_PROVIDERS.map(({ provider }) => provider),
+  // Keys resolve per request, so CI builds with none set. Email stays outside
+  // the list because that list also renders the account page's "Add" controls.
+  providers: [
+    ...AUTH_PROVIDERS.map(({ provider }) => provider),
+    scalewayEmail(),
+  ],
   // Database sessions rather than JWT: a session can then be revoked server-side
   // by deleting a row, which a stateless token cannot offer. The cost is one
   // query per request, which is acceptable when the app is already hitting the
@@ -34,6 +38,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/sign-in",
     error: "/sign-in",
+    verifyRequest: "/check-your-email",
   },
   /*
     **Not blanket trust of a client-supplied Host.** Vercel's proxy terminates TLS

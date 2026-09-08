@@ -39,9 +39,12 @@ export type SignedIn = {
 
 async function open(page: Page, label: string): Promise<SignedIn> {
   const token = `e2e-${label}-${crypto.randomUUID()}`;
+  // `email_verified` left null, because that is what an OAuth sign-in leaves
+  // (`handle-login` :260). A date there means somebody used a magic link, which
+  // `listSignInMethods` reports as a sign-in method of its own.
   const [user] = await sql<{ id: string }[]>`
-    insert into users (name, email, email_verified)
-    values ('E2E', ${`${token}@example.test`}, now())
+    insert into users (name, email)
+    values ('E2E', ${`${token}@example.test`})
     returning id`;
   const [workspace] = await sql<{ id: string }[]>`
     insert into workspaces (name, owner_id) values ('E2E workspace', ${user!.id})

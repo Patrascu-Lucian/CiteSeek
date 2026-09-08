@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { accounts, workspaces } from "@/lib/db/schema";
+import { accounts, users, workspaces } from "@/lib/db/schema";
 import {
   cleanupTestRows,
   createTestClient,
@@ -76,6 +76,42 @@ describe("a user with two providers", () => {
       .where(eq(workspaces.ownerId, user.id));
 
     expect(owned).toHaveLength(1);
+  });
+
+  it("counts a verified email as a method, though it has no accounts row", async () => {
+    // Magic link never calls `linkAccount`, so an email-only reader would show
+    // "Signs in with —" and be offered both providers to add.
+    const user = await createTestUser(db);
+    await db
+      .update(users)
+      .set({ emailVerified: new Date() })
+      .where(eq(users.id, user.id));
+
+    expect(await listSignInMethods(user.id)).toEqual([{ provider: "email" }]);
+  });
+
+  it("does not count an unverified email, which is what OAuth leaves", async () => {
+    // `handle-login` :260 creates an OAuth user with `emailVerified: null`, so a
+    // date here means somebody proved they hold the inbox — not that a provider
+    // said the address was theirs.
+    const user = await createTestUser(db);
+    await link(user.id, "github");
+
+    expect(await listSignInMethods(user.id)).toEqual([{ provider: "github" }]);
+  });
+
+  it("shows both when a reader has linked a provider and used a link", async () => {
+    const user = await createTestUser(db);
+    await link(user.id, "google");
+    await db
+      .update(users)
+      .set({ emailVerified: new Date() })
+      .where(eq(users.id, user.id));
+
+    expect(await listSignInMethods(user.id)).toEqual([
+      { provider: "google" },
+      { provider: "email" },
+    ]);
   });
 
   it("does not leak another user's providers", async () => {

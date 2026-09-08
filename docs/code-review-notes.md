@@ -2804,3 +2804,201 @@ tests, 117 E2E and a production build, green.
   before the save and discarded the 31 MB the run had just downloaded — and the commit that adds a
   model test is precisely the one that both busts the cache key and moves the count, so it would
   re-fetch on every push until the docs caught up. The check now runs after the save.
+
+## A vendor fact inferred from a dropdown, 6 September 2026
+
+- **Issue**: the backlog entry recording the email-sender decision claimed "Scaleway caps API key
+  lifetime at one year — there is no non-expiring option", and built a consequence on it: a dated
+  outage, a canary check worth building, and an argument for the credentials ADR that magic link
+  carries an ongoing cost OAuth does not. Review checked Scaleway's IAM documentation. Keys **do not
+  expire unless an expiry is set**; the ceiling is an Organization-level maximum credential duration,
+  a setting on our account.
+
+- **Cause**: I read the console's "API keys in this Organization can be valid for up to 1 year",
+  which is true, and reported it as a property of the vendor, which it is not. The dropdown offered
+  nothing longer because of a setting I had not looked for.
+
+- **Where it happened is the point.** That sentence sits in the commit whose entire argument is that
+  vendor claims must be read from primary sources — the same commit that disqualifies Resend by
+  quoting its documentation and clears Scaleway by quoting Article 11 of its DPA. Two facts checked
+  properly, one inferred from a UI, in one file.
+
+- **Fix**: the entry states what is true and records the expiry as a decision of ours that is still
+  open, with what each option costs. The argument aimed at the credentials ADR is gone, because the
+  premise it rested on was the false one.
+
+- **Lesson**: **a console tells you what your account is configured to do, not what the product can
+  do.** The two are the same sentence from the inside and different facts, and only the second one
+  belongs in a document that argues about vendors. The tell is available in advance: I could not
+  have quoted a source for the claim, and every other claim in that commit had one.
+
+- **And the shape it shares with the rest of this file**: the check I applied to the residency
+  question — read the primary source, quote it — was right there, already running, and I did not
+  apply it to the sentence in the next paragraph.
+
+## A test that pinned the half that worked, 7 September 2026
+
+- **Issue**: ADR 053 states that `sign_in_link` is filtered out of the usage counts "without that, a
+  guest asking the demo questions shares an `ipHash` with a stranger asking for links, and either
+  would exhaust the other's allowance". Only one of those two directions was implemented.
+  `countSignInLinksSince` filtered on kind; `countRequestsSince` and `countAllRequestsSince` did not.
+  So chat did not spend the link allowance, but links spent the chat allowance — and the app-wide
+  ceiling, where five addresses at full throttle would have closed the demo to every guest and seven
+  would have refused chat to signed-in users.
+
+- **Cause**: I wrote the filter where I was working. The new query got the new predicate; the two
+  existing queries were never opened, because nothing about writing `countSignInLinksSince` requires
+  reading them.
+
+- **The integration test made it worse rather than catching it.** I wrote one case — "does not spend
+  the allowance on a guest asking the demo questions" — and it passes, because it tests the direction
+  that works. A green test named after the property gave the ADR's claim a second signature.
+
+- **Fix**: both counters filter, and the classification is a `Record<UsageKind, boolean>` rather than
+  a list, so a new kind does not compile until someone says whether it costs a provider call. The new
+  test asserts both counters against a caller holding link rows _and_ one chat row, so it fails at 6
+  if the filter goes and at 0 if the counter breaks.
+
+- **Lesson**: **a claim with the word "either" in it needs two tests, and the one you will write is
+  the one you were already thinking about.** The asymmetry was visible in the ADR sentence itself —
+  it names two directions — and the test file names one. Reading the ADR against the test list would
+  have found this without reading any code.
+
+## The throw stopped the mail, not the row, 7 September 2026
+
+- **Issue**: the sign-in throttle refuses by throwing from `sendVerificationRequest`. Auth.js's
+  `send-token.js` invokes `adapter.createVerificationToken(...)` and the provider's send, then awaits
+  both with `Promise.all`. The adapter call has already started, so a refused request still wrote a
+  `verification_tokens` row holding the address in the clear. Nothing pruned that table: Auth.js
+  deletes a token when the link is _clicked_, and account deletion reaches only rows whose identifier
+  is a current user's address. Unclicked links, links for addresses that never became accounts, and
+  every refused attempt accumulated with no bound, writable by an unauthenticated caller.
+
+- **Cause**: I reasoned carefully about _where_ the throttle belongs — inside the provider, because
+  Auth.js owns `/api/auth/*` and the send is the line that spends money — and that reasoning is still
+  right. What I never asked is what the rest of the request does once my part throws. I treated the
+  callback as the whole operation because it was the whole of my code.
+
+- **Fix**: expired rows are swept, on the sign-in send rather than only on the polled documents `GET`
+  the existing sweeps ride, because the callers who fill that table are not signed in and never reach
+  that route. The refused row is accepted rather than prevented — refusing earlier means a check
+  outside the provider, which is the thing the design rejected — and a 15-minute expiry makes it
+  collectable almost immediately. It ended up on both hosts: see the entry below.
+
+- **Lesson**: **throwing out of a library callback aborts your work, not the library's.** The
+  question to ask of any hook is what the caller had already set in motion before it called you, and
+  the answer is in the caller's source, which took one file to read.
+
+## The page contradicted its own ADR, in the same branch, 7 September 2026
+
+- **Issue**: ADR 052 reads Scaleway's DPA Article 11.2.2 precisely and says the careful thing —
+  storage outside the EU is permitted _with prior notice_, so this is a commitment with notice and
+  not a guarantee, and "never leaves the EU" is not supportable. It then asserts that nothing on the
+  privacy page says it. The privacy page said the data processing agreement "commits to storing
+  personal data in the European Union", and both files shipped in the same branch.
+
+- **Cause**: the page's sentence was written first, from the same research, before the ADR forced the
+  clause to be read word by word. The ADR improved on it and nobody went back.
+
+- **Fix**: the page carries the ADR's formulation, plus a sentence naming what it is not. A test pins
+  both the new wording and the _absence_ of the old, so the stronger claim cannot return quietly.
+
+- **Lesson**: **an ADR that says "nothing on the page claims X" is asserting something about another
+  file, and that is a claim to check, not to write.** The sentence was in the ADR precisely because it
+  was the risk worth naming — which made it the one line most worth verifying against the page.
+
+- **And the shape it shares with the entry above**: the milestone's opening act was disqualifying a
+  vendor for a residency claim stronger than its source. The page then made one.
+
+## A helper's trade-off belongs to the host it was written for, 7 September 2026
+
+- **Issue**: `atMostEvery` claims its window only after the work resolves, and `sweeps.test.ts` pins
+  that deliberately — "the gate advancing on failure would skip the sweep until the next window, and
+  this endpoint is only polled while a document is processing." I reused the helper to host a new
+  sweep on the sign-in send and never re-read that reasoning. On the new host the inverse holds: the
+  caller is anonymous, arrival is attacker-paced, and a sweep that kept failing would be retried by
+  every request rather than once a window. The sweep also sat above the throttle, so nothing had
+  rate-limited it yet.
+
+- **Cause**: the helper's comment reads as a property of the helper. It is a property of the helper
+  _plus the endpoint it was written against_, and the sentence naming the endpoint was right there.
+  I read it as justification for the existing behavior rather than as a statement of the conditions
+  the behavior depends on.
+
+- **Fix**: the sweep moved below the admission check, so the allowance paces it, and the failure is
+  swallowed inside the work so the window is claimed either way. Both are one line. The unit test
+  that asserted the old ordering was inverted rather than deleted — a refused caller sweeping nothing
+  is now the property worth pinning.
+
+- **Lesson**: **a documented trade-off is scoped to the conditions that made it a good trade, and
+  reuse is where those change silently.** The tell is mechanical: if a comment justifying a design
+  names a specific caller, adding a second caller invalidates the comment until someone checks.
+
+## The falsification that could not have failed, 7 September 2026
+
+- **Issue**: review pointed out that the throttle's error code and the copy the reader sees live in
+  two files with nothing binding them — delete the `AccessDenied` entry from the sign-in page's map
+  and the whole suite stays green. I wrote the E2E test, then falsified it by deleting the map entry
+  and re-running. **It passed.** Which would have meant my new test was worthless.
+
+- **Cause**: Playwright's `webServer` runs `pnpm start`, which serves the prebuilt `.next`. Editing a
+  source file changes nothing until `pnpm build` runs again. The falsification ran against bytes that
+  still contained the entry I had just deleted.
+
+- **Fix**: rebuild, re-run, and it fails with `"Something went wrong signing you in."` — the fallback,
+  which is exactly what review predicted. The test is real. Nothing about the test changed.
+
+- **And a second stale artifact in the same hour**: `CI=1 pnpm test:e2e --reporter=list` writes no
+  JUnit file, because `--reporter` replaces the config's reporter list rather than adding to it. So
+  `check-test-counts` compared the README against a report from a previous day — a run whose 163
+  tests were all `skipped`. Same shape as the entry above it in this file, one day later.
+
+- **Lesson**: **a green falsification is a result about the harness, not about the test.** When
+  breaking the code on purpose does not break the test, the first hypothesis is that the break never
+  reached the thing under test — and for anything served from a build artifact, it usually has not.
+
+## The stub was shaped like the bug, 8 September 2026
+
+- **Issue**: the fix under test was moving a `.catch` from around a gate to inside the work it
+  gates — `pruneExpiredTokens(swallowFailures(work))` rather than
+  `pruneExpiredTokens(work).catch(...)`. The difference is only visible in `atMostEvery`, which
+  claims its window after the work resolves: swallowed inside, a failing sweep spends its hour;
+  swallowed outside, every later request retries it. My unit test mocked the gate as
+  `(work) => work()`. Both placements pass through that stub identically. The test I wrote to pin
+  the fix could not have failed on the bug.
+
+- **Cause**: I mocked the gate because its window is module state and would have leaked between
+  cases — a real problem with a real fix, which the file next door already used: `atMostEvery` with a
+  clock the test owns. I reached for the cheaper stub instead and stopped thinking once the leak was
+  solved, because the leak was the problem I had in mind.
+
+- **Fix**: `vi.mock("@/lib/sweeps", importOriginal)` keeping the real `atMostEvery` and the real
+  `swallowFailures`, on a hoisted `clock`. Two cases now: a failing sweep is invoked once across two
+  requests, and — the positive control — the work does run again once the clock passes the hour.
+  Falsified by restoring the old placement: 2 invocations instead of 1.
+
+- **Lesson**: **a stub that erases the distinction your change is about turns a green test into
+  decoration.** The check is mechanical and takes a second: name the two implementations the test is
+  meant to separate, and ask whether the mock treats them differently. If the mock is a pass-through,
+  the answer is almost always no.
+
+## A claim inherited from a review, shipped in an ADR, 8 September 2026
+
+- **Issue**: ADR 053 states the sweep's second host is `POST /api/w/:id/documents`. It is the `GET`.
+  All three sweeps on that route are in the polled read handler, which is the entire reason they are
+  gated — the comment two lines above them says the client polls every two seconds.
+
+- **Cause**: the previous review described the existing sweep as running "when a signed-in user
+  uploads a document". I used that sentence to reason about where the tail was uncollected, agreed
+  with the conclusion, added the second host — and never opened the handler I was adding it to. The
+  conclusion was right, which is what let the wrong premise through.
+
+- **Fix**: the ADR names the `GET`, and says what that host is actually bounded by — authorization,
+  not an allowance — so the sentence about the allowance pacing the sweep is scoped to the sign-in
+  path where it is true. The same wrong host in this file's earlier entry is corrected too.
+
+- **Lesson**: **a reviewer's description of your code is a claim about your code, and it inherits
+  no authority from being in a review.** The asymmetry is what makes it dangerous: their _findings_
+  arrive with evidence attached, and their _descriptions_ of the surrounding code arrive as
+  background. I verified all four mechanisms that review reported as defects and none of the
+  sentences framing them.
