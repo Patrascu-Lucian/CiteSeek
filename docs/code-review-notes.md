@@ -2879,10 +2879,11 @@ tests, 117 E2E and a production build, green.
   right. What I never asked is what the rest of the request does once my part throws. I treated the
   callback as the whole operation because it was the whole of my code.
 
-- **Fix**: expired rows are swept, and the sweep rides the sign-in send rather than the existing
-  document-upload host, because the callers who fill that table never upload anything. The refused
-  row is accepted rather than prevented — refusing earlier means a check outside the provider, which
-  is the thing the design rejected — and a 15-minute expiry makes it collectable almost immediately.
+- **Fix**: expired rows are swept, on the sign-in send rather than only on the polled documents `GET`
+  the existing sweeps ride, because the callers who fill that table are not signed in and never reach
+  that route. The refused row is accepted rather than prevented — refusing earlier means a check
+  outside the provider, which is the thing the design rejected — and a 15-minute expiry makes it
+  collectable almost immediately. It ended up on both hosts: see the entry below.
 
 - **Lesson**: **throwing out of a library callback aborts your work, not the library's.** The
   question to ask of any hook is what the caller had already set in motion before it called you, and
@@ -2955,3 +2956,49 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **a green falsification is a result about the harness, not about the test.** When
   breaking the code on purpose does not break the test, the first hypothesis is that the break never
   reached the thing under test — and for anything served from a build artifact, it usually has not.
+
+## The stub was shaped like the bug, 8 September 2026
+
+- **Issue**: the fix under test was moving a `.catch` from around a gate to inside the work it
+  gates — `pruneExpiredTokens(swallowFailures(work))` rather than
+  `pruneExpiredTokens(work).catch(...)`. The difference is only visible in `atMostEvery`, which
+  claims its window after the work resolves: swallowed inside, a failing sweep spends its hour;
+  swallowed outside, every later request retries it. My unit test mocked the gate as
+  `(work) => work()`. Both placements pass through that stub identically. The test I wrote to pin
+  the fix could not have failed on the bug.
+
+- **Cause**: I mocked the gate because its window is module state and would have leaked between
+  cases — a real problem with a real fix, which the file next door already used: `atMostEvery` with a
+  clock the test owns. I reached for the cheaper stub instead and stopped thinking once the leak was
+  solved, because the leak was the problem I had in mind.
+
+- **Fix**: `vi.mock("@/lib/sweeps", importOriginal)` keeping the real `atMostEvery` and the real
+  `swallowFailures`, on a hoisted `clock`. Two cases now: a failing sweep is invoked once across two
+  requests, and — the positive control — the work does run again once the clock passes the hour.
+  Falsified by restoring the old placement: 2 invocations instead of 1.
+
+- **Lesson**: **a stub that erases the distinction your change is about turns a green test into
+  decoration.** The check is mechanical and takes a second: name the two implementations the test is
+  meant to separate, and ask whether the mock treats them differently. If the mock is a pass-through,
+  the answer is almost always no.
+
+## A claim inherited from a review, shipped in an ADR, 8 September 2026
+
+- **Issue**: ADR 053 states the sweep's second host is `POST /api/w/:id/documents`. It is the `GET`.
+  All three sweeps on that route are in the polled read handler, which is the entire reason they are
+  gated — the comment two lines above them says the client polls every two seconds.
+
+- **Cause**: the previous review described the existing sweep as running "when a signed-in user
+  uploads a document". I used that sentence to reason about where the tail was uncollected, agreed
+  with the conclusion, added the second host — and never opened the handler I was adding it to. The
+  conclusion was right, which is what let the wrong premise through.
+
+- **Fix**: the ADR names the `GET`, and says what that host is actually bounded by — authorization,
+  not an allowance — so the sentence about the allowance pacing the sweep is scoped to the sign-in
+  path where it is true. The same wrong host in this file's earlier entry is corrected too.
+
+- **Lesson**: **a reviewer's description of your code is a claim about your code, and it inherits
+  no authority from being in a review.** The asymmetry is what makes it dangerous: their _findings_
+  arrive with evidence attached, and their _descriptions_ of the surrounding code arrive as
+  background. I verified all four mechanisms that review reported as defects and none of the
+  sentences framing them.

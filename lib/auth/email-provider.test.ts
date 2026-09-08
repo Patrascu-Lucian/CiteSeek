@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as Sweeps from "@/lib/sweeps";
+
 const admit = vi.hoisted(() => vi.fn().mockResolvedValue(true));
 const prune = vi.hoisted(() => vi.fn().mockResolvedValue(0));
 
@@ -7,12 +9,21 @@ vi.mock("@/lib/auth/verification-tokens", () => ({
   pruneVerificationTokens: prune,
 }));
 
-// The gate is `atMostEvery`, whose hourly window is per process — under test it
-// would let the first case sweep and silence every one after it. `sweeps.ts`
-// has its own tests for the gate.
-vi.mock("@/lib/sweeps", () => ({
-  pruneExpiredTokens: (work: () => Promise<unknown>) => work(),
-}));
+// The real gate and the real `swallowFailures`, on a clock the test owns: the
+// hourly window is module state, so the first case would otherwise sweep and
+// silence every one after it. A pass-through stub cannot tell the swallow being
+// inside the work from it being around the gate, which is the whole property.
+const clock = vi.hoisted(() => ({ at: 0 }));
+
+vi.mock("@/lib/sweeps", async (importOriginal) => {
+  const { atMostEvery, swallowFailures } =
+    await importOriginal<typeof Sweeps>();
+  return {
+    atMostEvery,
+    swallowFailures,
+    pruneExpiredTokens: atMostEvery(60 * 60_000, () => clock.at),
+  };
+});
 
 // Reaches `lib/db` through the counting query, which a unit test has no
 // database for. What it decides is covered by the integration suite.
@@ -52,6 +63,8 @@ beforeEach(() => {
   process.env.AUTH_SECRET ??= "test-secret";
   admit.mockReset().mockResolvedValue(true);
   prune.mockReset().mockResolvedValue(0);
+  // Past the hour, so each case starts with the window open.
+  clock.at += 60 * 60_000 * 2;
   process.env.SCALEWAY_PROJECT_ID = "proj-1";
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
 });
@@ -151,6 +164,31 @@ describe("the Scaleway email provider", () => {
 
     await expect(send()).resolves.toBeUndefined();
     expect(fetch).toHaveBeenCalled();
+  });
+
+  it("spends the window on a sweep that failed, rather than retrying it per request", async () => {
+    // `atMostEvery` advances only once the work resolves, so swallowing around
+    // the gate instead of inside the work would let an anonymous caller retry a
+    // failing sweep on every request.
+    prune.mockRejectedValue(new Error("no database"));
+
+    await send();
+    await send();
+
+    expect(prune).toHaveBeenCalledTimes(1);
+  });
+
+  it("sweeps once an hour, not once a request", async () => {
+    // The positive control: without it the case above passes against a gate
+    // that never runs the work at all.
+    await send();
+    await send();
+    expect(prune).toHaveBeenCalledTimes(1);
+
+    clock.at += 60 * 60_000;
+    await send();
+
+    expect(prune).toHaveBeenCalledTimes(2);
   });
 
   it("does not send once the caller has spent their allowance", async () => {
