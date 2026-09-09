@@ -3,6 +3,7 @@ import Link from "next/link";
 import { DeleteAccountDialog } from "@/components/account/delete-account-dialog";
 import { ProviderMark } from "@/components/auth/provider-mark";
 import { SubmitButton } from "@/components/auth/submit-button";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -92,13 +93,15 @@ function UserAccount({
             <h2>Your details</h2>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex items-start gap-4">
+          <Avatar name={name} email={email} />
+
           {/*
             A description list, not a table: these are name/value pairs, and `dl`
             is what conveys that pairing to a screen reader. A table would
             announce rows and columns that do not exist.
           */}
-          <dl className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-[10rem_1fr]">
+          <dl className="grid flex-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-[10rem_1fr]">
             <dt className="text-muted-foreground">Name</dt>
             <dd>{name ?? <NotProvided />}</dd>
 
