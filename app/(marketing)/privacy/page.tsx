@@ -52,10 +52,12 @@ export default function PrivacyPage() {
       <Section title="What is stored">
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <strong>Your account</strong> — your email address, a profile name
-            if a sign-in provider supplied one, and a session record. With an
-            email link you type the address yourself and there is no provider
-            and no name.
+            <strong>Your account</strong> — your email address, a session
+            record, and, if a sign-in provider supplied them, a profile name and
+            a link to the profile picture held by that provider. The picture
+            itself is never copied here and is not shown anywhere in the app;
+            what is stored is the address of it. With an email link you type the
+            address yourself, and there is no provider, no name and no picture.
           </li>
           <li>
             <strong>Extracted text</strong> — when you upload a document, it is

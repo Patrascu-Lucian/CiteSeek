@@ -68,6 +68,20 @@ describe("the privacy page", () => {
     expect(screen.getByText(/whichever you sign in with/i)).toBeInTheDocument();
   });
 
+  it("names the avatar URL a provider hands over", () => {
+    // `users.image` has been written by the adapter since the first OAuth
+    // sign-in and read by nothing. A list of what is stored that omits a row
+    // the database holds is the defect, whether or not anything renders it.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/link to the profile picture held by that provider/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/never copied here and is not shown anywhere/i),
+    ).toBeInTheDocument();
+  });
+
   it("states the sender's obligation without overstating it", () => {
     // ADR 052 reads Article 11.2.2 as a notification duty, not a prohibition —
     // and the page shipped in the same branch claiming the stronger version. A
