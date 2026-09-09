@@ -120,9 +120,7 @@ export function MainNav({
           {children ? (
             <div className="border-border/60 flex flex-col items-start gap-2 border-t px-6 pt-4 [&_button]:px-0">
               {sessionLabel ? (
-                // `items-start`, not `items-center`: a long email wraps to two
-                // lines and the face should stay level with the first.
-                <div className="flex items-start gap-3">
+                <div className="flex items-center gap-2">
                   {sessionAvatar}
                   <span className="text-muted-foreground text-sm break-all">
                     {sessionLabel}
