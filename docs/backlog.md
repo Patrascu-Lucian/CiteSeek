@@ -3021,6 +3021,25 @@ it passes; retention is a claim the privacy page will need to make.
 ↳ **Decided in [ADR 052](decisions/052-a-sender-chosen-on-where-the-mail-is-stored.md)**, which
 carries the reading of Article 11 and what the privacy page may claim on it.
 
+## The sign-in page has no primary action anymore, 9 September 2026
+
+Before v1.6.1 the two provider buttons were `variant="default"` and the email button `outline`:
+two emphasized routes and a quieter third. Adding the provider marks moved both providers to
+`outline`, so all three now sit on `bg-background` with a separator between the pair and the
+single.
+
+**The reason was Google's**, and it is not negotiable: its brand guidance puts the four-color G on a
+light surface, and the alternative it allows — a monochrome G — is forbidden. Matching GitHub to it
+keeps the pair consistent, which is the right call for the pair.
+
+**The consequence is the third button**, which nobody chose. "Continue with email" now reads as
+equal in weight to the two providers. That may be exactly right — the commit that added the email
+route argued for "three ways in that read like three choices", and this is what that looks like — or
+it may be a page where nothing tells a first-time reader where to start.
+
+Parked rather than decided, because it is the same decision as the entry below: how prominent the
+email path should be, and what it is called, are one question asked twice. Answer them together.
+
 ## The email method has two names, and a reader meets both, 9 September 2026
 
 The button on `/sign-in` says **"Continue with email"**. The account page then lists the method as

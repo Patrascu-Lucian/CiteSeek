@@ -40,7 +40,13 @@ export async function listSignInMethods(
     ? [...linked, { provider: EMAIL_METHOD }]
     : linked;
 
-  return methods.sort((a, b) => rank(a.provider) - rank(b.provider));
+  // The id breaks the tie: everything outside `AUTH_PROVIDERS` ranks equal, and
+  // with the SQL `order by` gone their input order is whatever Postgres returned.
+  return methods.sort(
+    (a, b) =>
+      rank(a.provider) - rank(b.provider) ||
+      a.provider.localeCompare(b.provider),
+  );
 }
 
 /** One rule, sorted in JavaScript rather than half here and half in SQL: an
