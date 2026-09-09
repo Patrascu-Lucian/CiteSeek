@@ -2932,11 +2932,16 @@ per URI, but Vercel preview URLs carry a per-deploy hash and Google does not acc
 there is no finite set to register — only a stable per-branch alias would work. GitHub has the same
 limitation for the same reason, so previews have never had a working OAuth round trip here.
 
-**`/account` is outside the axe sweep.** It needs a session, and the sweep in `e2e/a11y.spec.ts`
-runs anonymously. The page grew again this release — a second `<dl>`, a stack of forms, a button
-carrying `aria-busy` — so the untested surface is larger than when this was first noted.
-`e2e/link-provider.spec.ts` established the signed-in pattern, so the cost is now a few lines rather
-than a fixture.
+~~**`/account` is outside the axe sweep.**~~ **Closed, 9 September 2026.** It needed a session and
+the sweep runs anonymously, so the page went unscanned from the milestone that built it.
+`e2e/account-a11y.spec.ts` scans it in both themes, signed in and as a guest — two different pages,
+and the guest one was as unscanned as the other. The axe helpers moved to `e2e/axe.ts` because the
+sweep takes `test` from Playwright and this takes the signed-in fixture; sharing the helper was
+cheaper than making one file serve both.
+
+**What it does not cover, and no automated check would**: the avatar is `aria-hidden`, so axe skips
+it entirely. Its contrast is arithmetic — the tokens are achromatic, so `Y = L³` and the ratio falls
+out exactly — recorded where the component is rather than measured here.
 
 ## Resend fails the residency rule, 6 September 2026
 
