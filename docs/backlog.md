@@ -3021,6 +3021,26 @@ it passes; retention is a claim the privacy page will need to make.
 ↳ **Decided in [ADR 052](decisions/052-a-sender-chosen-on-where-the-mail-is-stored.md)**, which
 carries the reading of Article 11 and what the privacy page may claim on it.
 
+## The email method has two names, and a reader meets both, 9 September 2026
+
+The button on `/sign-in` says **"Continue with email"**. The account page then lists the method as
+**"Email link"** (`PROVIDER_LABELS` in `lib/users/queries.ts`). Same thing, two names, and the
+reader who used the first has to infer that the second is what they did.
+
+**A third string exists and does not count.** `scalewayEmail` sets `name: "Email"`, which Auth.js
+renders on its own built-in sign-in page — replaced here by `pages.signIn`, so nothing displays it.
+Worth stating rather than fixing: changing it would look like progress and move nothing a reader
+sees.
+
+**Not obviously a defect in either direction.** "Continue with email" reads as an action beside
+"Continue with Google"; "Email link" describes a stored method beside "GitHub", and "Email" alone
+there would invite the question of what an email method is. So this is a naming decision to make
+deliberately, not a typo to correct — which is why it is parked rather than folded into the release
+that noticed it.
+
+Deferred out of the v1.6.1 work, where the surrounding slices were cosmetic and this one is copy
+with a small design question inside it.
+
 ## The sending key expires because this Organization says so, 6 September 2026
 
 **Scaleway keys do not expire unless an expiry is set.** The one-year ceiling in our console is an
