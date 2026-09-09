@@ -23,6 +23,12 @@ describe("what crawlers are told to skip", () => {
     expect(disallowed).toContain("/account");
   });
 
+  it("keeps the holding page out of the index", () => {
+    // Reachable directly whether maintenance is on, and an indexed one
+    // outlives the maintenance it announced.
+    expect(disallowed).toContain("/maintenance");
+  });
+
   it("points at the sitemap absolutely, or it cannot be fetched", () => {
     expect(robots().sitemap).toMatch(/^https?:\/\/.+\/sitemap\.xml$/);
   });

@@ -3021,6 +3021,33 @@ it passes; retention is a claim the privacy page will need to make.
 ↳ **Decided in [ADR 052](decisions/052-a-sender-chosen-on-where-the-mail-is-stored.md)**, which
 carries the reading of Article 11 and what the privacy page may claim on it.
 
+## The maintenance switch needs a deploy, which is most of what it is not, 9 September 2026
+
+`proxy.ts` reads `MAINTENANCE=on` and rewrites every route to `/maintenance` with a **503** and a
+`Retry-After`. Measured rather than assumed, because the shape of the whole thing depended on it:
+`NextResponse.rewrite(url, { status: 503 })` **does** preserve the status in Next 16.3.4 — `/` and
+`/account` answer 503 with the holding page's markup and the CSP header intact, while
+`/maintenance` and the static assets stay 200.
+
+**A Vercel environment variable does not take effect without a redeploy.** So this is a switch for
+_planned_ maintenance — deploy with the flag on, do the work, deploy with it off — and not a lever
+to pull during an outage. That is backwards from what the name suggests, which is why it is written
+down here rather than left to be discovered during one.
+
+**Edge Config would give a no-deploy toggle and is deliberately not proposed.** It is a new vendor
+surface, and it arrives carrying the same question this project disqualified a vendor over in
+Milestone 8.6: where the data is stored, in writing, from a primary source. A read on every request
+is a low bar for a residency review, but it is not no bar, and what it buys is a faster path to a
+page nobody should see twice a year.
+
+**Why 503 and not 200.** A holding page served as 200 tells search engines and uptime monitoring the
+site is healthy — the soft-404 defect in another costume, and this project has paid for that once
+already. 503 with `Retry-After` means "ask again later", and crawlers treat it as temporary rather
+than dropping the URL.
+
+**Deliberately absent**: any link out of the holding page. Every route answers it, so a button would
+land the reader back where they started.
+
 ## The sign-in page has no primary action anymore, 9 September 2026
 
 Before v1.6.1 the two provider buttons were `variant="default"` and the email button `outline`:
