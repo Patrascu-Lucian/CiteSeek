@@ -1,7 +1,7 @@
-import AxeBuilder from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
+import { useTheme, violationsOn } from "./axe";
 import { stubWebGpu, uploadAndAsk } from "./local-mode";
 
 /**
@@ -13,33 +13,11 @@ import { stubWebGpu, uploadAndAsk } from "./local-mode";
  * So this catches the mechanical failures; the keyboard specs below cover the rest.
  */
 
-/**
- * WCAG 2.2 AA, the bar the project claims. `best-practice` is excluded: it mixes
- * real issues with opinion, and a suite that fails on an opinion gets ignored.
- */
-const WCAG_AA = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
-
 /** Scanned from the top: the offset otherwise depends on where streaming
  * stopped, and the sticky header obscures whatever lands under it. */
 async function violationsFromTop(page: Page) {
   await page.evaluate(() => window.scrollTo(0, 0));
   return violationsOn(page);
-}
-
-/** Reduced to the rule id, impact and markup: a raw `toEqual([])` prints hundreds
- * of lines and buries the one sentence saying what is wrong. */
-async function violationsOn(page: Page, selector?: string) {
-  const builder = new AxeBuilder({ page }).withTags(WCAG_AA);
-  const results = await (
-    selector ? builder.include(selector) : builder
-  ).analyze();
-
-  return results.violations.map((violation) => ({
-    id: violation.id,
-    impact: violation.impact,
-    help: violation.help,
-    nodes: violation.nodes.map((node) => node.html),
-  }));
 }
 
 /** `proxy.ts` redirects a credential-less `/w/*` to `/sign-in`, so scanning that
@@ -133,14 +111,6 @@ async function decorationContrastOf(locator: Locator): Promise<number> {
 }
 
 const THEMES = ["light", "dark"] as const;
-
-async function useTheme(page: Page, theme: (typeof THEMES)[number]) {
-  // One navigation first, so the context has an origin to attach a cookie to.
-  await page.goto("/");
-  await page
-    .context()
-    .addCookies([{ name: "citeseek_theme", value: theme, url: page.url() }]);
-}
 
 for (const theme of THEMES) {
   test.describe(`${theme} theme`, () => {
