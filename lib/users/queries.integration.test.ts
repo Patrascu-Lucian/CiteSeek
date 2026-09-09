@@ -51,13 +51,32 @@ describe("a user with two providers", () => {
     // between loads and read as a bug. Alphabetical was the old rule and is
     // indistinguishable from this one whenever the two happen to agree — they
     // disagree here, which is what makes the assertion worth making.
+    // Linked in the opposite order to the one expected, so the sort is the only
+    // thing that can produce this — insertion order would pass without it.
     const user = await createTestUser(db);
-    await link(user.id, "google");
     await link(user.id, "github");
+    await link(user.id, "google");
 
     expect(await listSignInMethods(user.id)).toEqual([
       { provider: "google" },
       { provider: "github" },
+    ]);
+  });
+
+  it("orders a provider it no longer configures, rather than leaving it to Postgres", async () => {
+    // Everything outside `AUTH_PROVIDERS` ranks equal, and dropping the SQL
+    // `order by` left those rows in whatever order the database returned. Not
+    // reachable while both live providers are listed; reachable the day one is
+    // retired and readers still hold rows for it.
+    const user = await createTestUser(db);
+    await link(user.id, "zzz-retired");
+    await link(user.id, "aaa-retired");
+    await link(user.id, "github");
+
+    expect(await listSignInMethods(user.id)).toEqual([
+      { provider: "github" },
+      { provider: "aaa-retired" },
+      { provider: "zzz-retired" },
     ]);
   });
 

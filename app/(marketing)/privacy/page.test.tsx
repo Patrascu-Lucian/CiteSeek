@@ -68,6 +68,20 @@ describe("the privacy page", () => {
     expect(screen.getByText(/whichever you sign in with/i)).toBeInTheDocument();
   });
 
+  it("names the tokens a linked provider leaves behind", () => {
+    // The `accounts` row holds `access_token`, `id_token` and the account id at
+    // that provider. `listSignInMethods` selects two columns *because* of them,
+    // so the codebase knew; the page was the one place that did not.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/the tokens it issued when you signed in/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/nothing in this project uses them to read anything/i),
+    ).toBeInTheDocument();
+  });
+
   it("names the avatar URL a provider hands over", () => {
     // `users.image` has been written by the adapter since the first OAuth
     // sign-in and read by nothing. A list of what is stored that omits a row

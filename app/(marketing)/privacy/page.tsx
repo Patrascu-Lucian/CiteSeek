@@ -60,6 +60,14 @@ export default function PrivacyPage() {
             address yourself, and there is no provider, no name and no picture.
           </li>
           <li>
+            <strong>Your linked accounts</strong> — for each provider you sign
+            in with, its name, your account id there, and the tokens it issued
+            when you signed in. Those tokens are what proves the link is yours;
+            nothing in this project uses them to read anything from your account
+            at that provider. They are deleted with your account, and signing in
+            with an email link creates none of this.
+          </li>
+          <li>
             <strong>Extracted text</strong> — when you upload a document, it is
             parsed and the text is stored. The uploaded file itself is discarded
             once parsing finishes and is never written to disk or object
