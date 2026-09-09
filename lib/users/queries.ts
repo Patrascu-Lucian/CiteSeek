@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 
+import { AUTH_PROVIDERS } from "@/lib/auth/providers";
 import { db } from "@/lib/db";
 import { accounts, users } from "@/lib/db/schema";
 
@@ -28,17 +29,34 @@ export async function listSignInMethods(
     db
       .select({ provider: accounts.provider })
       .from(accounts)
-      .where(eq(accounts.userId, userId))
-      .orderBy(accounts.provider),
+      .where(eq(accounts.userId, userId)),
     db
       .select({ emailVerified: users.emailVerified })
       .from(users)
       .where(eq(users.id, userId)),
   ]);
 
-  return verified[0]?.emailVerified
+  const methods = verified[0]?.emailVerified
     ? [...linked, { provider: EMAIL_METHOD }]
     : linked;
+
+  // The id breaks the tie: everything outside `AUTH_PROVIDERS` ranks equal, and
+  // with the SQL `order by` gone their input order is whatever Postgres returned.
+  return methods.sort(
+    (a, b) =>
+      rank(a.provider) - rank(b.provider) ||
+      a.provider.localeCompare(b.provider),
+  );
+}
+
+/** One rule, sorted in JavaScript rather than half here and half in SQL: an
+ * `order by` gave alphabetical and appending gave email-last, which agreed with
+ * this only while GitHub led `AUTH_PROVIDERS`. The card the reader sees and the
+ * Add buttons beside it now come from the same list. */
+function rank(provider: string): number {
+  const index = AUTH_PROVIDERS.findIndex(({ id }) => id === provider);
+
+  return index === -1 ? AUTH_PROVIDERS.length : index;
 }
 
 /** Not a provider id: nothing signs in "with EMAIL_METHOD", and it must never

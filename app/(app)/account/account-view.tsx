@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DeleteAccountDialog } from "@/components/account/delete-account-dialog";
+import { ProviderMark } from "@/components/auth/provider-mark";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -187,6 +188,7 @@ function SignInMethods({
               variant="outline"
               pendingLabel={`Taking you to ${label}…`}
             >
+              <ProviderMark provider={id} />
               Add {label}
             </SubmitButton>
           </form>

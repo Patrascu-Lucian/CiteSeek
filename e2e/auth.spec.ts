@@ -362,6 +362,20 @@ test.describe("sign-in page", () => {
     ).toBeVisible();
   });
 
+  test("offers the three ways in, in order, with email last", async ({
+    page,
+  }) => {
+    // `AUTH_PROVIDERS` is the ordering authority for the two OAuth buttons here
+    // and on the account card, and nothing asserted the order it produces — so
+    // the last swap was silent and the next would be too. Email is not in that
+    // list and is placed by the page, below the separator.
+    await page.goto("/sign-in");
+
+    await expect(
+      page.getByRole("button", { name: /continue with/i }),
+    ).toHaveText([/Google/, /GitHub/, /email/]);
+  });
+
   test("announces a failed sign-in without losing either provider", async ({
     page,
   }) => {

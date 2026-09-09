@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 
 import { signIn } from "@/auth";
+import { ProviderMark } from "@/components/auth/provider-mark";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { Button } from "@/components/ui/button";
 import { AUTH_PROVIDERS } from "@/lib/auth/providers";
@@ -119,7 +120,12 @@ export default async function SignInPage({
                   await signIn(id, { redirectTo: callbackUrl ?? "/w" });
                 }}
               >
-                <SubmitButton block pendingLabel={`Taking you to ${label}…`}>
+                <SubmitButton
+                  block
+                  variant="outline"
+                  pendingLabel={`Taking you to ${label}…`}
+                >
+                  <ProviderMark provider={id} />
                   Continue with {label}
                 </SubmitButton>
               </form>

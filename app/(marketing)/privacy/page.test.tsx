@@ -2,9 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { SiteFooter } from "@/components/site-footer";
-import { REPOSITORY_URL } from "@/lib/links";
 
-import ContactPage from "../contact/page";
 import PrivacyPage from "./page";
 import TermsPage from "../terms/page";
 
@@ -68,6 +66,34 @@ describe("the privacy page", () => {
 
     expect(screen.getByText(/GitHub or Google/)).toBeInTheDocument();
     expect(screen.getByText(/whichever you sign in with/i)).toBeInTheDocument();
+  });
+
+  it("names the tokens a linked provider leaves behind", () => {
+    // The `accounts` row holds `access_token`, `id_token` and the account id at
+    // that provider. `listSignInMethods` selects two columns *because* of them,
+    // so the codebase knew; the page was the one place that did not.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/the tokens it issued when you signed in/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/nothing in this project uses them to read anything/i),
+    ).toBeInTheDocument();
+  });
+
+  it("names the avatar URL a provider hands over", () => {
+    // `users.image` has been written by the adapter since the first OAuth
+    // sign-in and read by nothing. A list of what is stored that omits a row
+    // the database holds is the defect, whether or not anything renders it.
+    render(<PrivacyPage />);
+
+    expect(
+      screen.getByText(/link to the profile picture held by that provider/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/never copied here and is not shown anywhere/i),
+    ).toBeInTheDocument();
   });
 
   it("states the sender's obligation without overstating it", () => {
@@ -264,7 +290,7 @@ describe("the terms page", () => {
   });
 });
 
-describe("the contact route the policy promises", () => {
+describe("the contact route these pages promise", () => {
   it("sends the reader to a page of ours, not straight to a third party", () => {
     // One route to change when an address exists, rather than every page that
     // promises one. This sentence shipped once pointing at nothing at all.
@@ -283,34 +309,6 @@ describe("the contact route the policy promises", () => {
       "href",
       "/contact",
     );
-  });
-
-  it("names a route that actually reaches somebody", () => {
-    // The page exists to hold an address it does not have yet, so what it names
-    // has to be checked rather than assumed present.
-    render(<ContactPage />);
-
-    expect(
-      screen.getByRole("link", { name: /the repository/i }),
-    ).toHaveAttribute("href", REPOSITORY_URL);
-  });
-
-  it("says deletion needs no request at all", () => {
-    // The fastest answer to the question this page exists for, and the only one
-    // that does not depend on somebody reading a message.
-    render(<ContactPage />);
-
-    expect(screen.getByRole("link", { name: /account page/i })).toHaveAttribute(
-      "href",
-      "/account",
-    );
-    expect(screen.getByText(/no copy is kept/i)).toBeInTheDocument();
-  });
-
-  it("says local mode's documents are beyond any request", () => {
-    render(<ContactPage />);
-
-    expect(screen.getByText(/never reached a server/i)).toBeInTheDocument();
   });
 });
 

@@ -2229,6 +2229,14 @@ lost silently.
 target and the more common pattern. `aria-label` is the only name either state has now, and axe
 over the form is clean.
 
+↳ **The circle is square, 9 September 2026.** Corners only — nothing the paragraph above argued for
+is lost. The control is still `size="icon"`, still 32×32, and the E2E still asserts `width ===
+height` and a floor of 24px, so WCAG 2.5.8 is untouched; squaring a 32px box slightly _increases_
+the area inside it. What changed is the surround. The circle was chosen when the button sat beside
+a field with its own edge; it now sits inside a `rounded-md` box, where a full circle reads as
+borrowed from somewhere else. `rounded-md` and not the Button base's `rounded-lg`, which would be
+rounder than the container.
+
 ## ~~A signed-in reader can start conversations in the read-only demo~~, 20 August 2026
 
 Found in review of 1.3.1, and **not a regression** — the route this replaced behaved identically,
@@ -3012,6 +3020,45 @@ it passes; retention is a claim the privacy page will need to make.
 
 ↳ **Decided in [ADR 052](decisions/052-a-sender-chosen-on-where-the-mail-is-stored.md)**, which
 carries the reading of Article 11 and what the privacy page may claim on it.
+
+## The sign-in page has no primary action anymore, 9 September 2026
+
+Before v1.6.1 the two provider buttons were `variant="default"` and the email button `outline`:
+two emphasized routes and a quieter third. Adding the provider marks moved both providers to
+`outline`, so all three now sit on `bg-background` with a separator between the pair and the
+single.
+
+**The reason was Google's**, and it is not negotiable: its brand guidance puts the four-color G on a
+light surface, and the alternative it allows — a monochrome G — is forbidden. Matching GitHub to it
+keeps the pair consistent, which is the right call for the pair.
+
+**The consequence is the third button**, which nobody chose. "Continue with email" now reads as
+equal in weight to the two providers. That may be exactly right — the commit that added the email
+route argued for "three ways in that read like three choices", and this is what that looks like — or
+it may be a page where nothing tells a first-time reader where to start.
+
+Parked rather than decided, because it is the same decision as the entry below: how prominent the
+email path should be, and what it is called, are one question asked twice. Answer them together.
+
+## The email method has two names, and a reader meets both, 9 September 2026
+
+The button on `/sign-in` says **"Continue with email"**. The account page then lists the method as
+**"Email link"** (`PROVIDER_LABELS` in `lib/users/queries.ts`). Same thing, two names, and the
+reader who used the first has to infer that the second is what they did.
+
+**A third string exists and does not count.** `scalewayEmail` sets `name: "Email"`, which Auth.js
+renders on its own built-in sign-in page — replaced here by `pages.signIn`, so nothing displays it.
+Worth stating rather than fixing: changing it would look like progress and move nothing a reader
+sees.
+
+**Not obviously a defect in either direction.** "Continue with email" reads as an action beside
+"Continue with Google"; "Email link" describes a stored method beside "GitHub", and "Email" alone
+there would invite the question of what an email method is. So this is a naming decision to make
+deliberately, not a typo to correct — which is why it is parked rather than folded into the release
+that noticed it.
+
+Deferred out of the v1.6.1 work, where the surrounding slices were cosmetic and this one is copy
+with a small design question inside it.
 
 ## The sending key expires because this Organization says so, 6 September 2026
 
