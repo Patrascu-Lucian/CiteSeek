@@ -106,7 +106,9 @@ export function Composer({
           type={isStreaming ? "button" : "submit"}
           variant={isStreaming ? "outline" : "default"}
           size="icon"
-          className="rounded-full"
+          // Not the Button base's `rounded-lg`, which is rounder than the
+          // `rounded-md` box it sits inside.
+          className="rounded-md"
           aria-label={isStreaming ? "Stop the answer" : "Send the question"}
           onClick={isStreaming ? onStop : undefined}
           disabled={isStreaming ? false : disabled || value.trim().length === 0}

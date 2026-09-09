@@ -20,6 +20,20 @@ test("opens at one row and grows with the question", async ({ page }) => {
   expect(opened).toBeLessThan(36);
 });
 
+test("rounds the send control like the box it sits in", async ({ page }) => {
+  // The className is the whole of it: dropping it leaves the Button base's
+  // `rounded-lg`, rounder than its container, which no other test here would
+  // notice and a diff would not show.
+  const send = page.getByRole("button", { name: /send the question/i });
+
+  const [button, box] = await send.evaluate((el) => [
+    getComputedStyle(el).borderRadius,
+    getComputedStyle(el.parentElement!).borderRadius,
+  ]);
+
+  expect(button).toBe(box);
+});
+
 test("keeps the send control inside the field, and a real target", async ({
   page,
 }) => {

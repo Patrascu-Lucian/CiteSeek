@@ -2229,6 +2229,14 @@ lost silently.
 target and the more common pattern. `aria-label` is the only name either state has now, and axe
 over the form is clean.
 
+↳ **The circle is square, 9 September 2026.** Corners only — nothing the paragraph above argued for
+is lost. The control is still `size="icon"`, still 32×32, and the E2E still asserts `width ===
+height` and a floor of 24px, so WCAG 2.5.8 is untouched; squaring a 32px box slightly _increases_
+the area inside it. What changed is the surround. The circle was chosen when the button sat beside
+a field with its own edge; it now sits inside a `rounded-md` box, where a full circle reads as
+borrowed from somewhere else. `rounded-md` and not the Button base's `rounded-lg`, which would be
+rounder than the container.
+
 ## ~~A signed-in reader can start conversations in the read-only demo~~, 20 August 2026
 
 Found in review of 1.3.1, and **not a regression** — the route this replaced behaved identically,
