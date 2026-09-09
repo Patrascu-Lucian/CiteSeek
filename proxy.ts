@@ -26,6 +26,8 @@ import { contentSecurityPolicy } from "@/lib/security/content-security-policy";
 /** Routes where a missing credential is a redirect rather than a page. */
 const GUARDED = [/^\/w(\/|$)/, /^\/account$/];
 
+const MAINTENANCE_PATH = "/maintenance";
+
 export function proxy(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
 
@@ -34,6 +36,21 @@ export function proxy(request: NextRequest) {
   headers.set("x-nonce", nonce);
 
   const path = request.nextUrl.pathname;
+
+  if (process.env.MAINTENANCE === "on" && path !== MAINTENANCE_PATH) {
+    const holding = NextResponse.rewrite(
+      new URL(MAINTENANCE_PATH, request.url),
+      { status: 503, headers: { "Retry-After": "600" } },
+    );
+
+    holding.headers.set(
+      "Content-Security-Policy",
+      contentSecurityPolicy(nonce, { path: MAINTENANCE_PATH }),
+    );
+
+    return holding;
+  }
+
   const guarded = GUARDED.some((pattern) => pattern.test(path));
 
   const hasCredential =

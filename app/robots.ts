@@ -13,7 +13,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: [...SIDE_EFFECT_ROUTES, "/api/", "/account"],
+      // `/maintenance` is reachable directly even when nothing is rewritten to
+      // it, and an indexed holding page outlives the maintenance by weeks.
+      disallow: [...SIDE_EFFECT_ROUTES, "/api/", "/account", "/maintenance"],
     },
     sitemap: new URL("/sitemap.xml", siteUrl()).href,
   };
