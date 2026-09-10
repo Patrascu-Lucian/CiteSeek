@@ -1,10 +1,15 @@
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { pageShell } from "@/components/ui/page-shell";
+import { cn } from "@/lib/utils";
 
-/**
- * Without a loading boundary Next holds the *old* page on screen until the server
- * finishes, which reads as a link that did nothing. A skeleton rather than a
- * spinner: it reserves the real layout, so nothing jumps on arrival.
- */
+const Bar = ({ className }: { className: string }) => (
+  <div className={cn("bg-muted animate-pulse rounded-md", className)} />
+);
+
+/** Without a boundary Next holds the *old* page on screen until the server
+ * finishes, which reads as a link that did nothing. Reserves the signed-in
+ * layout, not the guest's single card: telling them apart means awaiting a
+ * session, and a fallback that suspends is not a fallback. */
 export default function AccountLoading() {
   return (
     <main id="main" className={pageShell("2xl")} aria-busy="true">
@@ -12,21 +17,46 @@ export default function AccountLoading() {
         Loading your account…
       </p>
 
-      <div className="bg-muted h-8 w-40 animate-pulse rounded-md" />
+      <Bar className="h-8 w-40" />
 
-      <div className="border-border mt-6 rounded-xl border p-6">
-        <div className="bg-muted h-5 w-32 animate-pulse rounded-md" />
-        <div className="mt-6 space-y-3">
-          <div className="bg-muted h-4 w-full max-w-sm animate-pulse rounded-md" />
-          <div className="bg-muted h-4 w-full max-w-xs animate-pulse rounded-md" />
-          <div className="bg-muted h-4 w-full max-w-[16rem] animate-pulse rounded-md" />
-        </div>
-      </div>
+      {/* Your details: a face beside a two-row description list. */}
+      <Card className="mt-6">
+        <CardHeader>
+          <Bar className="h-5 w-32" />
+        </CardHeader>
+        <CardContent className="flex items-start gap-4">
+          <div className="bg-muted size-10 shrink-0 animate-pulse rounded-full" />
+          <div className="flex-1 space-y-3">
+            <Bar className="h-4 w-full max-w-sm" />
+            <Bar className="h-4 w-full max-w-xs" />
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="border-border mt-6 rounded-xl border p-6">
-        <div className="bg-muted h-5 w-40 animate-pulse rounded-md" />
-        <div className="bg-muted mt-3 h-4 w-full max-w-md animate-pulse rounded-md" />
-      </div>
+      {/* Sign-in methods, then Ending your session: a title, a line of
+        description, and a row of controls each. */}
+      {[0, 1].map((card) => (
+        <Card key={card} className="mt-6">
+          <CardHeader>
+            <Bar className="h-5 w-40" />
+            <Bar className="mt-2 h-4 w-full max-w-md" />
+          </CardHeader>
+          <CardContent>
+            <Bar className="h-8 w-32" />
+          </CardContent>
+        </Card>
+      ))}
+
+      {/* Delete your account, which sits further down and carries its own edge. */}
+      <Card className="border-destructive/40 mt-10">
+        <CardHeader>
+          <Bar className="h-5 w-44" />
+          <Bar className="mt-2 h-4 w-full max-w-lg" />
+        </CardHeader>
+        <CardContent>
+          <Bar className="h-8 w-36" />
+        </CardContent>
+      </Card>
     </main>
   );
 }

@@ -378,6 +378,20 @@ test.describe("signing in from the header", () => {
   });
 });
 
+test("the holding page renders, so a rewrite has somewhere to land", async ({
+  page,
+}) => {
+  // The 503 path cannot be driven here — `webServer` fixes its environment for
+  // the whole run, and `proxy.test.ts` covers the switch. This is the half that
+  // needs a browser: that the page it rewrites to exists and is styled.
+  await page.goto("/maintenance");
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: /down for maintenance/i }),
+  ).toBeVisible();
+  await expect(page.locator("main#main")).toBeVisible();
+});
+
 test.describe("the footer", () => {
   test("puts what this project is before the policies", async ({ page }) => {
     await page.goto("/");

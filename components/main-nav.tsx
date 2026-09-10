@@ -25,6 +25,7 @@ export function MainNav({
   children,
   trailing,
   sessionLabel,
+  sessionAvatar,
 }: {
   items: readonly NavItem[];
   /** Passed through rather than rebuilt: sign-out vs leave-demo depends on the
@@ -35,6 +36,9 @@ export function MainNav({
   trailing?: ReactNode;
   /** Sheet only: an email is unbounded and crowded the horizontal row. */
   sessionLabel?: string;
+  /** Built by the header, for the same reason `children` is: whether there is a
+   * face to draw depends on the actor, which this does not know. */
+  sessionAvatar?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -116,11 +120,12 @@ export function MainNav({
           {children ? (
             <div className="border-border/60 flex flex-col items-start gap-2 border-t px-6 pt-4 [&_button]:px-0">
               {sessionLabel ? (
-                // Its own line, so a long email wraps rather than pushing
-                // anything — the reason it is not in the row above.
-                <span className="text-muted-foreground text-sm break-all">
-                  {sessionLabel}
-                </span>
+                <div className="flex items-center gap-2">
+                  {sessionAvatar}
+                  <span className="text-muted-foreground text-sm break-all">
+                    {sessionLabel}
+                  </span>
+                </div>
               ) : null}
               {children}
             </div>

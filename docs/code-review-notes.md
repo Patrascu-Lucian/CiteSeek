@@ -3002,3 +3002,100 @@ tests, 117 E2E and a production build, green.
   arrive with evidence attached, and their _descriptions_ of the surrounding code arrive as
   background. I verified all four mechanisms that review reported as defects and none of the
   sentences framing them.
+
+## The measurement measured the wrong process, 10 September 2026
+
+- **Issue**: the maintenance slice turned on a flag, and its whole shape depended on whether
+  `NextResponse.rewrite(url, { status: 503 })` preserves the status in Next 16. I built it, started
+  a server with `MAINTENANCE=on`, curled, and got 503 — correct. Then I killed the server with
+  `pkill -f "port 3100"`, restarted without the flag, curled again, and got **503 again**. Read
+  naively that says the switch is stuck on and cannot be turned off.
+
+- **Cause**: `pkill -f` matched nothing on Windows, so the first server never died. The second
+  `pnpm start` failed to bind the port and exited, silently, into a log I was not reading. Every
+  request in the "flag off" run was answered by the still-running "flag on" process.
+
+- **Fix**: identify the listener by port and kill it by pid, then re-measure. With a genuinely fresh
+  server: `/` 200, `/account` 307, `/maintenance` 200. Both directions confirmed.
+
+- **Lesson**: **a second measurement is only a second measurement if something changed between
+  them.** The tell was available and I walked past it: a result that says "this switch cannot be
+  turned off" is describing an implausible product, and implausible results are about the harness far
+  more often than the code. The same shape as the falsification that passed against a stale build
+  three days earlier — confirm the _setup_ changed before believing the outcome did.
+
+## A merge where a substitution was meant, 10 September 2026
+
+- **Issue**: extracting the status-page shell gave it a `contentClassName` prop, and I routed it
+  through `cn("flex flex-wrap gap-3", contentClassName)`. The two error boundaries pass `space-y-4`.
+  `cn` merges rather than replaces when the classes touch different properties, so both would have
+  rendered `flex flex-wrap gap-3 space-y-4` — and `space-y` on a flex _row_ does nothing. Both
+  boundaries would have silently lost the spacing between their alert, their button and their digest.
+
+- **Cause**: `cn` is the reflex for a className prop, and it is right when the prop is an addition.
+  Here the prop is an alternative, and nothing about the call site says which kind it is.
+
+- **Fix**: `contentClassName ?? "flex flex-wrap gap-3"`, and a test asserting the default class is
+  _absent_ when an override is given, not merely that the override is present.
+
+- **Lesson**: **before reaching for `cn`, decide whether the caller is adding or replacing.** The
+  failure is invisible in review — the class is right there in the output — and invisible in a test
+  that only checks the override arrived. A test that asserts what is _gone_ is the one that catches
+  it.
+
+## A comment claiming a property nothing compared, 10 September 2026
+
+- **Issue**: `app/(app)/account/loading.tsx` said it "reserves the real layout, so nothing jumps on
+  arrival". It reserved two cards; the signed-in page renders four. The claim had been false for two
+  milestones, and the avatar added this release made it worse.
+
+- **Cause**: the skeleton and the page it imitates are two files with no relationship a tool can
+  check. Every card added to one was a card the other silently stopped reserving.
+
+- **Fix**: a test rendering both and comparing `[data-slot="card"]` counts. Also revealed the
+  skeleton was drawing `border` where the real `Card` draws `ring-1` and `--card-spacing` — hand-copied
+  chrome that had drifted from what it copied — so it is built from `Card` now and cannot drift again.
+
+- **Lesson**: **a comment that states a property is a test that has not been written.** "Reserves the
+  real layout" is a claim about two files agreeing; the useful question is what would notice if they
+  stopped. Where the answer is "nothing", either write the check or weaken the sentence to what is
+  actually guaranteed.
+
+## Three instruments, and only the third measured the claim, 10 September 2026
+
+- **The finding**: review read `proxy.ts` and reported that the maintenance branch never passes
+  `request: { headers }` to `NextResponse.rewrite`, so `x-nonce` cannot reach the rewritten request
+  and the holding page is served under a policy naming a nonce nothing on the page carries. Under
+  `strict-dynamic` that blocks every script. The reasoning is sound, the mechanism is real, and the
+  finding marked itself **inferred from the diff, not observed**. It is wrong.
+
+- **Instrument one said it was right.** `curl -sI` for the header, `curl -s` for the body, compare
+  the nonces: mismatch. Those are **two requests**, and the proxy mints a nonce per request. What it
+  measured is that two requests have two nonces.
+
+- **Instrument two settled the finding.** One request, `curl -si`, header and body: they match, with
+  the suggested fix and without it. No defect, and the fix changes nothing observable.
+
+- **Instrument three settled the explanation.** "Next re-runs the proxy for the rewritten request" is
+  the obvious account of why they match, and it is also an inference. A `console.log` in the proxy,
+  counting the delta across exactly one request, says **one** pass — for `/`, and `/maintenance`
+  never re-enters it. The served nonce belongs to that single pass. _How_ the page receives it when
+  `x-nonce` was never forwarded is **not established**; only that it does, on every arrangement
+  measured.
+
+- **What review got right anyway**: no check in the repository could have told either of us. A unit
+  test on `proxy()` reads a response object nobody served; `curl -I` shows a header, not whether the
+  page can satisfy it. The gap was real even though the bug was not, and a second Playwright
+  `webServer` held at `MAINTENANCE=on` now closes it — the 503, the `Retry-After`, the rewrite
+  keeping the URL, and the nonce agreeing with the body, all asserted against a served response.
+
+- **A fourth instrument was wrong on the way there.** The first version of that check looked for
+  `script[nonce="…"]` in the DOM and found none. Browsers **blank the `nonce` content attribute**
+  after parsing, precisely so a CSS selector cannot read it back. The nonce is in the raw body and
+  not in the DOM, so the check reads the body.
+
+- **Lesson**: **"inferred, not observed" is a load-bearing label, and the observation has to be of
+  one thing.** Every wrong answer here came from comparing across a boundary that was not stable —
+  two requests, a log holding a readiness poll, a DOM the browser had deliberately altered. Before
+  believing a comparison, ask what varies between the two sides that is not the thing under test.
+  And an explanation offered for a measurement is not part of the measurement.

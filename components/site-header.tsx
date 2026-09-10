@@ -7,6 +7,7 @@ import { HomeLink } from "@/components/home-link";
 import { MainNav } from "@/components/main-nav";
 import { SignInLink } from "@/components/sign-in-link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { pageShell } from "@/components/ui/page-shell";
 import { signOutAction } from "@/lib/auth/actions";
@@ -68,6 +69,11 @@ export async function SiteHeader() {
       ? (actor.email ?? actor.name ?? "Signed in")
       : "Guest session";
 
+  const sessionAvatar =
+    actor?.type === "user" ? (
+      <Avatar name={actor.name} email={actor.email} className="size-8" />
+    ) : null;
+
   /*
     A user gets an exit — a session left on a shared machine exposes their
     documents. A guest gets the way *in*: theirs is read access to a public demo
@@ -122,6 +128,7 @@ export async function SiteHeader() {
             items={items}
             trailing={<ThemeToggle current={theme} />}
             sessionLabel={sessionLabel}
+            sessionAvatar={sessionAvatar}
           >
             {sessionExit}
           </MainNav>

@@ -2932,11 +2932,16 @@ per URI, but Vercel preview URLs carry a per-deploy hash and Google does not acc
 there is no finite set to register — only a stable per-branch alias would work. GitHub has the same
 limitation for the same reason, so previews have never had a working OAuth round trip here.
 
-**`/account` is outside the axe sweep.** It needs a session, and the sweep in `e2e/a11y.spec.ts`
-runs anonymously. The page grew again this release — a second `<dl>`, a stack of forms, a button
-carrying `aria-busy` — so the untested surface is larger than when this was first noted.
-`e2e/link-provider.spec.ts` established the signed-in pattern, so the cost is now a few lines rather
-than a fixture.
+~~**`/account` is outside the axe sweep.**~~ **Closed, 9 September 2026.** It needed a session and
+the sweep runs anonymously, so the page went unscanned from the milestone that built it.
+`e2e/account-a11y.spec.ts` scans it in both themes, signed in and as a guest — two different pages,
+and the guest one was as unscanned as the other. The axe helpers moved to `e2e/axe.ts` because the
+sweep takes `test` from Playwright and this takes the signed-in fixture; sharing the helper was
+cheaper than making one file serve both.
+
+**What it does not cover, and no automated check would**: the avatar is `aria-hidden`, so axe skips
+it entirely. Its contrast is arithmetic — the tokens are achromatic, so `Y = L³` and the ratio falls
+out exactly — recorded where the component is rather than measured here.
 
 ## Resend fails the residency rule, 6 September 2026
 
@@ -3020,6 +3025,95 @@ it passes; retention is a claim the privacy page will need to make.
 
 ↳ **Decided in [ADR 052](decisions/052-a-sender-chosen-on-where-the-mail-is-stored.md)**, which
 carries the reading of Article 11 and what the privacy page may claim on it.
+
+## An advisory with nothing to upgrade to, 10 September 2026
+
+Three Dependabot alerts before v1.7.0. Two were a version bump; the third stays open, and closing
+it is a click rather than a commit.
+
+**sharp and js-yaml are fixed by raising a floor.** Both were already pinned in
+`pnpm-workspace.yaml` to collapse duplicate copies, and `sharp: ^0.35.3` was itself what held the
+vulnerable copy in place — next had already resolved the patched 0.35.4 and the override was
+pulling it back down. Raising the floor deduplicates _and_ patches. `js-yaml` is dev-only, reached
+through eslint.
+
+**Nothing imports sharp at all.** `next/image` is used on no route, so sharp is present only as
+next's optional native dep and is never invoked. The accurate mitigation is not "we do not decode
+AVIF" but that the code path does not exist in this repository.
+
+**`adm-zip` has no fix, and two tools describe that differently.** GitHub's advisory
+(GHSA-vwc7-r8mq-g2x9 / CVE-2026-76845, moderate, CVSS 6.8) states affected `>=0.5.9 <=0.6.0` and
+**patched versions: None**, which is what Dependabot reports. `pnpm audit` says `>=0.6.1` — npm's
+own feed, naming a release that was never published; 0.6.0 is the latest on the registry. Quoting
+`pnpm audit` as "the advisory" would put a fix range in this file that cannot be installed, which
+is the ADR 052 failure one surface over: the primary source is the GHSA, and it says None.
+
+**Unreachable, and known rather than assumed.** `pnpm why` puts the only path at
+`@huggingface/transformers → onnxruntime-node → adm-zip`. Inside that package, `adm-zip` appears in
+exactly two files — the dependency declaration and `script/install-utils.js` — and nothing under
+`dist/`, the runtime entry, reaches install-utils. So it is install-time only. That postinstall is
+**denied** in `allowBuilds`, and a denied script does not run. The advisory also needs a symbolic
+link already present at the extraction destination, which is a directory the script creates moments
+earlier.
+
+**The alert has to be dismissed by hand**, as "Vulnerable code is not actually used" — no merge can
+close it. This entry is the paired record, because a dismissed alert stops reminding you and
+`pnpm audit` is not a CI gate here: it appears in no workflow and in no package script, so nothing
+in the repository will say when this changes.
+
+**What would change it**: a patched adm-zip shipping, `onnxruntime-node` moving off it, or that
+postinstall being allowed. The third is the one to watch — flipping `onnxruntime-node: true` to
+chase a local-mode problem would re-enable the vulnerable path without anyone touching this file,
+which is why `allowBuilds` carries the cross-reference.
+
+## Provider photos, and the two ways to show one, 10 September 2026
+
+The account page draws initials. `users.image` already holds a URL to the reader's photo at GitHub
+or Google — written by the adapter since the first OAuth sign-in — and showing it costs more than it
+looks.
+
+**Hotlinking is one line and the wrong line.** `img-src 'self' data:` would have to widen to
+`avatars.githubusercontent.com` and `lh3.googleusercontent.com`, and every signed-in page view then
+makes a request to a third party carrying a `Referer`. That is a new processor relationship formed
+by a CSS-adjacent change, and the privacy page's sub-processor list would be wrong the moment it
+shipped.
+
+**Storing our own copy is the honest version and is not small.** There is no blob store in this
+project — ADR 009's whole point is that uploads are parsed and discarded — so it means choosing one,
+which reopens the residency question Milestone 8.6 disqualified a vendor over. It also adds a
+personal-data category the privacy page has to name, a deletion path that has to reach it, and a
+refresh story for when the photo changes at the provider.
+
+**So initials, and the ADR is owed to whichever of these is ever chosen**, not to the decision to
+wait. Nothing about the current page is provisional: initials from a name or an address are what an
+email-link reader can have at all, and they are the only thing that works for every way in.
+
+## The maintenance switch needs a deploy, which is most of what it is not, 9 September 2026
+
+`proxy.ts` reads `MAINTENANCE=on` and rewrites every route to `/maintenance` with a **503** and a
+`Retry-After`. Measured rather than assumed, because the shape of the whole thing depended on it:
+`NextResponse.rewrite(url, { status: 503 })` **does** preserve the status in Next 16.3.4 — `/` and
+`/account` answer 503 with the holding page's markup and the CSP header intact, while
+`/maintenance` and the static assets stay 200.
+
+**A Vercel environment variable does not take effect without a redeploy.** So this is a switch for
+_planned_ maintenance — deploy with the flag on, do the work, deploy with it off — and not a lever
+to pull during an outage. That is backwards from what the name suggests, which is why it is written
+down here rather than left to be discovered during one.
+
+**Edge Config would give a no-deploy toggle and is deliberately not proposed.** It is a new vendor
+surface, and it arrives carrying the same question this project disqualified a vendor over in
+Milestone 8.6: where the data is stored, in writing, from a primary source. A read on every request
+is a low bar for a residency review, but it is not no bar, and what it buys is a faster path to a
+page nobody should see twice a year.
+
+**Why 503 and not 200.** A holding page served as 200 tells search engines and uptime monitoring the
+site is healthy — the soft-404 defect in another costume, and this project has paid for that once
+already. 503 with `Retry-After` means "ask again later", and crawlers treat it as temporary rather
+than dropping the URL.
+
+**Deliberately absent**: any link out of the holding page. Every route answers it, so a button would
+land the reader back where they started.
 
 ## The sign-in page has no primary action anymore, 9 September 2026
 

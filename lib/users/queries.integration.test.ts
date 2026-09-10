@@ -81,11 +81,14 @@ describe("a user with two providers", () => {
   });
 
   it("puts the email link after every provider, wherever it sorts", async () => {
-    // It is not in `AUTH_PROVIDERS` and must not be — nothing signs in "with
-    // email" through `signIn(id)` — so it has no index to rank by.
+    // The retired id is what makes this assertion mean anything: with only the
+    // two configured providers, email outranks both and the tie-break never
+    // runs. Sharing a rank with unknowns sorted it alphabetically against them,
+    // and "email" < "zzz-retired" put the link in the middle of the sentence.
     const user = await createTestUser(db);
     await link(user.id, "github");
     await link(user.id, "google");
+    await link(user.id, "zzz-retired");
     await db
       .update(users)
       .set({ emailVerified: new Date() })
@@ -94,6 +97,7 @@ describe("a user with two providers", () => {
     expect(await listSignInMethods(user.id)).toEqual([
       { provider: "google" },
       { provider: "github" },
+      { provider: "zzz-retired" },
       { provider: "email" },
     ]);
   });
