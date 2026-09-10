@@ -3026,6 +3026,28 @@ it passes; retention is a claim the privacy page will need to make.
 ↳ **Decided in [ADR 052](decisions/052-a-sender-chosen-on-where-the-mail-is-stored.md)**, which
 carries the reading of Article 11 and what the privacy page may claim on it.
 
+## Provider photos, and the two ways to show one, 10 September 2026
+
+The account page draws initials. `users.image` already holds a URL to the reader's photo at GitHub
+or Google — written by the adapter since the first OAuth sign-in — and showing it costs more than it
+looks.
+
+**Hotlinking is one line and the wrong line.** `img-src 'self' data:` would have to widen to
+`avatars.githubusercontent.com` and `lh3.googleusercontent.com`, and every signed-in page view then
+makes a request to a third party carrying a `Referer`. That is a new processor relationship formed
+by a CSS-adjacent change, and the privacy page's sub-processor list would be wrong the moment it
+shipped.
+
+**Storing our own copy is the honest version and is not small.** There is no blob store in this
+project — ADR 009's whole point is that uploads are parsed and discarded — so it means choosing one,
+which reopens the residency question Milestone 8.6 disqualified a vendor over. It also adds a
+personal-data category the privacy page has to name, a deletion path that has to reach it, and a
+refresh story for when the photo changes at the provider.
+
+**So initials, and the ADR is owed to whichever of these is ever chosen**, not to the decision to
+wait. Nothing about the current page is provisional: initials from a name or an address are what an
+email-link reader can have at all, and they are the only thing that works for every way in.
+
 ## The maintenance switch needs a deploy, which is most of what it is not, 9 September 2026
 
 `proxy.ts` reads `MAINTENANCE=on` and rewrites every route to `/maintenance` with a **503** and a
