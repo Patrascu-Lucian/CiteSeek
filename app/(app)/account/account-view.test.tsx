@@ -152,6 +152,28 @@ describe("linking a second provider", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("offers them in the order the provider list sets", () => {
+    // Same `AUTH_PROVIDERS` order the sign-in page is pinned to, and the card
+    // beside these buttons is sorted by it — three surfaces, one list, and this
+    // was the only one nothing asserted.
+    render(
+      <AccountView
+        {...user}
+        providers={[]}
+        linkable={[
+          { id: "google", label: "Google" },
+          { id: "github", label: "GitHub" },
+        ]}
+      />,
+    );
+
+    expect(
+      screen
+        .getAllByRole("button", { name: /^add /i })
+        .map((b) => b.textContent),
+    ).toEqual(["Add Google", "Add GitHub"]);
+  });
+
   it("offers nothing to add once every provider is linked", () => {
     render(
       <AccountView {...user} providers={["Google", "GitHub"]} linkable={[]} />,

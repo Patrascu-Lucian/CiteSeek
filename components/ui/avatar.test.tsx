@@ -21,6 +21,12 @@ describe("the account avatar", () => {
     expect(initials(null, "ada-lovelace@example.com")).toBe("AL");
   });
 
+  it("reads a plus-tag as a tag, not a surname", () => {
+    // `ada+work@` is one person filing their mail, not Ada Work.
+    expect(initials(null, "ada+work@example.com")).toBe("A");
+    expect(initials(null, "ada.lovelace+work@example.com")).toBe("AL");
+  });
+
   it("takes the first two only, however many there are", () => {
     expect(initials("Augusta Ada King Noel", null)).toBe("AA");
   });

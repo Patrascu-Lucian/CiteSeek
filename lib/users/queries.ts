@@ -40,8 +40,8 @@ export async function listSignInMethods(
     ? [...linked, { provider: EMAIL_METHOD }]
     : linked;
 
-  // The id breaks the tie: everything outside `AUTH_PROVIDERS` ranks equal, and
-  // with the SQL `order by` gone their input order is whatever Postgres returned.
+  // Retired ids all rank equal, and with the SQL `order by` gone their input
+  // order is whatever Postgres returned. The id breaks that tie.
   return methods.sort(
     (a, b) =>
       rank(a.provider) - rank(b.provider) ||
@@ -49,11 +49,12 @@ export async function listSignInMethods(
   );
 }
 
-/** One rule, sorted in JavaScript rather than half here and half in SQL: an
- * `order by` gave alphabetical and appending gave email-last, which agreed with
- * this only while GitHub led `AUTH_PROVIDERS`. The card the reader sees and the
- * Add buttons beside it now come from the same list. */
+/** Email ranks below unknowns, not beside them: sharing a rank left it
+ * alphabetical against retired ids, so one from `f` to `z` put the link in the
+ * middle of the sentence. */
 function rank(provider: string): number {
+  if (provider === EMAIL_METHOD) return AUTH_PROVIDERS.length + 1;
+
   const index = AUTH_PROVIDERS.findIndex(({ id }) => id === provider);
 
   return index === -1 ? AUTH_PROVIDERS.length : index;

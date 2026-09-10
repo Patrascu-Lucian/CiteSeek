@@ -3060,3 +3060,42 @@ tests, 117 E2E and a production build, green.
   real layout" is a claim about two files agreeing; the useful question is what would notice if they
   stopped. Where the answer is "nothing", either write the check or weaken the sentence to what is
   actually guaranteed.
+
+## Three instruments, and only the third measured the claim, 10 September 2026
+
+- **The finding**: review read `proxy.ts` and reported that the maintenance branch never passes
+  `request: { headers }` to `NextResponse.rewrite`, so `x-nonce` cannot reach the rewritten request
+  and the holding page is served under a policy naming a nonce nothing on the page carries. Under
+  `strict-dynamic` that blocks every script. The reasoning is sound, the mechanism is real, and the
+  finding marked itself **inferred from the diff, not observed**. It is wrong.
+
+- **Instrument one said it was right.** `curl -sI` for the header, `curl -s` for the body, compare
+  the nonces: mismatch. Those are **two requests**, and the proxy mints a nonce per request. What it
+  measured is that two requests have two nonces.
+
+- **Instrument two settled the finding.** One request, `curl -si`, header and body: they match, with
+  the suggested fix and without it. No defect, and the fix changes nothing observable.
+
+- **Instrument three settled the explanation.** "Next re-runs the proxy for the rewritten request" is
+  the obvious account of why they match, and it is also an inference. A `console.log` in the proxy,
+  counting the delta across exactly one request, says **one** pass — for `/`, and `/maintenance`
+  never re-enters it. The served nonce belongs to that single pass. _How_ the page receives it when
+  `x-nonce` was never forwarded is **not established**; only that it does, on every arrangement
+  measured.
+
+- **What review got right anyway**: no check in the repository could have told either of us. A unit
+  test on `proxy()` reads a response object nobody served; `curl -I` shows a header, not whether the
+  page can satisfy it. The gap was real even though the bug was not, and a second Playwright
+  `webServer` held at `MAINTENANCE=on` now closes it — the 503, the `Retry-After`, the rewrite
+  keeping the URL, and the nonce agreeing with the body, all asserted against a served response.
+
+- **A fourth instrument was wrong on the way there.** The first version of that check looked for
+  `script[nonce="…"]` in the DOM and found none. Browsers **blank the `nonce` content attribute**
+  after parsing, precisely so a CSS selector cannot read it back. The nonce is in the raw body and
+  not in the DOM, so the check reads the body.
+
+- **Lesson**: **"inferred, not observed" is a load-bearing label, and the observation has to be of
+  one thing.** Every wrong answer here came from comparing across a boundary that was not stable —
+  two requests, a log holding a readiness poll, a DOM the browser had deliberately altered. Before
+  believing a comparison, ask what varies between the two sides that is not the thing under test.
+  And an explanation offered for a measurement is not part of the measurement.
