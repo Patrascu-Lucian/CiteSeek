@@ -1,12 +1,20 @@
 # Native postinstall scripts are opt-in under pnpm 11. These are all first-party
 # to the stack, so they are approved rather than ignored:
-#   sharp         -> Next.js image optimization (next/image)
+#   sharp         -> Next.js image optimization. No route uses next/image,
+#                    so it is built but never invoked — see overrides.
 #   unrs-resolver -> native module resolver used by eslint-config-next's import plugin
 #   esbuild       -> bundler used by drizzle-kit to run TS config and migrations
 #   onnxruntime-node, protobufjs -> denied. Both ship prebuilt binaries, so the
 #   install script compiles nothing we need; denying it skips a postinstall
 #   rather than the package. Node scripts still load it — the browser does not,
 #   and that is the path local mode ships on.
+#
+#   **onnxruntime-node: false is also the mitigation for CVE-2026-76845.** Its
+#   postinstall is the only caller of adm-zip, which has no patched release, and
+#   the advisory's precondition is a planted symlink in a temp or CI directory —
+#   exactly where that script extracts. Flipping this to true re-enables a
+#   vulnerable path, so this line is a security decision as much as a build one.
+#   See the adm-zip note under overrides.
 allowBuilds:
   esbuild: true
   sharp: true
@@ -24,8 +32,23 @@ minimumReleaseAgeExclude:
 overrides:
   postcss: ^8.5.25
   esbuild: ^0.28.1
-  # Neither runs on the path local mode ships. adm-zip reaches us only through
-  # @huggingface/transformers; sharp was already here via next, so that one
-  # collapses two copies into one, as postcss and esbuild do above.
-  sharp: ^0.35.3
+  # sharp was already here via next, so this collapses two copies into one, as
+  # postcss and esbuild do above. 0.35.4 is the floor rather than 0.35.3 because
+  # below it sharp bundles libheif < 1.23.2 (GHSA-2jg2-4ch7-h545): AVIF decoding
+  # with two critical CVEs. Nothing imports sharp here at all — next/image is
+  # used on no route, so it is present only as next's optional native dep and is
+  # never invoked. The floor matters anyway: at ^0.35.3 this pin held the old
+  # copy in place against next's patched one.
+  sharp: ^0.35.4
+  # Dev only — eslint and its config packages. 4.3.2 counts empty merge sources
+  # against maxTotalMergeKeys; below it a small crafted document costs seconds of
+  # CPU. Nothing loads untrusted YAML here; the bump is free.
+  js-yaml: ^4.3.2
+  # **Nothing to upgrade to.** GHSA-vwc7-r8mq-g2x9 / CVE-2026-76845, moderate,
+  # symlink-following on extract: affected >=0.5.9 <=0.6.0, **patched versions
+  # None**. `pnpm audit` disagrees and reports >=0.6.1 — npm's feed naming a
+  # release that was never published; GitHub's advisory and Dependabot both say
+  # None, and 0.6.0 is the latest on the registry. Unreachable here because the
+  # only caller is onnxruntime-node's postinstall, denied in allowBuilds above.
+  # The pin keeps one copy; it fixes nothing.
   adm-zip: ^0.6.0
