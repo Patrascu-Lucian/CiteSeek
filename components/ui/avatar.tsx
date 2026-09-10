@@ -35,8 +35,10 @@ export function Avatar({
 /** The local part when there is no name: an email-link reader gave us only an
  * address. Split on its separators, so `ada.lovelace@…` yields two initials. */
 function initialsOf(name: string | null, email: string | null): string {
-  const source = name?.trim() || email?.split("@")[0]?.trim() || "";
-  const words = source.split(/[\s._+-]+/).filter(Boolean);
+  // Everything from a plus is a tag the reader chose, not part of who they are.
+  const local = email?.split("@")[0]?.split("+")[0];
+  const source = name?.trim() || local?.trim() || "";
+  const words = source.split(/[\s._-]+/).filter(Boolean);
 
   return words
     .slice(0, 2)

@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 import { assertDisposableDatabase } from "./lib/env/disposable-database.ts";
 import { loadLocalEnv } from "./lib/env/load-local-env.ts";
+import { E2E_PORT, MAINTENANCE_PORT } from "./e2e/ports.ts";
 
 // The signed-in specs connect from `DATABASE_URL`, which nothing here set — so
 // they only ever ran in CI. Order matters: `loadEnvFile` never overwrites, so the
@@ -16,7 +17,7 @@ loadLocalEnv();
 assertDisposableDatabase(process.env);
 
 // Overridable so the suite can run while a dev server holds 3000.
-const PORT = Number(process.env.E2E_PORT ?? 3000);
+const PORT = E2E_PORT;
 // `localhost`, not `127.0.0.1`: Next normalizes redirects to the host it was
 // started on, so a test on 127.0.0.1 loses its cookies at the origin boundary.
 const baseURL = `http://localhost:${PORT}`;
@@ -55,22 +56,34 @@ export default defineConfig({
   ],
   // A production build: dev-mode timings would not be representative of the
   // TTFT numbers measured elsewhere.
-  webServer: {
-    command: `pnpm start --port ${PORT}`,
-    url: baseURL,
-    // `env` reaches only a server Playwright spawns: a stray one attaches without
-    // it and the suite fails on "capacity reached", with nothing naming the cause.
-    reuseExistingServer: false,
-    timeout: 120_000,
-    env: {
-      // Every spec arrives from one address, so any honest cap fails the suite.
-      // `off` still runs the queries; integration tests cover the 429 paths.
-      USAGE_LIMITS: "off",
-      // Pinned, not inherited: unset means the real provider, and the server now
-      // reads `.env.local`. "The answer cites [1]" against a real model is a coin
-      // toss that spends quota.
-      EMBEDDINGS_PROVIDER: "fake",
-      CHAT_PROVIDER: "fake",
+  webServer: [
+    {
+      command: `pnpm start --port ${MAINTENANCE_PORT}`,
+      url: `http://localhost:${MAINTENANCE_PORT}/maintenance`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      // None of the sibling's pins, deliberately: every route 503s before a
+      // handler runs and the holding page is static, so nothing on this server
+      // can reach a provider or a cap.
+      env: { MAINTENANCE: "on" },
     },
-  },
+    {
+      command: `pnpm start --port ${PORT}`,
+      url: baseURL,
+      // `env` reaches only a server Playwright spawns: a stray one attaches without
+      // it and the suite fails on "capacity reached", with nothing naming the cause.
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        // Every spec arrives from one address, so any honest cap fails the suite.
+        // `off` still runs the queries; integration tests cover the 429 paths.
+        USAGE_LIMITS: "off",
+        // Pinned, not inherited: unset means the real provider, and the server now
+        // reads `.env.local`. "The answer cites [1]" against a real model is a coin
+        // toss that spends quota.
+        EMBEDDINGS_PROVIDER: "fake",
+        CHAT_PROVIDER: "fake",
+      },
+    },
+  ],
 });

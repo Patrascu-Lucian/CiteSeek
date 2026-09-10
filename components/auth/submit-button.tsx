@@ -32,8 +32,12 @@ export function SubmitButton({
     >
       {pending ? (
         <>
+          {/* Marked as an icon so the provider buttons keep the padding their
+              mark was giving them; the email button has no mark and gains a
+              pixel. */}
           <Loader2
             aria-hidden="true"
+            data-icon="inline-start"
             className="size-4 shrink-0 animate-spin"
           />
           {pendingLabel}

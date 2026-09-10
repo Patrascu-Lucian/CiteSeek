@@ -36,19 +36,11 @@ const MARKS: Record<string, ReactNode> = {
 };
 
 /** Renders nothing for an unknown id rather than throwing: a button with no logo
- * still signs you in, and the unit test is what stops one shipping.
- *
- * Sized by the enclosing `Button`, whose cva carries
- * `[&_svg:not([class*='size-'])]:size-4`, and spaced by it too —
- * `data-icon="inline-start"` is what triggers its `pl-2`. Outside a Button this
- * renders at the replaced-element default with no padding. */
-export function ProviderMark({
-  provider,
-  className,
-}: {
-  provider: string;
-  className?: string;
-}) {
+ * still signs you in, and the unit test is what stops one shipping. Sized and
+ * spaced by the enclosing `Button` — its cva carries
+ * `[&_svg:not([class*='size-'])]:size-4`, and `data-icon` is what triggers the
+ * matching `pl-2`. */
+export function ProviderMark({ provider }: { provider: string }) {
   const mark = MARKS[provider];
   if (!mark) return null;
 
@@ -58,7 +50,6 @@ export function ProviderMark({
       aria-hidden="true"
       role="presentation"
       data-icon="inline-start"
-      className={className}
     >
       {mark}
     </svg>

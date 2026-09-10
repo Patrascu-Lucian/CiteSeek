@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { pageShell } from "@/components/ui/page-shell";
+import { cn } from "@/lib/utils";
 
 const Bar = ({ className }: { className: string }) => (
-  <div className={`bg-muted animate-pulse rounded-md ${className}`} />
+  <div className={cn("bg-muted animate-pulse rounded-md", className)} />
 );
 
 /** Without a boundary Next holds the *old* page on screen until the server
