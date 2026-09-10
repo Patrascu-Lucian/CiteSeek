@@ -3026,6 +3026,46 @@ it passes; retention is a claim the privacy page will need to make.
 ↳ **Decided in [ADR 052](decisions/052-a-sender-chosen-on-where-the-mail-is-stored.md)**, which
 carries the reading of Article 11 and what the privacy page may claim on it.
 
+## An advisory with nothing to upgrade to, 10 September 2026
+
+Three Dependabot alerts before v1.7.0. Two were a version bump; the third stays open, and closing
+it is a click rather than a commit.
+
+**sharp and js-yaml are fixed by raising a floor.** Both were already pinned in
+`pnpm-workspace.yaml` to collapse duplicate copies, and `sharp: ^0.35.3` was itself what held the
+vulnerable copy in place — next had already resolved the patched 0.35.4 and the override was
+pulling it back down. Raising the floor deduplicates _and_ patches. `js-yaml` is dev-only, reached
+through eslint.
+
+**Nothing imports sharp at all.** `next/image` is used on no route, so sharp is present only as
+next's optional native dep and is never invoked. The accurate mitigation is not "we do not decode
+AVIF" but that the code path does not exist in this repository.
+
+**`adm-zip` has no fix, and two tools describe that differently.** GitHub's advisory
+(GHSA-vwc7-r8mq-g2x9 / CVE-2026-76845, moderate, CVSS 6.8) states affected `>=0.5.9 <=0.6.0` and
+**patched versions: None**, which is what Dependabot reports. `pnpm audit` says `>=0.6.1` — npm's
+own feed, naming a release that was never published; 0.6.0 is the latest on the registry. Quoting
+`pnpm audit` as "the advisory" would put a fix range in this file that cannot be installed, which
+is the ADR 052 failure one surface over: the primary source is the GHSA, and it says None.
+
+**Unreachable, and known rather than assumed.** `pnpm why` puts the only path at
+`@huggingface/transformers → onnxruntime-node → adm-zip`. Inside that package, `adm-zip` appears in
+exactly two files — the dependency declaration and `script/install-utils.js` — and nothing under
+`dist/`, the runtime entry, reaches install-utils. So it is install-time only. That postinstall is
+**denied** in `allowBuilds`, and a denied script does not run. The advisory also needs a symbolic
+link already present at the extraction destination, which is a directory the script creates moments
+earlier.
+
+**The alert has to be dismissed by hand**, as "Vulnerable code is not actually used" — no merge can
+close it. This entry is the paired record, because a dismissed alert stops reminding you and
+`pnpm audit` is not a CI gate here: it appears in no workflow and in no package script, so nothing
+in the repository will say when this changes.
+
+**What would change it**: a patched adm-zip shipping, `onnxruntime-node` moving off it, or that
+postinstall being allowed. The third is the one to watch — flipping `onnxruntime-node: true` to
+chase a local-mode problem would re-enable the vulnerable path without anyone touching this file,
+which is why `allowBuilds` carries the cross-reference.
+
 ## Provider photos, and the two ways to show one, 10 September 2026
 
 The account page draws initials. `users.image` already holds a URL to the reader's photo at GitHub
