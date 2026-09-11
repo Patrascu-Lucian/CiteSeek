@@ -29,7 +29,7 @@ contradict each other — one says wait, the other says wait forever. So the cap
 `lib/limits`, beside `lib/usage` rather than inside it, and the two are composed at the route.
 
 What is copied is the _shape_: a discriminated union the route renders rather than re-derives.
-That is what makes the paid tiers of Milestone 9 a rendering change instead of a second
+That is what makes the paid tiers, when they come, a rendering change instead of a second
 enforcement path — the place a limit most easily ends up wrong is its second implementation.
 
 ## Where the check runs
