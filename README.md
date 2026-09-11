@@ -493,14 +493,22 @@ difference is not feedback against none: it is 1.2 s spent on the page you asked
 the page you left. Five Lighthouse points for that, deliberately and by a margin worth naming
 ([ADR 045](docs/decisions/045-what-the-loading-skeleton-buys.md)).
 
-**Half the ungrounded questions still reach the model.** The relevance threshold is now measured
-rather than guessed ([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what
-the measurement showed is that no threshold is right: the distance distributions for answerable
-and unanswerable questions overlap. At `0.40` roughly half the questions the corpus cannot
-answer still clear the floor. They reach a model instructed to answer only from the passages it
-was given — so the failure is a weak answer rather than an invented citation — but "says so when
-nothing relevant is found" is a weaker promise than it sounds, and closing the gap needs a
-second retrieval signal rather than a better constant.
+**Half the ungrounded questions still reach the model, and the prompt catches them.** The
+relevance threshold is measured rather than guessed
+([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what the measurement showed
+is that no threshold is right: the distance distributions for answerable and unanswerable
+questions overlap. At `0.40` roughly half the questions the corpus cannot answer still clear the
+floor.
+
+What they meet there is now measured too, rather than assumed
+([`eval/refusals.md`](eval/refusals.md)): across three runs of the five that get through, the model
+refused every one and invented nothing — no fabricated content, no out-of-range marker. So the
+structural guarantee is weaker than "says so when nothing relevant is found" sounds, and the
+observed behavior holds anyway, because the prompt catches what the floor misses.
+
+The leak's real cost is smaller and different: 4 of those 15 refusals attached a citation marker,
+which the prompt's own rules forbid on a refusal. That makes the next thing to try the prompt
+rather than a second retrieval signal — and the number to beat is in that file.
 
 Usage limits are enforced but their thresholds are provisional — they need real traffic to
 calibrate against, and are deliberately generous because shared addresses

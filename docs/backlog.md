@@ -3026,6 +3026,57 @@ it passes; retention is a claim the privacy page will need to make.
 ↳ **Decided in [ADR 052](decisions/052-a-sender-chosen-on-where-the-mail-is-stored.md)**, which
 carries the reading of Article 11 and what the privacy page may claim on it.
 
+## What the floor lets through, and what the model does with it, 11 September 2026
+
+`README.md` names the relevance floor's leak as the open gap: at the shipped `0.40`, **5 of 10**
+unanswerable questions in the golden set clear it and reach the model. That number was measured.
+What happened next was not — `eval-retrieval.mts` calls the model only for the rewrite, so the
+sweep is arithmetic over distances and stops there. The README guessed: _"they reach a model
+instructed to answer only from the passages it was given — so the failure is a weak answer rather
+than an invented citation."_
+
+`pnpm eval:refusals` checks it. Three runs over the five, answers verbatim in `eval/refusals.md`.
+
+**The guess is right about the dangerous half.** Fifteen refusals, zero invented content, zero
+out-of-range markers. Every one correctly said the documents do not cover the question, and several
+went on to name what they do cover, which is what rule 4 asks for. Nothing here hallucinates.
+
+**Rule 3 is violated, and that is mechanically checkable.** It says never attach a marker to a
+refusal — _"if you are saying the passages do not answer the question, cite nothing at all."_ Four
+of fifteen did, hanging markers off the survey sentence:
+
+> The provided documents do not contain information about parking. They cover the tenancy terms
+> regarding pets, subletting, and guests [1][2].
+
+The markers are in range and the claim they support is true, which is what makes this interesting:
+it is a defensible sentence the prompt forbids. Either the rule is too strict — a citation on
+"here is what these passages are about" is not the failure the rule was written to stop — or the
+model needs telling more precisely. **That is a prompt question, and it is a day against this
+harness rather than two weeks of entailment machinery.**
+
+**Rule 4 is murkier, and the count depends on reading.** It forbids opening with _"a phrase like
+'the provided passages' or 'the context does not contain'"_ while explicitly endorsing _"say plainly
+that the documents do not cover it"_. Of fifteen openers: 3 use the endorsed form ("The documents do
+not cover…"), 4 say "The documents do not contain information about…", and 8 say "The provided
+documents do not contain information about…". Only the last group clearly echoes both forbidden
+phrases. So somewhere between 8 and 12 of 15 open by describing the inputs — and the spread is the
+finding, because a rule whose violations cannot be counted without interpretation is a rule that
+cannot be enforced by a test either.
+
+**One run would have answered this wrongly**, which is why the harness does three. The committed
+report scores 2, 1, 1. Before it existed the same measurement was run by hand, and the **first of
+those returned 0 of 5** — a clean sheet, and the conclusion "the prompt holds, stop here". That run
+is not in `eval/refusals.md` and cannot be reproduced from it; it is recorded because it is the
+reason `REFUSAL_RUNS` defaults to 3 and the report prints a spread rather than a number. Retrieval
+is deterministic, so it is settled once outside the loop and the runs differ only in what the model
+said.
+
+**What this does not settle.** Whether a second signal would separate the 16 answerable from the 5
+unanswerable questions inside the overlap band is untouched — this measures what the model does with
+the leak, not whether the leak can be closed. But it reorders the work: the leak's cost is a
+rule-breaking refusal rather than a fabricated answer, so the prompt is the cheap thing to try
+first, and it should be re-measured here before anything is built on top of it.
+
 ## An advisory with nothing to upgrade to, 10 September 2026
 
 Three Dependabot alerts before v1.7.0. Two were a version bump; the third stays open, and closing
