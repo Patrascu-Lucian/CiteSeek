@@ -51,6 +51,33 @@ describe("the about page", () => {
     expect(container.textContent).not.toMatch(/\d+\s*(ms|KB|MB|%)/i);
   });
 
+  it("does not claim the model runs in the EU, because it does not", () => {
+    // The README's known gaps say document text leaves the EU and that
+    // "EU-hosted" is exact about storage and silent about where the model runs.
+    // This page told a stranger everything ran here — the one public surface a
+    // stranger actually reads, contradicting the one they do not.
+    render(<AboutPage />);
+
+    expect(screen.getByText(/stored in the EU/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/makes no commitment about where it runs/i),
+    ).toBeInTheDocument();
+  });
+
+  it("scopes the guarantee to the branch that guarantees it", () => {
+    // "When nothing in your documents is relevant" reads as "my documents do
+    // not cover this", which is the leaked case — where an answer is generated
+    // and a marker sometimes lands on the refusal.
+    render(<AboutPage />);
+
+    expect(
+      screen.getByText(/when no passage clears the relevance threshold/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/attach a citation marker to that refusal/i),
+    ).toBeInTheDocument();
+  });
+
   it("carries the landmark the skip link points at", () => {
     const { container } = render(<AboutPage />);
 
