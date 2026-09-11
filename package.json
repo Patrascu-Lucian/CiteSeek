@@ -37,6 +37,7 @@
     "demo:shots": "tsx scripts/build-readme-shots.mts",
     "db:check": "tsx lib/db/check-migrations.mts",
     "eval:retrieval": "tsx scripts/eval-retrieval.mts",
+    "eval:refusals": "tsx scripts/eval-refusals.mts",
     "db:usage": "tsx scripts/usage-report.mts",
     "eval:local": "tsx scripts/eval-local-embedder.mts",
     "eval:local-followups": "tsx scripts/eval-local-followups.mts",

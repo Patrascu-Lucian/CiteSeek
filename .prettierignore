@@ -7,6 +7,8 @@ eval/report.md
 # Same, from `pnpm eval:local-answers` — and it quotes model output verbatim.
 eval/local-answers*.md
 eval/local-markers.md
+# Same, from `pnpm eval:refusals` — verbatim model output, several runs of it.
+eval/refusals.md
 .next/
 out/
 build/
