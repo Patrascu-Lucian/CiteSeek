@@ -3154,7 +3154,13 @@ that noticed it.
 Deferred out of the v1.6.1 work, where the surrounding slices were cosmetic and this one is copy
 with a small design question inside it.
 
-## The sending key expires because this Organization says so, 6 September 2026
+## ~~The sending key expires because this Organization says so~~, 6 September 2026
+
+↳ **Closed, 10 September 2026.** The first of the two options below was taken: the key was reissued
+without an expiry, so rotation is deliberate rather than scheduled. ADR 052 carries the decision and
+names when to rotate, because with the fuse gone nothing else will ever raise it. The canary this
+entry proposed is no longer needed for the expiry — though the failure mode it was built around,
+sign-in mail failing silently for a revoked key or a quota, is unchanged.
 
 **Scaleway keys do not expire unless an expiry is set.** The one-year ceiling in our console is an
 Organization-level _maximum credential duration_ — a setting on this Organization, not a limit of
