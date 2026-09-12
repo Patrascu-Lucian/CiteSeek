@@ -506,9 +506,11 @@ refused every one and invented nothing — no fabricated content, no out-of-rang
 structural guarantee is weaker than "says so when nothing relevant is found" sounds, and the
 observed behavior holds anyway, because the prompt catches what the floor misses.
 
-The leak's real cost is smaller and different: 4 of those 15 refusals attached a citation marker,
-which the prompt's own rules forbid on a refusal. That makes the next thing to try the prompt
-rather than a second retrieval signal — and the number to beat is in that file.
+The leak's real cost is smaller and different: in most runs a few of those refusals attach a
+citation marker, which the prompt's own rules forbid on a refusal. The count moves from run to run,
+so the file carries the latest rather than a settled number. Rewording that rule was tried three
+ways and the difference is too small to measure on five questions, so it stays as shipped. What the
+measurement does settle is the part that matters: nothing is invented.
 
 Usage limits are enforced but their thresholds are provisional — they need real traffic to
 calibrate against, and are deliberately generous because shared addresses
@@ -678,7 +680,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1002  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1003  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 177   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |

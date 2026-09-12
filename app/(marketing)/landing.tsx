@@ -38,9 +38,9 @@ const features = [
   },
   {
     icon: ShieldCheck,
-    title: "A refusal cannot cite",
+    title: "A citation cannot be invented",
     description:
-      "When retrieval finds nothing relevant, CiteSeek says so instead of inventing a citation.",
+      "A marker that points at no retrieved passage stays plain text, and when nothing relevant is found, the reply saying so is written by CiteSeek rather than the model.",
   },
 ] as const;
 
