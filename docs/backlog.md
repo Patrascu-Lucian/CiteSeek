@@ -3239,7 +3239,44 @@ than dropping the URL.
 **Deliberately absent**: any link out of the holding page. Every route answers it, so a button would
 land the reader back where they started.
 
-## The sign-in page has no primary action anymore, 9 September 2026
+## A sign-in acknowledgement, and the cookies nobody lists, 12 September 2026
+
+Two ideas raised while deciding the sign-in page's hierarchy, parked here rather than folded into it.
+
+**An acknowledgement line under the sign-in form** — "By continuing, you acknowledge CiteSeek's
+Privacy Policy", linking `/privacy`, the pattern Claude's own sign-in page uses. Cheap, and it puts the
+policy in front of a reader at the one moment they hand over an address.
+
+**Whether any cookie here needs consent, read from the primary source.** No analytics, advertising or
+third-party cookies are set, so the usual reason for a consent banner does not arise. What is set:
+Auth.js's session token; its CSRF, callback-url, PKCE, state and nonce cookies for the sign-in flow;
+`citeseek.guest`; and `citeseek_theme`. Article 29 Working Party Opinion 04/2012 (WP194) exempts
+authentication, security and preference cookies from consent, but with durations three of ours
+exceed:
+
+- §3.2: _"Persistent login cookies which store an authentication token across browser sessions are
+  not exempted"_. Auth.js's session token lasts 30 days by default, and `auth.ts` does not change it.
+  The opinion's own remedy is a _"remember me (uses cookies)"_ note beside the form.
+- §3.6: a preference cookie is exempt for a session _"or no more than a few additional hours"_,
+  unless a _"uses cookies"_ note sits beside the control. `citeseek_theme` lasts a year.
+- User-input cookies are exempt for a session, _"or persistent cookies limited to a few hours in some
+  cases"_. `citeseek.guest` lasts 24 hours.
+
+**So the likely remedy is two notes rather than a banner**, which is what the opinion itself
+describes, and the acknowledgement line above is where the sign-in one would go. Separately, the
+privacy page names only the guest cookie; a list of what is set and for how long belongs there
+whichever way this is read.
+
+**Read with the caveat the source needs:** it is a 2012 ePrivacy opinion that predates GDPR, and
+national regulators apply it differently. This is a question to settle, not a verdict.
+
+## ~~The sign-in page has no primary action anymore~~, 9 September 2026
+
+↳ **Decided, 12 September 2026.** "Continue with email" is the primary button and stays where it was,
+below the separator. The providers stay `outline`, for the brand reason below. Email is the one way
+in that needs no other account, so it is the one a stranger without GitHub or Google has to find —
+and it is the pattern Claude's own sign-in page uses, with the providers quiet and the email button
+primary. `e2e/auth.spec.ts` pins the three variants.
 
 Before v1.6.1 the two provider buttons were `variant="default"` and the email button `outline`:
 two emphasized routes and a quieter third. Adding the provider marks moved both providers to
@@ -3258,7 +3295,12 @@ it may be a page where nothing tells a first-time reader where to start.
 Parked rather than decided, because it is the same decision as the entry below: how prominent the
 email path should be, and what it is called, are one question asked twice. Answer them together.
 
-## The email method has two names, and a reader meets both, 9 September 2026
+## ~~The email method has two names, and a reader meets both~~, 9 September 2026
+
+↳ **Decided, 12 September 2026: both names stay.** "Continue with email" is an action, next to other
+actions. "Email link" names a stored method on `/account`, beside "GitHub" and "Google", where
+"Email" alone would leave a reader asking what an email method is. The two places ask different
+questions, so they get different answers.
 
 The button on `/sign-in` says **"Continue with email"**. The account page then lists the method as
 **"Email link"** (`PROVIDER_LABELS` in `lib/users/queries.ts`). Same thing, two names, and the
