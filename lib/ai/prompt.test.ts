@@ -172,11 +172,22 @@ describe("buildSystemPrompt", () => {
     // Reproduced against the real model: one run in four cited passages while
     // saying they did not contain the answer, and the chip resolved. A test can
     // only assert the rule is *present*; the parser is what makes a regression
-    // harmless rather than invisible.
+    // harmless rather than invisible. `eval:refusals` measures whether the model
+    // obeys it, and as of 11 September it does not — see `docs/backlog.md`.
     const prompt = buildSystemPrompt(buildSources([chunk()]));
 
     expect(prompt).toMatch(/never attach one to a refusal/i);
     expect(prompt).toMatch(/cite nothing at all/i);
+  });
+
+  it("names the shape of a bad refusal opener, not two example phrases", () => {
+    // The old rule banned "the provided passages" and "the context does not
+    // contain". The model wrote "The provided documents do not contain
+    // information about…" — both sins, neither literal.
+    const prompt = buildSystemPrompt(buildSources([chunk()]));
+
+    expect(prompt).toMatch(/whatever noun follows/i);
+    expect(prompt).toMatch(/The documents do not cover/i);
   });
 
   it("renumbers the rules when the citation ones are dropped", () => {

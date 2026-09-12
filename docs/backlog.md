@@ -3039,9 +3039,9 @@ than an invented citation."_
 
 **The guess is right about the dangerous half.** Fifteen refusals, zero invented content, zero
 out-of-range markers. Every one correctly said the documents do not cover the question, and several
-went on to name what they do cover, which is what rule 4 asks for. Nothing here hallucinates.
+went on to name what they do cover, which is what rule 7 asks for. Nothing here hallucinates.
 
-**Rule 3 is violated, and that is mechanically checkable.** It says never attach a marker to a
+**Rule 4 is violated, and that is mechanically checkable.** It says never attach a marker to a
 refusal — _"if you are saying the passages do not answer the question, cite nothing at all."_ Four
 of fifteen did, hanging markers off the survey sentence:
 
@@ -3054,7 +3054,7 @@ it is a defensible sentence the prompt forbids. Either the rule is too strict �
 model needs telling more precisely. **That is a prompt question, and it is a day against this
 harness rather than two weeks of entailment machinery.**
 
-**Rule 4 is murkier, and the count depends on reading.** It forbids opening with _"a phrase like
+**Rule 7 is murkier, and the count depends on reading.** It forbids opening with _"a phrase like
 'the provided passages' or 'the context does not contain'"_ while explicitly endorsing _"say plainly
 that the documents do not cover it"_. Of fifteen openers: 3 use the endorsed form ("The documents do
 not cover…"), 4 say "The documents do not contain information about…", and 8 say "The provided
@@ -3064,7 +3064,7 @@ finding, because a rule whose violations cannot be counted without interpretatio
 cannot be enforced by a test either.
 
 **One run would have answered this wrongly**, which is why the harness does three. The committed
-report scores 2, 1, 1. Before it existed the same measurement was run by hand, and the **first of
+report carries the latest run. Before it existed the same measurement was run by hand, and the **first of
 those returned 0 of 5** — a clean sheet, and the conclusion "the prompt holds, stop here". That run
 is not in `eval/refusals.md` and cannot be reproduced from it; it is recorded because it is the
 reason `REFUSAL_RUNS` defaults to 3 and the report prints a spread rather than a number. Retrieval
@@ -3076,6 +3076,48 @@ unanswerable questions inside the overlap band is untouched — this measures wh
 the leak, not whether the leak can be closed. But it reorders the work: the leak's cost is a
 rule-breaking refusal rather than a fabricated answer, so the prompt is the cheap thing to try
 first, and it should be re-measured here before anything is built on top of it.
+
+↳ **Both rules were rewritten and measured, 12 September 2026. One shipped.**
+
+**Rule 7 is fixed: 15 of 15.** Every opener is now "The documents do not cover…", the form the rule
+already endorsed. The old version banned two example phrases — "the provided passages" and "the
+context does not contain" — and the model wrote "The provided documents do not contain information
+about…", dodging both literals while committing the sin. Naming the wanted shape worked where
+naming two unwanted phrases did not, and that is the transferable part: a prohibition the model can
+satisfy on a technicality is one it will satisfy on a technicality.
+
+**Rule 4's rewrite changed nothing and was reverted.** Scoping the ban to the whole reply rather
+than the refusing sentence left the rate where it was. Across every run taken, with the rule and
+without it, the count sits between one and three of five and moves as much between two runs of the
+same prompt as it did between the two prompts — so the rewrite is indistinguishable from nothing.
+`eval/refusals.md` carries whichever triple the last run produced; the range is the finding, not
+the triple. Reverted for two reasons: a wording change that moves no measurement is
+churn, and the rest of this entry argues the rule may be wrong, so sharpening it would harden a
+position that is meant to be open. Rule 4 ships exactly as it was, and `prompt.test.ts` now points
+at this entry rather than implying the rule works.
+
+**Because the measurement says it may be the rule that is wrong.** The citations are deterministic
+per question, and they are two different shapes:
+
+- _"What is the warranty period on the hydraulic pump?"_ → **"The documents do not cover the
+  warranty period; they mention that defeating the guard interlock voids the warranty and the CE
+  marking, but do not provide specific durations [7]."** That is a partial answer. The passages do
+  say something adjacent, it is cited, and the specific question is declined. ADR 017 forbids a
+  refusal that cites because it would be _"claiming a source for a claim it did not make"_ — here a
+  claim is made and the source is real.
+- _"Does the press come in a wider bed size?"_ → the same opener followed by a table of contents
+  carrying **[1][2][3][4][5][6]**. That is the shape rule 4 exists to stop.
+
+So the rule bundles a behaviour worth keeping with one worth removing, which is why no wording
+separated them. **The next move is a decision, not a phrasing**: either rule 4 permits a citation on
+a sentence that answers something adjacent, or refused turns have their markers stripped where ADR
+017 already strips them structurally. Both are cheap; they differ in whether the reader is allowed a
+sourced "here is what we do have".
+
+**Also worth recording: this was known and a rule was already written for it.** The comment on
+`prompt.test.ts`'s refusal test says _"Reproduced against the real model: one run in four cited
+passages while saying they did not contain the answer."_ That is this defect, observed in August.
+A rule was added, and the measurement built for something else is what showed the rule never worked.
 
 ## An advisory with nothing to upgrade to, 10 September 2026
 

@@ -1,6 +1,6 @@
 /** `eval-retrieval.mts` calls the model only for the rewrite, so which
  * unanswerable questions clear the floor is measured and what happens to them is
- * not. Scored on citation rule 3 — never attach a marker to a refusal — rather
+ * not. Scored on rule 4 of the prompt — never attach a marker to a refusal —
  * than a regex over refusal wording, which would measure the regex. */
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -147,9 +147,9 @@ try {
     `${String(reaching.length)} of ${String(UNANSWERABLE.length)} unanswerable questions clear the shipped floor and reach the model.`,
     `Citations on a refusal, per run: ${rates.join(", ")} of ${String(reaching.length)}.`,
     "",
-    "Citation rule 3 forbids attaching a marker to a refusal, so a marker here is",
-    "the prompt broken by its own definition. Answers are verbatim: a regex over",
-    "refusal wording would measure the regex.",
+    "Rule 4 of the system prompt forbids attaching a marker to a refusal, so a",
+    "marker here is the prompt broken by its own definition. Answers are verbatim:",
+    "a regex over refusal wording would measure the regex.",
     "",
     ...answers.flatMap((one) => [
       `## Run ${String(one.run)} — ${one.question}`,
