@@ -3181,6 +3181,15 @@ postinstall being allowed. The third is the one to watch — flipping `onnxrunti
 chase a local-mode problem would re-enable the vulnerable path without anyone touching this file,
 which is why `allowBuilds` carries the cross-reference.
 
+↳ **Something in the repository now says when this changes, 12 September 2026.** The advisory is in
+`audit.ignore` in `pnpm-workspace.yaml` by GHSA id, so `pnpm audit` exits clean and reports what
+is new instead of failing on this forever. `pnpm-workspace.test.ts` holds the two conditions the
+ignore depends on, in the unit suite CI already runs: it fails if `onnxruntime-node`'s postinstall
+is allowed while the advisory is ignored, and it fails once `adm-zip` leaves the affected range or
+the tree, so the ignore cannot outlive its reason. A scheduled `pnpm audit` job was considered and
+not built: it would duplicate Dependabot's alerts, and without the ignore it would have been red
+from its first run.
+
 ## Provider photos, and the two ways to show one, 10 September 2026
 
 The account page draws initials. `users.image` already holds a URL to the reader's photo at GitHub

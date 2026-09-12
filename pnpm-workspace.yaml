@@ -14,7 +14,7 @@
 #   the advisory's precondition is a planted symlink in a temp or CI directory —
 #   exactly where that script extracts. Flipping this to true re-enables a
 #   vulnerable path, so this line is a security decision as much as a build one.
-#   See the adm-zip note under overrides.
+#   `pnpm-workspace.test.ts` fails if it is allowed while that advisory is ignored.
 allowBuilds:
   esbuild: true
   sharp: true
@@ -52,3 +52,11 @@ overrides:
   # only caller is onnxruntime-node's postinstall, denied in allowBuilds above.
   # The pin keeps one copy; it fixes nothing.
   adm-zip: ^0.6.0
+
+# Ignored so `pnpm audit` reports what is new rather than failing on the adm-zip
+# advisory above forever. Not `--ignore-unfixable`, which would also silence a
+# future unfixable advisory we can reach. `pnpm-workspace.test.ts` retires this
+# entry once adm-zip leaves the affected range.
+audit:
+  ignore:
+    - GHSA-vwc7-r8mq-g2x9
