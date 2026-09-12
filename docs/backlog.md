@@ -3119,6 +3119,28 @@ sourced "here is what we do have".
 passages while saying they did not contain the answer."_ That is this defect, observed in August.
 A rule was added, and the measurement built for something else is what showed the rule never worked.
 
+↳ **The permissive wording was tried too, and the harness cannot tell any of them apart, 12
+September 2026.** Rule 4 rewritten per statement — cite a sentence the passages support even while
+declining, never the refusal itself or a list of topics — measured 3, 3, 5 of 5. The shipped wording,
+rerun the same day, measured 2, 2, 4. Both were hand runs and neither is in `eval/refusals.md`.
+Three wordings of one rule, and their ranges overlap.
+
+**That is a sample-size result, not a prompt result.** The rate sits near 0.3. Telling it apart from
+0.10 at 80% power and a two-sided 5% threshold takes about 62 leaked questions per variant; from
+0.05, about 36; from 0.15, about 121. The harness has five, and repeat runs do not add independent
+evidence — whether a marker appears depends mostly on which question was asked. Reaching 36 means
+writing seventy or more unanswerable questions at the observed leak rate, to settle a wording.
+
+**So rule 4 stays as shipped, and rewording it stops.** If the topic-list shape — six markers on
+"here is what the manual covers" — is worth removing, the place is the parser, beside the structural
+refusal ADR 017 already enforces in code, rather than a fourth wording. The question the harness was
+sized for it answers cleanly: no invented content and no out-of-range marker, in every run of every
+variant.
+
+**One dead end not to repeat:** classifying cited sentences with a regex for "cover" counted every
+reply as a topic list, because every opener is now "The documents do not cover…". Sorting the shapes
+needs the clause after the refusal, not the whole reply.
+
 ## An advisory with nothing to upgrade to, 10 September 2026
 
 Three Dependabot alerts before v1.7.0. Two were a version bump; the third stays open, and closing
