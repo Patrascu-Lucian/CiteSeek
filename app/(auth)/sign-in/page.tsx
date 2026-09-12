@@ -173,7 +173,9 @@ export default async function SignInPage({
                   placeholder="you@example.com"
                   className="border-input focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
                 />
-                <SubmitButton block variant="outline" pendingLabel="Sending…">
+                {/* Primary while the providers stay outline: Google's brand
+                    guidance keeps its G on a light surface. */}
+                <SubmitButton block pendingLabel="Sending…">
                   Continue with email
                 </SubmitButton>
                 <p className="text-muted-foreground text-xs">

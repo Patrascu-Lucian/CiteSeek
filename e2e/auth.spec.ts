@@ -376,6 +376,25 @@ test.describe("sign-in page", () => {
     ).toHaveText([/Google/, /GitHub/, /email/]);
   });
 
+  test("makes email the primary way in, and leaves the providers quiet", async ({
+    page,
+  }) => {
+    // The one way in that needs no other account carries the weight. The
+    // providers stay outline because Google's brand guidance keeps its G on a
+    // light surface.
+    await page.goto("/sign-in");
+
+    await expect(
+      page.getByRole("button", { name: /continue with email/i }),
+    ).toHaveAttribute("data-variant", "default");
+    for (const name of [/continue with google/i, /continue with github/i]) {
+      await expect(page.getByRole("button", { name })).toHaveAttribute(
+        "data-variant",
+        "outline",
+      );
+    }
+  });
+
   test("announces a failed sign-in without losing either provider", async ({
     page,
   }) => {
