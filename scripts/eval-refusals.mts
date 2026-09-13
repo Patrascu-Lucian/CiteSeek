@@ -1,7 +1,8 @@
 /** `eval-retrieval.mts` calls the model only for the rewrite, so which
  * unanswerable questions clear the floor is measured and what happens to them is
  * not. Scored on rule 4 of the prompt — never attach a marker to a refusal —
- * than a regex over refusal wording, which would measure the regex. */
+ * rather than a regex over refusal wording, which would measure the regex. The
+ * model gets the chat route's tools and step limit, from the same module. */
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,6 +60,7 @@ const { retrieveChunks } = await import("../lib/rag/retrieve.ts");
 const { buildSources, buildSystemPrompt } = await import("../lib/ai/prompt.ts");
 const { getChatModel } = await import("../lib/ai/provider.ts");
 const { generateText } = await import("ai");
+const { CHAT_STEP_LIMIT, chatTools } = await import("../lib/chats/tools.ts");
 
 type ChatSource = ReturnType<typeof buildSources>[number];
 
@@ -77,6 +79,12 @@ const UNANSWERABLE = GOLDEN_SET.filter((one) => one.expect.length === 0);
    citation in some runs and not others, which is the finding rather than noise
    around it. */
 const RUNS = Number(process.env.REFUSAL_RUNS ?? 3);
+if (!Number.isInteger(RUNS) || RUNS < 1) {
+  throw new Error(
+    `REFUSAL_RUNS must be a whole number of at least 1, not "${String(process.env.REFUSAL_RUNS)}". ` +
+      "A zero-run report reads like a measurement and is not one.",
+  );
+}
 
 const [workspace] = await db
   .insert(workspaces)
@@ -128,6 +136,8 @@ try {
         model: getChatModel(),
         system: buildSystemPrompt(sources),
         prompt: question,
+        tools: chatTools(workspaceId),
+        stopWhen: CHAT_STEP_LIMIT,
       });
 
       const marked = cites(text, sources.length);
@@ -149,7 +159,8 @@ try {
     "",
     "Rule 4 of the system prompt forbids attaching a marker to a refusal, so a",
     "marker here is the prompt broken by its own definition. Answers are verbatim:",
-    "a regex over refusal wording would measure the regex.",
+    "a regex over refusal wording would measure the regex. The model runs with",
+    "the chat route's tools and step limit.",
     "",
     ...answers.flatMap((one) => [
       `## Run ${String(one.run)} — ${one.question}`,

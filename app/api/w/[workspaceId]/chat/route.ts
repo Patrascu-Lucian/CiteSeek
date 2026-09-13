@@ -3,11 +3,8 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  jsonSchema,
-  stepCountIs,
   streamText,
   toUIMessageStream,
-  tool,
 } from "ai";
 import { NextResponse } from "next/server";
 
@@ -17,6 +14,7 @@ import {
   buildSystemPrompt,
 } from "@/lib/ai/prompt";
 import { getChatModel } from "@/lib/ai/provider";
+import { CHAT_STEP_LIMIT, chatTools } from "@/lib/chats/tools";
 import { questionFrom, questionIdFrom } from "@/lib/ai/question";
 import { rewriteQuestion } from "@/lib/ai/rewrite";
 import {
@@ -40,7 +38,7 @@ import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
 import { refusalBody } from "@/lib/usage/limits";
 import { recordUsage } from "@/lib/usage/queries";
-import { countSearchableChunks, listDocuments } from "@/lib/documents/queries";
+import { countSearchableChunks } from "@/lib/documents/queries";
 import { retrieveChunks } from "@/lib/rag/retrieve";
 
 /** Node runtime: retrieval reaches the database and the fake model uses node APIs. */
@@ -306,33 +304,8 @@ export async function POST(
         model: getChatModel(),
         system: buildSystemPrompt(sources),
         messages: modelMessages,
-        tools: {
-          list_documents: tool({
-            description:
-              "List the documents in this workspace, with their processing status. Use when the user asks what they have uploaded rather than about the contents of a document.",
-            // No input. The workspace is closed over below — the model cannot
-            // name one, so there is no id for it to get wrong or to probe with.
-            inputSchema: jsonSchema<Record<string, never>>({
-              type: "object",
-              properties: {},
-              additionalProperties: false,
-            }),
-            execute: async () => {
-              const documents = await listDocuments(auth.workspaceId);
-
-              // Deliberately a projection, not the row. Ids and error strings
-              // are of no use to the model and would end up in its context.
-              return documents.map((document) => ({
-                filename: document.filename,
-                status: document.status,
-                pageCount: document.pageCount,
-              }));
-            },
-          }),
-        },
-        // A tool call and then an answer. Without a bound, a model that keeps
-        // calling the tool loops until the function times out.
-        stopWhen: stepCountIs(2),
+        tools: chatTools(auth.workspaceId),
+        stopWhen: CHAT_STEP_LIMIT,
         // **No `abortSignal`, deliberately.** Forwarding `request.signal` would
         // stop `onFinish` running when a reader closes the tab, leaving paid-for
         // tokens uncounted. Fires on Stop too, and `usage` spans both steps.

@@ -180,7 +180,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toMatch(/cite nothing at all/i);
   });
 
-  it("names the shape of a bad refusal opener, not two example phrases", () => {
+  it("names the opener a refusal should use, and the shape of the ones it should not", () => {
     // The old rule banned "the provided passages" and "the context does not
     // contain". The model wrote "The provided documents do not contain
     // information about…" — both sins, neither literal.
