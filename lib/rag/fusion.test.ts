@@ -28,7 +28,9 @@ describe("fuse", () => {
   it("scores a rank-1 hit as 1/(k+1)", () => {
     const [top] = fuse({ vector: [item("a")] });
 
-    expect(top?.score).toBeCloseTo(1 / (RRF_K + 1));
+    // Exact: `toBeCloseTo` checks two decimal places, and 1/(k-1) is within
+    // that of 1/(k+1) at k = 60.
+    expect(top?.score).toBe(1 / (RRF_K + 1));
   });
 
   it("records where each result came from", () => {
