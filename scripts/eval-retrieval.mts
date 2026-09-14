@@ -15,11 +15,17 @@ import {
   type Expectation,
 } from "../eval/golden-set.ts";
 import {
+  closeness,
+  cutSignal,
+  lexicalRank,
+  margin,
   mean,
   scoreQuery,
   sweepFloor,
   type FloorCase,
   type Retrieved,
+  type SignalCase,
+  type SignalCut,
   type Span,
 } from "../lib/rag/eval-metrics.ts";
 
@@ -76,7 +82,8 @@ const { retrieveChunks } = await import("../lib/rag/retrieve.ts");
 const { rewriteQuestion } = await import("../lib/ai/rewrite.ts");
 const { retrieveLexical } = await import("../lib/rag/lexical.ts");
 const { fuse } = await import("../lib/rag/fusion.ts");
-const { RETRIEVAL_LIMIT } = await import("../lib/rag/retrieval-config.ts");
+const { RETRIEVAL_LIMIT, maxDistanceFor } =
+  await import("../lib/rag/retrieval-config.ts");
 
 const FIXTURES = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -159,7 +166,7 @@ try {
   ];
   type Strategy = string;
 
-  const cases: FloorCase[] = [];
+  const cases: SignalCase[] = [];
   const scores = new Map<
     string,
     { recall: number[]; precision: number[]; rr: number[] }
@@ -229,7 +236,12 @@ try {
       ),
     };
 
-    cases.push({ answerable: expected.length > 0, retrieved });
+    cases.push({
+      set: "golden",
+      answerable: expected.length > 0,
+      retrieved,
+      lexicalTop: lexical[0]?.rank ?? null,
+    });
 
     for (const strategy of STRATEGIES) {
       for (const k of K_VALUES) {
@@ -250,16 +262,21 @@ try {
 
   // Never pushed into `cases`: that table is the one the README quotes, and this
   // set samples the region where the floor fails.
-  const uncovered: FloorCase[] = [];
+  const uncovered: SignalCase[] = [];
 
   for (const one of UNCOVERED_SET) {
     const { chunks } = await retrieveChunks(workspaceId, one.question, {
       limit: SCORING_LIMIT,
       maxDistance: Number.POSITIVE_INFINITY,
     });
+    const lexical = await retrieveLexical(workspaceId, one.question, {
+      limit: SCORING_LIMIT,
+    });
 
     uncovered.push({
+      set: "uncovered",
       answerable: false,
+      lexicalTop: lexical[0]?.rank ?? null,
       retrieved: chunks.map((chunk) => ({
         documentId: chunk.documentId,
         charStart: chunk.charStart,
@@ -381,6 +398,22 @@ try {
     return `| ${label} | ${(best[0] ?? 0).toFixed(3)} | ${median.toFixed(3)} | ${(best.at(-1) ?? 0).toFixed(3)} |`;
   };
 
+  const FLOOR = maxDistanceFor("google");
+  const SIGNALS = [
+    { name: "distance (baseline)", signal: closeness },
+    { name: "lexical rank", signal: lexicalRank },
+    {
+      name: `margin@${String(RETRIEVAL_LIMIT)}`,
+      signal: margin(RETRIEVAL_LIMIT),
+    },
+  ];
+  const admittedAnswerable = cases.filter(
+    (one) =>
+      one.answerable && one.retrieved.some((chunk) => chunk.distance <= FLOOR),
+  ).length;
+  const removedCell = (cut: SignalCut, set: string) =>
+    `${String(cut.removed[set]?.removed ?? 0)}/${String(cut.removed[set]?.admitted ?? 0)}`;
+
   const report = [
     "# Retrieval evaluation",
     "",
@@ -492,6 +525,26 @@ try {
         `| ${row.maxDistance.toFixed(2)} | ${String(row.falseAccepts)}/${String(row.unanswerable)} |`,
     ),
     "",
+    "## A second opinion on what the floor admits",
+    "",
+    `Each signal is applied only to questions the shipped floor (\`${FLOOR.toFixed(2)}\`) admits, and cut`,
+    "at the strictest threshold that refuses no more than 0, 1 or 2 answerable",
+    "questions. **Tightening the floor itself is the baseline row**: a signal earns",
+    "a place only by removing more unanswerable questions than that at zero added",
+    "refusals, in both sets. Lexical rank is the top `ts_rank_cd`; margin is the",
+    "distance from the closest passage to the 8th, read from the unfiltered",
+    "ranking. The threshold is read off the same questions it is scored against,",
+    "so every row is in-sample.",
+    "",
+    "| signal | answerable refused | golden removed | uncovered removed |",
+    "| ------ | ------------------ | -------------- | ----------------- |",
+    ...SIGNALS.flatMap(({ name, signal }) =>
+      cutSignal([...cases, ...uncovered], FLOOR, signal, [0, 1, 2]).map(
+        (cut) =>
+          `| ${name} | ${String(cut.addedRefusals)}/${String(admittedAnswerable)} | ${removedCell(cut, "golden")} | ${removedCell(cut, "uncovered")} |`,
+      ),
+    ),
+    "",
   ].join("\n");
 
   /* The distances, so re-sweeping is arithmetic rather than another 45 embedding
@@ -505,6 +558,8 @@ try {
           question: one.question,
           answerable: cases[index]!.answerable,
           best: cases[index]!.retrieved[0]?.distance ?? null,
+          lexical: cases[index]!.lexicalTop,
+          margin: margin(RETRIEVAL_LIMIT)(cases[index]!),
         })),
         followUps: followUps.map((row) => ({
           followUp: row.followUp,
@@ -513,6 +568,8 @@ try {
         uncovered: UNCOVERED_SET.map((one, index) => ({
           question: one.question,
           best: uncovered[index]!.retrieved[0]?.distance ?? null,
+          lexical: uncovered[index]!.lexicalTop,
+          margin: margin(RETRIEVAL_LIMIT)(uncovered[index]!),
         })),
       },
       null,

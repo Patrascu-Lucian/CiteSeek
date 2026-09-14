@@ -552,10 +552,16 @@ only because its citation rate is zero, so forcing markers would manufacture the
 Separately, the gap [ADR 020](docs/decisions/020-measuring-the-relevance-floor.md) measured: the
 floor cannot separate answerable questions from unanswerable ones on distance alone, so retrieval
 still wants a **second signal**. Hybrid search was the obvious candidate and
-[ADR 021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md) measured it losing, so
-what remains is a reranker over the top k — or accepting the floor as a filter and saying so.
-Both are in [`docs/backlog.md`](docs/backlog.md), and both now have a harness that would prove
-they earned their place rather than an argument that they should.
+[ADR 021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md) measured it losing. Two
+cheaper second opinions have now lost too: over the questions the floor admits, neither the top
+lexical rank nor the distance margin to the eighth passage refuses a single unanswerable question
+without also refusing an answerable one, where simply tightening the floor removes two of the golden
+set's five ([`eval/report.md`](eval/report.md)). On the adversarial set lexical rank points the
+wrong way — those questions rank higher on word overlap than the answerable ones, because naming
+something a document is about is what makes them hard. What remains is a reranker over the top k —
+or accepting the floor as a filter and saying so. Both are in [`docs/backlog.md`](docs/backlog.md),
+and both now have a harness that would prove they earned their place rather than an argument that
+they should.
 
 The usage thresholds are still starting values. They need real traffic rather than another
 round of reasoning.
@@ -686,7 +692,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1021  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1028  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 181   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |

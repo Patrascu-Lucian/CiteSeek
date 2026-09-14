@@ -3175,6 +3175,24 @@ topic. The rate is high enough that a change to it is now measurable in principl
 about 24 leaked questions per variant, and the two sets leak 20 — which is what the parser idea above
 would need before it is worth building.
 
+↳ **Two cheap second opinions, measured over what the floor admits, and both lost,
+14 September 2026.** The criterion was written down before the run: at zero added refusals, a
+signal had to remove more unanswerable questions than simply tightening the distance floor does.
+Tightening removes 2 of the golden five and none of the adversarial fifteen. The top lexical rank
+removes none of either, and neither does the distance margin to the eighth passage, which starts
+removing questions only once it may refuse an answerable one too.
+
+**Lexical rank does worse than nothing on the adversarial set: it points the wrong way.** Those
+questions rank higher on word overlap than the answerable ones, a median of 0.40 against 0.20,
+because naming something a document is about is what puts them near the floor in the first place.
+It is ADR 021's result arriving one layer up: word overlap cannot tell a covered detail from an
+uncovered one when both use the document's words.
+
+What this leaves is an entailment check, the one kind of signal that reads whether the passages
+answer the question rather than whether they are about it. And the refusal measurement above says
+the model already declines every one of these, so such a gate would buy a structural refusal and
+fewer markers, not fewer invented answers.
+
 ## An advisory with nothing to upgrade to, 10 September 2026
 
 Three Dependabot alerts before v1.7.0. Two were a version bump; the third stays open, and closing
