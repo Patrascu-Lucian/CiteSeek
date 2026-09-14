@@ -75,13 +75,13 @@ replacement, so every count below is a tally rather than an impression.
 
 | bucket                                           | mutants |
 | ------------------------------------------------ | ------- |
-| an existing test that cannot fail on it          | 29      |
-| no test for the behavior                         | 18      |
+| an existing test that cannot fail on it          | 27      |
+| no test for the behavior                         | 20      |
 | behavior nothing needs to assert                 | 85      |
 | equivalent: nothing observable changes           | 25      |
 | detected only by tests outside the scoped config | 5       |
 
-**Eleven tests cannot fail on what they are named for.** Each passes against its mutants because its
+**Nine tests cannot fail on what they are named for.** Each passes against its mutants because its
 fixture never reaches the path its name describes.
 
 - `extract.test.ts`, _"explains that a text-free PDF probably needs OCR"_, feeds bytes unpdf cannot
@@ -96,9 +96,6 @@ fixture never reaches the path its name describes.
     whitespace-only segment ever forms.
   - _"does not start or end a chunk on whitespace"_: its paragraphs never start a segment on
     whitespace.
-  - _"hard-splits an unbroken run"_ checks count and size, not that the pieces cover the run.
-  - _"returns one chunk when the text fits"_ fits one sentence, the one input that never needs
-    merging.
 - `eval-metrics.test.ts`:
   - _"counts an expected passage as recalled when any chunk covers it"_ has one chunk and one
     passage, so "any" and "every" agree.
@@ -108,11 +105,11 @@ fixture never reaches the path its name describes.
 - `rewrite.test.ts`, _"strips the quotes a model wraps its answer in"_, has no quote inside the
   question.
 
-**Eight behaviors have no test:** the history the rewrite shows the model (the last six turns' text,
+**Nine behaviors have no test:** the history the rewrite shows the model (the last six turns' text,
 role-prefixed); a rewrite reply that opens with a blank line; `mean` over real values; an answerable
 question with nothing retrieved; `cutSignal` admitting a question on the closest of several chunks; a
-Word document with no text; exactly `MAX_CHUNKS_PER_DOCUMENT` chunks; and the embedding token count
-reaching the meter.
+Word document with no text; short paragraphs merging after the first chunk; exactly
+`MAX_CHUNKS_PER_DOCUMENT` chunks; and the embedding token count reaching the meter.
 
 **85 are not worth a test:** 41 stopwords, one word each; 13 prompt wordings and passage layouts,
 which the evals measure; 11 exact boundaries at internal sizes; 5 chunk cuts moved by whitespace that
@@ -131,9 +128,24 @@ case for the scoped config, in one number.
 
 **What the sort says.** Read as a percentage, 80.5% suggests a fifth of the code goes untested. The
 sort says otherwise: half the undetected mutants are not worth a test, and a sixth change nothing.
-The finding is the first bucket — eleven tests, one of them written this milestone, that pass whether
-or not the code does what their names say. Those, and the eight missing tests, are the work that
+The finding is the first bucket — nine tests, one of them written this milestone, that pass whether
+or not the code does what their names say. Those, and the nine missing tests, are the work that
 follows, and each is done when its mutants fail.
+
+↳ **Chunking fixed, and doing it corrected the sort three times.** Four tests got fixtures that reach
+their paths and two were added, and `chunking.ts` went from 43 undetected mutants to 23, each now
+sorted as not worth a test, equivalent, or caught elsewhere. The counts above are the corrected ones:
+
+- **The unbroken-run mutant is equivalent.** It seeds the piece list with a string, which has no
+  offsets, and `flush` drops it before any chunk is built.
+- **A guard sorted as equivalent is not.** `start <= range.end` gives a run that is an exact multiple
+  of the maximum one extra chunk, a duplicate 100-character tail, which the exact-ceiling test now
+  catches.
+- **The merge arithmetic had no test that could catch it**, rather than one that could not fail.
+  `piece.end + pending.start` equals the right answer whenever a chunk starts at zero, and every
+  fixture merged only in its first chunk.
+
+A sort is a hypothesis about a test until the test is written.
 
 ## Decision
 
