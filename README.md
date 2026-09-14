@@ -84,6 +84,7 @@ shaped the product rather than the toolchain.
 | [034](docs/decisions/034-answering-on-the-gpu.md)                            | Name the device the capability gate checks    | The gate refused browsers a feature that ran without a GPU, because nothing asked for one |
 | [035](docs/decisions/035-where-the-worked-example-goes.md)                   | A worked example belongs in the system prompt | In the message array it is transcript, and the model answered out of it with a citation   |
 | [039](docs/decisions/039-the-default-plan-s-ceiling.md)                      | Stock limits are not the rate limiter         | A limit that never heals has to name what to delete; one that heals only has to wait      |
+| [055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)        | Measure a second signal, then keep the floor  | Both signals lost to a tighter floor, and every question past it drew a refusal anyway    |
 
 ## Mistakes worth reading
 
@@ -516,7 +517,9 @@ the adversarial fifteen, where a question about the edge of a topic draws a cita
 The counts move from run to run, so the file carries the latest rather than a settled number.
 Rewording that rule was tried three ways on the five golden questions and the difference was too
 small to measure, so it stays as shipped. What the measurement does settle is the part that
-matters: nothing is invented.
+matters: nothing is invented. It is also why no second signal ships in front of the prompt — the
+ones measured lost to simply tightening the floor, and a gate would replace refusals the model
+already writes ([ADR 055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)).
 
 Usage limits are enforced but their thresholds are provisional — they need real traffic to
 calibrate against, and are deliberately generous because shared addresses
@@ -549,19 +552,18 @@ decoding is the other, and it is parked deliberately: local mode's citation _def
 only because its citation rate is zero, so forcing markers would manufacture the failure
 [ADR 038](docs/decisions/038-a-citation-that-cannot-be-read-as-content.md) exists to prevent.
 
-Separately, the gap [ADR 020](docs/decisions/020-measuring-the-relevance-floor.md) measured: the
-floor cannot separate answerable questions from unanswerable ones on distance alone, so retrieval
-still wants a **second signal**. Hybrid search was the obvious candidate and
-[ADR 021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md) measured it losing. Two
-cheaper second opinions have now lost too: over the questions the floor admits, neither the top
-lexical rank nor the distance margin to the eighth passage refuses a single unanswerable question
-without also refusing an answerable one, where simply tightening the floor removes two of the golden
-set's five ([`eval/report.md`](eval/report.md)). On the adversarial set lexical rank points the
-wrong way — those questions rank higher on word overlap than the answerable ones, because naming
-something a document is about is what makes them hard. What remains is a reranker over the top k —
-or accepting the floor as a filter and saying so. Both are in [`docs/backlog.md`](docs/backlog.md),
-and both now have a harness that would prove they earned their place rather than an argument that
-they should.
+**The relevance floor's gap is decided rather than open.** The floor cannot separate answerable
+questions from unanswerable ones on distance alone
+([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and three second signals have now
+been measured against it: hybrid search
+([ADR 021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md)), and the top lexical
+rank and the distance margin to the eighth passage, each of which lost to simply tightening the
+floor ([`eval/report.md`](eval/report.md)). Every question that cleared the floor drew a refusal
+rather than an invented answer, so the floor stays a filter, and the pages say so
+([ADR 055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)). What is left is
+smaller: refusals that attach a citation marker the prompt forbids, which a parser could strip
+structurally. The harness is now close to large enough to measure a change in that rate, and the
+idea is in [`docs/backlog.md`](docs/backlog.md).
 
 The usage thresholds are still starting values. They need real traffic rather than another
 round of reasoning.
