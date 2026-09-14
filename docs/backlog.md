@@ -3193,6 +3193,12 @@ answer the question rather than whether they are about it. And the refusal measu
 the model already declines every one of these, so such a gate would buy a structural refusal and
 fewer markers, not fewer invented answers.
 
+↳ **Decided, 14 September 2026 (ADR 055).** The floor stays at `0.40`, still the only gate before
+generation, and is described as a filter rather than a proof. No second signal ships: the banded
+design fell to nine questions below its lower edge, both cheap signals lost to tightening the floor,
+and the entailment gate was not built because every reply past the floor was already a refusal. The
+markers on those refusals are the one part of this entry still open.
+
 ## An advisory with nothing to upgrade to, 10 September 2026
 
 Three Dependabot alerts before v1.7.0. Two were a version bump; the third stays open, and closing
