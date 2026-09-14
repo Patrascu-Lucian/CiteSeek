@@ -3147,3 +3147,24 @@ tests, 117 E2E and a production build, green.
   conversation turns: each measured a neighbor of the real thing and reported on the real thing. The
   check is to list every argument the production call passes and ask of each one whether the harness
   gets it from the same place.
+
+## "Deterministic" from one sample, 14 September 2026
+
+- **Issue**: the backlog entry arguing that rule 4 may be the wrong rule said _"The citations are
+  deterministic per question"_, and quoted one reply from each of two questions as that question's
+  shape. Review tallied the three committed refusal reports and found the shapes moving within a
+  single configuration: under the shipped prompt and tool, the bed-size question carried markers in
+  two runs of three, and in the report before it, one.
+
+- **Cause**: nothing in the harness or the chat route sets a temperature, so nothing made a reply
+  repeat. The sentence described the runs in hand rather than the configuration, and no second run
+  of the same configuration was compared before the word was written.
+
+- **Fix**: a ↳ on the entry with the per-question counts from all three reports. The conclusion the
+  sentence supported still stands — the question asked matters most, with the warranty question
+  cited in 8 of 9 runs and the support-team question in none — so a sentence changes and the
+  decision does not.
+
+- **Lesson**: **"deterministic" is a claim about the configuration, and a sample cannot make it.**
+  The clean sheet of 13 September, moved from a count to a shape. Before calling an output fixed,
+  name what fixes it — a temperature, a seed, a cache — or run it again and compare.
