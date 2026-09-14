@@ -369,9 +369,7 @@ test.describe("sign-in page", () => {
     const main = page.getByRole("main");
 
     await expect(
-      main.getByText(
-        /keeps you signed in until you go 30 days without a visit/,
-      ),
+      main.getByText(/keeps you signed in for 30 days\./),
     ).toBeVisible();
     await expect(main.getByText(/a cookie that lasts a day/)).toBeVisible();
     // Scoped to `main`: the site footer carries a link with the same name.
