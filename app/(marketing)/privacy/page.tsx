@@ -118,9 +118,10 @@ export default function PrivacyPage() {
         </p>
         <ul className="mt-3 list-disc space-y-2 pl-5">
           <li>
-            <code>authjs.session-token</code> — keeps you signed in until you go{" "}
-            {formatLifetime(SESSION_MAX_AGE_SECONDS)} without a visit. It holds
-            a random key to your session record, not your details.
+            <code>authjs.session-token</code> — keeps you signed in for{" "}
+            {formatLifetime(SESSION_MAX_AGE_SECONDS)} from when you sign in,
+            however often you visit in between. It holds a random key to your
+            session record, not your details.
           </li>
           <li>
             <code>authjs.csrf-token</code> and <code>authjs.callback-url</code>{" "}

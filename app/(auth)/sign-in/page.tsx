@@ -207,9 +207,9 @@ export default async function SignInPage({
             {/* A login that outlives the browser is not exempt from consent
                 without a notice beside it (WP29 Opinion 04/2012, §3.2). */}
             <p className="text-muted-foreground text-xs">
-              Signing in sets a cookie that keeps you signed in until you go{" "}
-              {formatLifetime(SESSION_MAX_AGE_SECONDS)} without a visit. By
-              continuing, you acknowledge CiteSeek&rsquo;s{" "}
+              Signing in sets a cookie that keeps you signed in for{" "}
+              {formatLifetime(SESSION_MAX_AGE_SECONDS)}. By continuing, you
+              acknowledge CiteSeek&rsquo;s{" "}
               <Link
                 href="/privacy"
                 className="text-foreground underline underline-offset-4"

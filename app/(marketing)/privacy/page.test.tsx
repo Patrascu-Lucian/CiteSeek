@@ -337,7 +337,7 @@ describe("the cookie list", () => {
     );
 
     expect(
-      cookies.getByText(/until you go 30 days without a visit/),
+      cookies.getByText(/for 30 days from when you sign in, however often/),
     ).toBeInTheDocument();
     expect(
       cookies.getByText(/without an account, for a day/),
