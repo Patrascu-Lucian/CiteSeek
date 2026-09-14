@@ -695,7 +695,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1028  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1030  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 181   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
@@ -703,7 +703,7 @@ Playwright smoke suite all gate every pull request.
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
 Coverage says those lines ran, not that a test would notice them change, so `pnpm test:mutation`
 measures the second: across `lib/rag` and `lib/ai`, 80.5% of 830 mutants were caught on the first
-run, with no threshold set against a number this new. Reading the rest found eleven tests that cannot
+run, with no threshold set against a number this new. Reading the rest found nine tests that cannot
 fail on the behavior they are named for, which the percentage alone would never have said
 ([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)).
 
