@@ -362,6 +362,22 @@ test.describe("sign-in page", () => {
     ).toBeVisible();
   });
 
+  test("says how long each cookie lasts, and links the policy it acknowledges", async ({
+    page,
+  }) => {
+    await page.goto("/sign-in");
+    const main = page.getByRole("main");
+
+    await expect(
+      main.getByText(/keeps you signed in for 30 days\./),
+    ).toBeVisible();
+    await expect(main.getByText(/a cookie that lasts a day/)).toBeVisible();
+    // Scoped to `main`: the site footer carries a link with the same name.
+    await expect(
+      main.getByRole("link", { name: "Privacy Policy" }),
+    ).toHaveAttribute("href", "/privacy");
+  });
+
   test("offers the three ways in, in order, with email last", async ({
     page,
   }) => {

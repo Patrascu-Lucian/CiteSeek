@@ -1,6 +1,7 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import NextAuth from "next-auth";
 
+import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/cookies";
 import { scalewayEmail } from "@/lib/auth/email-provider";
 import { AUTH_PROVIDERS } from "@/lib/auth/providers";
 import { db } from "@/lib/db";
@@ -34,7 +35,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // by deleting a row, which a stateless token cannot offer. The cost is one
   // query per request, which is acceptable when the app is already hitting the
   // same database to load the workspace.
-  session: { strategy: "database" },
+  session: { strategy: "database", maxAge: SESSION_MAX_AGE_SECONDS },
   pages: {
     signIn: "/sign-in",
     error: "/sign-in",

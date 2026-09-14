@@ -3141,6 +3141,22 @@ variant.
 reply as a topic list, because every opener is now "The documents do not cover…". Sorting the shapes
 needs the clause after the refusal, not the whole reply.
 
+↳ **"Deterministic per question" was wrong, 14 September 2026.** Which refusal carries a marker
+moves between runs of one configuration, not only between wordings. Runs of three that carried a
+marker, in the three committed versions of `eval/refusals.md` (#348, #350, #354):
+
+- the warranty period on the hydraulic pump: 2, 3 and 3;
+- a wider bed size: 0, 1 and 2;
+- the fire evacuation arrangements: 0, 2 and 0;
+- parking: 2, 0 and 0;
+- the size of the support team: 0, 0 and 0.
+
+Neither the harness nor the chat route sets a temperature, so nothing made a reply repeat, and each
+quote above is one sample. The two shapes are real, and the question still matters most — warranty
+in 8 of 9 runs, the support team in none — so the sample-size note's "depends mostly on which
+question was asked" holds, and so does its conclusion. Reading one run's shape as the question's
+shape does not.
+
 ## An advisory with nothing to upgrade to, 10 September 2026
 
 Three Dependabot alerts before v1.7.0. Two were a version bump; the third stays open, and closing
@@ -3269,6 +3285,12 @@ whichever way this is read.
 
 **Read with the caveat the source needs:** it is a 2012 ePrivacy opinion that predates GDPR, and
 national regulators apply it differently. This is a question to settle, not a verdict.
+
+↳ **Decided, 14 September 2026 (ADR 054).** Notices and a list, no banner. The sign-in footer says how
+long the session and demo cookies last and links the privacy policy; the theme toggle carries an
+accessible description, and the site footer links `/privacy#cookies`, which names every cookie with
+its lifetime. One correction to the list above: neither provider declares checks, so Auth.js sets the
+PKCE cookie alone, and the `state` and `nonce` cookies are never set here.
 
 ## ~~The sign-in page has no primary action anymore~~, 9 September 2026
 

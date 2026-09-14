@@ -3,6 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { pageShell } from "@/components/ui/page-shell";
+import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/cookies";
+import { GUEST_SESSION_MAX_AGE_SECONDS } from "@/lib/auth/guest";
+import { formatLifetime } from "@/lib/lifetime";
+import { THEME_COOKIE_MAX_AGE } from "@/lib/theme/theme";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -24,9 +28,9 @@ export default function PrivacyPage() {
     <main id="main" className={pageShell("2xl", "flex-1")}>
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
       <p className="text-muted-foreground mt-2 text-sm">
-        Last updated 3 August 2026. This describes what the application actually
-        does. If the two ever disagree, the application is what gets fixed —
-        this page is a promise, not a disclaimer.
+        Last updated 14 September 2026. This describes what the application
+        actually does. If the two ever disagree, the application is what gets
+        fixed — this page is a promise, not a disclaimer.
       </p>
 
       <Section title="The short version">
@@ -96,14 +100,51 @@ export default function PrivacyPage() {
           </li>
         </ul>
         <p className="mt-3">
-          Guests are the exception: a guest session is a signed cookie with a
-          24-hour expiry and{" "}
+          Guests are the exception: a guest session is a signed cookie, listed
+          below, and{" "}
           <strong>
             nothing about a guest is written to the database at all
           </strong>
           . A guest&rsquo;s conversation lives in their browser and is gone on
           reload.
         </p>
+      </Section>
+
+      <Section id="cookies" title="Cookies">
+        <p>
+          Every cookie this site sets is listed here. None is for analytics or
+          advertising, and none belongs to anyone else. Over HTTPS the Auth.js
+          names carry a <code>__Secure-</code> or <code>__Host-</code> prefix.
+        </p>
+        <ul className="mt-3 list-disc space-y-2 pl-5">
+          <li>
+            <code>authjs.session-token</code> — keeps you signed in for{" "}
+            {formatLifetime(SESSION_MAX_AGE_SECONDS)} from when you sign in,
+            however often you visit in between. It holds a random key to your
+            session record, not your details.
+          </li>
+          <li>
+            <code>authjs.csrf-token</code> and <code>authjs.callback-url</code>{" "}
+            — set while you sign in, to turn away forged sign-in requests and to
+            remember where to send you afterward. They last until you close the
+            browser.
+          </li>
+          <li>
+            {/* Auth.js's own value, in `@auth/core/lib/utils/cookie.js`, which
+                exports no constant to render. */}
+            <code>authjs.pkce.code_verifier</code> — set when you sign in with a
+            provider, so its reply can be matched to the sign-in you started,
+            for 15 minutes.
+          </li>
+          <li>
+            <code>citeseek.guest</code> — lets you into the demo without an
+            account, for {formatLifetime(GUEST_SESSION_MAX_AGE_SECONDS)}.
+          </li>
+          <li>
+            <code>citeseek_theme</code> — the color theme you picked, set only
+            when you pick one, for {formatLifetime(THEME_COOKIE_MAX_AGE)}.
+          </li>
+        </ul>
       </Section>
 
       <Section title="Where it is stored">
@@ -261,9 +302,17 @@ export default function PrivacyPage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id?: string;
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <section className="mt-8">
+    <section id={id} className="mt-8">
       <h2 className="text-lg font-medium">{title}</h2>
       <div className="text-muted-foreground mt-2 text-sm leading-relaxed">
         {children}

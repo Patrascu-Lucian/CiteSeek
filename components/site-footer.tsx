@@ -43,6 +43,12 @@ export function SiteFooter() {
             <Link href="/privacy" className="hover:text-foreground underline">
               Privacy Policy
             </Link>
+            <Link
+              href="/privacy#cookies"
+              className="hover:text-foreground underline"
+            >
+              Cookies
+            </Link>
             <Link href="/terms" className="hover:text-foreground underline">
               Terms of Service
             </Link>

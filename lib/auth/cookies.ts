@@ -15,3 +15,8 @@ export const SESSION_COOKIE_NAMES = [
   "authjs.session-token",
   "__Secure-authjs.session-token",
 ] as const;
+
+/** Auth.js's default, named because two pages quote it. Counted from signing
+ * in: the session row slides forward on use, but `auth()` in a server component
+ * drops the refreshed cookie, so the browser's copy keeps its first date. */
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;

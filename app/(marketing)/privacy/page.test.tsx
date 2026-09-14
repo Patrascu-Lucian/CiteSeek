@@ -325,3 +325,37 @@ describe("the way into local mode", () => {
     ).toHaveAttribute("href", "/local");
   });
 });
+
+describe("the cookie list", () => {
+  it("gives each cookie the lifetime it is set with", () => {
+    // Literal on purpose: the page renders from the constants, so a changed
+    // lifetime would change the page silently. This is where it gets noticed.
+    render(<PrivacyPage />);
+
+    const cookies = within(
+      screen.getByRole("heading", { name: "Cookies" }).closest("section")!,
+    );
+
+    expect(
+      cookies.getByText(/for 30 days from when you sign in, however often/),
+    ).toBeInTheDocument();
+    expect(
+      cookies.getByText(/without an account, for a day/),
+    ).toBeInTheDocument();
+    expect(
+      cookies.getByText(/when you pick one, for a year/),
+    ).toBeInTheDocument();
+    expect(
+      cookies.getByText(/you started, for 15 minutes/),
+    ).toBeInTheDocument();
+  });
+
+  it("is linked from the footer on every page", () => {
+    render(<SiteFooter />);
+
+    expect(screen.getByRole("link", { name: "Cookies" })).toHaveAttribute(
+      "href",
+      "/privacy#cookies",
+    );
+  });
+});

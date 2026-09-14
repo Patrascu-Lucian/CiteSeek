@@ -3147,3 +3147,50 @@ tests, 117 E2E and a production build, green.
   conversation turns: each measured a neighbor of the real thing and reported on the real thing. The
   check is to list every argument the production call passes and ask of each one whether the harness
   gets it from the same place.
+
+## "Deterministic" from one sample, 14 September 2026
+
+- **Issue**: the backlog entry arguing that rule 4 may be the wrong rule said _"The citations are
+  deterministic per question"_, and quoted one reply from each of two questions as that question's
+  shape. Review tallied the three committed refusal reports and found the shapes moving within a
+  single configuration: under the shipped prompt and tool, the bed-size question carried markers in
+  two runs of three, and in the report before it, one.
+
+- **Cause**: nothing in the harness or the chat route sets a temperature, so nothing made a reply
+  repeat. The sentence described the runs in hand rather than the configuration, and no second run
+  of the same configuration was compared before the word was written.
+
+- **Fix**: a ↳ on the entry with the per-question counts from all three reports. The conclusion the
+  sentence supported still stands — the question asked matters most, with the warranty question
+  cited in 8 of 9 runs and the support-team question in none — so a sentence changes and the
+  decision does not.
+
+- **Lesson**: **"deterministic" is a claim about the configuration, and a sample cannot make it.**
+  The clean sheet of 13 September, moved from a count to a shape. Before calling an output fixed,
+  name what fixes it — a temperature, a seed, a cache — or run it again and compare.
+
+## A session that slides in the database and not in the browser, 14 September 2026
+
+- **Issue**: the sign-in page and the privacy page both said the session cookie keeps a reader
+  signed in "until you go 30 days without a visit", and the comment on `SESSION_MAX_AGE_SECONDS`
+  said the lifetime counts from the last visit. Review found the cookie expires 30 days after sign-in
+  however often the reader comes back — on the page that calls itself "a promise, not a disclaimer".
+
+- **Cause**: the claim was read off `@auth/core`'s session action, which does slide the row: a
+  request that reads a session more than a day after its last extension rewrites `expires` and
+  returns a refreshed cookie. next-auth's `auth()`, called with no arguments as a server component
+  calls it, parses the session from that response and discards the response, headers included.
+  That is the only way this app reads a session — `getActor()` calls it, `proxy.ts` does not, no
+  route is wrapped in `auth(handler)`, and nothing polls `/api/auth/session` — so the row moves and
+  the browser's copy keeps its sign-in date.
+
+- **Fix**: both pages now say 30 days from signing in, however often you visit, and so do the
+  constant's comment and ADR 054. An E2E test signs in, ages the session row past the update
+  interval, visits a page, and checks that the row moved and the cookie did not, so either half
+  changing fails it. Making the session actually slide needs the refreshed cookie on a response the
+  browser receives — today that means an `auth()` call in the proxy — and was kept out of a patch.
+
+- **Lesson**: **a dependency's behavior belongs to the call path, not to the dependency.** The
+  source that was read was the function doing the work, not the one this app calls. The same shape
+  as the harness that measured a neighbor of production: before quoting what a library does, trace
+  it from our own call site to the byte the reader receives.
