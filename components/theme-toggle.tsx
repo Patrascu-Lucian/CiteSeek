@@ -1,7 +1,8 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 
+import { formatLifetime } from "@/lib/lifetime";
 import { setThemeAction } from "@/lib/theme/actions";
-import { type Theme } from "@/lib/theme/theme";
+import { THEME_COOKIE_MAX_AGE, type Theme } from "@/lib/theme/theme";
 import { cn } from "@/lib/utils";
 
 const OPTIONS = [
@@ -26,10 +27,16 @@ export function ThemeToggle({ current }: { current: Theme }) {
       <span id="theme-label" className="sr-only">
         Color theme
       </span>
+      {/* The note WP29 Opinion 04/2012 §3.6 puts beside a long-lived preference.
+          Sighted readers get the footer's Cookies link instead (ADR 054). */}
+      <span id="theme-note" className="sr-only">
+        Remembered in a cookie for {formatLifetime(THEME_COOKIE_MAX_AGE)}.
+      </span>
 
       <div
         role="group"
         aria-labelledby="theme-label"
+        aria-describedby="theme-note"
         className="border-border flex items-center gap-0.5 rounded-md border p-0.5"
       >
         {OPTIONS.map(({ value, label, Icon }) => {

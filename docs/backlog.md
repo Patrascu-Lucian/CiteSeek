@@ -3286,6 +3286,12 @@ whichever way this is read.
 **Read with the caveat the source needs:** it is a 2012 ePrivacy opinion that predates GDPR, and
 national regulators apply it differently. This is a question to settle, not a verdict.
 
+↳ **Decided, 14 September 2026 (ADR 054).** Notices and a list, no banner. The sign-in footer says how
+long the session and demo cookies last and links the privacy policy; the theme toggle carries an
+accessible description, and the site footer links `/privacy#cookies`, which names every cookie with
+its lifetime. One correction to the list above: neither provider declares checks, so Auth.js sets the
+PKCE cookie alone, and the `state` and `nonce` cookies are never set here.
+
 ## ~~The sign-in page has no primary action anymore~~, 9 September 2026
 
 ↳ **Decided, 12 September 2026.** "Continue with email" is the primary button and stays where it was,

@@ -406,6 +406,7 @@ test.describe("the footer", () => {
       "Contact",
       "Local mode (Experimental)",
       "Privacy Policy",
+      "Cookies",
       "Terms of Service",
     ]);
   });
@@ -430,7 +431,7 @@ test.describe("the footer", () => {
     await page.setViewportSize({ width: 375, height: 800 });
     await page.goto("/");
 
-    expect(await footerRows(page)).toBe(5);
+    expect(await footerRows(page)).toBe(6);
   });
 
   test("pairs them into two columns on a tablet", async ({ page }) => {
