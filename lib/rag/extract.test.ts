@@ -71,12 +71,10 @@ describe("extractText — PDF", () => {
 
   it("explains that a text-free PDF probably needs OCR", async () => {
     // A scanned document is the most common real-world case of "upload
-    // succeeded, nothing searchable". Saying so beats reporting an empty file.
-    const { extractText: extract } = await import("./extract");
-    const empty = new TextEncoder().encode("not a pdf at all");
-
-    await expect(extract(empty, PDF)).rejects.toThrow(
-      /could not be read|needs OCR/i,
+    // succeeded, nothing searchable". A real PDF with one empty page: bytes the
+    // parser cannot open take the corrupt-file branch and never reach this one.
+    await expect(extractText(fixture("blank.pdf"), PDF)).rejects.toThrow(
+      /needs OCR/,
     );
   });
 });
@@ -137,6 +135,12 @@ describe("extractText — docx", () => {
 
     await expect(extractText(notADocx, DOCX)).rejects.toBeInstanceOf(
       UnreadableDocumentError,
+    );
+  });
+
+  it("refuses a Word document with no text", async () => {
+    await expect(extractText(fixture("empty.docx"), DOCX)).rejects.toThrow(
+      /appears to contain no text/,
     );
   });
 });
