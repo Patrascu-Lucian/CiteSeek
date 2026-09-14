@@ -3099,3 +3099,51 @@ tests, 117 E2E and a production build, green.
   two requests, a log holding a readiness poll, a DOM the browser had deliberately altered. Before
   believing a comparison, ask what varies between the two sides that is not the thing under test.
   And an explanation offered for a measurement is not part of the measurement.
+
+## A clean sheet from one run, 13 September 2026
+
+- **Issue**: measuring what the model does with the unanswerable questions that clear the relevance
+  floor, the first hand run returned **0 of 5** refusals carrying a citation marker. The conclusion
+  it invited was "the prompt holds, stop here". Later runs of the same prompt returned 2, 2, 1, 2
+  and 1.
+
+- **Cause**: one sample of a behavior that occurs roughly three times in ten. At that rate, five
+  refusals all come back clean with probability 0.7⁵ ≈ 0.17 — about one run in six looks like a
+  pass. Nothing about that first run was wrong; reading one run as the answer was.
+
+- **Fix**: `pnpm eval:refusals` runs three times by default and the report prints a spread, never a
+  single number. The backlog entry records the first run as the reason for the default.
+
+- **The same investigation found a second version of it.** Classifying the cited sentences by shape
+  with a regex for "cover" put every reply into one bucket, because the fix for the refusal opener
+  had made every reply begin "The documents do not cover…". The discriminator had become universal,
+  so the count measured the discriminator rather than the replies.
+
+- **Lesson**: **the clean sheet is the most persuasive wrong answer available, because it ends the
+  investigation.** Before trusting a zero, ask how often zero would appear if the thing were
+  present. And when a classifier puts everything in one bucket, check what it is keying on before
+  believing the bucket.
+
+## The harness gave the model less than production does, 13 September 2026
+
+- **Issue**: `scripts/eval-refusals.mts` measured what the model does with unanswerable questions
+  that clear the relevance floor, and its conclusion — every one refused, nothing invented — went
+  onto three public surfaces. Review found the harness called the model without the
+  `list_documents` tool and the two-step limit the chat route passes. Tool definitions are part of
+  what the model is given, and the tool is only reachable past the floor, which is exactly the
+  branch being measured.
+
+- **Cause**: the harness rebuilt the model call from the parts it needed — model, system prompt,
+  question — and the route's call carried two more that were written inline, where nothing outside
+  the route could reuse them. A copy would have drifted the first time either changed.
+
+- **Fix**: the tool and the step limit moved to `lib/chats/tools.ts`, which the route and the
+  harness both import. Re-measured with them: 2, 2 and 1 refusals carried a marker across three runs,
+  all fifteen replies were refusals, none invented anything, and the tool never fired. The published
+  conclusion held — but until this run it held for a configuration that does not ship.
+
+- **Lesson**: **a harness that measures production has to import production, not resemble it.** The
+  same shape as the stale-build falsification on 7 September and ADR 035's worked example sent as
+  conversation turns: each measured a neighbor of the real thing and reported on the real thing. The
+  check is to list every argument the production call passes and ask of each one whether the harness
+  gets it from the same place.

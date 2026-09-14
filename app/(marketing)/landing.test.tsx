@@ -31,6 +31,20 @@ describe("Landing", () => {
     );
   });
 
+  it("claims only the guarantee that holds on every branch", () => {
+    // "A refusal cannot cite" is true where no model runs and false where one
+    // does: `eval:refusals` measures model-written refusals carrying markers.
+    // An unresolvable marker rendering as plain text is true everywhere.
+    render(<Landing {...anonymous} />);
+
+    expect(
+      screen.getByText(/a citation cannot be invented/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/a refusal cannot cite/i),
+    ).not.toBeInTheDocument();
+  });
+
   it("lists the feature cards inside a list for screen-reader navigation", () => {
     render(<Landing {...anonymous} />);
 

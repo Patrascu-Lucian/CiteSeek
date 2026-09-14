@@ -493,14 +493,24 @@ difference is not feedback against none: it is 1.2 s spent on the page you asked
 the page you left. Five Lighthouse points for that, deliberately and by a margin worth naming
 ([ADR 045](docs/decisions/045-what-the-loading-skeleton-buys.md)).
 
-**Half the ungrounded questions still reach the model.** The relevance threshold is now measured
-rather than guessed ([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what
-the measurement showed is that no threshold is right: the distance distributions for answerable
-and unanswerable questions overlap. At `0.40` roughly half the questions the corpus cannot
-answer still clear the floor. They reach a model instructed to answer only from the passages it
-was given — so the failure is a weak answer rather than an invented citation — but "says so when
-nothing relevant is found" is a weaker promise than it sounds, and closing the gap needs a
-second retrieval signal rather than a better constant.
+**Half the ungrounded questions still reach the model, and the prompt catches them.** The
+relevance threshold is measured rather than guessed
+([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what the measurement showed
+is that no threshold is right: the distance distributions for answerable and unanswerable
+questions overlap. At `0.40` roughly half the questions the corpus cannot answer still clear the
+floor.
+
+What they meet there is now measured too, rather than assumed
+([`eval/refusals.md`](eval/refusals.md)): across three runs of the five that get through, the model
+refused every one and invented nothing — no fabricated content, no out-of-range marker. So the
+structural guarantee is weaker than "says so when nothing relevant is found" sounds, and the
+observed behavior holds anyway, because the prompt catches what the floor misses.
+
+The leak's real cost is smaller and different: in most runs a few of those refusals attach a
+citation marker, which the prompt's own rules forbid on a refusal. The count moves from run to run,
+so the file carries the latest rather than a settled number. Rewording that rule was tried three
+ways and the difference is too small to measure on five questions, so it stays as shipped. What the
+measurement does settle is the part that matters: nothing is invented.
 
 Usage limits are enforced but their thresholds are provisional — they need real traffic to
 calibrate against, and are deliberately generous because shared addresses
@@ -670,9 +680,9 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 999   | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1007  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
-| E2E         | 177   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
+| E2E         | 178   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.

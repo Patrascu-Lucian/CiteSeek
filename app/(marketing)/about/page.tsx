@@ -66,8 +66,8 @@ export default function AboutPage() {
           each passage is stored in a way that captures what it is{" "}
           <em>about</em> rather than which words it happens to use — so
           &ldquo;annual leave&rdquo; and &ldquo;time off&rdquo; end up in the
-          same neighborhood. Your question is looked up the same way, and only
-          the four or five closest passages are handed over, with an instruction
+          same neighborhood. Your question is looked up the same way, and only a
+          shortlist of the closest passages is handed over, with an instruction
           to answer from those and nothing else. The model never sees your
           collection. It sees the shortlist — which is what makes a citation
           possible, because the passages were chosen before a word was written.
@@ -84,11 +84,11 @@ export default function AboutPage() {
 
       <Section title="The guarantee">
         <p>
-          When nothing in your documents is relevant, the answer says so and
+          When no passage clears the relevance threshold, the answer says so and
           cites nothing — and it cannot do otherwise. Passages are retrieved
-          before the model is involved, and if none clear the relevance
-          threshold <strong>no answer is generated at all</strong>. There is no
-          prose to hallucinate a citation into, because none is written. A short
+          before the model is involved, and if none clear it{" "}
+          <strong>no answer is generated at all</strong>. There is no prose to
+          hallucinate a citation into, because none is written. A short
           follow-up is rewritten and searched again first, and that rewrite is
           shown to you as a search query rather than offered as an answer.
         </p>
@@ -99,17 +99,29 @@ export default function AboutPage() {
           was not retrieved renders as plain text rather than as a link to
           nowhere.
         </p>
+        <p className="mt-3">
+          The other half is an instruction rather than a rule, and it is
+          measured rather than assumed. When a question your documents cannot
+          answer clears the threshold anyway — which the section above says does
+          happen — the model still refuses, and in testing it refused every time
+          and invented nothing. What it sometimes does is attach a citation
+          marker to that refusal, which its own instructions forbid: wording
+          rather than a false claim, and the difference between what is
+          guaranteed here and what is merely reliable.
+        </p>
       </Section>
 
       <Section title="How it is built">
         <p>
           Next.js and TypeScript, Postgres with pgvector for search, and
-          Google&rsquo;s Gemini for embeddings and generation. Everything runs
-          in the EU, and the{" "}
+          Google&rsquo;s Gemini for embeddings and generation. Everything is
+          stored in the EU; the model is Google&rsquo;s, and its standard
+          endpoint makes no commitment about where it runs, so the text of your
+          documents does leave. The{" "}
           <Link href="/privacy" className="underline">
             privacy page
           </Link>{" "}
-          says exactly what is stored and who else sees it.
+          says exactly what is stored, where, and who else sees it.
         </p>
         <p className="mt-3">
           The code is public, along with the reasoning: architectural decisions

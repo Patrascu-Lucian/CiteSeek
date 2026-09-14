@@ -3026,6 +3026,121 @@ it passes; retention is a claim the privacy page will need to make.
 ↳ **Decided in [ADR 052](decisions/052-a-sender-chosen-on-where-the-mail-is-stored.md)**, which
 carries the reading of Article 11 and what the privacy page may claim on it.
 
+## What the floor lets through, and what the model does with it, 11 September 2026
+
+`README.md` names the relevance floor's leak as the open gap: at the shipped `0.40`, **5 of 10**
+unanswerable questions in the golden set clear it and reach the model. That number was measured.
+What happened next was not — `eval-retrieval.mts` calls the model only for the rewrite, so the
+sweep is arithmetic over distances and stops there. The README guessed: _"they reach a model
+instructed to answer only from the passages it was given — so the failure is a weak answer rather
+than an invented citation."_
+
+`pnpm eval:refusals` checks it. Three runs over the five, answers verbatim in `eval/refusals.md`.
+
+**The guess is right about the dangerous half.** Fifteen refusals, zero invented content, zero
+out-of-range markers. Every one correctly said the documents do not cover the question, and several
+went on to name what they do cover, which is what rule 7 asks for. Nothing here hallucinates.
+
+**Rule 4 is violated, and that is mechanically checkable.** It says never attach a marker to a
+refusal — _"if you are saying the passages do not answer the question, cite nothing at all."_ Four
+of fifteen did, hanging markers off the survey sentence:
+
+> The provided documents do not contain information about parking. They cover the tenancy terms
+> regarding pets, subletting, and guests [1][2].
+
+The markers are in range and the claim they support is true, which is what makes this interesting:
+it is a defensible sentence the prompt forbids. Either the rule is too strict — a citation on
+"here is what these passages are about" is not the failure the rule was written to stop — or the
+model needs telling more precisely. **That is a prompt question, and it is a day against this
+harness rather than two weeks of entailment machinery.**
+
+**Rule 7 is murkier, and the count depends on reading.** It forbids opening with _"a phrase like
+'the provided passages' or 'the context does not contain'"_ while explicitly endorsing _"say plainly
+that the documents do not cover it"_. Of fifteen openers: 3 use the endorsed form ("The documents do
+not cover…"), 4 say "The documents do not contain information about…", and 8 say "The provided
+documents do not contain information about…". Only the last group clearly echoes both forbidden
+phrases. So somewhere between 8 and 12 of 15 open by describing the inputs — and the spread is the
+finding, because a rule whose violations cannot be counted without interpretation is a rule that
+cannot be enforced by a test either.
+
+**One run would have answered this wrongly**, which is why the harness does three. The committed
+report carries the latest run. Before it existed the same measurement was run by hand, and the **first of
+those returned 0 of 5** — a clean sheet, and the conclusion "the prompt holds, stop here". That run
+is not in `eval/refusals.md` and cannot be reproduced from it; it is recorded because it is the
+reason `REFUSAL_RUNS` defaults to 3 and the report prints a spread rather than a number. Retrieval
+is deterministic, so it is settled once outside the loop and the runs differ only in what the model
+said.
+
+**What this does not settle.** Whether a second signal would separate the 16 answerable from the 5
+unanswerable questions inside the overlap band is untouched — this measures what the model does with
+the leak, not whether the leak can be closed. But it reorders the work: the leak's cost is a
+rule-breaking refusal rather than a fabricated answer, so the prompt is the cheap thing to try
+first, and it should be re-measured here before anything is built on top of it.
+
+↳ **Both rules were rewritten and measured, 12 September 2026. One shipped.**
+
+**Rule 7 is fixed: 15 of 15.** Every opener is now "The documents do not cover…", the form the rule
+already endorsed. The old version banned two example phrases — "the provided passages" and "the
+context does not contain" — and the model wrote "The provided documents do not contain information
+about…", dodging both literals while committing the sin. Naming the wanted shape worked where
+naming two unwanted phrases did not, and that is the transferable part: a prohibition the model can
+satisfy on a technicality is one it will satisfy on a technicality.
+
+**Rule 4's rewrite changed nothing and was reverted.** Scoping the ban to the whole reply rather
+than the refusing sentence left the rate where it was. Across every run taken, with the rule and
+without it, the count sits between one and three of five and moves as much between two runs of the
+same prompt as it did between the two prompts — so the rewrite is indistinguishable from nothing.
+`eval/refusals.md` carries whichever triple the last run produced; the range is the finding, not
+the triple. Reverted for two reasons: a wording change that moves no measurement is
+churn, and the rest of this entry argues the rule may be wrong, so sharpening it would harden a
+position that is meant to be open. Rule 4 ships exactly as it was, and `prompt.test.ts` now points
+at this entry rather than implying the rule works.
+
+**Because the measurement says it may be the rule that is wrong.** The citations are deterministic
+per question, and they are two different shapes:
+
+- _"What is the warranty period on the hydraulic pump?"_ → **"The documents do not cover the
+  warranty period; they mention that defeating the guard interlock voids the warranty and the CE
+  marking, but do not provide specific durations [7]."** That is a partial answer. The passages do
+  say something adjacent, it is cited, and the specific question is declined. ADR 017 forbids a
+  refusal that cites because it would be _"claiming a source for a claim it did not make"_ — here a
+  claim is made and the source is real.
+- _"Does the press come in a wider bed size?"_ → the same opener followed by a table of contents
+  carrying **[1][2][3][4][5][6]**. That is the shape rule 4 exists to stop.
+
+So the rule bundles a behaviour worth keeping with one worth removing, which is why no wording
+separated them. **The next move is a decision, not a phrasing**: either rule 4 permits a citation on
+a sentence that answers something adjacent, or refused turns have their markers stripped where ADR
+017 already strips them structurally. Both are cheap; they differ in whether the reader is allowed a
+sourced "here is what we do have".
+
+**Also worth recording: this was known and a rule was already written for it.** The comment on
+`prompt.test.ts`'s refusal test says _"Reproduced against the real model: one run in four cited
+passages while saying they did not contain the answer."_ That is this defect, observed in August.
+A rule was added, and the measurement built for something else is what showed the rule never worked.
+
+↳ **The permissive wording was tried too, and the harness cannot tell any of them apart, 12
+September 2026.** Rule 4 rewritten per statement — cite a sentence the passages support even while
+declining, never the refusal itself or a list of topics — measured 3, 3, 5 of 5. The shipped wording,
+rerun the same day, measured 2, 2, 4. Both were hand runs and neither is in `eval/refusals.md`.
+Three wordings of one rule, and their ranges overlap.
+
+**That is a sample-size result, not a prompt result.** The rate sits near 0.3. Telling it apart from
+0.10 at 80% power and a two-sided 5% threshold takes about 62 leaked questions per variant; from
+0.05, about 36; from 0.15, about 121. The harness has five, and repeat runs do not add independent
+evidence — whether a marker appears depends mostly on which question was asked. Reaching 36 means
+writing seventy or more unanswerable questions at the observed leak rate, to settle a wording.
+
+**So rule 4 stays as shipped, and rewording it stops.** If the topic-list shape — six markers on
+"here is what the manual covers" — is worth removing, the place is the parser, beside the structural
+refusal ADR 017 already enforces in code, rather than a fourth wording. The question the harness was
+sized for it answers cleanly: no invented content and no out-of-range marker, in every run of every
+variant.
+
+**One dead end not to repeat:** classifying cited sentences with a regex for "cover" counted every
+reply as a topic list, because every opener is now "The documents do not cover…". Sorting the shapes
+needs the clause after the refusal, not the whole reply.
+
 ## An advisory with nothing to upgrade to, 10 September 2026
 
 Three Dependabot alerts before v1.7.0. Two were a version bump; the third stays open, and closing
@@ -3065,6 +3180,15 @@ in the repository will say when this changes.
 postinstall being allowed. The third is the one to watch — flipping `onnxruntime-node: true` to
 chase a local-mode problem would re-enable the vulnerable path without anyone touching this file,
 which is why `allowBuilds` carries the cross-reference.
+
+↳ **Something in the repository now says when this changes, 12 September 2026.** The advisory is in
+`audit.ignore` in `pnpm-workspace.yaml` by GHSA id, so `pnpm audit` exits clean and reports what
+is new instead of failing on this forever. `pnpm-workspace.test.ts` holds the two conditions the
+ignore depends on, in the unit suite CI already runs: it fails if `onnxruntime-node`'s postinstall
+is allowed while the advisory is ignored, and it fails once `adm-zip` leaves the affected range or
+the tree, so the ignore cannot outlive its reason. A scheduled `pnpm audit` job was considered and
+not built: it would duplicate Dependabot's alerts, and without the ignore it would have been red
+from its first run.
 
 ## Provider photos, and the two ways to show one, 10 September 2026
 
@@ -3115,7 +3239,44 @@ than dropping the URL.
 **Deliberately absent**: any link out of the holding page. Every route answers it, so a button would
 land the reader back where they started.
 
-## The sign-in page has no primary action anymore, 9 September 2026
+## A sign-in acknowledgement, and the cookies nobody lists, 12 September 2026
+
+Two ideas raised while deciding the sign-in page's hierarchy, parked here rather than folded into it.
+
+**An acknowledgement line under the sign-in form** — "By continuing, you acknowledge CiteSeek's
+Privacy Policy", linking `/privacy`, the pattern Claude's own sign-in page uses. Cheap, and it puts the
+policy in front of a reader at the one moment they hand over an address.
+
+**Whether any cookie here needs consent, read from the primary source.** No analytics, advertising or
+third-party cookies are set, so the usual reason for a consent banner does not arise. What is set:
+Auth.js's session token; its CSRF, callback-url, PKCE, state and nonce cookies for the sign-in flow;
+`citeseek.guest`; and `citeseek_theme`. Article 29 Working Party Opinion 04/2012 (WP194) exempts
+authentication, security and preference cookies from consent, but with durations three of ours
+exceed:
+
+- §3.2: _"Persistent login cookies which store an authentication token across browser sessions are
+  not exempted"_. Auth.js's session token lasts 30 days by default, and `auth.ts` does not change it.
+  The opinion's own remedy is a _"remember me (uses cookies)"_ note beside the form.
+- §3.6: a preference cookie is exempt for a session _"or no more than a few additional hours"_,
+  unless a _"uses cookies"_ note sits beside the control. `citeseek_theme` lasts a year.
+- User-input cookies are exempt for a session, _"or persistent cookies limited to a few hours in some
+  cases"_. `citeseek.guest` lasts 24 hours.
+
+**So the likely remedy is two notes rather than a banner**, which is what the opinion itself
+describes, and the acknowledgement line above is where the sign-in one would go. Separately, the
+privacy page names only the guest cookie; a list of what is set and for how long belongs there
+whichever way this is read.
+
+**Read with the caveat the source needs:** it is a 2012 ePrivacy opinion that predates GDPR, and
+national regulators apply it differently. This is a question to settle, not a verdict.
+
+## ~~The sign-in page has no primary action anymore~~, 9 September 2026
+
+↳ **Decided, 12 September 2026.** "Continue with email" is the primary button and stays where it was,
+below the separator. The providers stay `outline`, for the brand reason below. Email is the one way
+in that needs no other account, so it is the one a stranger without GitHub or Google has to find —
+and it is the pattern Claude's own sign-in page uses, with the providers quiet and the email button
+primary. `e2e/auth.spec.ts` pins the three variants.
 
 Before v1.6.1 the two provider buttons were `variant="default"` and the email button `outline`:
 two emphasized routes and a quieter third. Adding the provider marks moved both providers to
@@ -3134,7 +3295,12 @@ it may be a page where nothing tells a first-time reader where to start.
 Parked rather than decided, because it is the same decision as the entry below: how prominent the
 email path should be, and what it is called, are one question asked twice. Answer them together.
 
-## The email method has two names, and a reader meets both, 9 September 2026
+## ~~The email method has two names, and a reader meets both~~, 9 September 2026
+
+↳ **Decided, 12 September 2026: both names stay.** "Continue with email" is an action, next to other
+actions. "Email link" names a stored method on `/account`, beside "GitHub" and "Google", where
+"Email" alone would leave a reader asking what an email method is. The two places ask different
+questions, so they get different answers.
 
 The button on `/sign-in` says **"Continue with email"**. The account page then lists the method as
 **"Email link"** (`PROVIDER_LABELS` in `lib/users/queries.ts`). Same thing, two names, and the
@@ -3154,7 +3320,13 @@ that noticed it.
 Deferred out of the v1.6.1 work, where the surrounding slices were cosmetic and this one is copy
 with a small design question inside it.
 
-## The sending key expires because this Organization says so, 6 September 2026
+## ~~The sending key expires because this Organization says so~~, 6 September 2026
+
+↳ **Closed, 10 September 2026.** The first of the two options below was taken: the key was reissued
+without an expiry, so rotation is deliberate rather than scheduled. ADR 052 carries the decision and
+names when to rotate, because with the fuse gone nothing else will ever raise it. The canary this
+entry proposed is no longer needed for the expiry — though the failure mode it was built around,
+sign-in mail failing silently for a revoked key or a quota, is unchanged.
 
 **Scaleway keys do not expire unless an expiry is set.** The one-year ceiling in our console is an
 Organization-level _maximum credential duration_ — a setting on this Organization, not a limit of

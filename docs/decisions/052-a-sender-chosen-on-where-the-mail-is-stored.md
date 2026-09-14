@@ -106,10 +106,15 @@ rejected by the API, so the first real signal is production behavior — which i
 `sendVerificationRequest` throws on a non-OK response with the status and Scaleway's own message,
 and with neither the address nor the URL, since one is personal data and the other is a credential.
 
-**The key has an expiry we chose.** Scaleway keys do not expire by default; the one-year ceiling
-comes from an Organization-level maximum credential duration set on our own account. The key issued
-on 6 September 2026 stops working on 6 September 2027 unless that setting is changed or the key
-rotated. This is a calendar item, not a vendor limit.
+**The key does not expire, and that is a choice.** Scaleway keys do not expire by default. An
+Organization-level maximum credential duration on our own account capped the first one at a year;
+it was reissued on 10 September 2026 without an expiry, because a scheduled credential death on the
+sign-in path fails silently — no build breaks, no test turns red, and the first symptom is a reader
+who never receives their link.
+
+The cost is a long-lived credential, so rotation is deliberate rather than scheduled. Rotate on a
+suspected leak, a lost machine, or a change in who holds console access; nothing else will prompt
+it, which is the half of this trade that is easy to forget.
 
 **Two questions are open and neither blocks.** How long Scaleway retains delivery logs holding
 recipient addresses — location was the disqualifying test and it passes, but retention is a claim
