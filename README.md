@@ -703,7 +703,8 @@ Playwright smoke suite all gate every pull request.
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
 Coverage says those lines ran, not that a test would notice them change, so `pnpm test:mutation`
 measures the second: across `lib/rag` and `lib/ai`, 80.5% of 830 mutants were caught on the first
-run, with no threshold set against a number this new
+run, with no threshold set against a number this new. Reading the rest found eleven tests that cannot
+fail on the behavior they are named for, which the percentage alone would never have said
 ([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)).
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)

@@ -67,21 +67,87 @@ which fails a run in which no mutant was killed.
 Stryker estimated them at 68% of the time. They stay in. A static mutant is a real change to a real
 value, and two minutes is affordable.
 
+## The survivors, sorted
+
+Every one of the 162 mutants the first run did not detect was read against the code and its tests
+and put in one bucket. The sort was kept as data, matched to each mutant by file, line, mutation and
+replacement, so every count below is a tally rather than an impression.
+
+| bucket                                           | mutants |
+| ------------------------------------------------ | ------- |
+| an existing test that cannot fail on it          | 29      |
+| no test for the behavior                         | 18      |
+| behavior nothing needs to assert                 | 85      |
+| equivalent: nothing observable changes           | 25      |
+| detected only by tests outside the scoped config | 5       |
+
+**Eleven tests cannot fail on what they are named for.** Each passes against its mutants because its
+fixture never reaches the path its name describes.
+
+- `extract.test.ts`, _"explains that a text-free PDF probably needs OCR"_, feeds bytes unpdf cannot
+  parse, so the corrupt-file branch answers, and the assertion's regex accepts that message too. The
+  empty-text branch the test is named for has never run under test.
+- `fusion.test.ts`, _"scores a rank-1 hit as 1/(k+1)"_, uses `toBeCloseTo`, whose default checks two
+  decimal places. 1/61 and 1/59 agree to that, so reversing the rank order passes.
+- `chunking.test.ts`:
+  - _"falls back to sentences inside an oversized paragraph"_ checks count and size, which the
+    arbitrary cut satisfies too.
+  - _"never emits a chunk that is only whitespace"_: `\n{2,}` swallows the whole gap, so no
+    whitespace-only segment ever forms.
+  - _"does not start or end a chunk on whitespace"_: its paragraphs never start a segment on
+    whitespace.
+  - _"hard-splits an unbroken run"_ checks count and size, not that the pieces cover the run.
+  - _"returns one chunk when the text fits"_ fits one sentence, the one input that never needs
+    merging.
+- `eval-metrics.test.ts`:
+  - _"counts an expected passage as recalled when any chunk covers it"_ has one chunk and one
+    passage, so "any" and "every" agree.
+  - _"is false for touching edges"_ checks one argument order.
+  - _"moves the threshold up one answerable question per refusal allowed"_, written this milestone,
+    lists its cases already sorted.
+- `rewrite.test.ts`, _"strips the quotes a model wraps its answer in"_, has no quote inside the
+  question.
+
+**Eight behaviors have no test:** the history the rewrite shows the model (the last six turns' text,
+role-prefixed); a rewrite reply that opens with a blank line; `mean` over real values; an answerable
+question with nothing retrieved; `cutSignal` admitting a question on the closest of several chunks; a
+Word document with no text; exactly `MAX_CHUNKS_PER_DOCUMENT` chunks; and the embedding token count
+reaching the meter.
+
+**85 are not worth a test:** 41 stopwords, one word each; 13 prompt wordings and passage layouts,
+which the evals measure; 11 exact boundaries at internal sizes; 5 chunk cuts moved by whitespace that
+trimming removes; 4 citation markers of 10 or more, which eight passages never produce; 6 error
+names, causes and wordings; and 5 whitespace edges.
+
+**25 are equivalent:** 12 guards whose alternative yields an empty or inverted range that is dropped;
+5 unreachable fallbacks; 4 defaults the library already applies; and 4 that reach the same result by
+another route.
+
+**5 are caught, but only by tests the scoped run leaves out:** the citation link prefix by the chat
+panel's tests, `maxDistanceFor` by local mode's transport, the paragraph merge by local mode's
+end-to-end Markdown ingest, and `MAX_CHARS_PER_DOCUMENT` by the usage view. Finding those five meant
+running every unit test against the same mutants, which took 14 minutes rather than under 2 — the
+case for the scoped config, in one number.
+
+**What the sort says.** Read as a percentage, 80.5% suggests a fifth of the code goes untested. The
+sort says otherwise: half the undetected mutants are not worth a test, and a sixth change nothing.
+The finding is the first bucket — eleven tests, one of them written this milestone, that pass whether
+or not the code does what their names say. Those, and the eight missing tests, are the work that
+follows, and each is done when its mutants fail.
+
 ## Decision
 
 **No threshold, in CI or anywhere.** `thresholds.break` is null. A score first measured this week is
 not a number to pin, and a gate on it would reward tests that kill mutants over tests that catch
-defects. The survivors are sorted next, each into one of four buckets: a test that cannot fail,
-behavior nothing needs to assert, an equivalent mutant, or a mutant only a test outside this scope
-would kill.
+defects. The sort above is that reason in numbers: most of what the score counts against the suite
+is not a missing test.
 
 ## Consequences
 
 - **`pnpm test:mutation` is a local command for now.** Whether it also runs on a schedule is decided
   after the survivors are read.
-- **The score is not a target.** 61 of the 162 undetected mutants are string literals, which the
-  sorting has to read one at a time: some will be wording nothing should pin, some may be a message a
-  reader relies on. Chasing a higher number would manufacture the decorative tests this exists to
-  find.
+- **The score is not a target.** 61 of the 162 undetected mutants are string literals, and 56 of
+  those sort among the not worth a test. Chasing a higher number would manufacture the decorative
+  tests this exists to find.
 - **The scope is two directories.** `lib/local`, the components and the routes are out, and the score
   says nothing about them.
