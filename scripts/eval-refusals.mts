@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadLocalEnv } from "../lib/env/load-local-env.ts";
-import { GOLDEN_SET } from "../eval/golden-set.ts";
+import { GOLDEN_SET, UNCOVERED_SET } from "../eval/golden-set.ts";
 import { cites } from "../eval/scoring.ts";
 
 loadLocalEnv();
@@ -72,8 +72,18 @@ const FILES = [
   "larkfield-tenancy-agreement.md",
 ];
 
-/** `expect: []` is the golden set's marker for unanswerable. */
-const UNANSWERABLE = GOLDEN_SET.filter((one) => one.expect.length === 0);
+/** Reported apart: the uncovered set samples the questions the floor finds
+ * hardest, so pooling it with the golden set's would describe neither. */
+const SETS = [
+  {
+    name: "golden",
+    // `expect: []` is the golden set's marker for unanswerable.
+    questions: GOLDEN_SET.filter((one) => one.expect.length === 0).map(
+      (one) => one.question,
+    ),
+  },
+  { name: "uncovered", questions: UNCOVERED_SET.map((one) => one.question) },
+];
 
 /* More than one, because one is not evidence here: the same question drew a
    citation in some runs and not others, which is the finding rather than noise
@@ -107,31 +117,38 @@ try {
 
   // Retrieval is deterministic, so the floor is settled once and the runs below
   // differ only in what the model said.
-  const reaching: { question: string; sources: ChatSource[] }[] = [];
+  const reaching: { set: string; question: string; sources: ChatSource[] }[] =
+    [];
 
-  for (const { question } of UNANSWERABLE) {
-    const { chunks } = await retrieveChunks(workspaceId, question);
-    if (chunks.length > 0) {
-      reaching.push({ question, sources: buildSources(chunks) });
+  for (const { name, questions } of SETS) {
+    for (const question of questions) {
+      const { chunks } = await retrieveChunks(workspaceId, question);
+      if (chunks.length > 0) {
+        reaching.push({ set: name, question, sources: buildSources(chunks) });
+      }
     }
   }
 
+  const clearing = (set: string) =>
+    reaching.filter((one) => one.set === set).length;
+
   console.log(
-    `\n${String(reaching.length)} of ${String(UNANSWERABLE.length)} unanswerable questions clear the floor.\n`,
+    `\nClear the floor: ${SETS.map(({ name, questions }) => `${String(clearing(name))} of ${String(questions.length)} ${name}`).join(", ")}.\n`,
   );
 
   const answers: {
     run: number;
+    set: string;
     question: string;
     text: string;
     cited: boolean;
   }[] = [];
-  const rates: number[] = [];
+  const rates = new Map(SETS.map(({ name }) => [name, [] as number[]]));
 
   for (let run = 1; run <= RUNS; run += 1) {
-    let cited = 0;
+    const cited = new Map(SETS.map(({ name }) => [name, 0]));
 
-    for (const { question, sources } of reaching) {
+    for (const { set, question, sources } of reaching) {
       const { text } = await generateText({
         model: getChatModel(),
         system: buildSystemPrompt(sources),
@@ -141,29 +158,39 @@ try {
       });
 
       const marked = cites(text, sources.length);
-      if (marked) cited += 1;
-      answers.push({ run, question, text: text.trim(), cited: marked });
+      if (marked) cited.set(set, (cited.get(set) ?? 0) + 1);
+      answers.push({ run, set, question, text: text.trim(), cited: marked });
     }
 
-    rates.push(cited);
+    for (const [set, count] of cited) rates.get(set)?.push(count);
     console.log(
-      `  run ${String(run)}: ${String(cited)} of ${String(reaching.length)} cited a passage`,
+      `  run ${String(run)}: ${[...cited].map(([set, count]) => `${String(count)} of ${String(clearing(set))} ${set}`).join(", ")} carried a marker`,
     );
   }
 
   const report = [
     "# What the model does with the questions the floor lets through",
     "",
-    `${String(reaching.length)} of ${String(UNANSWERABLE.length)} unanswerable questions clear the shipped floor and reach the model.`,
-    `Citations on a refusal, per run: ${rates.join(", ")} of ${String(reaching.length)}.`,
+    "Two sets of unanswerable questions. The golden set's are the ones its floor",
+    "table counts. Each uncovered question names something one document is about",
+    "and asks for a detail it does not cover, so that set samples the hard region",
+    "on purpose and its rate is not the product's.",
+    "",
+    "| set | clear the shipped floor | replies carrying a marker, per run |",
+    "| --- | ----------------------- | ---------------------------------- |",
+    ...SETS.map(
+      ({ name, questions }) =>
+        `| ${name} | ${String(clearing(name))} of ${String(questions.length)} | ${(rates.get(name) ?? []).join(", ")} of ${String(clearing(name))} |`,
+    ),
     "",
     "Rule 4 of the system prompt forbids attaching a marker to a refusal, so a",
-    "marker here is the prompt broken by its own definition. Answers are verbatim:",
-    "a regex over refusal wording would measure the regex. The model runs with",
-    "the chat route's tools and step limit.",
+    "marker on a refusal is the prompt broken by its own definition. Answers are",
+    "verbatim, because whether a reply refused at all is read rather than",
+    "matched: a regex over refusal wording would measure the regex. The model",
+    "runs with the chat route's tools and step limit.",
     "",
     ...answers.flatMap((one) => [
-      `## Run ${String(one.run)} — ${one.question}`,
+      `## Run ${String(one.run)} — ${one.set} — ${one.question}`,
       "",
       `Cited: ${String(one.cited)}`,
       "",

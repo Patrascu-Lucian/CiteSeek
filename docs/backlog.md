@@ -3157,6 +3157,24 @@ in 8 of 9 runs, the support team in none — so the sample-size note's "depends 
 question was asked" holds, and so does its conclusion. Reading one run's shape as the question's
 shape does not.
 
+↳ **Fifteen more, written to sit near the floor, and the prompt held for every one,
+14 September 2026.** `UNCOVERED_SET` in `eval/golden-set.ts`: each question names something one
+document is about and asks for a detail it does not cover, written before any distance was measured.
+All 15 clear the shipped floor, and 9 sit below 0.332 — the lowest distance of any unanswerable
+question in the golden set, and so the region a banded floor would have accepted without a second
+look. The nearest, at 0.220, is closer than any answerable question.
+
+Across three runs the model refused all 45 replies and invented nothing, including the questions
+built to invite an inference: an upgrade rule where only the downgrade is written, a garden where only
+the exterior is, a Severity 1 resolution target where only Severity 3 and 4 are mentioned. So the
+leak's cost on the adversarial set is what it was on the golden one — a marker, not a fabrication.
+
+**The markers are the set's, not the product's.** 13, 11 and 11 of 15 replies carried one, against 2
+of the golden five in every run: a question asking about the edge of a topic draws a citation to the
+topic. The rate is high enough that a change to it is now measurable in principle — halving it needs
+about 24 leaked questions per variant, and the two sets leak 20 — which is what the parser idea above
+would need before it is worth building.
+
 ## An advisory with nothing to upgrade to, 10 September 2026
 
 Three Dependabot alerts before v1.7.0. Two were a version bump; the third stays open, and closing

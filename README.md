@@ -493,24 +493,30 @@ difference is not feedback against none: it is 1.2 s spent on the page you asked
 the page you left. Five Lighthouse points for that, deliberately and by a margin worth naming
 ([ADR 045](docs/decisions/045-what-the-loading-skeleton-buys.md)).
 
-**Half the ungrounded questions still reach the model, and the prompt catches them.** The
+**Questions the documents cannot answer still reach the model, and the prompt catches them.** The
 relevance threshold is measured rather than guessed
 ([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what the measurement showed
 is that no threshold is right: the distance distributions for answerable and unanswerable
-questions overlap. At `0.40` roughly half the questions the corpus cannot answer still clear the
-floor.
+questions overlap. At `0.40`, 5 of the golden set's 10 unanswerable questions still clear the
+floor. A second set written to sit near it — 15 questions that each name something one document is
+about and ask for a detail it does not cover — clears it 15 of 15, the nearest closer than any
+answerable question. That set samples the hard region on purpose, so its rate is the set's rather
+than the product's.
 
 What they meet there is now measured too, rather than assumed
-([`eval/refusals.md`](eval/refusals.md)): across three runs of the five that get through, the model
-refused every one and invented nothing — no fabricated content, no out-of-range marker. So the
-structural guarantee is weaker than "says so when nothing relevant is found" sounds, and the
-observed behavior holds anyway, because the prompt catches what the floor misses.
+([`eval/refusals.md`](eval/refusals.md)): across three runs of the twenty that get through — five
+from the golden set, fifteen from the adversarial one — the model refused every one and invented
+nothing, with no fabricated content and no out-of-range marker. So the structural guarantee is
+weaker than "says so when nothing relevant is found" sounds, and the observed behavior holds anyway,
+because the prompt catches what the floor misses.
 
-The leak's real cost is smaller and different: in most runs a few of those refusals attach a
-citation marker, which the prompt's own rules forbid on a refusal. The count moves from run to run,
-so the file carries the latest rather than a settled number. Rewording that rule was tried three
-ways and the difference is too small to measure on five questions, so it stays as shipped. What the
-measurement does settle is the part that matters: nothing is invented.
+The leak's real cost is smaller and different: many of those refusals attach a citation marker,
+which the prompt's own rules forbid on a refusal — 2 of the golden five in each run, and 11 to 13 of
+the adversarial fifteen, where a question about the edge of a topic draws a citation to the topic.
+The counts move from run to run, so the file carries the latest rather than a settled number.
+Rewording that rule was tried three ways on the five golden questions and the difference was too
+small to measure, so it stays as shipped. What the measurement does settle is the part that
+matters: nothing is invented.
 
 Usage limits are enforced but their thresholds are provisional — they need real traffic to
 calibrate against, and are deliberately generous because shared addresses
@@ -680,7 +686,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1018  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1021  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 181   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
