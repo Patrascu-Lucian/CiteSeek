@@ -11,6 +11,7 @@ import { loadLocalEnv } from "../lib/env/load-local-env.ts";
 import {
   FOLLOW_UP_SET,
   GOLDEN_SET,
+  UNCOVERED_SET,
   type Expectation,
 } from "../eval/golden-set.ts";
 import {
@@ -245,6 +246,29 @@ try {
     }
   }
 
+  console.log(`\nRunning ${String(UNCOVERED_SET.length)} uncovered questions…`);
+
+  // Never pushed into `cases`: that table is the one the README quotes, and this
+  // set samples the region where the floor fails.
+  const uncovered: FloorCase[] = [];
+
+  for (const one of UNCOVERED_SET) {
+    const { chunks } = await retrieveChunks(workspaceId, one.question, {
+      limit: SCORING_LIMIT,
+      maxDistance: Number.POSITIVE_INFINITY,
+    });
+
+    uncovered.push({
+      answerable: false,
+      retrieved: chunks.map((chunk) => ({
+        documentId: chunk.documentId,
+        charStart: chunk.charStart,
+        charEnd: chunk.charEnd,
+        distance: chunk.distance,
+      })),
+    });
+  }
+
   console.log(
     `\nRunning ${String(FOLLOW_UP_SET.length)} follow-ups: ${String(FOLLOW_UP_SET.length)} rewrites and up to ${String(FOLLOW_UP_SET.length * 3)} retrievals…`,
   );
@@ -348,6 +372,15 @@ try {
 
   const floorTable = sweepFloor(cases, THRESHOLDS);
 
+  /** Closest chunk per question, as min, median and max. */
+  const rangeRow = (label: string, group: readonly FloorCase[]) => {
+    const best = group
+      .map((one) => one.retrieved[0]?.distance ?? 1)
+      .sort((a, b) => a - b);
+    const median = best[Math.floor(best.length / 2)] ?? 0;
+    return `| ${label} | ${(best[0] ?? 0).toFixed(3)} | ${median.toFixed(3)} | ${(best.at(-1) ?? 0).toFixed(3)} |`;
+  };
+
   const report = [
     "# Retrieval evaluation",
     "",
@@ -425,21 +458,38 @@ try {
     "",
     "| | min | median | max |",
     "| - | --- | ------ | --- |",
-    ...(["answerable", "unanswerable"] as const).map((label) => {
-      const wanted = label === "answerable";
-      const best = cases
-        .filter((one) => one.answerable === wanted)
-        .map((one) => one.retrieved[0]?.distance ?? 1)
-        .sort((a, b) => a - b);
-      const median = best[Math.floor(best.length / 2)] ?? 0;
-      return `| ${label} | ${(best[0] ?? 0).toFixed(3)} | ${median.toFixed(3)} | ${(best.at(-1) ?? 0).toFixed(3)} |`;
-    }),
+    rangeRow(
+      "answerable",
+      cases.filter((one) => one.answerable),
+    ),
+    rangeRow(
+      "unanswerable",
+      cases.filter((one) => !one.answerable),
+    ),
     "",
     "| max distance | false refusals | false accepts |",
     "| ------------ | -------------- | ------------- |",
     ...floorTable.map(
       (row) =>
         `| ${row.maxDistance.toFixed(2)} | ${String(row.falseRefusals)}/${String(row.answerable)} | ${String(row.falseAccepts)}/${String(row.unanswerable)} |`,
+    ),
+    "",
+    "### The uncovered set",
+    "",
+    `${String(UNCOVERED_SET.length)} questions that each name something one document is about and ask`,
+    "for a detail it does not cover. **It samples the hard region on purpose**, so",
+    "its false-accept rate belongs to this set rather than to the product, and it",
+    "is never folded into the table above.",
+    "",
+    "| | min | median | max |",
+    "| - | --- | ------ | --- |",
+    rangeRow("uncovered", uncovered),
+    "",
+    "| max distance | false accepts |",
+    "| ------------ | ------------- |",
+    ...sweepFloor(uncovered, THRESHOLDS).map(
+      (row) =>
+        `| ${row.maxDistance.toFixed(2)} | ${String(row.falseAccepts)}/${String(row.unanswerable)} |`,
     ),
     "",
   ].join("\n");
@@ -459,6 +509,10 @@ try {
         followUps: followUps.map((row) => ({
           followUp: row.followUp,
           best: row.bestAsked,
+        })),
+        uncovered: UNCOVERED_SET.map((one, index) => ({
+          question: one.question,
+          best: uncovered[index]!.retrieved[0]?.distance ?? null,
         })),
       },
       null,

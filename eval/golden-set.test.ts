@@ -4,7 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { FOLLOW_UP_SET, GOLDEN_SET, LOCAL_ANSWER_SET } from "./golden-set";
+import {
+  FOLLOW_UP_SET,
+  GOLDEN_SET,
+  LOCAL_ANSWER_SET,
+  UNCOVERED_SET,
+} from "./golden-set";
 
 /** A broken quote fails as a retrieval regression rather than as a broken quote.
  * The harness needs a database and real embeddings; this needs neither, so the
@@ -75,6 +80,51 @@ describe("the golden set", () => {
 
     expect(unanswerable.length).toBeGreaterThanOrEqual(10);
     expect(GOLDEN_SET.length).toBeGreaterThanOrEqual(40);
+  });
+});
+
+describe("the uncovered set", () => {
+  const STOPWORDS = new Set([
+    "what",
+    "does",
+    "which",
+    "much",
+    "often",
+    "should",
+  ]);
+  /** Four letters or more, so "the" and "for" never count as a shared word. */
+  const contentWords = (question: string) =>
+    (question.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter(
+      (word) => !STOPWORDS.has(word),
+    );
+
+  it("names something in the document each question is about", () => {
+    // The mechanical half of the invariant. A question sharing no word with its
+    // document is a far-off one, which the golden set already has; whether the
+    // document leaves it unanswered is what `eval:refusals` reads.
+    for (const one of UNCOVERED_SET) {
+      const source = text(one.about).toLowerCase();
+
+      expect(
+        contentWords(one.question).filter((word) =>
+          new RegExp(`\\b${word}\\b`).test(source),
+        ),
+        one.question,
+      ).not.toEqual([]);
+    }
+  });
+
+  it("spreads across all three fixtures", () => {
+    expect(new Set(UNCOVERED_SET.map((one) => one.about)).size).toBe(3);
+  });
+
+  it("asks nothing the golden set already asks", () => {
+    // A question in both would be counted twice wherever the sets are combined.
+    const golden = new Set(GOLDEN_SET.map((one) => one.question));
+
+    for (const one of UNCOVERED_SET) {
+      expect(golden.has(one.question), one.question).toBe(false);
+    }
   });
 });
 

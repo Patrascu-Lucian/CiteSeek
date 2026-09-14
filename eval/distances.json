@@ -297,5 +297,67 @@
       "followUp": "and outside them?",
       "best": 0.37910375719643974
     }
+  ],
+  "uncovered": [
+    {
+      "question": "What is the resolution target for a Severity 1 ticket?",
+      "best": 0.2198386657334156
+    },
+    {
+      "question": "How much does a Premier plan cost each month?",
+      "best": 0.346072793006897
+    },
+    {
+      "question": "What is the phone number for the duty lead?",
+      "best": 0.3463289737701416
+    },
+    {
+      "question": "Can a Standard plan be upgraded to Premier mid-term?",
+      "best": 0.29434627294540405
+    },
+    {
+      "question": "In which languages do support engineers answer tickets?",
+      "best": 0.3247239187195241
+    },
+    {
+      "question": "What does fault code E03 indicate?",
+      "best": 0.29455506801605225
+    },
+    {
+      "question": "What voltage does the press need?",
+      "best": 0.3042658982118417
+    },
+    {
+      "question": "How much does the press weigh?",
+      "best": 0.30400077414514914
+    },
+    {
+      "question": "How often should the pressure sensors be calibrated?",
+      "best": 0.3318830132484436
+    },
+    {
+      "question": "Which corrosion inhibitor is approved for the exposed rod?",
+      "best": 0.28649695435148204
+    },
+    {
+      "question": "What is the late payment fee for rent?",
+      "best": 0.3526693179407894
+    },
+    {
+      "question": "Is the tenant or the landlord responsible for council tax?",
+      "best": 0.3725666403770447
+    },
+    {
+      "question": "Is smoking allowed in the property?",
+      "best": 0.37493449449539185
+    },
+    {
+      "question": "Who is responsible for maintaining the garden?",
+      "best": 0.36983452675754147
+    },
+    {
+      "question": "Is the property let furnished?",
+      "best": 0.32398438453674316
+    }
   ]
 }

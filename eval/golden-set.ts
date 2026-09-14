@@ -272,6 +272,82 @@ export const GOLDEN_SET: readonly GoldenCase[] = [
   { question: "Does the press come in a wider bed size?", expect: [] },
 ];
 
+/**
+ * Unanswerable on purpose, and hard on purpose: each names something one
+ * document is about and asks for a detail it does not cover. Written before any
+ * of their distances was measured.
+ *
+ * Kept out of `GOLDEN_SET` because it samples the region where the floor fails,
+ * so its false-accept rate belongs to this set rather than to the product. It is
+ * reported beside the golden set, never folded into it.
+ */
+export type UncoveredCase = { question: string; about: string };
+
+export const UNCOVERED_SET: readonly UncoveredCase[] = [
+  {
+    question: "What is the resolution target for a Severity 1 ticket?",
+    about: SUPPORT,
+  },
+  {
+    question: "How much does a Premier plan cost each month?",
+    about: SUPPORT,
+  },
+  {
+    question: "What is the phone number for the duty lead?",
+    about: SUPPORT,
+  },
+  {
+    question: "Can a Standard plan be upgraded to Premier mid-term?",
+    about: SUPPORT,
+  },
+  {
+    question: "In which languages do support engineers answer tickets?",
+    about: SUPPORT,
+  },
+
+  {
+    question: "What does fault code E03 indicate?",
+    about: MANUAL,
+  },
+  {
+    question: "What voltage does the press need?",
+    about: MANUAL,
+  },
+  {
+    question: "How much does the press weigh?",
+    about: MANUAL,
+  },
+  {
+    question: "How often should the pressure sensors be calibrated?",
+    about: MANUAL,
+  },
+  {
+    question: "Which corrosion inhibitor is approved for the exposed rod?",
+    about: MANUAL,
+  },
+
+  {
+    question: "What is the late payment fee for rent?",
+    about: TENANCY,
+  },
+  {
+    question: "Is the tenant or the landlord responsible for council tax?",
+    about: TENANCY,
+  },
+  {
+    question: "Is smoking allowed in the property?",
+    about: TENANCY,
+  },
+  {
+    question: "Who is responsible for maintaining the garden?",
+    about: TENANCY,
+  },
+  {
+    question: "Is the property let furnished?",
+    about: TENANCY,
+  },
+];
+
 /** Separate from `GOLDEN_SET`, or every previously recorded number moves. */
 export type FollowUpCase = {
   /** The turns before it: read by a rewriting step, and the last one is

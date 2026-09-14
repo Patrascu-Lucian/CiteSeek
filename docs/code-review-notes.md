@@ -3194,3 +3194,25 @@ tests, 117 E2E and a production build, green.
   source that was read was the function doing the work, not the one this app calls. The same shape
   as the harness that measured a neighbor of production: before quoting what a library does, trace
   it from our own call site to the byte the reader receives.
+
+## A zero-risk region drawn from ten points, 14 September 2026
+
+- **Issue**: the design for a banded relevance floor accepted any question whose closest passage sat
+  below 0.332 without a second look, and called that region zero-risk, because none of the golden
+  set's ten unanswerable questions landed there. Review asked for two things before anything was
+  built: that the band be reported as in-sample, and that new unanswerable questions be named for
+  what they sample rather than blended into the golden set.
+
+- **Cause**: 0.332 was the lowest of ten measured distances. The minimum of ten is the least stable
+  number a sample offers, and "no unanswerable question below it" described the ten questions rather
+  than the corpus.
+
+- **Fix**: fifteen adversarial questions, each naming something a document is about and asking for a
+  detail it does not cover, written before any distance was measured and kept in their own
+  `UNCOVERED_SET`, reported beside the golden set rather than inside it. All fifteen clear the shipped
+  floor, nine sit below 0.332, and the nearest, at 0.220, is closer than any answerable question. The
+  band as designed would have waved most of them through, and it was not built.
+
+- **Lesson**: **a boundary read off a sample's extreme is a claim about the sample.** The clean sheet
+  again, in another unit: zero observations below a line drawn at the lowest observation is true by
+  construction. Before a design rests on an empty region, add points aimed at it.
