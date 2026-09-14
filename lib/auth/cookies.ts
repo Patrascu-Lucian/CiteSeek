@@ -15,3 +15,7 @@ export const SESSION_COOKIE_NAMES = [
   "authjs.session-token",
   "__Secure-authjs.session-token",
 ] as const;
+
+/** Auth.js's own default, named because the sign-in page quotes it. Counted
+ * from the last visit, not from signing in. */
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;

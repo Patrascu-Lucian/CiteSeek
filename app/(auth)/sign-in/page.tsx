@@ -10,6 +10,9 @@ import { SubmitButton } from "@/components/auth/submit-button";
 import { Button } from "@/components/ui/button";
 import { AUTH_PROVIDERS } from "@/lib/auth/providers";
 import { getActor } from "@/lib/auth/actor";
+import { SESSION_MAX_AGE_SECONDS } from "@/lib/auth/cookies";
+import { GUEST_SESSION_MAX_AGE_SECONDS } from "@/lib/auth/guest";
+import { formatLifetime } from "@/lib/lifetime";
 import {
   Card,
   CardContent,
@@ -198,7 +201,22 @@ export default async function SignInPage({
               >
                 Try the demo
               </Link>{" "}
-              — no account needed.
+              — no account needed, just a cookie that lasts{" "}
+              {formatLifetime(GUEST_SESSION_MAX_AGE_SECONDS)}.
+            </p>
+            {/* A login that outlives the browser is not exempt from consent
+                without a notice beside it (WP29 Opinion 04/2012, §3.2). */}
+            <p className="text-muted-foreground text-xs">
+              Signing in sets a cookie that keeps you signed in until you go{" "}
+              {formatLifetime(SESSION_MAX_AGE_SECONDS)} without a visit. By
+              continuing, you acknowledge CiteSeek&rsquo;s{" "}
+              <Link
+                href="/privacy"
+                className="text-foreground underline underline-offset-4"
+              >
+                Privacy Policy
+              </Link>
+              .
             </p>
           </CardFooter>
         )}
