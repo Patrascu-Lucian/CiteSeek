@@ -66,9 +66,9 @@ scoring 1.00 here can still be refused in the product, where the floor is
 | --------- | -------- | --------- | ---------- | ----------- |
 | and the fault code? | 1.00 | 1.00 | 1.00 | What is the fault code? |
 | on premier? | 1.00 | 1.00 | 1.00 | Is support covered at the weekend on premier? |
-| how often? | 1.00 | 1.00 | 1.00 | how often does the press take oil? |
+| how often? | 1.00 | 1.00 | 1.00 | How often does the press take oil? |
 | and the filter? | 1.00 | 1.00 | 1.00 | What oil does the press take and the filter? |
-| what about the deposit? | 1.00 | 1.00 | 1.00 | _declined_ |
+| what about the deposit? | 1.00 | 1.00 | 1.00 | What about the deposit for a cat? |
 | in writing? | 0.00 | 1.00 | 1.00 | How much notice must I give to leave in writing? |
 | how much is it? | 1.00 | 1.00 | 1.00 | _declined_ |
 | why? | 0.00 | 1.00 | 1.00 | Why are resolution times guaranteed for a Severity 3 defect? |
@@ -131,3 +131,26 @@ is never folded into the table above.
 | 0.60 | 15/15 |
 | 0.70 | 15/15 |
 | 0.80 | 15/15 |
+
+## A second opinion on what the floor admits
+
+Each signal is applied only to questions the shipped floor (`0.40`) admits, and cut
+at the strictest threshold that refuses no more than 0, 1 or 2 answerable
+questions. **Tightening the floor itself is the baseline row**: a signal earns
+a place only by removing more unanswerable questions than that at zero added
+refusals, in both sets. Lexical rank is the top `ts_rank_cd`; margin is the
+distance from the closest passage to the 8th, read from the unfiltered
+ranking. The threshold is read off the same questions it is scored against,
+so every row is in-sample.
+
+| signal | answerable refused | golden removed | uncovered removed |
+| ------ | ------------------ | -------------- | ----------------- |
+| distance (baseline) | 0/40 | 2/5 | 0/15 |
+| distance (baseline) | 1/40 | 2/5 | 1/15 |
+| distance (baseline) | 2/40 | 2/5 | 3/15 |
+| lexical rank | 0/40 | 0/5 | 0/15 |
+| lexical rank | 0/40 | 0/5 | 0/15 |
+| lexical rank | 2/40 | 0/5 | 0/15 |
+| margin@8 | 0/40 | 0/5 | 0/15 |
+| margin@8 | 1/40 | 1/5 | 2/15 |
+| margin@8 | 2/40 | 4/5 | 2/15 |

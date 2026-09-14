@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  closeness,
+  cutSignal,
+  lexicalRank,
+  margin,
   mean,
   overlaps,
   scoreQuery,
   sweepFloor,
   type Retrieved,
+  type SignalCase,
   type Span,
 } from "./eval-metrics";
 
@@ -120,5 +125,101 @@ describe("sweepFloor", () => {
     const [point] = sweepFloor(cases, [0.6]);
 
     expect(point).toMatchObject({ answerable: 2, unanswerable: 1 });
+  });
+});
+
+const signalCase = (
+  set: string,
+  answerable: boolean,
+  distances: readonly number[],
+  lexicalTop: number | null = null,
+): SignalCase => ({
+  set,
+  answerable,
+  retrieved: distances.map((distance, index) =>
+    got(index * 100, index * 100 + 50, distance),
+  ),
+  lexicalTop,
+});
+
+describe("the signals", () => {
+  it("reads closeness so that nearer is higher, like every other signal", () => {
+    expect(closeness(signalCase("golden", true, [0.3, 0.5]))).toBe(-0.3);
+  });
+
+  it("reads margin as the gap from the closest passage to the k-th", () => {
+    const one = signalCase("golden", true, [0.3, 0.35, 0.5]);
+
+    expect(margin(3)(one)).toBeCloseTo(0.2);
+    // Fewer than k passages is no reading, not a gap of zero.
+    expect(margin(4)(one)).toBeNull();
+  });
+});
+
+describe("cutSignal", () => {
+  const cases = [
+    signalCase("golden", true, [0.3], 0.5),
+    signalCase("golden", true, [0.35], 0.7),
+    signalCase("golden", false, [0.33], 0.4),
+    signalCase("uncovered", false, [0.25], 0.6),
+    signalCase("uncovered", false, [0.3], null),
+    signalCase("golden", false, [0.5], 0.1),
+  ];
+
+  it("cuts at the lowest answerable reading when no refusal is allowed", () => {
+    const [cut] = cutSignal(cases, 0.4, lexicalRank, [0]);
+
+    expect(cut).toEqual({
+      addedRefusals: 0,
+      removed: {
+        golden: { removed: 1, admitted: 1 },
+        uncovered: { removed: 1, admitted: 2 },
+      },
+    });
+  });
+
+  it("moves the threshold up one answerable question per refusal allowed", () => {
+    const [, cut] = cutSignal(cases, 0.4, lexicalRank, [0, 1]);
+
+    expect(cut?.addedRefusals).toBe(1);
+    expect(cut?.removed.uncovered).toEqual({ removed: 2, admitted: 2 });
+  });
+
+  it("credits the signal only with what the floor admitted", () => {
+    // The question at 0.5 has the weakest reading of all, and the floor has
+    // already refused it: counting it would inflate every row.
+    const [cut] = cutSignal(cases, 0.4, lexicalRank, [0]);
+
+    expect(cut?.removed.golden?.admitted).toBe(1);
+  });
+
+  it("treats no reading as the weakest one", () => {
+    const [cut] = cutSignal(
+      [
+        signalCase("golden", true, [0.3], 0.1),
+        signalCase("uncovered", false, [0.3], null),
+      ],
+      0.4,
+      lexicalRank,
+      [0],
+    );
+
+    expect(cut?.removed.uncovered).toEqual({ removed: 1, admitted: 1 });
+  });
+
+  it("never refuses more answerable questions than allowed, even on a tie", () => {
+    const [cut] = cutSignal(
+      [
+        signalCase("golden", true, [0.3], 0.5),
+        signalCase("golden", true, [0.3], 0.5),
+        signalCase("golden", false, [0.3], 0.5),
+      ],
+      0.4,
+      lexicalRank,
+      [0],
+    );
+
+    expect(cut?.addedRefusals).toBe(0);
+    expect(cut?.removed.golden).toEqual({ removed: 0, admitted: 1 });
   });
 });
