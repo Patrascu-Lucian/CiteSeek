@@ -40,6 +40,9 @@ export default defineConfig({
       "e2e/**",
       "node_modules/**",
       ".next/**",
+      // Stryker's sandbox copy of the repo, which would otherwise run every
+      // test twice.
+      ".stryker-tmp/**",
       "**/*.integration.test.ts",
       // Downloads 31 MB and runs the real library: `pnpm test:model`, and its own
       // CI job with a cache.

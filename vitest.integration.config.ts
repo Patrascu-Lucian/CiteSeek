@@ -34,7 +34,7 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["**/*.integration.test.ts"],
-    exclude: ["node_modules/**", ".next/**", "e2e/**"],
+    exclude: ["node_modules/**", ".next/**", "e2e/**", ".stryker-tmp/**"],
     // A shared database is not safe to write from parallel workers.
     fileParallelism: false,
     // The reason in `vitest.config.ts`: this suite has no retry either, and a
