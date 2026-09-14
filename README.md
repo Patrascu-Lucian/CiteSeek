@@ -601,6 +601,7 @@ pnpm build             # production build
 pnpm test              # vitest unit tests (no database needed)
 pnpm test:integration  # vitest against a real, disposable Postgres (see below)
 pnpm test:model        # vitest against a real 31 MB model, downloaded once
+pnpm test:mutation     # Stryker over lib/rag and lib/ai, about two minutes (ADR 056)
 pnpm test:e2e          # playwright (serves an existing build — run pnpm build first)
 pnpm lint              # eslint, type-aware
 pnpm typecheck         # tsc --noEmit
@@ -700,6 +701,10 @@ Playwright smoke suite all gate every pull request.
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
+Coverage says those lines ran, not that a test would notice them change, so `pnpm test:mutation`
+measures the second: across `lib/rag` and `lib/ai`, 80.5% of 830 mutants were caught on the first
+run, with no threshold set against a number this new
+([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)).
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)
 exercise ingestion, retrieval and the whole answer path with no API key and no network, so CI

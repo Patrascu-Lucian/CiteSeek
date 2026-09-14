@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "coverage/**",
     "playwright-report/**",
     "test-results/**",
+    // `pnpm test:mutation`: Stryker's sandbox copy of the repo, and its reports.
+    ".stryker-tmp/**",
+    "reports/**",
     // Vendored by `pnpm onnx:copy`, not written here. Prettier skips it via
     // `.gitignore`; ESLint has no such default.
     "public/onnx/**",

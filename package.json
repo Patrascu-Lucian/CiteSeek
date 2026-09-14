@@ -25,6 +25,7 @@
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:model": "vitest run --config vitest.model.config.ts",
+    "test:mutation": "stryker run && tsx scripts/check-mutation-report.mts",
     "check:test-counts": "tsx scripts/check-test-counts.mts",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
@@ -73,6 +74,8 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "1.62.1",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
     "@tailwindcss/postcss": "4.3.3",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",

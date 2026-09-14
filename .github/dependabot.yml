@@ -32,6 +32,13 @@ updates:
       # lets typecheck pass on APIs that are absent when it runs.
       - dependency-name: "@types/node"
         update-types: [version-update:semver-major]
+      # stryker-js#6210: on Vitest 5 the mutation runner's per-test filter matches
+      # nothing, so every covered mutant survives and the score reads as a
+      # finding. Both move together, and wait for the runner.
+      - dependency-name: vitest
+        update-types: [version-update:semver-major]
+      - dependency-name: "@vitest/coverage-v8"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /

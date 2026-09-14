@@ -3216,3 +3216,23 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **a boundary read off a sample's extreme is a claim about the sample.** The clean sheet
   again, in another unit: zero observations below a line drawn at the lowest observation is true by
   construction. Before a design rests on an empty region, add points aimed at it.
+
+## A closed issue cited as a live hazard, 14 September 2026
+
+- **Issue**: setting up mutation testing, the choice of Vitest's node environment for Stryker's
+  config rested on stryker-js#4336, _"Using stryker & vitest runner & JSDOM in UI test cannot PASS
+  dry run"_. Review opened the issue: it was closed, fixed by a pull request in the runner. The
+  reason had been carried in from a source rather than checked.
+
+- **Cause**: an issue title that matched the setup, read as its current state. Nothing in the
+  citation said when it was true, so "was reported" became "is" on its way into the design.
+
+- **Fix**: the decision stayed and the reason changed to one that can be checked here. `lib/rag` and
+  `lib/ai` touch no DOM — their tests were searched for DOM use, and all 255 pass under the node
+  environment — and Stryker runs tests once per mutant, so jsdom's setup would be paid hundreds of
+  times. The issue that is open, #6210, where Vitest 5 breaks the runner's per-test selection, is
+  guarded twice: a Dependabot ignore on Vitest majors, and a check that fails a run with no killed
+  mutants.
+
+- **Lesson**: **an issue number is a claim about a moment.** A link makes a reason look checked
+  whether or not anyone opened it. Read the issue's state before its number goes into a design.
