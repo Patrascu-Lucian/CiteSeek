@@ -22,8 +22,12 @@ allowBuilds:
   onnxruntime-node: false
   protobufjs: false
 
-minimumReleaseAgeExclude:
-  - jsdom@30.0.0
+# Written by pnpm, not by hand: pnpm 11 holds back versions published less than
+# a day ago by default, and naming one explicitly adds it here rather than
+# failing. Not `minimumReleaseAge: <n>` to widen that: setting it also turns
+# strict mode on, and a young version then fails CI instead of being recorded.
+# `pnpm-workspace.test.ts` fails on an entry the lockfile no longer installs.
+minimumReleaseAgeExclude: []
 
 # Old copies of both are pulled in transitively alongside the current ones, and
 # Dependabot cannot bump what is not in package.json — it retried and failed on

@@ -60,3 +60,44 @@ describe("the ignored adm-zip advisory", () => {
     expect(admZipVersions.every(affected)).toBe(true);
   });
 });
+
+/* pnpm adds to this list itself and never removes from it, so an entry outlives
+   the version it was for and waits as an exemption for anything that matches. */
+const releaseAgeList =
+  /^minimumReleaseAgeExclude:(?: \[\]$|\n((?: {2}- .+\n?)+))/m.exec(workspace);
+
+const releaseAgeExclusions = (releaseAgeList?.[1] ?? "")
+  .split("\n")
+  .map((line) => line.replace(/^ {2}- |['"]/g, "").trim())
+  .filter(Boolean);
+
+/** Top-level lockfile keys, such as `jsdom@30.0.1`, with YAML quotes removed. */
+const locked = new Set(
+  [...lockfile.matchAll(/^ {2}'?([^\s'][^']*?)'?:$/gm)].map(
+    (match) => match[1]!,
+  ),
+);
+
+/** pnpm writes `name@version`, or `name@a || b` for several versions. */
+const installed = (entry: string) => {
+  const at = entry.lastIndexOf("@");
+  const name = entry.slice(0, at);
+  const versions = entry.slice(at + 1).split("||");
+
+  return (
+    at > 0 &&
+    versions.every((version) => locked.has(`${name}@${version.trim()}`))
+  );
+};
+
+describe("the release-age exclusions", () => {
+  it("finds the list, rather than passing on a pattern that no longer matches", () => {
+    expect(releaseAgeList, "no minimumReleaseAgeExclude list").not.toBeNull();
+  });
+
+  it("names only versions the lockfile still installs", () => {
+    expect(releaseAgeExclusions.filter((entry) => !installed(entry))).toEqual(
+      [],
+    );
+  });
+});
