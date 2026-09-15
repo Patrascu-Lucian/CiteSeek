@@ -12,6 +12,10 @@
 import postgres from "postgres";
 
 import { loadLocalEnv } from "../lib/env/load-local-env.ts";
+import { namesHost } from "../lib/env/named-host.ts";
+
+// Before `loadLocalEnv`, like `SEED_HOST` in the seed.
+const confirmedHost = process.env.USAGE_HOST;
 
 loadLocalEnv();
 
@@ -29,8 +33,7 @@ const hostname = (() => {
 })();
 
 if (hostname && !LOCAL.has(hostname)) {
-  const confirmed = process.env.USAGE_HOST;
-  if (!confirmed || !hostname.includes(confirmed)) {
+  if (!namesHost(confirmedHost, hostname)) {
     throw new Error(
       `Refusing to read ${hostname} without naming it. Name it:\n\n` +
         `  USAGE_HOST=${hostname.split(".")[0]}\n`,

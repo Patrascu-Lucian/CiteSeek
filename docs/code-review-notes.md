@@ -3283,3 +3283,30 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **a row has to carry its own key.** Output that is right but cannot be told apart from
   a bug costs a reader the same time as the bug.
+
+## A guard that took its confirmation from the file it guards against, again, 15 September 2026
+
+- **Issue**: review found `eval-refusals.mts` loading `.env.local` before reading `CHAT_PROVIDER` and
+  `EVAL_HOST`, so one file could supply a remote `DATABASE_URL`, the host name that confirms it and
+  the provider that spends quota, with nothing exported. Its sibling `eval-retrieval.mts` reads both
+  before the load, with a comment saying why. Review also found both eval scripts accepting
+  `EVAL_HOST=` set but empty: the check was `!== undefined`, and every hostname includes `""`.
+  Reading the other guards for the same shape found one more that review did not: `usage-report.mts`
+  read `USAGE_HOST` after the load too.
+
+- **Cause**: four scripts — the seed, both evals and the usage report — each carried its own copy of
+  one guard, and each copy was written from the shape of the last rather than from its reason. The
+  backlog states the principle, that the file which supplied the wrong answer cannot also be the one
+  that confirms it, and `eval-retrieval.mts` carried a comment saying the guard should be one helper.
+  A principle written in prose protects nothing that a new copy does not repeat.
+
+- **Fix**: `namesHost` in `lib/env/named-host.ts`, used by all four, rejects an empty or blank name,
+  with tests for both. The two scripts that read their host after the load now read it before. One
+  suggestion was not taken: moving the refusal harness's `EMBEDDINGS_PROVIDER` check above the load
+  as well. That check asks which embedder the run will use, and a value `.env.local` supplies is the
+  one it would use, so it stays after the load.
+
+- **Lesson**: **a copied guard drifts from its reason.** The earlier copies held; the one written
+  after the principle was written down did not. The helper cannot stop a script reading its name
+  after the load — that stays a comment's job — but the empty-string case now has one place to live
+  and a test.

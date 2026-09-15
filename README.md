@@ -669,9 +669,10 @@ let one file supply both the wrong answer and the confirmation of it.
 prints the `export SEED_HOST=…` line for the host it actually reached. In Neon's console it is
 the first segment of the connection hostname (`ep-…`), shown per branch under Connect.
 
-Two other commands guard themselves the same way, under their own names: `pnpm eval:retrieval`
-uses `EVAL_HOST` (it ingests documents and spends embedding quota) and `pnpm db:usage` uses
-`USAGE_HOST` (it reads, but reading the wrong branch gives a confident wrong answer). The
+Three other commands guard themselves the same way, under their own names and from the shell only:
+`pnpm eval:retrieval` and `pnpm eval:refusals` use `EVAL_HOST` (they ingest documents and spend
+quota) and `pnpm db:usage` uses `USAGE_HOST` (it reads, but reading the wrong branch gives a
+confident wrong answer). The
 schema commands above need neither — `db:check` changes nothing and prints the host it reached,
 and `db:migrate` carries no data and spends no quota.
 
@@ -695,7 +696,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1038  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1042  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 181   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
