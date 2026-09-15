@@ -35,6 +35,7 @@ describe("overlaps", () => {
     // A chunk ending exactly where the expected passage begins shares no
     // character with it, and counting it would inflate every recall number.
     expect(overlaps(span(0, 100), span(100, 200))).toBe(false);
+    expect(overlaps(span(100, 200), span(0, 100))).toBe(false);
     expect(overlaps(span(0, 100), span(99, 200))).toBe(true);
   });
 
@@ -47,7 +48,11 @@ describe("scoreQuery", () => {
   it("counts an expected passage as recalled when any chunk covers it", () => {
     // Chunking is a choice the harness must survive: the same passage may arrive
     // as one chunk or split across two, and neither is a retrieval failure.
-    const score = scoreQuery([span(100, 200)], [got(150, 400)], 5);
+    const score = scoreQuery(
+      [span(100, 200)],
+      [got(150, 400), got(900, 1000)],
+      5,
+    );
 
     expect(score.recall).toBe(1);
     expect(score.reciprocalRank).toBe(1);
@@ -85,12 +90,39 @@ describe("scoreQuery", () => {
 
     expect(score.precision).toBe(0.5);
   });
+
+  it("counts each passage covered and each chunk that covers one", () => {
+    // Two of each, so "some" and "every" disagree: one passage is covered, and
+    // one chunk covers a passage.
+    const score = scoreQuery(
+      [span(0, 100), span(500, 600)],
+      [got(0, 100), got(900, 1000)],
+      5,
+    );
+
+    expect(score.recall).toBe(0.5);
+    expect(score.precision).toBe(0.5);
+    expect(score.reciprocalRank).toBe(1);
+  });
+
+  it("scores an answerable question that retrieved nothing as zero, not NaN", () => {
+    // A NaN reaches `mean` and blanks a column of the report.
+    expect(scoreQuery([span(0, 100)], [], 5)).toEqual({
+      recall: 0,
+      precision: 0,
+      reciprocalRank: 0,
+    });
+  });
 });
 
 describe("mean", () => {
   it("is 0 for nothing, rather than NaN", () => {
     // A NaN here would propagate silently into a reported table.
     expect(mean([])).toBe(0);
+  });
+
+  it("averages real values", () => {
+    expect(mean([1, 2, 6])).toBe(3);
   });
 });
 
@@ -157,9 +189,10 @@ describe("the signals", () => {
 });
 
 describe("cutSignal", () => {
+  // The answerable readings out of order, 0.7 before 0.5: the cut sorts them.
   const cases = [
-    signalCase("golden", true, [0.3], 0.5),
     signalCase("golden", true, [0.35], 0.7),
+    signalCase("golden", true, [0.3], 0.5),
     signalCase("golden", false, [0.33], 0.4),
     signalCase("uncovered", false, [0.25], 0.6),
     signalCase("uncovered", false, [0.3], null),
@@ -191,6 +224,20 @@ describe("cutSignal", () => {
     const [cut] = cutSignal(cases, 0.4, lexicalRank, [0]);
 
     expect(cut?.removed.golden?.admitted).toBe(1);
+  });
+
+  it("admits a question on its closest chunk, however far the rest are", () => {
+    const [cut] = cutSignal(
+      [
+        signalCase("golden", true, [0.3], 0.5),
+        signalCase("uncovered", false, [0.3, 0.9], 0.1),
+      ],
+      0.4,
+      lexicalRank,
+      [0],
+    );
+
+    expect(cut?.removed.uncovered).toEqual({ removed: 1, admitted: 1 });
   });
 
   it("treats no reading as the weakest one", () => {
