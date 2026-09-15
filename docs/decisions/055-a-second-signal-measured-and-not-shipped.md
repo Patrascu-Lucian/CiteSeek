@@ -75,9 +75,9 @@ by the product.
   structural. "It says so when it doesn't know" is, past the floor, a measured behavior of the
   prompt rather than a property of the route. The README states both.
 - **The remaining cost is markers on refusals.** Over six runs, 2 of the golden five and 9 to 13 of
-  the uncovered fifteen carry one per run, against the prompt's own rule. Halving that rate needs about 24 leaked
-  questions per variant to detect, and the two sets leak 20. Stripping markers from a reply that opens
-  with a refusal would be the structural fix, and it is in the backlog.
+  the uncovered fifteen carry one per run, against the prompt's own rule. Halving that rate needs
+  about 24 leaked questions per variant to detect, and the two sets leak 20. Stripping markers from
+  a reply that opens with a refusal would be the structural fix, and it is in the backlog.
 - **What would reopen this:** a reply that invents an answer to a question the floor let through, a
   corpus where the refusals stop holding, or a reranker that beats the baseline row. Each is one run
   of `pnpm eval:refusals` or `pnpm eval:retrieval`.

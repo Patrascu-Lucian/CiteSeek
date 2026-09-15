@@ -3430,3 +3430,24 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **test a tripwire against the failure, not its description.** "Zero killed" was a
   reasonable reading of "every mutant survives", and the report said otherwise the whole time.
+
+## A weekly measurement of a branch that moves once a release, 15 September 2026
+
+- **Issue**: review of the 1.8.0 release found `mutation.yml` scheduled weekly. A schedule runs on the
+  default branch, and `main` here takes nothing but release merges, so between releases every Monday
+  would have re-measured identical code, and only the first run after a release could move the score.
+  The README said the number was "re-measured every week on `main`", which would have been true and
+  would have told a reader nothing.
+
+- **Cause**: the schedule was chosen for what it measures, released code, without asking how often
+  that code changes. In this branching model the default branch and the last release are the same
+  commit for weeks at a time.
+
+- **Fix**: the workflow runs on every push to `main`, which here is every release, and on demand.
+  That also retires the 60-day switch-off, which applies only to schedules. It was caught before the
+  workflow ever ran: GitHub reads a scheduled or manual workflow from the default branch only, so the
+  version in this release is the first to exist, and whatever shipped would have stayed until the
+  next one.
+
+- **Lesson**: **a schedule tells you only as much as the thing it samples changes.** A weekly
+  measurement of a branch that moves once a release is one measurement, repeated.
