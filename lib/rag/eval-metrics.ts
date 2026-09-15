@@ -158,6 +158,9 @@ export function margin(k: number): Signal {
 }
 
 export type SignalCut = {
+  /** Answerable refusals the cut was allowed. A tie can leave it spending fewer,
+   * so two budgets can produce the same numbers. */
+  allowed: number;
   /** Answerable questions the floor admits and this cut would refuse. */
   addedRefusals: number;
   /** Per set: unanswerable questions the floor admits, and how many this cut
@@ -203,6 +206,7 @@ export function cutSignal(
     }
 
     return {
+      allowed,
       addedRefusals: admitted.filter((one) => one.answerable && refused(one))
         .length,
       removed,

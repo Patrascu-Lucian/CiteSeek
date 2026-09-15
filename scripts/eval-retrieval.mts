@@ -536,12 +536,12 @@ try {
     "ranking. The threshold is read off the same questions it is scored against,",
     "so every row is in-sample.",
     "",
-    "| signal | answerable refused | golden removed | uncovered removed |",
-    "| ------ | ------------------ | -------------- | ----------------- |",
+    "| signal | refusals allowed | answerable refused | golden removed | uncovered removed |",
+    "| ------ | ---------------- | ------------------ | -------------- | ----------------- |",
     ...SIGNALS.flatMap(({ name, signal }) =>
       cutSignal([...cases, ...uncovered], FLOOR, signal, [0, 1, 2]).map(
         (cut) =>
-          `| ${name} | ${String(cut.addedRefusals)}/${String(admittedAnswerable)} | ${removedCell(cut, "golden")} | ${removedCell(cut, "uncovered")} |`,
+          `| ${name} | ${String(cut.allowed)} | ${String(cut.addedRefusals)}/${String(admittedAnswerable)} | ${removedCell(cut, "golden")} | ${removedCell(cut, "uncovered")} |`,
       ),
     ),
     "",
