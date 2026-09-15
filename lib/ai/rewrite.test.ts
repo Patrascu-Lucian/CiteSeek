@@ -1,3 +1,4 @@
+import type { LanguageModelV4Prompt } from "@ai-sdk/provider";
 import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,14 +7,19 @@ import type { ChatUIMessage } from "./types";
 
 type Finish = "stop" | "length";
 
-const reply: { text: string; throws: boolean; finish: Finish } = vi.hoisted(
-  () => ({ text: "", throws: false, finish: "stop" }),
-);
+const reply: {
+  text: string;
+  throws: boolean;
+  finish: Finish;
+  /** What the model was sent, to check the history the rewrite builds. */
+  prompt: LanguageModelV4Prompt;
+} = vi.hoisted(() => ({ text: "", throws: false, finish: "stop", prompt: [] }));
 
 vi.mock("./provider", () => ({
   getChatModel: () =>
     new MockLanguageModelV4({
-      doGenerate: () => {
+      doGenerate: (options) => {
+        reply.prompt = options.prompt;
         if (reply.throws) return Promise.reject(new Error("provider down"));
 
         return Promise.resolve({
@@ -54,15 +60,22 @@ describe("acceptRewrite", () => {
   });
 
   it("strips the quotes a model wraps its answer in", () => {
-    expect(acceptRewrite('"How much is the deposit?"', "how much?")).toBe(
-      "How much is the deposit?",
-    );
+    // Only the wrapping pair: a quote inside the question is part of it.
+    expect(
+      acceptRewrite('"Is the landlord\'s deposit protected?"', "is it?"),
+    ).toBe("Is the landlord's deposit protected?");
   });
 
   it("keeps only the first line, where the model went on to explain itself", () => {
     expect(
       acceptRewrite("How much is the deposit?\nI inferred this from…", "how?"),
     ).toBe("How much is the deposit?");
+  });
+
+  it("reads past a blank line the model opened with", () => {
+    expect(acceptRewrite("\nHow much is the deposit?", "how much?")).toBe(
+      "How much is the deposit?",
+    );
   });
 
   // Nothing was gained, and the caller has already searched for exactly this.
@@ -164,5 +177,44 @@ describe("rewriteQuestion", () => {
         "how much?",
       ),
     ).resolves.toBeNull();
+  });
+
+  it("shows the model the last six turns, as role-prefixed text", async () => {
+    // Text parts only, and only the latest turns: a long transcript would
+    // otherwise price a refusal like an answer.
+    reply.text = "How much is the tenancy deposit?";
+
+    await rewriteQuestion(
+      [
+        user("An early question, dropped"),
+        assistant("An early answer, dropped"),
+        user("Is the deposit protected?"),
+        {
+          ...assistant("Yes."),
+          parts: [{ type: "step-start" }, { type: "text", text: "Yes." }],
+        },
+        user("And the rent?"),
+        assistant("Monthly."),
+        user("Paid how?"),
+        user("how much?"),
+      ],
+      "how much?",
+    );
+
+    const sent = reply.prompt
+      .flatMap((message) => (message.role === "user" ? message.content : []))
+      .map((part) => (part.type === "text" ? part.text : ""))
+      .join("");
+
+    expect(sent).toBe(
+      [
+        "user: Is the deposit protected?",
+        "assistant: Yes.",
+        "user: And the rent?",
+        "assistant: Monthly.",
+        "user: Paid how?",
+        "user: how much?",
+      ].join("\n"),
+    );
   });
 });
