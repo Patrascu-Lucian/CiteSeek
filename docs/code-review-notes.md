@@ -3379,3 +3379,34 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **a shared convention has to be read against each thing that inherits it.** A type's
   doc comment states what null means once; every implementation still has to mean it.
+
+## A cooldown reported missing, running on every install, 15 September 2026
+
+- **Issue**: review of Dependabot #384 reported that the repository had no release-age cooldown.
+  `minimumReleaseAge` is set nowhere, `pnpm config get` returned undefined, and pnpm's source
+  computes a publish cutoff only when the option is truthy, so the `jsdom@30.0.0` exclusion was an
+  exemption from nothing. It proposed `minimumReleaseAge: 4320` as costless.
+  Each step checked out and the conclusion was wrong. pnpm 11.17.0 defaults the option to 1440
+  minutes. `pnpm config get` reports configured values, not built-in defaults. And the source that
+  was read belonged to pnpm 10.33.0, the reviewer's global install, which answers `pnpm` outside the
+  repository while `packageManager` runs 11.17.0 inside it.
+
+- **Cause**: an unset configured value was read as no value at all, and the code quoted was where
+  the option is consumed, not where its default is set. With two pnpm versions on one machine, the
+  instrument ran the one the repository does not use.
+
+- **How it was settled**: pnpm 11.17.0's defaults table sets `"minimum-release-age": 24 * 60`. A
+  direct test agreed: explicitly adding a TypeScript nightly published five hours earlier did not
+  fail, and pnpm wrote the new versions into `minimumReleaseAgeExclude` itself, which is how
+  `jsdom@30.0.0` arrived at the scaffold. The same source showed the proposed fix was not free:
+  setting `minimumReleaseAge` explicitly turns on `minimumReleaseAgeStrict` as well, and a
+  non-interactive install then fails on a young version instead of recording it. The reviewer's own
+  record of the applied policy, `minimumReleaseAge: 1440` in pnpm's verification cache, confirmed
+  it, and the finding was withdrawn.
+
+- **Fix**: the stale `jsdom@30.0.0` entry is gone, and the list carries the comment it never had:
+  pnpm writes it under a default, and setting the option changes more than the window. A test fails
+  when the list names a version the lockfile no longer installs.
+
+- **Lesson**: **a setting you cannot see is not a setting that is off.** Ask the tool what it
+  applied rather than what it was told, and check which copy of the tool answered.
