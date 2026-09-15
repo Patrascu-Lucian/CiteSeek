@@ -3297,6 +3297,12 @@ than dropping the URL.
 **Deliberately absent**: any link out of the holding page. Every route answers it, so a button would
 land the reader back where they started.
 
+↳ **The footer had six, found 15 September 2026.** The root layout appends `SiteFooter` to every
+route, the holding page included, so the page left out its one button while the layout added About,
+Contact, Local mode, Privacy Policy, Cookies and Terms — each a 503 straight back. The footer now
+drops its links while `MAINTENANCE` is on, and the maintenance spec counts the links on the served
+holding page.
+
 ## A sign-in acknowledgement, and the cookies nobody lists, 12 September 2026
 
 Two ideas raised while deciding the sign-in page's hierarchy, parked here rather than folded into it.
