@@ -3310,3 +3310,24 @@ tests, 117 E2E and a production build, green.
   after the principle was written down did not. The helper cannot stop a script reading its name
   after the load — that stays a comment's job — but the empty-string case now has one place to live
   and a test.
+
+## A page with no links, inside a layout with six, 15 September 2026
+
+- **Issue**: review found the maintenance holding page serving six links out of itself. The page's
+  doc comment and the backlog both said it had none, on purpose: every route answers the holding
+  page, so any link lands the reader back on it. The page does leave out its own button, but it
+  renders under the root layout, which appends `SiteFooter` to every route — About, Contact, Local
+  mode, Privacy Policy, Cookies and Terms, each a 503 back to the page they started on.
+
+- **Cause**: the property was stated about a file, and it belonged to the composition. Nothing in
+  `page.tsx` could make it true. The maintenance spec, thorough about the status, `Retry-After`, the
+  rewrite, the policy and the assets, asserted nothing about links, so nothing ever checked the
+  sentence.
+
+- **Fix**: the proxy and the footer read the switch from one function, `maintenanceOn` in
+  `lib/maintenance.ts`, and the footer drops its links while it is on. A unit test renders the footer
+  both ways, and the maintenance spec counts the links on the served holding page; run against a
+  build without the fix, it fails on the footer's links.
+
+- **Lesson**: **a layout is part of every page it wraps.** A claim about what a page shows has to be
+  checked on the page as served, because the page's own file is only one of the things rendering it.

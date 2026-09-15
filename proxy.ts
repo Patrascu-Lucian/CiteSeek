@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { GUEST_COOKIE_NAME, SESSION_COOKIE_NAMES } from "@/lib/auth/cookies";
+import { MAINTENANCE_PATH, maintenanceOn } from "@/lib/maintenance";
 import { contentSecurityPolicy } from "@/lib/security/content-security-policy";
 
 /**
@@ -26,8 +27,6 @@ import { contentSecurityPolicy } from "@/lib/security/content-security-policy";
 /** Routes where a missing credential is a redirect rather than a page. */
 const GUARDED = [/^\/w(\/|$)/, /^\/account$/];
 
-const MAINTENANCE_PATH = "/maintenance";
-
 export function proxy(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
 
@@ -37,7 +36,7 @@ export function proxy(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  if (process.env.MAINTENANCE === "on" && path !== MAINTENANCE_PATH) {
+  if (maintenanceOn() && path !== MAINTENANCE_PATH) {
     const holding = NextResponse.rewrite(
       new URL(MAINTENANCE_PATH, request.url),
       { status: 503, headers: { "Retry-After": "600" } },

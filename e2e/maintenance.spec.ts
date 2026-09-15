@@ -37,6 +37,18 @@ test.describe("with the site held down", () => {
     ).toBeVisible();
   });
 
+  test("offers no link out, since every one would lead back here", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(
+      page.getByRole("heading", { level: 1, name: /down for maintenance/i }),
+    ).toBeVisible();
+
+    // The skip link stays: it moves focus within the page.
+    await expect(page.locator("a[href]:not([href^='#'])")).toHaveCount(0);
+  });
+
   test("serves a policy the page can actually satisfy", async ({ request }) => {
     // The header and the page are built by different passes through the proxy,
     // and a mismatch blocks every script under `strict-dynamic` while the page

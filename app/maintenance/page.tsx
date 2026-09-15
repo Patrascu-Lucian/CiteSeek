@@ -7,7 +7,7 @@ import { StatusPage } from "@/components/ui/status-page";
 export const metadata: Metadata = { title: "Back shortly" };
 
 /** No links out: every route is answering this page, so a button would land the
- * reader back here. */
+ * reader back here. `SiteFooter` drops its own for the same reason. */
 export default function MaintenancePage() {
   return (
     <StatusPage
