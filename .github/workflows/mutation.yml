@@ -2,10 +2,10 @@ name: Mutation
 
 # Not on pull requests: the score is read, not gated (ADR 056).
 on:
-  schedule:
-    # Runs on the default branch, so this measures `main`. Off the hour, because
-    # GitHub delays scheduled runs queued at the top of it, and drops some.
-    - cron: "17 5 * * 1"
+  # Once per release: `main` only moves when `develop` is merged into it, so a
+  # weekly schedule would re-measure the same code until the next release.
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
