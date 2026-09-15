@@ -3100,6 +3100,15 @@ tests, 117 E2E and a production build, green.
   believing a comparison, ask what varies between the two sides that is not the thing under test.
   And an explanation offered for a measurement is not part of the measurement.
 
+- **↳ Established, 15 September 2026**: a later review read Next's source, and `node_modules`
+  confirms it. Next 16.3.4 takes the nonce from the request's `content-security-policy` header, never
+  from `x-nonce`, and before rendering it copies every header the proxy set on its _response_ onto
+  the request. The response header was the carrier on both branches, which is why forwarding request
+  headers changed nothing, and nothing anywhere read `x-nonce`. Both branches now set the policy on
+  the request headers too and `x-nonce` is gone, so the page no longer rests on an undocumented copy.
+  Unit tests fail if either branch stops, and a served build still carries one nonce in header and
+  body on both. The measurement had been right; the explanation was one file nobody had opened.
+
 ## A clean sheet from one run, 13 September 2026
 
 - **Issue**: measuring what the model does with the unanswerable questions that clear the relevance
@@ -3194,3 +3203,251 @@ tests, 117 E2E and a production build, green.
   source that was read was the function doing the work, not the one this app calls. The same shape
   as the harness that measured a neighbor of production: before quoting what a library does, trace
   it from our own call site to the byte the reader receives.
+
+## A zero-risk region drawn from ten points, 14 September 2026
+
+- **Issue**: the design for a banded relevance floor accepted any question whose closest passage sat
+  below 0.332 without a second look, and called that region zero-risk, because none of the golden
+  set's ten unanswerable questions landed there. Review asked for two things before anything was
+  built: that the band be reported as in-sample, and that new unanswerable questions be named for
+  what they sample rather than blended into the golden set.
+
+- **Cause**: 0.332 was the lowest of ten measured distances. The minimum of ten is the least stable
+  number a sample offers, and "no unanswerable question below it" described the ten questions rather
+  than the corpus.
+
+- **Fix**: fifteen adversarial questions, each naming something a document is about and asking for a
+  detail it does not cover, written before any distance was measured and kept in their own
+  `UNCOVERED_SET`, reported beside the golden set rather than inside it. All fifteen clear the shipped
+  floor, nine sit below 0.332, and the nearest, at 0.220, is closer than any answerable question. The
+  band as designed would have waved most of them through, and it was not built.
+
+- **Lesson**: **a boundary read off a sample's extreme is a claim about the sample.** The clean sheet
+  again, in another unit: zero observations below a line drawn at the lowest observation is true by
+  construction. Before a design rests on an empty region, add points aimed at it.
+
+## A closed issue cited as a live hazard, 14 September 2026
+
+- **Issue**: setting up mutation testing, the choice of Vitest's node environment for Stryker's
+  config rested on stryker-js#4336, _"Using stryker & vitest runner & JSDOM in UI test cannot PASS
+  dry run"_. Review opened the issue: it was closed, fixed by a pull request in the runner. The
+  reason had been carried in from a source rather than checked.
+
+- **Cause**: an issue title that matched the setup, read as its current state. Nothing in the
+  citation said when it was true, so "was reported" became "is" on its way into the design.
+
+- **Fix**: the decision stayed and the reason changed to one that can be checked here. `lib/rag` and
+  `lib/ai` touch no DOM — their tests were searched for DOM use, and all 255 pass under the node
+  environment — and Stryker runs tests once per mutant, so jsdom's setup would be paid hundreds of
+  times. The issue that is open, #6210, where Vitest 5 breaks the runner's per-test selection, is
+  guarded twice: a Dependabot ignore on Vitest majors, and a check that fails a run with no killed
+  mutants.
+
+- **Lesson**: **an issue number is a claim about a moment.** A link makes a reason look checked
+  whether or not anyone opened it. Read the issue's state before its number goes into a design.
+
+## Nine tests that passed whether or not the code worked, 15 September 2026
+
+- **Issue**: the first mutation run over `lib/rag` and `lib/ai` left 162 changes to the code
+  undetected, and sorting them found nine tests that could not fail on the behavior they are named
+  for. The OCR test fed bytes the PDF parser cannot open, so the corrupt-file branch answered, and
+  its regex accepted that message too; the empty-text branch it names had never run under test. The
+  rank-1 fusion score used `toBeCloseTo`, whose default two decimal places cannot tell 1/61 from 1/59.
+  Chunking's whitespace tests used fixtures in which neither a whitespace-only segment nor a leading
+  space could form. The recall test had one chunk and one passage, so "any" and "every" agreed. And
+  `cutSignal`'s test, written this milestone, listed its cases already in sorted order.
+
+- **Cause**: each checks the right property against an input that never reaches the path. Each was
+  written beside the code it tests, and a fixture shaped like the case the code was written for cannot
+  catch the code leaving it. Coverage reported every one of those lines as run, because other inputs
+  ran them.
+
+- **Fix**: each fixture was changed until the mutants it missed fail it — a real one-page PDF with no
+  text, an exact `toBe`, a paragraph of spaces before one too long to merge, a second chunk that covers
+  nothing, answerable readings out of order — and the behaviors with no test at all got one. Writing
+  them also corrected the sort three times, which ADR 056 records: a mutant sorted under a test that
+  could not fail changes nothing, one sorted as changing nothing emitted a duplicate chunk, and one
+  had never had a test that could catch it.
+
+- **Lesson**: **a test's name is a claim about its input, and nothing checks the claim.** Earlier
+  entries in this file found tests like these by hand, one at a time, by breaking the code on purpose.
+  Mutation testing is that habit run over every line, and its first pass found nine at once.
+
+## A report whose rows could not say which row they were, 15 September 2026
+
+- **Issue**: review found two rows of `eval/report.md`'s second-opinion table identical, byte for
+  byte. `cutSignal` returns one row per budget of answerable refusals — 0, 1 and 2 — and the script
+  printed all three under the signal's name with no column saying which budget each was.
+
+- **Cause**: a row carried what its cut spent, not what it was allowed. Those differ exactly when
+  answerable readings tie: the threshold is the (allowed + 1)-th lowest reading, and a tie keeps it
+  from moving, which is the documented behavior. So correct output read as a rendering bug, in the
+  one file written to be compared across runs. ADR 055's hand-written table shows only the
+  zero-budget row, which is why the ambiguity lived in the generated file alone.
+
+- **Fix**: `SignalCut` carries `allowed`, the table has a column for it, and a test gives two tied
+  answerable questions a budget of one and checks that the row says one allowed and none spent. The
+  committed report was edited to the new layout rather than regenerated: its rows come out in budget
+  order, and regenerating would call the provider again for numbers that cannot have changed.
+
+- **Lesson**: **a row has to carry its own key.** Output that is right but cannot be told apart from
+  a bug costs a reader the same time as the bug.
+
+## A guard that took its confirmation from the file it guards against, again, 15 September 2026
+
+- **Issue**: review found `eval-refusals.mts` loading `.env.local` before reading `CHAT_PROVIDER` and
+  `EVAL_HOST`, so one file could supply a remote `DATABASE_URL`, the host name that confirms it and
+  the provider that spends quota, with nothing exported. Its sibling `eval-retrieval.mts` reads both
+  before the load, with a comment saying why. Review also found both eval scripts accepting
+  `EVAL_HOST=` set but empty: the check was `!== undefined`, and every hostname includes `""`.
+  Reading the other guards for the same shape found one more that review did not: `usage-report.mts`
+  read `USAGE_HOST` after the load too.
+
+- **Cause**: four scripts — the seed, both evals and the usage report — each carried its own copy of
+  one guard, and each copy was written from the shape of the last rather than from its reason. The
+  backlog states the principle, that the file which supplied the wrong answer cannot also be the one
+  that confirms it, and `eval-retrieval.mts` carried a comment saying the guard should be one helper.
+  A principle written in prose protects nothing that a new copy does not repeat.
+
+- **Fix**: `namesHost` in `lib/env/named-host.ts`, used by all four, rejects an empty or blank name,
+  with tests for both. The two scripts that read their host after the load now read it before. One
+  suggestion was not taken: moving the refusal harness's `EMBEDDINGS_PROVIDER` check above the load
+  as well. That check asks which embedder the run will use, and a value `.env.local` supplies is the
+  one it would use, so it stays after the load.
+
+- **Lesson**: **a copied guard drifts from its reason.** The earlier copies held; the one written
+  after the principle was written down did not. The helper cannot stop a script reading its name
+  after the load — that stays a comment's job — but the empty-string case now has one place to live
+  and a test.
+
+## A page with no links, inside a layout with six, 15 September 2026
+
+- **Issue**: review found the maintenance holding page serving six links out of itself. The page's
+  doc comment and the backlog both said it had none, on purpose: every route answers the holding
+  page, so any link lands the reader back on it. The page does leave out its own button, but it
+  renders under the root layout, which appends `SiteFooter` to every route — About, Contact, Local
+  mode, Privacy Policy, Cookies and Terms, each a 503 back to the page they started on.
+
+- **Cause**: the property was stated about a file, and it belonged to the composition. Nothing in
+  `page.tsx` could make it true. The maintenance spec, thorough about the status, `Retry-After`, the
+  rewrite, the policy and the assets, asserted nothing about links, so nothing ever checked the
+  sentence.
+
+- **Fix**: the proxy and the footer read the switch from one function, `maintenanceOn` in
+  `lib/maintenance.ts`, and the footer drops its links while it is on. A unit test renders the footer
+  both ways, and the maintenance spec counts the links on the served holding page; run against a
+  build without the fix, it fails on the footer's links.
+
+- **Lesson**: **a layout is part of every page it wraps.** A claim about what a page shows has to be
+  checked on the page as served, because the page's own file is only one of the things rendering it.
+
+## A total that stops adding up on the first run with an error, 15 September 2026
+
+- **Issue**: review found `check-mutation-report.mts` printing every mutant in the report as its total,
+  with only four statuses beneath it. Stryker also reports `Ignored`, `CompileError` and
+  `RuntimeError`. The score already left those out, as Stryker's own formula does, but the line above
+  it would print a total larger than its parts on the first run to produce one — in the run summary,
+  the one place the line is read without the report beside it.
+
+- **Cause**: the breakdown was written from the statuses one run happened to contain. 659 + 150 + 12 +
+  9 is 830, so it looked complete.
+
+- **Fix**: the remainder is printed as a fifth term, "ignored or errored", and the score is computed
+  from the same detected and undetected counts, so the line and the score come from one set of
+  numbers. Checked against a copy of the report with one mutant marked as a compile error.
+
+- **Lesson**: **a breakdown checked against one example is a breakdown of that example.** A sum that
+  happens to match is not a sum that has to.
+
+## A null that means "weakest" for two signals and not for the third, 15 September 2026
+
+- **Issue**: review found `margin(k)` returning null when a question retrieved fewer than k passages,
+  and `cutSignal` reading every null as the weakest possible reading. For lexical rank and closeness
+  that is what null means: no term matched, nothing retrieved. For margin it is the opposite. A
+  question whose floor-filtered retrieval holds three close passages is plausibly a precise one, and
+  the cut would refuse it before any question that retrieved k.
+
+- **Cause**: the convention was set once, on `Signal`, and the third signal inherited it without its
+  meaning being checked. It never fires today: the eval disables the floor, so every case holds the
+  full ranking and `margin` always finds its k-th passage.
+
+- **Fix**: a clause on `margin` saying where the null is safe and where it is not, rather than a
+  change to an eval-only function no caller can reach the case through. Review also flagged
+  `cutSignal`'s fallback, `answerable[allowed] ?? POSITIVE_INFINITY`, as refusing everything when the
+  budget passes the last answerable reading. That is correct — refusing everything still refuses no
+  more than the budget — and now says so beside the code.
+
+- **Lesson**: **a shared convention has to be read against each thing that inherits it.** A type's
+  doc comment states what null means once; every implementation still has to mean it.
+
+## A cooldown reported missing, running on every install, 15 September 2026
+
+- **Issue**: review of Dependabot #384 reported that the repository had no release-age cooldown.
+  `minimumReleaseAge` is set nowhere, `pnpm config get` returned undefined, and pnpm's source
+  computes a publish cutoff only when the option is truthy, so the `jsdom@30.0.0` exclusion was an
+  exemption from nothing. It proposed `minimumReleaseAge: 4320` as costless.
+  Each step checked out and the conclusion was wrong. pnpm 11.17.0 defaults the option to 1440
+  minutes. `pnpm config get` reports configured values, not built-in defaults. And the source that
+  was read belonged to pnpm 10.33.0, the reviewer's global install, which answers `pnpm` outside the
+  repository while `packageManager` runs 11.17.0 inside it.
+
+- **Cause**: an unset configured value was read as no value at all, and the code quoted was where
+  the option is consumed, not where its default is set. With two pnpm versions on one machine, the
+  instrument ran the one the repository does not use.
+
+- **How it was settled**: pnpm 11.17.0's defaults table sets `"minimum-release-age": 24 * 60`. A
+  direct test agreed: explicitly adding a TypeScript nightly published five hours earlier did not
+  fail, and pnpm wrote the new versions into `minimumReleaseAgeExclude` itself, which is how
+  `jsdom@30.0.0` arrived at the scaffold. The same source showed the proposed fix was not free:
+  setting `minimumReleaseAge` explicitly turns on `minimumReleaseAgeStrict` as well, and a
+  non-interactive install then fails on a young version instead of recording it. The reviewer's own
+  record of the applied policy, `minimumReleaseAge: 1440` in pnpm's verification cache, confirmed
+  it, and the finding was withdrawn.
+
+- **Fix**: the stale `jsdom@30.0.0` entry is gone, and the list carries the comment it never had:
+  pnpm writes it under a default, and setting the option changes more than the window. A test fails
+  when the list names a version the lockfile no longer installs.
+
+- **Lesson**: **a setting you cannot see is not a setting that is off.** Ask the tool what it
+  applied rather than what it was told, and check which copy of the tool answered.
+
+## A guard against zero kills, on a failure that still kills, 15 September 2026
+
+- **Issue**: `check-mutation-report.mts` is the second guard against stryker-js#6210, and it failed a
+  run in which no mutant was killed. Checking the release notes' claim that it catches the Vitest 5
+  failure found that it could not. On Vitest 5 the per-test filter matches nothing, but only covered
+  mutants run through it: Stryker plans a static mutant with no filter and reruns every test for it,
+  and the last report has 56 static mutants killed. A broken run would still count those, pass the
+  check, and publish the collapsed score. The issue's reporter saw 47.36 fall to 2.96, not to zero.
+
+- **Cause**: the guard was written from the failure's description, "every covered mutant survives",
+  and then counted every mutant. The two sets differ by exactly the mutants the bug cannot reach.
+
+- **Fix**: the check counts kills among mutants that are not static. Run against a copy of the report
+  with every covered kill turned into a survivor, the old check passed and the new one fails. Vitest 5
+  itself was not run; the planner's source, which gives a static mutant no test filter, is the
+  evidence that those mutants stay killed.
+
+- **Lesson**: **test a tripwire against the failure, not its description.** "Zero killed" was a
+  reasonable reading of "every mutant survives", and the report said otherwise the whole time.
+
+## A weekly measurement of a branch that moves once a release, 15 September 2026
+
+- **Issue**: review of the 1.8.0 release found `mutation.yml` scheduled weekly. A schedule runs on the
+  default branch, and `main` here takes nothing but release merges, so between releases every Monday
+  would have re-measured identical code, and only the first run after a release could move the score.
+  The README said the number was "re-measured every week on `main`", which would have been true and
+  would have told a reader nothing.
+
+- **Cause**: the schedule was chosen for what it measures, released code, without asking how often
+  that code changes. In this branching model the default branch and the last release are the same
+  commit for weeks at a time.
+
+- **Fix**: the workflow runs on every push to `main`, which here is every release, and on demand.
+  That also retires the 60-day switch-off, which applies only to schedules. It was caught before the
+  workflow ever ran: GitHub reads a scheduled or manual workflow from the default branch only, so the
+  version in this release is the first to exist, and whatever shipped would have stayed until the
+  next one.
+
+- **Lesson**: **a schedule tells you only as much as the thing it samples changes.** A weekly
+  measurement of a branch that moves once a release is one measurement, repeated.

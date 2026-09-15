@@ -1,0 +1,50 @@
+name: Mutation
+
+# Not on pull requests: the score is read, not gated (ADR 056).
+on:
+  # Once per release: `main` only moves when `develop` is merged into it, so a
+  # weekly schedule would re-measure the same code until the next release.
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: mutation
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    name: Mutation score
+    runs-on: ubuntu-latest
+    # A full run took under two minutes on 16 cores (ADR 056). A runner has
+    # fewer, and this only stops a hang.
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Red only when no covered mutant was killed, which means the runner broke;
+      # the score goes to the run summary.
+      - name: Run the mutation tests
+        run: pnpm test:mutation
+
+      - name: Upload the report
+        if: ${{ always() && hashFiles('reports/mutation/index.html') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          retention-days: 30

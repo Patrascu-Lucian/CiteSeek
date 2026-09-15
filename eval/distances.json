@@ -3,257 +3,359 @@
     {
       "question": "How quickly does someone get back to me if everything is down?",
       "answerable": true,
-      "best": 0.29407018423080444
+      "best": 0.29407018423080444,
+      "lexical": 0.1,
+      "margin": 0.07390254735946655
     },
     {
       "question": "Does the response clock keep running through the night?",
       "answerable": true,
-      "best": 0.2936445264114296
+      "best": 0.2936445264114296,
+      "lexical": 0.3,
+      "margin": 0.09549095351563341
     },
     {
       "question": "Can I push a ticket up the chain more than once?",
       "answerable": true,
-      "best": 0.299551048861475
+      "best": 0.299551048861475,
+      "lexical": 0.2,
+      "margin": 0.09025033415701866
     },
     {
       "question": "Does pushing a ticket up make it more urgent?",
       "answerable": true,
-      "best": 0.2891041424603501
+      "best": 0.2891041424603501,
+      "lexical": 0.2,
+      "margin": 0.09242260731526053
     },
     {
       "question": "What do I get back if you miss a target?",
       "answerable": true,
-      "best": 0.3001606047249188
+      "best": 0.3001606047249188,
+      "lexical": 0.6,
+      "margin": 0.10455221560908667
     },
     {
       "question": "Do I have to ask for the money back or is it automatic?",
       "answerable": true,
-      "best": 0.3600870370864868
+      "best": 0.3600870370864868,
+      "lexical": 0.1,
+      "margin": 0.06326368907983637
     },
     {
       "question": "Can your engineers ask for a copy of our live database?",
       "answerable": true,
-      "best": 0.33498593181287717
+      "best": 0.33498593181287717,
+      "lexical": 0.3,
+      "margin": 0.08714938683208162
     },
     {
       "question": "How long do you keep whatever I attach to a ticket?",
       "answerable": true,
-      "best": 0.3289341330528259
+      "best": 0.3289341330528259,
+      "lexical": 0.2,
+      "margin": 0.07485377788543701
     },
     {
       "question": "Will an engineer be moving my mouse during a call?",
       "answerable": true,
-      "best": 0.34724352798591607
+      "best": 0.34724352798591607,
+      "lexical": 0.2,
+      "margin": 0.06593285438743968
     },
     {
       "question": "How much warning do I need to give before it renews?",
       "answerable": true,
-      "best": 0.32479099407169176
+      "best": 0.32479099407169176,
+      "lexical": 0.3,
+      "margin": 0.06553284692337202
     },
     {
       "question": "If I drop to the cheaper tier, when does that start?",
       "answerable": true,
-      "best": 0.32497119903564453
+      "best": 0.32497119903564453,
+      "lexical": 0.1,
+      "margin": 0.07369804382324219
     },
     {
       "question": "What happens to tickets I already have open if I cancel?",
       "answerable": true,
-      "best": 0.31340900997546317
+      "best": 0.31340900997546317,
+      "lexical": 0.6,
+      "margin": 0.11015205185750498
     },
     {
       "question": "How much force does this thing actually put out?",
       "answerable": true,
-      "best": 0.31046489806368616
+      "best": 0.31046489806368616,
+      "lexical": 0.1,
+      "margin": 0.12830722714386067
     },
     {
       "question": "Do I need ear defenders standing next to it?",
       "answerable": true,
-      "best": 0.2929183840751648
+      "best": 0.2929183840751648,
+      "lexical": 0.2,
+      "margin": 0.12194774791199336
     },
     {
       "question": "Which oil goes in it?",
       "answerable": true,
-      "best": 0.3382009267807007
+      "best": 0.3382009267807007,
+      "lexical": 0.4,
+      "margin": 0.10274229767749354
     },
     {
       "question": "How often does the oil need replacing?",
       "answerable": true,
-      "best": 0.32108819484710693
+      "best": 0.32108819484710693,
+      "lexical": 0.4,
+      "margin": 0.09736375267660435
     },
     {
       "question": "Why does it feel jerky when I first switch it on?",
       "answerable": true,
-      "best": 0.362962543964386
+      "best": 0.362962543964386,
+      "lexical": 0.2,
+      "margin": 0.06078378628928427
     },
     {
       "question": "What temperature is too hot for it to run at?",
       "answerable": true,
-      "best": 0.33904667729417426
+      "best": 0.33904667729417426,
+      "lexical": 0.3,
+      "margin": 0.06999622431502883
     },
     {
       "question": "How tight do the tooling bolts go?",
       "answerable": true,
-      "best": 0.2835207154465136
+      "best": 0.2835207154465136,
+      "lexical": 0.1,
+      "margin": 0.14114853315436393
     },
     {
       "question": "Is there a point where a resharpened tool is too thin to use?",
       "answerable": true,
-      "best": 0.4109294659453302
+      "best": 0.4109294659453302,
+      "lexical": 0.1,
+      "margin": 0.08507940704050965
     },
     {
       "question": "The over-temperature warning will not go away after a restart.",
       "answerable": true,
-      "best": 0.3633254983023094
+      "best": 0.3633254983023094,
+      "lexical": 0.3,
+      "margin": 0.06459053460553488
     },
     {
       "question": "The two pressure readings disagree with each other.",
       "answerable": true,
-      "best": 0.31348538398742676
+      "best": 0.31348538398742676,
+      "lexical": 0.3,
+      "margin": 0.12040726643480781
     },
     {
       "question": "Anything to do before putting it on a lorry?",
       "answerable": true,
-      "best": 0.37473670764972855
+      "best": 0.37473670764972855,
+      "lexical": 0.1,
+      "margin": 0.040767593868729635
     },
     {
       "question": "It is going into a damp shed for the winter.",
       "answerable": true,
-      "best": 0.32628468651427855
+      "best": 0.32628468651427855,
+      "lexical": 0.1,
+      "margin": 0.0755637132350232
     },
     {
       "question": "When is the money due each month and how do I send it?",
       "answerable": true,
-      "best": 0.31935064081247677
+      "best": 0.31935064081247677,
+      "lexical": 0.4,
+      "margin": 0.11837597604695926
     },
     {
       "question": "Is there a ceiling on how much it can go up?",
       "answerable": true,
-      "best": 0.35517702565124676
+      "best": 0.35517702565124676,
+      "lexical": null,
+      "margin": 0.05009830147320937
     },
     {
       "question": "How much do I have to hand over at the start?",
       "answerable": true,
-      "best": 0.3286979594438657
+      "best": 0.3286979594438657,
+      "lexical": 0.1,
+      "margin": 0.06168145125155011
     },
     {
       "question": "Can I be charged for repainting when I leave?",
       "answerable": true,
-      "best": 0.33251631259918213
+      "best": 0.33251631259918213,
+      "lexical": 0.1,
+      "margin": 0.0712594985961914
     },
     {
       "question": "The boiler died in January. How fast should someone come?",
       "answerable": true,
-      "best": 0.31955490345417303
+      "best": 0.31955490345417303,
+      "lexical": 0.3,
+      "margin": 0.08825992159277207
     },
     {
       "question": "Nobody is answering and water is coming through the ceiling.",
       "answerable": true,
-      "best": 0.3568482824383119
+      "best": 0.3568482824383119,
+      "lexical": 0.1,
+      "margin": 0.06001408614536319
     },
     {
       "question": "Can the owner turn up unannounced?",
       "answerable": true,
-      "best": 0.3154284750052756
+      "best": 0.3154284750052756,
+      "lexical": null,
+      "margin": 0.06573935830817212
     },
     {
       "question": "How much notice do I give to move out?",
       "answerable": true,
-      "best": 0.30577921867370605
+      "best": 0.30577921867370605,
+      "lexical": 0.6,
+      "margin": 0.07434193014376356
     },
     {
       "question": "Is a text message enough to give notice?",
       "answerable": true,
-      "best": 0.3302526277153106
+      "best": 0.3302526277153106,
+      "lexical": 0.7,
+      "margin": 0.05818118633345648
     },
     {
       "question": "My partner has been staying over for a month.",
       "answerable": true,
-      "best": 0.35029157103845787
+      "best": 0.35029157103845787,
+      "lexical": 0.4,
+      "margin": 0.07588035320522513
     },
     {
       "question": "Does having a dog cost extra?",
       "answerable": true,
-      "best": 0.31275655703285554
+      "best": 0.31275655703285554,
+      "lexical": 0.1,
+      "margin": 0.11151126240367304
     },
     {
       "question": "What does E04 mean?",
       "answerable": true,
-      "best": 0.3215522574453188
+      "best": 0.3215522574453188,
+      "lexical": 0.2,
+      "margin": 0.10136222235189563
     },
     {
       "question": "ISO VG 46",
       "answerable": true,
-      "best": 0.3358622193336487
+      "best": 0.3358622193336487,
+      "lexical": 0.3,
+      "margin": 0.124828501364312
     },
     {
       "question": "M16 torque spec",
       "answerable": true,
-      "best": 0.38733276053266186
+      "best": 0.38733276053266186,
+      "lexical": 0.3,
+      "margin": 0.0689097412030254
     },
     {
       "question": "What counts as Severity 2?",
       "answerable": true,
-      "best": 0.2756640911102295
+      "best": 0.2756640911102295,
+      "lexical": 0.7,
+      "margin": 0.11482318583054896
     },
     {
       "question": "What is the HL-90?",
       "answerable": true,
-      "best": 0.2999563008533803
+      "best": 0.2999563008533803,
+      "lexical": 0.2,
+      "margin": 0.13769652545582378
     },
     {
       "question": "clause 7",
       "answerable": true,
-      "best": 0.3422243391141677
+      "best": 0.3422243391141677,
+      "lexical": 0.1,
+      "margin": 0.02388719672969275
     },
     {
       "question": "How do I reset my password?",
       "answerable": false,
-      "best": 0.4526593522029919
+      "best": 0.4526593522029919,
+      "lexical": null,
+      "margin": 0.023213760475535916
     },
     {
       "question": "Which insurance company underwrites the property?",
       "answerable": false,
-      "best": 0.42157807478773934
+      "best": 0.42157807478773934,
+      "lexical": 0.1,
+      "margin": 0.032654108563310524
     },
     {
       "question": "What is the warranty period on the hydraulic pump?",
       "answerable": false,
-      "best": 0.348078927283222
+      "best": 0.348078927283222,
+      "lexical": 0.2,
+      "margin": 0.04523170263956211
     },
     {
       "question": "Who is the current chief executive?",
       "answerable": false,
-      "best": 0.46594977378845215
+      "best": 0.46594977378845215,
+      "lexical": null,
+      "margin": 0.02379628954804236
     },
     {
       "question": "Is there parking included?",
       "answerable": false,
-      "best": 0.3910776376724243
+      "best": 0.3910776376724243,
+      "lexical": 0.1,
+      "margin": 0.0446280837059021
     },
     {
       "question": "What are the fire evacuation arrangements?",
       "answerable": false,
-      "best": 0.3997910857076089
+      "best": 0.3997910857076089,
+      "lexical": 0.1,
+      "margin": 0.04737124444299534
     },
     {
       "question": "Can I get this in French?",
       "answerable": false,
-      "best": 0.4215799570083618
+      "best": 0.4215799570083618,
+      "lexical": null,
+      "margin": 0.01573636754252361
     },
     {
       "question": "How many people work in the support team?",
       "answerable": false,
-      "best": 0.33234280347824097
+      "best": 0.33234280347824097,
+      "lexical": 0.3,
+      "margin": 0.03309087054233739
     },
     {
       "question": "What is the capital of Portugal?",
       "answerable": false,
-      "best": 0.49354162773738075
+      "best": 0.49354162773738075,
+      "lexical": null,
+      "margin": 0.025926218401926215
     },
     {
       "question": "Does the press come in a wider bed size?",
       "answerable": false,
-      "best": 0.3394047021865845
+      "best": 0.3394047021865845,
+      "lexical": 0.3,
+      "margin": 0.08957499265670776
     }
   ],
   "followUps": [
@@ -296,6 +398,98 @@
     {
       "followUp": "and outside them?",
       "best": 0.37910375719643974
+    }
+  ],
+  "uncovered": [
+    {
+      "question": "What is the resolution target for a Severity 1 ticket?",
+      "best": 0.2198386657334156,
+      "lexical": 1.1,
+      "margin": 0.14404605960571426
+    },
+    {
+      "question": "How much does a Premier plan cost each month?",
+      "best": 0.346072793006897,
+      "lexical": 0.5,
+      "margin": 0.07145051412353809
+    },
+    {
+      "question": "What is the phone number for the duty lead?",
+      "best": 0.3463289737701416,
+      "lexical": 0.3,
+      "margin": 0.0967816710472107
+    },
+    {
+      "question": "Can a Standard plan be upgraded to Premier mid-term?",
+      "best": 0.29434627294540405,
+      "lexical": 0.8,
+      "margin": 0.08596484006378369
+    },
+    {
+      "question": "In which languages do support engineers answer tickets?",
+      "best": 0.3247239187195241,
+      "lexical": 0.6,
+      "margin": 0.037782552110108836
+    },
+    {
+      "question": "What does fault code E03 indicate?",
+      "best": 0.29455506801605225,
+      "lexical": 0.6,
+      "margin": 0.1269403100013733
+    },
+    {
+      "question": "What voltage does the press need?",
+      "best": 0.3042658982118417,
+      "lexical": 0.3,
+      "margin": 0.1412095939392095
+    },
+    {
+      "question": "How much does the press weigh?",
+      "best": 0.30400077414514914,
+      "lexical": 0.3,
+      "margin": 0.12834084416451585
+    },
+    {
+      "question": "How often should the pressure sensors be calibrated?",
+      "best": 0.3318830132484436,
+      "lexical": 0.4,
+      "margin": 0.08958057825158783
+    },
+    {
+      "question": "Which corrosion inhibitor is approved for the exposed rod?",
+      "best": 0.28649695435148204,
+      "lexical": 0.6,
+      "margin": 0.13268306392985885
+    },
+    {
+      "question": "What is the late payment fee for rent?",
+      "best": 0.3526693179407894,
+      "lexical": 0.4,
+      "margin": 0.05122058285293274
+    },
+    {
+      "question": "Is the tenant or the landlord responsible for council tax?",
+      "best": 0.3725666403770447,
+      "lexical": 0.4,
+      "margin": 0.02765043975216519
+    },
+    {
+      "question": "Is smoking allowed in the property?",
+      "best": 0.37493449449539185,
+      "lexical": 0.1,
+      "margin": 0.06776922941207886
+    },
+    {
+      "question": "Who is responsible for maintaining the garden?",
+      "best": 0.36983452675754147,
+      "lexical": 0.2,
+      "margin": 0.05666844170295582
+    },
+    {
+      "question": "Is the property let furnished?",
+      "best": 0.32398438453674316,
+      "lexical": 0.1,
+      "margin": 0.06382467674070857
     }
   ]
 }

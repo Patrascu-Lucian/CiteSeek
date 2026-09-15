@@ -129,3 +129,90 @@ export function sweepFloor(
     };
   });
 }
+
+/** A `FloorCase` with what else retrieval already computed for the question. */
+export type SignalCase = FloorCase & {
+  /** Which set it came from, so a rate is never pooled across sets. */
+  set: string;
+  /** Top `ts_rank_cd`, or null when no term matched. Higher is better. */
+  lexicalTop: number | null;
+};
+
+/** Higher reads as "more likely answerable"; null is the weakest reading. */
+export type Signal = (one: SignalCase) => number | null;
+
+/** Tightening the distance floor, expressed as a signal: the row any second
+ * opinion has to beat. */
+export const closeness: Signal = (one) =>
+  one.retrieved[0] ? -one.retrieved[0].distance : null;
+
+export const lexicalRank: Signal = (one) => one.lexicalTop;
+
+/** From the closest passage to the k-th. One clear match should open a wider
+ * gap than a question that pulls a whole topic at similar distances. Fewer than
+ * k passages is null, which `cutSignal` ranks weakest: safe on the unfiltered
+ * ranking the eval passes, not on one the floor has already cut. */
+export function margin(k: number): Signal {
+  return (one) => {
+    const kth = one.retrieved[k - 1];
+    return kth ? kth.distance - one.retrieved[0]!.distance : null;
+  };
+}
+
+export type SignalCut = {
+  /** Answerable refusals the cut was allowed. A tie can leave it spending fewer,
+   * so two budgets can produce the same numbers. */
+  allowed: number;
+  /** Answerable questions the floor admits and this cut would refuse. */
+  addedRefusals: number;
+  /** Per set: unanswerable questions the floor admits, and how many this cut
+   * refuses. */
+  removed: Record<string, { removed: number; admitted: number }>;
+};
+
+/**
+ * A second opinion on what the floor admits. For each number of answerable
+ * questions it may refuse, the strictest threshold that refuses no more, and
+ * what that threshold removes from each set.
+ *
+ * In-sample: the threshold is read off the answerable questions it is then
+ * scored against.
+ */
+export function cutSignal(
+  cases: readonly SignalCase[],
+  maxDistance: number,
+  signal: Signal,
+  allowedRefusals: readonly number[],
+): SignalCut[] {
+  const admitted = cases.filter((one) =>
+    one.retrieved.some((chunk) => chunk.distance <= maxDistance),
+  );
+  const read = (one: SignalCase) => signal(one) ?? Number.NEGATIVE_INFINITY;
+  const answerable = admitted
+    .filter((one) => one.answerable)
+    .map(read)
+    .sort((a, b) => a - b);
+
+  return allowedRefusals.map((allowed) => {
+    // Refusing strictly below the (allowed + 1)-th lowest keeps ties, so a cut
+    // never refuses more than it was allowed to. A budget past the last reading
+    // refuses everything, which is still within it.
+    const threshold = answerable[allowed] ?? Number.POSITIVE_INFINITY;
+    const refused = (one: SignalCase) => read(one) < threshold;
+    const removed: SignalCut["removed"] = {};
+
+    for (const one of admitted) {
+      if (one.answerable) continue;
+      const row = (removed[one.set] ??= { removed: 0, admitted: 0 });
+      row.admitted++;
+      if (refused(one)) row.removed++;
+    }
+
+    return {
+      allowed,
+      addedRefusals: admitted.filter((one) => one.answerable && refused(one))
+        .length,
+      removed,
+    };
+  });
+}

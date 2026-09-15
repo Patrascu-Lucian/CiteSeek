@@ -16,6 +16,7 @@ import postgres from "postgres";
 
 // Explicit .ts extensions: type stripping does not rewrite specifiers.
 import { loadLocalEnv } from "../env/load-local-env.ts";
+import { namesHost } from "../env/named-host.ts";
 import * as schema from "./schema.ts";
 import { planFixtureSeed } from "./seed-plan.ts";
 import { workspaces } from "./schema.ts";
@@ -75,7 +76,7 @@ function assertHostWasChosen(url: string): void {
   const hostname = hostOf(url);
   if (hostname === null || LOCAL_HOSTS.has(hostname)) return;
 
-  if (confirmedHost && hostname.includes(confirmedHost)) return;
+  if (namesHost(confirmedHost, hostname)) return;
 
   throw new Error(
     [

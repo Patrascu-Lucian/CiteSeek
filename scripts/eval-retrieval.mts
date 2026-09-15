@@ -8,17 +8,25 @@ import { fileURLToPath } from "node:url";
 import { eq } from "drizzle-orm";
 
 import { loadLocalEnv } from "../lib/env/load-local-env.ts";
+import { namesHost } from "../lib/env/named-host.ts";
 import {
   FOLLOW_UP_SET,
   GOLDEN_SET,
+  UNCOVERED_SET,
   type Expectation,
 } from "../eval/golden-set.ts";
 import {
+  closeness,
+  cutSignal,
+  lexicalRank,
+  margin,
   mean,
   scoreQuery,
   sweepFloor,
   type FloorCase,
   type Retrieved,
+  type SignalCase,
+  type SignalCut,
   type Span,
 } from "../lib/rag/eval-metrics.ts";
 
@@ -38,9 +46,9 @@ process.env.DATABASE_URL = connectionString;
 const hostname = new URL(connectionString).hostname;
 const LOCAL = /^(localhost|127\.0\.0\.1|::1|host\.docker\.internal)$/;
 
-/* The seed's guard, duplicated: this writes documents and spends quota, so it
-   must not reach a database nobody named. Worth collapsing into one helper. */
-const named = confirmedHost !== undefined && hostname.includes(confirmedHost);
+// This writes documents and spends quota, so it must not reach a database
+// nobody named.
+const named = namesHost(confirmedHost, hostname);
 
 if (!LOCAL.test(hostname) && !named) {
   throw new Error(
@@ -75,7 +83,8 @@ const { retrieveChunks } = await import("../lib/rag/retrieve.ts");
 const { rewriteQuestion } = await import("../lib/ai/rewrite.ts");
 const { retrieveLexical } = await import("../lib/rag/lexical.ts");
 const { fuse } = await import("../lib/rag/fusion.ts");
-const { RETRIEVAL_LIMIT } = await import("../lib/rag/retrieval-config.ts");
+const { RETRIEVAL_LIMIT, maxDistanceFor } =
+  await import("../lib/rag/retrieval-config.ts");
 
 const FIXTURES = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -158,7 +167,7 @@ try {
   ];
   type Strategy = string;
 
-  const cases: FloorCase[] = [];
+  const cases: SignalCase[] = [];
   const scores = new Map<
     string,
     { recall: number[]; precision: number[]; rr: number[] }
@@ -228,7 +237,12 @@ try {
       ),
     };
 
-    cases.push({ answerable: expected.length > 0, retrieved });
+    cases.push({
+      set: "golden",
+      answerable: expected.length > 0,
+      retrieved,
+      lexicalTop: lexical[0]?.rank ?? null,
+    });
 
     for (const strategy of STRATEGIES) {
       for (const k of K_VALUES) {
@@ -243,6 +257,34 @@ try {
         }
       }
     }
+  }
+
+  console.log(`\nRunning ${String(UNCOVERED_SET.length)} uncovered questions…`);
+
+  // Never pushed into `cases`: that table is the one the README quotes, and this
+  // set samples the region where the floor fails.
+  const uncovered: SignalCase[] = [];
+
+  for (const one of UNCOVERED_SET) {
+    const { chunks } = await retrieveChunks(workspaceId, one.question, {
+      limit: SCORING_LIMIT,
+      maxDistance: Number.POSITIVE_INFINITY,
+    });
+    const lexical = await retrieveLexical(workspaceId, one.question, {
+      limit: SCORING_LIMIT,
+    });
+
+    uncovered.push({
+      set: "uncovered",
+      answerable: false,
+      lexicalTop: lexical[0]?.rank ?? null,
+      retrieved: chunks.map((chunk) => ({
+        documentId: chunk.documentId,
+        charStart: chunk.charStart,
+        charEnd: chunk.charEnd,
+        distance: chunk.distance,
+      })),
+    });
   }
 
   console.log(
@@ -348,6 +390,31 @@ try {
 
   const floorTable = sweepFloor(cases, THRESHOLDS);
 
+  /** Closest chunk per question, as min, median and max. */
+  const rangeRow = (label: string, group: readonly FloorCase[]) => {
+    const best = group
+      .map((one) => one.retrieved[0]?.distance ?? 1)
+      .sort((a, b) => a - b);
+    const median = best[Math.floor(best.length / 2)] ?? 0;
+    return `| ${label} | ${(best[0] ?? 0).toFixed(3)} | ${median.toFixed(3)} | ${(best.at(-1) ?? 0).toFixed(3)} |`;
+  };
+
+  const FLOOR = maxDistanceFor("google");
+  const SIGNALS = [
+    { name: "distance (baseline)", signal: closeness },
+    { name: "lexical rank", signal: lexicalRank },
+    {
+      name: `margin@${String(RETRIEVAL_LIMIT)}`,
+      signal: margin(RETRIEVAL_LIMIT),
+    },
+  ];
+  const admittedAnswerable = cases.filter(
+    (one) =>
+      one.answerable && one.retrieved.some((chunk) => chunk.distance <= FLOOR),
+  ).length;
+  const removedCell = (cut: SignalCut, set: string) =>
+    `${String(cut.removed[set]?.removed ?? 0)}/${String(cut.removed[set]?.admitted ?? 0)}`;
+
   const report = [
     "# Retrieval evaluation",
     "",
@@ -425,21 +492,58 @@ try {
     "",
     "| | min | median | max |",
     "| - | --- | ------ | --- |",
-    ...(["answerable", "unanswerable"] as const).map((label) => {
-      const wanted = label === "answerable";
-      const best = cases
-        .filter((one) => one.answerable === wanted)
-        .map((one) => one.retrieved[0]?.distance ?? 1)
-        .sort((a, b) => a - b);
-      const median = best[Math.floor(best.length / 2)] ?? 0;
-      return `| ${label} | ${(best[0] ?? 0).toFixed(3)} | ${median.toFixed(3)} | ${(best.at(-1) ?? 0).toFixed(3)} |`;
-    }),
+    rangeRow(
+      "answerable",
+      cases.filter((one) => one.answerable),
+    ),
+    rangeRow(
+      "unanswerable",
+      cases.filter((one) => !one.answerable),
+    ),
     "",
     "| max distance | false refusals | false accepts |",
     "| ------------ | -------------- | ------------- |",
     ...floorTable.map(
       (row) =>
         `| ${row.maxDistance.toFixed(2)} | ${String(row.falseRefusals)}/${String(row.answerable)} | ${String(row.falseAccepts)}/${String(row.unanswerable)} |`,
+    ),
+    "",
+    "### The uncovered set",
+    "",
+    `${String(UNCOVERED_SET.length)} questions that each name something one document is about and ask`,
+    "for a detail it does not cover. **It samples the hard region on purpose**, so",
+    "its false-accept rate belongs to this set rather than to the product, and it",
+    "is never folded into the table above.",
+    "",
+    "| | min | median | max |",
+    "| - | --- | ------ | --- |",
+    rangeRow("uncovered", uncovered),
+    "",
+    "| max distance | false accepts |",
+    "| ------------ | ------------- |",
+    ...sweepFloor(uncovered, THRESHOLDS).map(
+      (row) =>
+        `| ${row.maxDistance.toFixed(2)} | ${String(row.falseAccepts)}/${String(row.unanswerable)} |`,
+    ),
+    "",
+    "## A second opinion on what the floor admits",
+    "",
+    `Each signal is applied only to questions the shipped floor (\`${FLOOR.toFixed(2)}\`) admits, and cut`,
+    "at the strictest threshold that refuses no more than 0, 1 or 2 answerable",
+    "questions. **Tightening the floor itself is the baseline row**: a signal earns",
+    "a place only by removing more unanswerable questions than that at zero added",
+    "refusals, in both sets. Lexical rank is the top `ts_rank_cd`; margin is the",
+    "distance from the closest passage to the 8th, read from the unfiltered",
+    "ranking. The threshold is read off the same questions it is scored against,",
+    "so every row is in-sample.",
+    "",
+    "| signal | refusals allowed | answerable refused | golden removed | uncovered removed |",
+    "| ------ | ---------------- | ------------------ | -------------- | ----------------- |",
+    ...SIGNALS.flatMap(({ name, signal }) =>
+      cutSignal([...cases, ...uncovered], FLOOR, signal, [0, 1, 2]).map(
+        (cut) =>
+          `| ${name} | ${String(cut.allowed)} | ${String(cut.addedRefusals)}/${String(admittedAnswerable)} | ${removedCell(cut, "golden")} | ${removedCell(cut, "uncovered")} |`,
+      ),
     ),
     "",
   ].join("\n");
@@ -455,10 +559,18 @@ try {
           question: one.question,
           answerable: cases[index]!.answerable,
           best: cases[index]!.retrieved[0]?.distance ?? null,
+          lexical: cases[index]!.lexicalTop,
+          margin: margin(RETRIEVAL_LIMIT)(cases[index]!),
         })),
         followUps: followUps.map((row) => ({
           followUp: row.followUp,
           best: row.bestAsked,
+        })),
+        uncovered: UNCOVERED_SET.map((one, index) => ({
+          question: one.question,
+          best: uncovered[index]!.retrieved[0]?.distance ?? null,
+          lexical: uncovered[index]!.lexicalTop,
+          margin: margin(RETRIEVAL_LIMIT)(uncovered[index]!),
         })),
       },
       null,

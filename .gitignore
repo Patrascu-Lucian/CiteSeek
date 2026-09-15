@@ -66,3 +66,7 @@ eval/.local-answers-progress-*.json*
 
 # Model weights for the CI `model` job; the local default is ~/.cache.
 .model-cache/
+
+# `pnpm test:mutation`: Stryker's sandbox copy of the repo, and the reports it writes.
+.stryker-tmp/
+/reports/

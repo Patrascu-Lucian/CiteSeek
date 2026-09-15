@@ -3157,6 +3157,48 @@ in 8 of 9 runs, the support team in none — so the sample-size note's "depends 
 question was asked" holds, and so does its conclusion. Reading one run's shape as the question's
 shape does not.
 
+↳ **Fifteen more, written to sit near the floor, and the prompt held for every one,
+14 September 2026.** `UNCOVERED_SET` in `eval/golden-set.ts`: each question names something one
+document is about and asks for a detail it does not cover, written before any distance was measured.
+All 15 clear the shipped floor, and 9 sit below 0.332 — the lowest distance of any unanswerable
+question in the golden set, and so the region a banded floor would have accepted without a second
+look. The nearest, at 0.220, is closer than any answerable question.
+
+Across three runs the model refused all 45 replies and invented nothing, including the questions
+built to invite an inference: an upgrade rule where only the downgrade is written, a garden where only
+the exterior is, a Severity 1 resolution target where only Severity 3 and 4 are mentioned. So the
+leak's cost on the adversarial set is what it was on the golden one — a marker, not a fabrication.
+
+**The markers are the set's, not the product's.** 13, 11 and 11 of 15 replies carried one, against 2
+of the golden five in every run: a question asking about the edge of a topic draws a citation to the
+topic. The rate is high enough that a change to it is now measurable in principle — halving it needs
+about 24 leaked questions per variant, and the two sets leak 20 — which is what the parser idea above
+would need before it is worth building.
+
+↳ **Two cheap second opinions, measured over what the floor admits, and both lost,
+14 September 2026.** The criterion was written down before the run: at zero added refusals, a
+signal had to remove more unanswerable questions than simply tightening the distance floor does.
+Tightening removes 2 of the golden five and none of the adversarial fifteen. The top lexical rank
+removes none of either, and neither does the distance margin to the eighth passage, which starts
+removing questions only once it may refuse an answerable one too.
+
+**Lexical rank does worse than nothing on the adversarial set: it points the wrong way.** Those
+questions rank higher on word overlap than the answerable ones, a median of 0.40 against 0.20,
+because naming something a document is about is what puts them near the floor in the first place.
+It is ADR 021's result arriving one layer up: word overlap cannot tell a covered detail from an
+uncovered one when both use the document's words.
+
+What this leaves is an entailment check, the one kind of signal that reads whether the passages
+answer the question rather than whether they are about it. And the refusal measurement above says
+the model already declines every one of these, so such a gate would buy a structural refusal and
+fewer markers, not fewer invented answers.
+
+↳ **Decided, 14 September 2026 (ADR 055).** The floor stays at `0.40`, still the only gate before
+generation, and is described as a filter rather than a proof. No second signal ships: the banded
+design fell to nine questions below its lower edge, both cheap signals lost to tightening the floor,
+and the entailment gate was not built because every reply past the floor was already a refusal. The
+markers on those refusals are the one part of this entry still open.
+
 ## An advisory with nothing to upgrade to, 10 September 2026
 
 Three Dependabot alerts before v1.7.0. Two were a version bump; the third stays open, and closing
@@ -3254,6 +3296,19 @@ than dropping the URL.
 
 **Deliberately absent**: any link out of the holding page. Every route answers it, so a button would
 land the reader back where they started.
+
+↳ **The footer had six, found 15 September 2026.** The root layout appends `SiteFooter` to every
+route, the holding page included, so the page left out its one button while the layout added About,
+Contact, Local mode, Privacy Policy, Cookies and Terms — each a 503 straight back. The footer now
+drops its links while `MAINTENANCE` is on, and the maintenance spec counts the links on the served
+holding page.
+
+↳ **Which makes two readers of the switch.** The proxy decides whether a route answers the holding
+page and the footer decides whether to show its links, both through `maintenanceOn()` and both per
+request. Neither can see a change until the process restarts: under `next start` the value it
+starts with reaches both, and on Vercel the redeploy above does, one deploy for both. If they ever
+disagreed, the result would be a holding page with a working footer, or a live site without its
+footer links, and neither file would show why.
 
 ## A sign-in acknowledgement, and the cookies nobody lists, 12 September 2026
 

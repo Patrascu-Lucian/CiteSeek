@@ -84,6 +84,7 @@ shaped the product rather than the toolchain.
 | [034](docs/decisions/034-answering-on-the-gpu.md)                            | Name the device the capability gate checks    | The gate refused browsers a feature that ran without a GPU, because nothing asked for one |
 | [035](docs/decisions/035-where-the-worked-example-goes.md)                   | A worked example belongs in the system prompt | In the message array it is transcript, and the model answered out of it with a citation   |
 | [039](docs/decisions/039-the-default-plan-s-ceiling.md)                      | Stock limits are not the rate limiter         | A limit that never heals has to name what to delete; one that heals only has to wait      |
+| [055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)        | Measure a second signal, then keep the floor  | Both signals lost to a tighter floor, and every question past it drew a refusal anyway    |
 
 ## Mistakes worth reading
 
@@ -493,24 +494,32 @@ difference is not feedback against none: it is 1.2 s spent on the page you asked
 the page you left. Five Lighthouse points for that, deliberately and by a margin worth naming
 ([ADR 045](docs/decisions/045-what-the-loading-skeleton-buys.md)).
 
-**Half the ungrounded questions still reach the model, and the prompt catches them.** The
+**Questions the documents cannot answer still reach the model, and the prompt catches them.** The
 relevance threshold is measured rather than guessed
 ([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and what the measurement showed
 is that no threshold is right: the distance distributions for answerable and unanswerable
-questions overlap. At `0.40` roughly half the questions the corpus cannot answer still clear the
-floor.
+questions overlap. At `0.40`, 5 of the golden set's 10 unanswerable questions still clear the
+floor. A second set written to sit near it — 15 questions that each name something one document is
+about and ask for a detail it does not cover — clears it 15 of 15, the nearest closer than any
+answerable question. That set samples the hard region on purpose, so its rate is the set's rather
+than the product's.
 
 What they meet there is now measured too, rather than assumed
-([`eval/refusals.md`](eval/refusals.md)): across three runs of the five that get through, the model
-refused every one and invented nothing — no fabricated content, no out-of-range marker. So the
-structural guarantee is weaker than "says so when nothing relevant is found" sounds, and the
-observed behavior holds anyway, because the prompt catches what the floor misses.
+([`eval/refusals.md`](eval/refusals.md)): across three runs of the twenty that get through — five
+from the golden set, fifteen from the adversarial one — the model refused every one and invented
+nothing, with no fabricated content and no out-of-range marker. So the structural guarantee is
+weaker than "says so when nothing relevant is found" sounds, and the observed behavior holds anyway,
+because the prompt catches what the floor misses.
 
-The leak's real cost is smaller and different: in most runs a few of those refusals attach a
-citation marker, which the prompt's own rules forbid on a refusal. The count moves from run to run,
-so the file carries the latest rather than a settled number. Rewording that rule was tried three
-ways and the difference is too small to measure on five questions, so it stays as shipped. What the
-measurement does settle is the part that matters: nothing is invented.
+The leak's real cost is smaller and different: many of those refusals attach a citation marker,
+which the prompt's own rules forbid on a refusal — 2 of the golden five in each run, and 9 to 13 of
+the adversarial fifteen, where a question about the edge of a topic draws a citation to the topic.
+The counts move from run to run, so the file carries the latest rather than a settled number.
+Rewording that rule was tried three ways on the five golden questions and the difference was too
+small to measure, so it stays as shipped. What the measurement does settle is the part that
+matters: nothing is invented. It is also why no second signal ships in front of the prompt — the
+ones measured lost to simply tightening the floor, and a gate would replace refusals the model
+already writes ([ADR 055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)).
 
 Usage limits are enforced but their thresholds are provisional — they need real traffic to
 calibrate against, and are deliberately generous because shared addresses
@@ -543,13 +552,18 @@ decoding is the other, and it is parked deliberately: local mode's citation _def
 only because its citation rate is zero, so forcing markers would manufacture the failure
 [ADR 038](docs/decisions/038-a-citation-that-cannot-be-read-as-content.md) exists to prevent.
 
-Separately, the gap [ADR 020](docs/decisions/020-measuring-the-relevance-floor.md) measured: the
-floor cannot separate answerable questions from unanswerable ones on distance alone, so retrieval
-still wants a **second signal**. Hybrid search was the obvious candidate and
-[ADR 021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md) measured it losing, so
-what remains is a reranker over the top k — or accepting the floor as a filter and saying so.
-Both are in [`docs/backlog.md`](docs/backlog.md), and both now have a harness that would prove
-they earned their place rather than an argument that they should.
+**The relevance floor's gap is decided rather than open.** The floor cannot separate answerable
+questions from unanswerable ones on distance alone
+([ADR 020](docs/decisions/020-measuring-the-relevance-floor.md)), and three second signals have now
+been measured against it: hybrid search
+([ADR 021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md)), and the top lexical
+rank and the distance margin to the eighth passage, each of which lost to simply tightening the
+floor ([`eval/report.md`](eval/report.md)). Every question that cleared the floor drew a refusal
+rather than an invented answer, so the floor stays a filter, and the pages say so
+([ADR 055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)). What is left is
+smaller: refusals that attach a citation marker the prompt forbids, which a parser could strip
+structurally. The harness is now close to large enough to measure a change in that rate, and the
+idea is in [`docs/backlog.md`](docs/backlog.md).
 
 The usage thresholds are still starting values. They need real traffic rather than another
 round of reasoning.
@@ -587,6 +601,7 @@ pnpm build             # production build
 pnpm test              # vitest unit tests (no database needed)
 pnpm test:integration  # vitest against a real, disposable Postgres (see below)
 pnpm test:model        # vitest against a real 31 MB model, downloaded once
+pnpm test:mutation     # Stryker over lib/rag and lib/ai, about two minutes (ADR 056)
 pnpm test:e2e          # playwright (serves an existing build — run pnpm build first)
 pnpm lint              # eslint, type-aware
 pnpm typecheck         # tsc --noEmit
@@ -654,9 +669,10 @@ let one file supply both the wrong answer and the confirmation of it.
 prints the `export SEED_HOST=…` line for the host it actually reached. In Neon's console it is
 the first segment of the connection hostname (`ep-…`), shown per branch under Connect.
 
-Two other commands guard themselves the same way, under their own names: `pnpm eval:retrieval`
-uses `EVAL_HOST` (it ingests documents and spends embedding quota) and `pnpm db:usage` uses
-`USAGE_HOST` (it reads, but reading the wrong branch gives a confident wrong answer). The
+Three other commands guard themselves the same way, under their own names and from the shell only:
+`pnpm eval:retrieval` and `pnpm eval:refusals` use `EVAL_HOST` (they ingest documents and spend
+quota) and `pnpm db:usage` uses `USAGE_HOST` (it reads, but reading the wrong branch gives a
+confident wrong answer). The
 schema commands above need neither — `db:check` changes nothing and prints the host it reached,
 and `db:migrate` carries no data and spends no quota.
 
@@ -680,12 +696,18 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1018  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1048  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
-| E2E         | 181   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
+| E2E         | 182   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
+Coverage says those lines ran, not that a test would notice them change, so `pnpm test:mutation`
+measures the second: across `lib/rag` and `lib/ai`, 80.5% of 830 mutants were caught on the first
+run, with no threshold set against a number this new. Reading the rest found nine tests that could not
+fail on the behavior they are named for, which the percentage alone would never have said. With those
+fixed and the missing tests added, it is 86.5%, re-measured on every release
+([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)).
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)
 exercise ingestion, retrieval and the whole answer path with no API key and no network, so CI

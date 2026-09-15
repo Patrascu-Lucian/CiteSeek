@@ -74,11 +74,28 @@ describe("chunkText — structure", () => {
   });
 
   it("returns one chunk when the text fits", () => {
-    const chunks = chunkText("Short enough to stay whole.");
+    // Two paragraphs: one is the only input that never needs merging.
+    const text = "Short enough to stay whole.\n\nAnd so is this.";
+    const chunks = chunkText(text);
 
     expect(chunks).toHaveLength(1);
-    expect(chunks[0]!.content).toBe("Short enough to stay whole.");
+    expect(chunks[0]!.content).toBe(text);
     expect(chunks[0]!.charStart).toBe(0);
+  });
+
+  it("merges short paragraphs up to the target after the first chunk too", () => {
+    // The merge measures from where the chunk starts, and only the first chunk
+    // starts at zero.
+    const text = Array.from(
+      { length: 80 },
+      (_, i) => `Short paragraph ${i}.`,
+    ).join("\n\n");
+    const chunks = chunkText(text);
+
+    expect(chunks.length).toBeGreaterThan(2);
+    for (const chunk of chunks.slice(0, -1)) {
+      expect(chunk.content.length).toBeGreaterThan(CHUNK_TARGET_CHARS / 2);
+    }
   });
 
   it("numbers chunks consecutively from zero", () => {
@@ -115,17 +132,28 @@ describe("chunkText — structure", () => {
   });
 
   it("never emits a chunk that is only whitespace", () => {
-    const text = `${paragraphs(3)}\n\n\n\n${paragraphs(3)}`;
+    // A paragraph of spaces, flushed alone because the next is too long to
+    // merge. A run of newlines never gets here: the paragraph split takes it.
+    const long = "Words enough to pass the target on their own. ".repeat(15);
+    const chunks = chunkText(`   \n\n${long}`);
 
-    for (const chunk of chunkText(text)) {
+    expect(chunks.length).toBeGreaterThan(0);
+    for (const chunk of chunks) {
       expect(chunk.content.trim()).not.toBe("");
     }
   });
 
   it("does not start or end a chunk on whitespace", () => {
-    for (const chunk of chunkText(paragraphs(10))) {
+    // On the text's own edges: separators between paragraphs are consumed by
+    // the split, so they never needed trimming.
+    const text = `   ${paragraphs(10)}  `;
+    const chunks = chunkText(text);
+
+    expect(chunks[0]!.charStart).toBe(3);
+    for (const chunk of chunks) {
       expect(chunk.content).toBe(chunk.content.trim());
     }
+    expectSliceInvariant(text, chunks);
   });
 });
 
@@ -167,16 +195,22 @@ describe("chunkText — splitting strategy", () => {
   });
 
   it("falls back to sentences inside an oversized paragraph", () => {
+    // An arbitrary cut also stays under the maximum; only the sentence ends
+    // tell them apart. After a short paragraph, so the split has to stay
+    // inside its own range.
     const sentence = "This sentence is a unit that should survive intact. ";
     const oversized = sentence.repeat(
       Math.ceil(CHUNK_MAX_CHARS / sentence.length) + 5,
     );
-    const chunks = chunkText(oversized);
+    const text = `A short paragraph first.\n\n${oversized}`;
+    const chunks = chunkText(text);
 
     expect(chunks.length).toBeGreaterThan(1);
     for (const chunk of chunks) {
       expect(chunk.content.length).toBeLessThanOrEqual(CHUNK_MAX_CHARS);
+      expect(chunk.content).toMatch(/\.$/);
     }
+    expectSliceInvariant(text, chunks);
   });
 
   it("hard-splits an unbroken run rather than emitting an oversized chunk", () => {
@@ -235,5 +269,15 @@ describe("chunkText — limits", () => {
     expect(() => chunkText(enormous)).toThrow(
       /passages, above the limit of 600/,
     );
+  });
+
+  it("allows exactly the ceiling, which the refusal says is not above it", () => {
+    // An unbroken run cuts into pieces of exactly CHUNK_MAX_CHARS with no room
+    // for overlap, so the count is known before chunking.
+    const chunks = chunkText(
+      "z".repeat(CHUNK_MAX_CHARS * MAX_CHUNKS_PER_DOCUMENT),
+    );
+
+    expect(chunks).toHaveLength(MAX_CHUNKS_PER_DOCUMENT);
   });
 });

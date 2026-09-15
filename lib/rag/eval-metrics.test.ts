@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  closeness,
+  cutSignal,
+  lexicalRank,
+  margin,
   mean,
   overlaps,
   scoreQuery,
   sweepFloor,
   type Retrieved,
+  type SignalCase,
   type Span,
 } from "./eval-metrics";
 
@@ -30,6 +35,7 @@ describe("overlaps", () => {
     // A chunk ending exactly where the expected passage begins shares no
     // character with it, and counting it would inflate every recall number.
     expect(overlaps(span(0, 100), span(100, 200))).toBe(false);
+    expect(overlaps(span(100, 200), span(0, 100))).toBe(false);
     expect(overlaps(span(0, 100), span(99, 200))).toBe(true);
   });
 
@@ -42,7 +48,11 @@ describe("scoreQuery", () => {
   it("counts an expected passage as recalled when any chunk covers it", () => {
     // Chunking is a choice the harness must survive: the same passage may arrive
     // as one chunk or split across two, and neither is a retrieval failure.
-    const score = scoreQuery([span(100, 200)], [got(150, 400)], 5);
+    const score = scoreQuery(
+      [span(100, 200)],
+      [got(150, 400), got(900, 1000)],
+      5,
+    );
 
     expect(score.recall).toBe(1);
     expect(score.reciprocalRank).toBe(1);
@@ -80,12 +90,39 @@ describe("scoreQuery", () => {
 
     expect(score.precision).toBe(0.5);
   });
+
+  it("counts each passage covered and each chunk that covers one", () => {
+    // Two of each, so "some" and "every" disagree: one passage is covered, and
+    // one chunk covers a passage.
+    const score = scoreQuery(
+      [span(0, 100), span(500, 600)],
+      [got(0, 100), got(900, 1000)],
+      5,
+    );
+
+    expect(score.recall).toBe(0.5);
+    expect(score.precision).toBe(0.5);
+    expect(score.reciprocalRank).toBe(1);
+  });
+
+  it("scores an answerable question that retrieved nothing as zero, not NaN", () => {
+    // A NaN reaches `mean` and blanks a column of the report.
+    expect(scoreQuery([span(0, 100)], [], 5)).toEqual({
+      recall: 0,
+      precision: 0,
+      reciprocalRank: 0,
+    });
+  });
 });
 
 describe("mean", () => {
   it("is 0 for nothing, rather than NaN", () => {
     // A NaN here would propagate silently into a reported table.
     expect(mean([])).toBe(0);
+  });
+
+  it("averages real values", () => {
+    expect(mean([1, 2, 6])).toBe(3);
   });
 });
 
@@ -120,5 +157,131 @@ describe("sweepFloor", () => {
     const [point] = sweepFloor(cases, [0.6]);
 
     expect(point).toMatchObject({ answerable: 2, unanswerable: 1 });
+  });
+});
+
+const signalCase = (
+  set: string,
+  answerable: boolean,
+  distances: readonly number[],
+  lexicalTop: number | null = null,
+): SignalCase => ({
+  set,
+  answerable,
+  retrieved: distances.map((distance, index) =>
+    got(index * 100, index * 100 + 50, distance),
+  ),
+  lexicalTop,
+});
+
+describe("the signals", () => {
+  it("reads closeness so that nearer is higher, like every other signal", () => {
+    expect(closeness(signalCase("golden", true, [0.3, 0.5]))).toBe(-0.3);
+  });
+
+  it("reads margin as the gap from the closest passage to the k-th", () => {
+    const one = signalCase("golden", true, [0.3, 0.35, 0.5]);
+
+    expect(margin(3)(one)).toBeCloseTo(0.2);
+    // Fewer than k passages is no reading, not a gap of zero.
+    expect(margin(4)(one)).toBeNull();
+  });
+});
+
+describe("cutSignal", () => {
+  // The answerable readings out of order, 0.7 before 0.5: the cut sorts them.
+  const cases = [
+    signalCase("golden", true, [0.35], 0.7),
+    signalCase("golden", true, [0.3], 0.5),
+    signalCase("golden", false, [0.33], 0.4),
+    signalCase("uncovered", false, [0.25], 0.6),
+    signalCase("uncovered", false, [0.3], null),
+    signalCase("golden", false, [0.5], 0.1),
+  ];
+
+  it("cuts at the lowest answerable reading when no refusal is allowed", () => {
+    const [cut] = cutSignal(cases, 0.4, lexicalRank, [0]);
+
+    expect(cut).toEqual({
+      allowed: 0,
+      addedRefusals: 0,
+      removed: {
+        golden: { removed: 1, admitted: 1 },
+        uncovered: { removed: 1, admitted: 2 },
+      },
+    });
+  });
+
+  it("moves the threshold up one answerable question per refusal allowed", () => {
+    const [, cut] = cutSignal(cases, 0.4, lexicalRank, [0, 1]);
+
+    expect(cut?.addedRefusals).toBe(1);
+    expect(cut?.removed.uncovered).toEqual({ removed: 2, admitted: 2 });
+  });
+
+  it("credits the signal only with what the floor admitted", () => {
+    // The question at 0.5 has the weakest reading of all, and the floor has
+    // already refused it: counting it would inflate every row.
+    const [cut] = cutSignal(cases, 0.4, lexicalRank, [0]);
+
+    expect(cut?.removed.golden?.admitted).toBe(1);
+  });
+
+  it("admits a question on its closest chunk, however far the rest are", () => {
+    const [cut] = cutSignal(
+      [
+        signalCase("golden", true, [0.3], 0.5),
+        signalCase("uncovered", false, [0.3, 0.9], 0.1),
+      ],
+      0.4,
+      lexicalRank,
+      [0],
+    );
+
+    expect(cut?.removed.uncovered).toEqual({ removed: 1, admitted: 1 });
+  });
+
+  it("treats no reading as the weakest one", () => {
+    const [cut] = cutSignal(
+      [
+        signalCase("golden", true, [0.3], 0.1),
+        signalCase("uncovered", false, [0.3], null),
+      ],
+      0.4,
+      lexicalRank,
+      [0],
+    );
+
+    expect(cut?.removed.uncovered).toEqual({ removed: 1, admitted: 1 });
+  });
+
+  it("never refuses more answerable questions than allowed, even on a tie", () => {
+    const [cut] = cutSignal(
+      [
+        signalCase("golden", true, [0.3], 0.5),
+        signalCase("golden", true, [0.3], 0.5),
+        signalCase("golden", false, [0.3], 0.5),
+      ],
+      0.4,
+      lexicalRank,
+      [0],
+    );
+
+    expect(cut?.addedRefusals).toBe(0);
+    expect(cut?.removed.golden).toEqual({ removed: 0, admitted: 1 });
+  });
+
+  it("reports the budget apart from what it spent, which a tie can make smaller", () => {
+    const [cut] = cutSignal(
+      [
+        signalCase("golden", true, [0.3], 0.5),
+        signalCase("golden", true, [0.3], 0.5),
+      ],
+      0.4,
+      lexicalRank,
+      [1],
+    );
+
+    expect(cut).toMatchObject({ allowed: 1, addedRefusals: 0 });
   });
 });
