@@ -19,6 +19,8 @@ jobs:
   mutation:
     name: Mutation score
     runs-on: ubuntu-latest
+    # A full run took under two minutes on 16 cores (ADR 056). A runner has
+    # fewer, and this only stops a hang.
     timeout-minutes: 45
 
     steps:

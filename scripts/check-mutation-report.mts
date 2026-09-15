@@ -17,10 +17,16 @@ const statuses = Object.values(report.files).flatMap((file) =>
 const count = (status: string) =>
   statuses.filter((one) => one === status).length;
 
+const detected = count("Killed") + count("Timeout");
+const undetected = count("Survived") + count("NoCoverage");
+
+// Ignored mutants and ones that failed to compile or run are outside the score,
+// but counted, so the parts add up to the total.
 const counts =
   `${String(statuses.length)} mutants: ${String(count("Killed"))} killed, ` +
   `${String(count("Survived"))} survived, ${String(count("NoCoverage"))} without coverage, ` +
-  `${String(count("Timeout"))} timed out.`;
+  `${String(count("Timeout"))} timed out, ` +
+  `${String(statuses.length - detected - undetected)} ignored or errored.`;
 
 console.log(counts);
 
@@ -32,9 +38,7 @@ if (count("Killed") === 0) {
 }
 
 // Stryker's formula, so the summary matches the HTML report.
-const detected = count("Killed") + count("Timeout");
-const score =
-  (100 * detected) / (detected + count("Survived") + count("NoCoverage"));
+const score = (100 * detected) / (detected + undetected);
 
 // Set only on GitHub Actions, which renders the file on the run's page.
 const summary = process.env.GITHUB_STEP_SUMMARY;

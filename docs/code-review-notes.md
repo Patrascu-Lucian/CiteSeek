@@ -3340,3 +3340,21 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **a layout is part of every page it wraps.** A claim about what a page shows has to be
   checked on the page as served, because the page's own file is only one of the things rendering it.
+
+## A total that stops adding up on the first run with an error, 15 September 2026
+
+- **Issue**: review found `check-mutation-report.mts` printing every mutant in the report as its total,
+  with only four statuses beneath it. Stryker also reports `Ignored`, `CompileError` and
+  `RuntimeError`. The score already left those out, as Stryker's own formula does, but the line above
+  it would print a total larger than its parts on the first run to produce one — in the run summary,
+  the one place the line is read without the report beside it.
+
+- **Cause**: the breakdown was written from the statuses one run happened to contain. 659 + 150 + 12 +
+  9 is 830, so it looked complete.
+
+- **Fix**: the remainder is printed as a fifth term, "ignored or errored", and the score is computed
+  from the same detected and undetected counts, so the line and the score come from one set of
+  numbers. Checked against a copy of the report with one mutant marked as a compile error.
+
+- **Lesson**: **a breakdown checked against one example is a breakdown of that example.** A sum that
+  happens to match is not a sum that has to.
