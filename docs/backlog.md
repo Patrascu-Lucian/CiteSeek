@@ -3303,6 +3303,13 @@ Contact, Local mode, Privacy Policy, Cookies and Terms — each a 503 straight b
 drops its links while `MAINTENANCE` is on, and the maintenance spec counts the links on the served
 holding page.
 
+↳ **Which makes two readers of the switch.** The proxy decides whether a route answers the holding
+page and the footer decides whether to show its links, both through `maintenanceOn()` and both per
+request. Neither can see a change until the process restarts: under `next start` the value it
+starts with reaches both, and on Vercel the redeploy above does, one deploy for both. If they ever
+disagreed, the result would be a holding page with a working footer, or a live site without its
+footer links, and neither file would show why.
+
 ## A sign-in acknowledgement, and the cookies nobody lists, 12 September 2026
 
 Two ideas raised while deciding the sign-in page's hierarchy, parked here rather than folded into it.
