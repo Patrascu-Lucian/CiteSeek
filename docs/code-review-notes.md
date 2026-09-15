@@ -3410,3 +3410,23 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **a setting you cannot see is not a setting that is off.** Ask the tool what it
   applied rather than what it was told, and check which copy of the tool answered.
+
+## A guard against zero kills, on a failure that still kills, 15 September 2026
+
+- **Issue**: `check-mutation-report.mts` is the second guard against stryker-js#6210, and it failed a
+  run in which no mutant was killed. Checking the release notes' claim that it catches the Vitest 5
+  failure found that it could not. On Vitest 5 the per-test filter matches nothing, but only covered
+  mutants run through it: Stryker plans a static mutant with no filter and reruns every test for it,
+  and the last report has 56 static mutants killed. A broken run would still count those, pass the
+  check, and publish the collapsed score. The issue's reporter saw 47.36 fall to 2.96, not to zero.
+
+- **Cause**: the guard was written from the failure's description, "every covered mutant survives",
+  and then counted every mutant. The two sets differ by exactly the mutants the bug cannot reach.
+
+- **Fix**: the check counts kills among mutants that are not static. Run against a copy of the report
+  with every covered kill turned into a survivor, the old check passed and the new one fails. Vitest 5
+  itself was not run; the planner's source, which gives a static mutant no test filter, is the
+  evidence that those mutants stay killed.
+
+- **Lesson**: **test a tripwire against the failure, not its description.** "Zero killed" was a
+  reasonable reading of "every mutant survives", and the report said otherwise the whole time.

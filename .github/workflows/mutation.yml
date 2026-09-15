@@ -36,7 +36,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Red only when no mutant was killed; the score goes to the run summary.
+      # Red only when no covered mutant was killed, which means the runner broke;
+      # the score goes to the run summary.
       - name: Run the mutation tests
         run: pnpm test:mutation
 
