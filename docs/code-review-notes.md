@@ -3358,3 +3358,24 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **a breakdown checked against one example is a breakdown of that example.** A sum that
   happens to match is not a sum that has to.
+
+## A null that means "weakest" for two signals and not for the third, 15 September 2026
+
+- **Issue**: review found `margin(k)` returning null when a question retrieved fewer than k passages,
+  and `cutSignal` reading every null as the weakest possible reading. For lexical rank and closeness
+  that is what null means: no term matched, nothing retrieved. For margin it is the opposite. A
+  question whose floor-filtered retrieval holds three close passages is plausibly a precise one, and
+  the cut would refuse it before any question that retrieved k.
+
+- **Cause**: the convention was set once, on `Signal`, and the third signal inherited it without its
+  meaning being checked. It never fires today: the eval disables the floor, so every case holds the
+  full ranking and `margin` always finds its k-th passage.
+
+- **Fix**: a clause on `margin` saying where the null is safe and where it is not, rather than a
+  change to an eval-only function no caller can reach the case through. Review also flagged
+  `cutSignal`'s fallback, `answerable[allowed] ?? POSITIVE_INFINITY`, as refusing everything when the
+  budget passes the last answerable reading. That is correct — refusing everything still refuses no
+  more than the budget — and now says so beside the code.
+
+- **Lesson**: **a shared convention has to be read against each thing that inherits it.** A type's
+  doc comment states what null means once; every implementation still has to mean it.
