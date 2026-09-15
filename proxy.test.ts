@@ -63,3 +63,27 @@ describe("the maintenance switch", () => {
     expect(get("/").status).not.toBe(503);
   });
 });
+
+describe("the nonce", () => {
+  const onRequest = (response: Response) =>
+    response.headers.get("x-middleware-request-content-security-policy");
+
+  it("reaches the page on the request's policy header, which is where Next reads it", () => {
+    const response = get("/");
+
+    expect(onRequest(response)).toContain("'nonce-");
+    expect(onRequest(response)).toBe(
+      response.headers.get("Content-Security-Policy"),
+    );
+  });
+
+  it("reaches the holding page the same way", () => {
+    process.env.MAINTENANCE = "on";
+    const response = get("/");
+
+    expect(onRequest(response)).toContain("'nonce-");
+    expect(onRequest(response)).toBe(
+      response.headers.get("Content-Security-Policy"),
+    );
+  });
+});

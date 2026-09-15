@@ -28,24 +28,25 @@ import { contentSecurityPolicy } from "@/lib/security/content-security-policy";
 const GUARDED = [/^\/w(\/|$)/, /^\/account$/];
 
 export function proxy(request: NextRequest) {
-  const nonce = btoa(crypto.randomUUID());
-
-  // Next reads the nonce off the *request*, not the response.
-  const headers = new Headers(request.headers);
-  headers.set("x-nonce", nonce);
-
   const path = request.nextUrl.pathname;
+  const held = maintenanceOn() && path !== MAINTENANCE_PATH;
+  const policy = contentSecurityPolicy(btoa(crypto.randomUUID()), {
+    path: held ? MAINTENANCE_PATH : path,
+  });
 
-  if (maintenanceOn() && path !== MAINTENANCE_PATH) {
+  // On the request, because Next reads the nonce from the request's policy
+  // header. It also copies response headers onto the request, so the response
+  // header alone works too, but that copy is not a documented contract.
+  const headers = new Headers(request.headers);
+  headers.set("Content-Security-Policy", policy);
+
+  if (held) {
     const holding = NextResponse.rewrite(
       new URL(MAINTENANCE_PATH, request.url),
-      { status: 503, headers: { "Retry-After": "600" } },
+      { status: 503, headers: { "Retry-After": "600" }, request: { headers } },
     );
 
-    holding.headers.set(
-      "Content-Security-Policy",
-      contentSecurityPolicy(nonce, { path: MAINTENANCE_PATH }),
-    );
+    holding.headers.set("Content-Security-Policy", policy);
 
     return holding;
   }
@@ -61,10 +62,7 @@ export function proxy(request: NextRequest) {
       ? NextResponse.redirect(signInFor(request))
       : NextResponse.next({ request: { headers } });
 
-  response.headers.set(
-    "Content-Security-Policy",
-    contentSecurityPolicy(nonce, { path }),
-  );
+  response.headers.set("Content-Security-Policy", policy);
 
   return response;
 }
