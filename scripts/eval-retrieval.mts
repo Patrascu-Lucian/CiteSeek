@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { eq } from "drizzle-orm";
 
 import { loadLocalEnv } from "../lib/env/load-local-env.ts";
+import { namesHost } from "../lib/env/named-host.ts";
 import {
   FOLLOW_UP_SET,
   GOLDEN_SET,
@@ -45,9 +46,9 @@ process.env.DATABASE_URL = connectionString;
 const hostname = new URL(connectionString).hostname;
 const LOCAL = /^(localhost|127\.0\.0\.1|::1|host\.docker\.internal)$/;
 
-/* The seed's guard, duplicated: this writes documents and spends quota, so it
-   must not reach a database nobody named. Worth collapsing into one helper. */
-const named = confirmedHost !== undefined && hostname.includes(confirmedHost);
+// This writes documents and spends quota, so it must not reach a database
+// nobody named.
+const named = namesHost(confirmedHost, hostname);
 
 if (!LOCAL.test(hostname) && !named) {
   throw new Error(

@@ -8,12 +8,18 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadLocalEnv } from "../lib/env/load-local-env.ts";
+import { namesHost } from "../lib/env/named-host.ts";
 import { GOLDEN_SET, UNCOVERED_SET } from "../eval/golden-set.ts";
 import { cites } from "../eval/scoring.ts";
 
+// Read before `loadLocalEnv`: `.env.local` must not be what decides to spend
+// money, or which database to write to.
+const exportedChatProvider = process.env.CHAT_PROVIDER;
+const confirmedHost = process.env.EVAL_HOST;
+
 loadLocalEnv();
 
-if (process.env.CHAT_PROVIDER?.trim().toLowerCase() !== "google") {
+if (exportedChatProvider?.trim().toLowerCase() !== "google") {
   throw new Error(
     "Export CHAT_PROVIDER=google. The fake model returns a fixture, which would " +
       "score the fixture rather than the prompt.",
@@ -21,7 +27,8 @@ if (process.env.CHAT_PROVIDER?.trim().toLowerCase() !== "google") {
 }
 
 /* The floor is calibrated per embedding model, so under a different one
-   "reached the model" names a different set of questions. */
+   "reached the model" names a different set of questions. Read after the load,
+   unlike the two above: it checks what the run embeds with, not who chose. */
 const embeddings = process.env.EMBEDDINGS_PROVIDER?.trim().toLowerCase();
 if (embeddings && embeddings !== "google") {
   throw new Error(
@@ -40,9 +47,7 @@ const LOCAL = /^(localhost|127\.0\.0\.1|::1|host\.docker\.internal)$/;
 
 /* `eval-retrieval`'s guard: this writes documents and spends quota, so it must
    not reach a database nobody named. */
-const named =
-  process.env.EVAL_HOST !== undefined &&
-  hostname.includes(process.env.EVAL_HOST);
+const named = namesHost(confirmedHost, hostname);
 
 if (!LOCAL.test(hostname) && !named) {
   throw new Error(
