@@ -149,7 +149,9 @@ export const closeness: Signal = (one) =>
 export const lexicalRank: Signal = (one) => one.lexicalTop;
 
 /** From the closest passage to the k-th. One clear match should open a wider
- * gap than a question that pulls a whole topic at similar distances. */
+ * gap than a question that pulls a whole topic at similar distances. Fewer than
+ * k passages is null, which `cutSignal` ranks weakest: safe on the unfiltered
+ * ranking the eval passes, not on one the floor has already cut. */
 export function margin(k: number): Signal {
   return (one) => {
     const kth = one.retrieved[k - 1];
@@ -193,7 +195,8 @@ export function cutSignal(
 
   return allowedRefusals.map((allowed) => {
     // Refusing strictly below the (allowed + 1)-th lowest keeps ties, so a cut
-    // never refuses more than it was allowed to.
+    // never refuses more than it was allowed to. A budget past the last reading
+    // refuses everything, which is still within it.
     const threshold = answerable[allowed] ?? Number.POSITIVE_INFINITY;
     const refused = (one: SignalCase) => read(one) < threshold;
     const removed: SignalCut["removed"] = {};
