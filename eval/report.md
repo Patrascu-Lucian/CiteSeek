@@ -143,14 +143,14 @@ distance from the closest passage to the 8th, read from the unfiltered
 ranking. The threshold is read off the same questions it is scored against,
 so every row is in-sample.
 
-| signal | answerable refused | golden removed | uncovered removed |
-| ------ | ------------------ | -------------- | ----------------- |
-| distance (baseline) | 0/40 | 2/5 | 0/15 |
-| distance (baseline) | 1/40 | 2/5 | 1/15 |
-| distance (baseline) | 2/40 | 2/5 | 3/15 |
-| lexical rank | 0/40 | 0/5 | 0/15 |
-| lexical rank | 0/40 | 0/5 | 0/15 |
-| lexical rank | 2/40 | 0/5 | 0/15 |
-| margin@8 | 0/40 | 0/5 | 0/15 |
-| margin@8 | 1/40 | 1/5 | 2/15 |
-| margin@8 | 2/40 | 4/5 | 2/15 |
+| signal | refusals allowed | answerable refused | golden removed | uncovered removed |
+| ------ | ---------------- | ------------------ | -------------- | ----------------- |
+| distance (baseline) | 0 | 0/40 | 2/5 | 0/15 |
+| distance (baseline) | 1 | 1/40 | 2/5 | 1/15 |
+| distance (baseline) | 2 | 2/40 | 2/5 | 3/15 |
+| lexical rank | 0 | 0/40 | 0/5 | 0/15 |
+| lexical rank | 1 | 0/40 | 0/5 | 0/15 |
+| lexical rank | 2 | 2/40 | 0/5 | 0/15 |
+| margin@8 | 0 | 0/40 | 0/5 | 0/15 |
+| margin@8 | 1 | 1/40 | 1/5 | 2/15 |
+| margin@8 | 2 | 2/40 | 4/5 | 2/15 |

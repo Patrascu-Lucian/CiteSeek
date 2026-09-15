@@ -203,6 +203,7 @@ describe("cutSignal", () => {
     const [cut] = cutSignal(cases, 0.4, lexicalRank, [0]);
 
     expect(cut).toEqual({
+      allowed: 0,
       addedRefusals: 0,
       removed: {
         golden: { removed: 1, admitted: 1 },
@@ -268,5 +269,19 @@ describe("cutSignal", () => {
 
     expect(cut?.addedRefusals).toBe(0);
     expect(cut?.removed.golden).toEqual({ removed: 0, admitted: 1 });
+  });
+
+  it("reports the budget apart from what it spent, which a tie can make smaller", () => {
+    const [cut] = cutSignal(
+      [
+        signalCase("golden", true, [0.3], 0.5),
+        signalCase("golden", true, [0.3], 0.5),
+      ],
+      0.4,
+      lexicalRank,
+      [1],
+    );
+
+    expect(cut).toMatchObject({ allowed: 1, addedRefusals: 0 });
   });
 });

@@ -3263,3 +3263,23 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **a test's name is a claim about its input, and nothing checks the claim.** Earlier
   entries in this file found tests like these by hand, one at a time, by breaking the code on purpose.
   Mutation testing is that habit run over every line, and its first pass found nine at once.
+
+## A report whose rows could not say which row they were, 15 September 2026
+
+- **Issue**: review found two rows of `eval/report.md`'s second-opinion table identical, byte for
+  byte. `cutSignal` returns one row per budget of answerable refusals — 0, 1 and 2 — and the script
+  printed all three under the signal's name with no column saying which budget each was.
+
+- **Cause**: a row carried what its cut spent, not what it was allowed. Those differ exactly when
+  answerable readings tie: the threshold is the (allowed + 1)-th lowest reading, and a tie keeps it
+  from moving, which is the documented behavior. So correct output read as a rendering bug, in the
+  one file written to be compared across runs. ADR 055's hand-written table shows only the
+  zero-budget row, which is why the ambiguity lived in the generated file alone.
+
+- **Fix**: `SignalCut` carries `allowed`, the table has a column for it, and a test gives two tied
+  answerable questions a budget of one and checks that the row says one allowed and none spent. The
+  committed report was edited to the new layout rather than regenerated: its rows come out in budget
+  order, and regenerating would call the provider again for numbers that cannot have changed.
+
+- **Lesson**: **a row has to carry its own key.** Output that is right but cannot be told apart from
+  a bug costs a reader the same time as the bug.
