@@ -705,7 +705,7 @@ Coverage says those lines ran, not that a test would notice them change, so `pnp
 measures the second: across `lib/rag` and `lib/ai`, 80.5% of 830 mutants were caught on the first
 run, with no threshold set against a number this new. Reading the rest found nine tests that could not
 fail on the behavior they are named for, which the percentage alone would never have said. With those
-fixed and the missing tests added, it is 86.5%
+fixed and the missing tests added, it is 86.5%, re-measured every week on `main`
 ([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)).
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)
