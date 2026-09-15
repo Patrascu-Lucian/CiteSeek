@@ -3100,6 +3100,15 @@ tests, 117 E2E and a production build, green.
   believing a comparison, ask what varies between the two sides that is not the thing under test.
   And an explanation offered for a measurement is not part of the measurement.
 
+- **↳ Established, 15 September 2026**: a later review read Next's source, and `node_modules`
+  confirms it. Next 16.3.4 takes the nonce from the request's `content-security-policy` header, never
+  from `x-nonce`, and before rendering it copies every header the proxy set on its _response_ onto
+  the request. The response header was the carrier on both branches, which is why forwarding request
+  headers changed nothing, and nothing anywhere read `x-nonce`. Both branches now set the policy on
+  the request headers too and `x-nonce` is gone, so the page no longer rests on an undocumented copy.
+  Unit tests fail if either branch stops, and a served build still carries one nonce in header and
+  body on both. The measurement had been right; the explanation was one file nobody had opened.
+
 ## A clean sheet from one run, 13 September 2026
 
 - **Issue**: measuring what the model does with the unanswerable questions that clear the relevance
