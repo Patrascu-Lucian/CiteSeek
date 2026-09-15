@@ -147,6 +147,27 @@ sorted as not worth a test, equivalent, or caught elsewhere. The counts above ar
 
 A sort is a hypothesis about a test until the test is written.
 
+↳ **The rest of the first two buckets, fixed.** Every other module went the way chunking did: change
+the fixture until its mutants fail it, add the test that was missing, and check by running Stryker on
+that file alone. Measured over the whole scope with every change in place, **86.5%** of the 830
+mutants are now detected, up from 80.5%, and 112 remain undetected against 162.
+
+| file              | undetected before | after |
+| ----------------- | ----------------- | ----- |
+| `chunking.ts`     | 43                | 23    |
+| `rewrite.ts`      | 23                | 14    |
+| `eval-metrics.ts` | 16                | 2     |
+| `extract.ts`      | 13                | 8     |
+| `embeddings.ts`   | 2                 | 1     |
+| `fusion.ts`       | 1                 | 0     |
+| **all files**     | 162               | 112   |
+
+Every mutant still undetected is one the sort set aside as not worth a test, equivalent, or caught
+only outside the scoped config, and four of those were killed along the way by the new tests. There is
+one addition. The corrupt-PDF message was killed at baseline only by the old OCR test, whose regex
+accepted either message; with that test fixed it survives, as wording, like the Word message beside
+it.
+
 ## Decision
 
 **No threshold, in CI or anywhere.** `thresholds.break` is null. A score first measured this week is

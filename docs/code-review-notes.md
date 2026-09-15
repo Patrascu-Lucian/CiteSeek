@@ -3236,3 +3236,30 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **an issue number is a claim about a moment.** A link makes a reason look checked
   whether or not anyone opened it. Read the issue's state before its number goes into a design.
+
+## Nine tests that passed whether or not the code worked, 15 September 2026
+
+- **Issue**: the first mutation run over `lib/rag` and `lib/ai` left 162 changes to the code
+  undetected, and sorting them found nine tests that could not fail on the behavior they are named
+  for. The OCR test fed bytes the PDF parser cannot open, so the corrupt-file branch answered, and
+  its regex accepted that message too; the empty-text branch it names had never run under test. The
+  rank-1 fusion score used `toBeCloseTo`, whose default two decimal places cannot tell 1/61 from 1/59.
+  Chunking's whitespace tests used fixtures in which neither a whitespace-only segment nor a leading
+  space could form. The recall test had one chunk and one passage, so "any" and "every" agreed. And
+  `cutSignal`'s test, written this milestone, listed its cases already in sorted order.
+
+- **Cause**: each checks the right property against an input that never reaches the path. Each was
+  written beside the code it tests, and a fixture shaped like the case the code was written for cannot
+  catch the code leaving it. Coverage reported every one of those lines as run, because other inputs
+  ran them.
+
+- **Fix**: each fixture was changed until the mutants it missed fail it — a real one-page PDF with no
+  text, an exact `toBe`, a paragraph of spaces before one too long to merge, a second chunk that covers
+  nothing, answerable readings out of order — and the behaviors with no test at all got one. Writing
+  them also corrected the sort three times, which ADR 056 records: a mutant sorted under a test that
+  could not fail changes nothing, one sorted as changing nothing emitted a duplicate chunk, and one
+  had never had a test that could catch it.
+
+- **Lesson**: **a test's name is a claim about its input, and nothing checks the claim.** Earlier
+  entries in this file found tests like these by hand, one at a time, by breaking the code on purpose.
+  Mutation testing is that habit run over every line, and its first pass found nine at once.
