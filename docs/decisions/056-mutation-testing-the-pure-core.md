@@ -184,7 +184,8 @@ is not a missing test.
 `pnpm test:mutation` on every push to `main`, which here means every release, and on demand. It writes
 the score to the run's summary, keeps the HTML report for 30 days, and goes red only when no covered
 mutant was killed. A pull request is the wrong place for it: a check there asks its author to make it
-pass, and a survivor needs sorting first.
+pass, and a survivor needs sorting first. Its first run, on the 1.8.0 release merge, took 1.9
+minutes on a GitHub runner, about the same as locally.
 
 A weekly schedule was the first choice, changed before it ever ran. A schedule runs on the default
 branch, and `main` takes nothing but release merges, so every run between releases would have
