@@ -1,0 +1,47 @@
+name: Mutation
+
+# Not on pull requests: the score is read, not gated (ADR 056).
+on:
+  schedule:
+    # Runs on the default branch, so this measures `main`. Off the hour, because
+    # GitHub delays scheduled runs queued at the top of it, and drops some.
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: mutation
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    name: Mutation score
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Red only when no mutant was killed; the score goes to the run summary.
+      - name: Run the mutation tests
+        run: pnpm test:mutation
+
+      - name: Upload the report
+        if: ${{ always() && hashFiles('reports/mutation/index.html') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          retention-days: 30

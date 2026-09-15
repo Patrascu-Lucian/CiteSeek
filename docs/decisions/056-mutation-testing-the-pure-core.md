@@ -175,10 +175,17 @@ not a number to pin, and a gate on it would reward tests that kill mutants over 
 defects. The sort above is that reason in numbers: most of what the score counts against the suite
 is not a missing test.
 
+**Measured weekly on `main`, never on a pull request.** `.github/workflows/mutation.yml` runs
+`pnpm test:mutation` every Monday and on demand, writes the score to the run's summary and keeps the
+HTML report for 30 days. It goes red only when no mutant was killed. A schedule runs on the default
+branch, so the number describes what was released. A pull request is the wrong place for it: a check
+there asks its author to make it pass, and a survivor needs sorting first.
+
 ## Consequences
 
-- **`pnpm test:mutation` is a local command for now.** Whether it also runs on a schedule is decided
-  after the survivors are read.
+- **A quiet repository stops measuring.** GitHub turns off a public repository's scheduled workflows
+  after 60 days without activity, and they stay off until turned back on from the Actions tab. The
+  score is only as recent as the last run in the history.
 - **The score is not a target.** 61 of the 162 undetected mutants are string literals, and 56 of
   those sort among the not worth a test. Chasing a higher number would manufacture the decorative
   tests this exists to find.
