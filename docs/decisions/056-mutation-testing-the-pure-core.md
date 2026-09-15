@@ -37,7 +37,12 @@ stryker-js#6210, open: on Vitest 5 the runner's per-test filter matches nothing,
 mutant survives. The score collapses with an unchanged suite, and a collapsed score reads as a
 finding rather than as a broken instrument. Two guards: Dependabot ignores major bumps of `vitest`
 and `@vitest/coverage-v8`, and `pnpm test:mutation` ends with `scripts/check-mutation-report.mts`,
-which fails a run in which no mutant was killed.
+which fails a run in which no covered mutant was killed.
+
+↳ **Covered, not all, corrected 15 September 2026.** The check first counted every kill. Stryker
+runs a static mutant against every test with no filter, so a run broken this way still kills those —
+56 in the last report — and the check would have passed it. It now counts kills among the mutants
+that are not static, which are the only ones the broken filter decides.
 
 ## Baseline, 14 September 2026
 
