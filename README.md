@@ -512,7 +512,7 @@ weaker than "says so when nothing relevant is found" sounds, and the observed be
 because the prompt catches what the floor misses.
 
 The leak's real cost is smaller and different: many of those refusals attach a citation marker,
-which the prompt's own rules forbid on a refusal — 2 of the golden five in each run, and 11 to 13 of
+which the prompt's own rules forbid on a refusal — 2 of the golden five in each run, and 9 to 13 of
 the adversarial fifteen, where a question about the edge of a topic draws a citation to the topic.
 The counts move from run to run, so the file carries the latest rather than a settled number.
 Rewording that rule was tried three ways on the five golden questions and the difference was too
