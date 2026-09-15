@@ -58,9 +58,11 @@ describe("getEmbedder", () => {
       usage: { tokens: 7 },
     });
 
-    await getEmbedder()(["text"], "RETRIEVAL_DOCUMENT");
+    const { tokens } = await getEmbedder()(["text"], "RETRIEVAL_DOCUMENT");
 
     expect(embedMany).toHaveBeenCalledOnce();
+    // The count the meter is charged with, so it has to be the provider's.
+    expect(tokens).toBe(7);
   });
 });
 
