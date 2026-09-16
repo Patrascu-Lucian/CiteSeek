@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -34,7 +34,7 @@ describe("the two dark palettes", () => {
   const system = tokensIn(":root:not(.light) {");
 
   it("both exist and are not empty", () => {
-    expect(explicit.size).toBeGreaterThan(20);
+    expect(explicit.size).toBeGreaterThan(15);
     expect(system.size).toBe(explicit.size);
   });
 
@@ -87,5 +87,58 @@ describe("the light choice can beat a dark operating system", () => {
     // leave the page background stuck in the light palette.
     expect(CSS).toContain("&:is(.dark *)");
     expect(CSS).toMatch(/body\s*\{[^}]*bg-background/);
+  });
+});
+
+/**
+ * A token the scaffold left behind is invisible: it parses, it cascades, and
+ * nothing reads it. ADR 023 deleted `--sidebar-*` for that reason and missed
+ * `--chart-*`, which outlived it by five milestones.
+ */
+
+const ROOT = join(import.meta.dirname, "..");
+const SOURCE = ["app", "components", "lib"];
+
+/** Every color `@theme inline` exposes, as the suffix a utility would carry. */
+function themeColors(): string[] {
+  const start = CSS.indexOf("@theme inline");
+  const block = CSS.slice(start, CSS.indexOf("\n}", start));
+
+  return [...block.matchAll(/^\s*--color-([\w-]+):/gm)].map(
+    (match) => match[1]!,
+  );
+}
+
+function sourceFiles(): string[] {
+  return SOURCE.flatMap((dir) =>
+    readdirSync(join(ROOT, dir), { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && /\.(tsx?|css)$/.test(entry.name))
+      .map((entry) => join(entry.parentPath, entry.name))
+      .filter((path) => path !== join(ROOT, "app", "globals.css")),
+  );
+}
+
+/** `bg-accent` is used and `text-accent-foreground` is not, but shadcn emits the
+ * pair together — half a pair renders the next component it generates unstyled. */
+const KEPT = new Set(["accent-foreground"]);
+
+describe("the palette carries nothing the app never asks for", () => {
+  const files = sourceFiles();
+  const source = files.map((file) => readFileSync(file, "utf8")).join("\n");
+
+  it("reads the source it checks against, so it cannot pass on an empty scan", () => {
+    expect(files.length).toBeGreaterThan(100);
+    expect(source).toContain("bg-background");
+  });
+
+  it("exposes no color nothing reads", () => {
+    const unread = themeColors().filter(
+      (name) =>
+        !KEPT.has(name) &&
+        !source.includes(`-${name}`) &&
+        !source.includes(`var(--${name})`),
+    );
+
+    expect(unread).toEqual([]);
   });
 });

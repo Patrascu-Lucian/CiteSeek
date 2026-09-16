@@ -78,6 +78,15 @@ gray at 20% — and it is the strongest of the set.
 The 32 lines of `--sidebar-*` tokens went with this change. They came from the scaffold and no
 component has ever read them.
 
+↳ **The same sweep missed `--chart-1` … `--chart-5`, found 16 September 2026.** Twenty more lines
+from the scaffold: five values in each of the three palette blocks and five `@theme inline`
+mappings, and the usage dashboard draws its bars with `bg-primary` instead. They are gone, and
+`app/globals.test.ts` now fails on any color the palette exposes that no file under `app`,
+`components` or `lib` reads — which is what would have caught both sets rather than one.
+`--accent-foreground` is the one exception, listed with its reason: shadcn generates
+`text-accent-foreground` alongside the `bg-accent` the citation chip already uses, and half a pair
+renders the next component unstyled.
+
 ## Consequences
 
 Indigo is a conventional choice and will not be mistaken for a designed brand. That is accepted:
