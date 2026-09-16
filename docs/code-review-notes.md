@@ -3499,3 +3499,31 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **an advisory is a claim about a version, and versions are readable.** Two numbers in
   one alert cannot both be the earliest fix; the registry settles it in the time it takes to argue.
+
+## A flex child that grew along an axis that had moved, 16 September 2026
+
+- **Issue**: moving the composer's send button to its own row collapsed the field to a single row.
+  Two E2E tests caught it — "opens at one row and grows with the question" measured 28px where it
+  expected more than 56 — and both had passed for months before this change.
+
+- **Cause**: the textarea carries `flex-1`, which is `flex: 1 1 0%` — grow, shrink, and **a basis of
+  zero along the main axis**. Inline the main axis is horizontal, so that basis governs width and the
+  inline height `fit()` measured is what the browser uses. Stacking sets `flex-col`, the main axis
+  becomes vertical, and the same class now governs height: the basis of zero wins over the inline
+  height and the field renders one row tall whatever it contains.
+
+- **Fix**: the field flexes only while it is beside the button — `flex-1` inline, `w-full` stacked.
+  Measured both ways against the stylesheet the build produced: 68px of inline height survives inline
+  and stacked with `w-full`, and collapses to 28px stacked with `flex-1`, which is the number CI
+  reported.
+
+- **Why the local check missed it**: the harness written to verify the stacked geometry gave its
+  textarea `rows="3"` rather than the inline height the component sets, so the field had an intrinsic
+  height to fall back on and the collapse never appeared. **A harness that substitutes for the thing
+  it stands in for is measuring something else** — the same shape as the stale-build and
+  two-request mistakes already in this file.
+
+- **Lesson**: **a utility class is relative to an axis, and changing `flex-direction` moves the axis
+  under every child.** `flex-1`, `items-*`, `self-*` and `w-full` all mean something different after
+  that switch, so a layout that flips direction has to be measured in both states, not reasoned about
+  from one.
