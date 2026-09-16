@@ -22,13 +22,12 @@ describe("Landing", () => {
     expect(demoLink).toHaveAttribute("href", "/demo");
   });
 
-  it("offers a sign-in path", () => {
+  it("offers a sign-in path, named for what signing in adds", () => {
     render(<Landing {...anonymous} />);
 
-    expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute(
-      "href",
-      "/sign-in",
-    );
+    expect(
+      screen.getByRole("link", { name: /sign in to upload your own/i }),
+    ).toHaveAttribute("href", "/sign-in");
   });
 
   it("claims only the guarantee that holds on every branch", () => {
