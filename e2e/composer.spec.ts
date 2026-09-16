@@ -54,13 +54,35 @@ test("keeps the send control inside the field, and a real target", async ({
     };
   };
 
-  // Beside a one-line question; under a grown one, bottom edges aligned.
+  // Beside a one-line question, bottom edges aligned; below a wrapped one, in
+  // its own row under the field rather than biting a corner out of it.
   const beside = await offset();
+  expect(beside.bottomGap).toBeCloseTo(0, 0);
+
   await field.fill("one\ntwo\nthree");
   const under = await offset();
 
   expect(under.top).toBeGreaterThan(beside.top);
-  expect(under.bottomGap).toBeCloseTo(0, 0);
+  expect(under.bottomGap).toBeLessThan(0);
+});
+
+test("keeps the control row below the field until the draft is sent", async ({
+  page,
+}) => {
+  const field = page.getByRole("textbox", { name: /ask a question/i });
+  const row = page.locator("[data-stacked]");
+
+  await expect(row).toHaveCount(0);
+  await field.fill("one\ntwo\nthree");
+  await expect(row).toHaveCount(1);
+
+  // Backspacing to something short leaves it stacked: the widened field would
+  // un-wrap the text, and re-measuring on the way down oscillates.
+  await field.fill("one");
+  await expect(row).toHaveCount(1);
+
+  await field.fill("");
+  await expect(row).toHaveCount(0);
 });
 
 test("has no violation where the label is now the only name", async ({

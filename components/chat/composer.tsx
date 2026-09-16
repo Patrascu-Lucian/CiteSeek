@@ -7,6 +7,7 @@ import {
 import { ArrowUp, Square } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * Enter sends, Shift+Enter newlines — hence a textarea, since a question about a
@@ -36,6 +37,7 @@ export function Composer({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [value, setValue] = useState("");
+  const [stacked, setStacked] = useState(false);
 
   /* `auto` first, or `scrollHeight` can only ever grow. The border is added back
      because `border-box` counts it in `height` and `scrollHeight` does not. */
@@ -48,12 +50,27 @@ export function Composer({
     element.style.height = `${element.scrollHeight + border}px`;
   }
 
+  /** Past a row and a half, because sub-pixel line heights make an exact
+   * two-row test read 1.98 rows and never fire. A layout the browser has not
+   * measured — jsdom — gives NaN here, which is not greater than 1.5. */
+  function wrapped(element: HTMLTextAreaElement): boolean {
+    const style = getComputedStyle(element);
+    const rows =
+      (element.scrollHeight -
+        parseFloat(style.paddingTop) -
+        parseFloat(style.paddingBottom)) /
+      parseFloat(style.lineHeight);
+
+    return rows > 1.5;
+  }
+
   function submit(event?: SyntheticEvent) {
     event?.preventDefault();
     const question = value.trim();
     if (question.length === 0 || isStreaming) return;
 
     setValue("");
+    setStacked(false);
     onSubmit(question);
     // Focus stays in the composer so a follow-up question can be typed without
     // reaching for the mouse.
@@ -77,7 +94,13 @@ export function Composer({
       </label>
 
       {/* The ring moves to the box, since the field no longer has its own edge. */}
-      <div className="border-input bg-background focus-within:ring-ring flex items-end gap-2 rounded-md border p-1.5 focus-within:ring-2">
+      <div
+        data-stacked={stacked || undefined}
+        className={cn(
+          "border-input bg-background focus-within:ring-ring flex gap-2 rounded-md border p-1.5 focus-within:ring-2",
+          stacked ? "flex-col" : "items-end",
+        )}
+      >
         <textarea
           id="chat-question"
           ref={textareaRef}
@@ -87,6 +110,12 @@ export function Composer({
           onChange={(event) => {
             setValue(event.target.value);
             fit(event.target);
+
+            /* One way per draft: stacking widens the field, which can un-wrap
+               the text that caused it, so measuring both ways oscillates. The
+               way back is an empty field, which `submit` also produces. */
+            if (event.target.value === "") setStacked(false);
+            else if (wrapped(event.target)) setStacked(true);
           }}
           onKeyDown={handleKeyDown}
           placeholder={`Ask a question about ${subject}…`}
@@ -99,8 +128,9 @@ export function Composer({
         {/*
           One button, not two swapped by a branch: it changes identity under a
           reader's focus the moment a stream opens, and a remount would drop that
-          focus to the body. `items-end` puts it beside a one-line question and
-          under a grown one.
+          focus to the body. Stacking is a class on this same element for the
+          same reason: a wrapper rendered only when stacked would remount it on
+          every transition instead of once per stream.
         */}
         <Button
           type={isStreaming ? "button" : "submit"}
@@ -108,7 +138,7 @@ export function Composer({
           size="icon"
           // Not the Button base's `rounded-lg`, which is rounder than the
           // `rounded-md` box it sits inside.
-          className="rounded-md"
+          className={cn("rounded-md", stacked && "self-end")}
           aria-label={isStreaming ? "Stop the answer" : "Send the question"}
           onClick={isStreaming ? onStop : undefined}
           disabled={isStreaming ? false : disabled || value.trim().length === 0}
