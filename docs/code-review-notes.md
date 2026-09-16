@@ -3527,3 +3527,29 @@ tests, 117 E2E and a production build, green.
   under every child.** `flex-1`, `items-*`, `self-*` and `w-full` all mean something different after
   that switch, so a layout that flips direction has to be measured in both states, not reasoned about
   from one.
+
+## A row that went down and would not come back up, 16 September 2026
+
+- **Issue**: with the send button moved to its own row, Shift+Enter dropped it correctly and deleting
+  that newline left it there. Only emptying the field restored the single row, which reads as stuck
+  rather than deliberate. Found by using it, not by a test — the tests asserted the behavior as
+  designed.
+
+- **Cause**: the transition was one way on purpose, and the reason was real: stacking frees the
+  button's width, so text that wraps beside it can fit on one row underneath, and measuring the
+  stacked width would unstack, re-wrap in the narrower row and stack again. The rule was written to
+  avoid that flicker and it also blocked the case that cannot flicker — a hard newline is two rows at
+  any width.
+
+- **Fix**: measure at one reference width instead of forbidding the way back. The question is always
+  read at the width it has _beside_ the button, so the decision cannot depend on the layout it
+  produced, and the row follows the question in both directions. A layout effect re-fits the height
+  after the row changes, since the width it was measured at has just moved.
+
+- **Measured first**: at 626px stacked and 586px inline, a hard newline reads 2.00 rows at both, and
+  eighteen words of "word" read 1.00 stacked against 2.00 inline — the case that would oscillate, and
+  the one the E2E test now types into. The unit tests cannot see it, since jsdom lays nothing out,
+  and the flicker needs a keystroke _after_ stacking to appear: nothing re-measures until then.
+
+- **Lesson**: **a one-way rule is a way of not measuring.** It was cheaper than finding the reference
+  width, and it bought the flicker's absence with a control that ignores the reader half the time.

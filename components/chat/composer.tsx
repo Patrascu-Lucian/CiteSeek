@@ -1,6 +1,7 @@
 import {
   type KeyboardEvent,
   type SyntheticEvent,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -36,6 +37,7 @@ export function Composer({
   const subject = isDemo ? "the handbook" : "your documents";
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sendRef = useRef<HTMLButtonElement>(null);
   const [value, setValue] = useState("");
   const [stacked, setStacked] = useState(false);
 
@@ -50,19 +52,45 @@ export function Composer({
     element.style.height = `${element.scrollHeight + border}px`;
   }
 
-  /** Past a row and a half, because sub-pixel line heights make an exact
-   * two-row test read 1.98 rows and never fire. A layout the browser has not
-   * measured — jsdom — gives NaN here, which is not greater than 1.5. */
-  function wrapped(element: HTMLTextAreaElement): boolean {
+  /* Always the width it has beside the button: read at the stacked width, a
+     question that only wraps beside it unstacks, re-wraps in the narrower row
+     and stacks again. Past 1.5 rows rather than 2, because sub-pixel line
+     heights read an exact two rows as 1.98. */
+  function rowsBesideTheButton(element: HTMLTextAreaElement): number {
     const style = getComputedStyle(element);
-    const rows =
-      (element.scrollHeight -
+    const row = element.parentElement;
+    const gap = row ? parseFloat(getComputedStyle(row).columnGap) : Number.NaN;
+    const beside =
+      element.clientWidth - (sendRef.current?.offsetWidth ?? Number.NaN) - gap;
+
+    const flex = element.style.flex;
+    const width = element.style.width;
+    const height = element.style.height;
+    if (stacked && Number.isFinite(beside)) {
+      // A flex item takes its size from the container, which would ignore the
+      // width this is measuring at.
+      element.style.flex = "none";
+      element.style.width = `${beside}px`;
+    }
+    element.style.height = "auto";
+    const content = element.scrollHeight;
+    element.style.height = height;
+    element.style.width = width;
+    element.style.flex = flex;
+
+    return (
+      (content -
         parseFloat(style.paddingTop) -
         parseFloat(style.paddingBottom)) /
-      parseFloat(style.lineHeight);
-
-    return rows > 1.5;
+      parseFloat(style.lineHeight)
+    );
   }
+
+  // The width changes with the row, so the height measured in the other layout
+  // is wrong by a row: re-fit once the browser has laid the new one out.
+  useLayoutEffect(() => {
+    if (textareaRef.current) fit(textareaRef.current);
+  }, [stacked]);
 
   function submit(event?: SyntheticEvent) {
     event?.preventDefault();
@@ -110,12 +138,7 @@ export function Composer({
           onChange={(event) => {
             setValue(event.target.value);
             fit(event.target);
-
-            /* One way per draft: stacking widens the field, which can un-wrap
-               the text that caused it, so measuring both ways oscillates. The
-               way back is an empty field, which `submit` also produces. */
-            if (event.target.value === "") setStacked(false);
-            else if (wrapped(event.target)) setStacked(true);
+            setStacked(rowsBesideTheButton(event.target) > 1.5);
           }}
           onKeyDown={handleKeyDown}
           placeholder={`Ask a question about ${subject}…`}
@@ -139,6 +162,7 @@ export function Composer({
           every transition instead of once per stream.
         */}
         <Button
+          ref={sendRef}
           type={isStreaming ? "button" : "submit"}
           variant={isStreaming ? "outline" : "default"}
           size="icon"
