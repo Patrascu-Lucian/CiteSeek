@@ -47,6 +47,7 @@ test.describe("the landing page knows who is reading it", () => {
     });
     await expect(entries).toHaveCount(2);
     await expect(entries.first()).toHaveAttribute("href", "/demo");
+    await expect(page.getByText(/no account\. no card\./i)).toBeVisible();
     await expect(page.getByRole("link", { name: /get started/i })).toHaveCount(
       0,
     );

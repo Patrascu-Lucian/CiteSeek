@@ -23,6 +23,20 @@ describe("callsToAction", () => {
     expect(secondary.label).toMatch(/upload/i);
   });
 
+  it("answers what the demo costs, in a sentence rather than in the label", () => {
+    const { primary, note } = callsToAction(null);
+
+    expect(primary.label).toBe("Try the demo");
+    expect(note).toMatch(/no account/i);
+  });
+
+  it("says nothing about accounts to a visitor who has one, or a session", () => {
+    // The same bug as the labels below, one line lower: "No account" under a
+    // button that opens their own workspace.
+    expect(callsToAction(user).note).toBeUndefined();
+    expect(callsToAction(guest).note).toBeUndefined();
+  });
+
   it("sends a signed-in visitor to their workspace", () => {
     // The bug: this page told someone who had already signed up to sign up, and
     // offered them a guest mode they had outgrown.

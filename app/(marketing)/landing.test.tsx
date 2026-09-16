@@ -20,6 +20,23 @@ describe("Landing", () => {
 
     const demoLink = screen.getByRole("link", { name: /try the demo/i });
     expect(demoLink).toHaveAttribute("href", "/demo");
+    expect(screen.getByText(/no account\. no card\./i)).toBeInTheDocument();
+  });
+
+  it("renders no cost line for a reader whose calls to action carry none", () => {
+    render(
+      <Landing primary={anonymous.primary} secondary={anonymous.secondary} />,
+    );
+
+    expect(screen.queryByText(/no account/i)).not.toBeInTheDocument();
+  });
+
+  it("opens on the claim, not on a category label", () => {
+    render(<Landing {...anonymous} />);
+
+    const hero = screen.getAllByRole("heading", { level: 1 })[0]!
+      .parentElement!;
+    expect(hero.firstElementChild!.tagName).toBe("H1");
   });
 
   it("offers a sign-in path, named for what signing in adds", () => {
