@@ -122,7 +122,13 @@ export function Composer({
           // Grows with the question and stops at `max-h-40`, after which it
           // scrolls — a composer that can take the whole panel leaves nowhere to
           // read the answer it is about to get.
-          className="max-h-40 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent px-1.5 py-1 text-sm outline-none disabled:opacity-50"
+          className={cn(
+            "max-h-40 min-w-0 resize-none overflow-y-auto bg-transparent px-1.5 py-1 text-sm outline-none disabled:opacity-50",
+            // `flex-1` grows along the main axis, and stacking turns that axis
+            // vertical: it then overrides the height `fit` measured and collapses
+            // the field to one row.
+            stacked ? "w-full" : "flex-1",
+          )}
         />
 
         {/*
