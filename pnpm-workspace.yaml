@@ -48,6 +48,13 @@ overrides:
   # against maxTotalMergeKeys; below it a small crafted document costs seconds of
   # CPU. Nothing loads untrusted YAML here; the bump is free.
   js-yaml: ^4.3.2
+  # Dev only, and pinned exactly at 6.15.1 by typed-rest-client, which is why
+  # Dependabot reported it unfixable: an override is the only way past an exact
+  # pin. 6.15.2 is where the null guard lands in the comma + encodeValuesOnly
+  # path, read from the published tarballs rather than the advisory, which names
+  # both 6.15.2 and 6.16.0. Express already brings 6.16.0, so this collapses two
+  # copies into one, as postcss and esbuild do above.
+  qs: ^6.15.2
   # **Nothing to upgrade to.** GHSA-vwc7-r8mq-g2x9 / CVE-2026-76845, moderate,
   # symlink-following on extract: affected >=0.5.9 <=0.6.0, **patched versions
   # None**. `pnpm audit` disagrees and reports >=0.6.1 — npm's feed naming a
