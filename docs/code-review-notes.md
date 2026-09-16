@@ -3473,3 +3473,29 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **grep the identifier, not the prose.** A user-visible string is written in whatever
   case the assertion needs, so a search for it has to be case-insensitive — or run against the thing
   that does not vary, here the `href`.
+
+## An advisory that named two different fixed versions, 16 September 2026
+
+- **Issue**: Dependabot reported a moderate DoS in qs (`stringify` with `arrayFormat: "comma"` and
+  `encodeValuesOnly: true` throws on a null array entry) and said it could not fix it: "the latest
+  possible version that can be installed is 6.15.1". The same alert named the fix twice and
+  differently — "the earliest fixed version is 6.16.0" in its text, "Patched version 6.15.2" in its
+  table.
+
+- **Cause of the dead end**: `typed-rest-client`, which Stryker uses, depends on qs at an **exact**
+  pin rather than a range, so no bump of anything above it can move qs. That is what Dependabot
+  meant, and it is the same shape as the `sharp` and `postcss` pins already overridden here.
+
+- **What was checked rather than believed**: the published tarballs. 6.15.1 maps the array through
+  the raw encoder; 6.15.2 and 6.16.0 both guard null first. So 6.15.2 is the fixed version, and the
+  alert's "6.16.0" line is wrong. Reachability was read too: `typed-rest-client` defaults
+  `arrayFormat` to `"repeat"`, and Stryker's two call sites — `stryker init` and the dashboard
+  reporter — pass no format at all, while this repository runs neither. The path was already
+  unreachable.
+
+- **Fix**: an override at `^6.15.2`. Express already brought 6.16.0, so the tree collapses from two
+  copies to one, and the advisory's own proof of concept returns `a=,b` where it used to throw.
+  `pnpm-workspace.test.ts` fails if any qs in the lockfile falls back inside the affected range.
+
+- **Lesson**: **an advisory is a claim about a version, and versions are readable.** Two numbers in
+  one alert cannot both be the earliest fix; the registry settles it in the time it takes to argue.
