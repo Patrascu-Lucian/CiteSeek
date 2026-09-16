@@ -449,12 +449,15 @@ test.describe("sign-in page", () => {
   test("is reachable by keyboard from the landing page", async ({ page }) => {
     await page.goto("/");
 
-    const cta = page.getByRole("link", { name: /get started/i });
+    // The hero's second button since the demo took the first: the header's own
+    // "Sign in" is a different link, and this asserts the one in the page.
+    const cta = page.getByRole("link", { name: /sign in to upload your own/i });
 
     // Tabs until reached rather than a fixed count, which asserts the shape of
     // the navigation instead of the thing that matters. A hard-coded count broke
     // the moment the header was added — a layout change, not a lost affordance.
-    for (let i = 0; i < 10; i += 1) {
+    // Eight stops today; the bound only stops an endless loop.
+    for (let i = 0; i < 15; i += 1) {
       if (await cta.evaluate((el) => el === document.activeElement)) break;
       await page.keyboard.press("Tab");
     }

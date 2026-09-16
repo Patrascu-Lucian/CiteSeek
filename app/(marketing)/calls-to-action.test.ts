@@ -15,12 +15,12 @@ const user: Actor = {
 const guest: Actor = { type: "guest", id: "g1" };
 
 describe("callsToAction", () => {
-  it("offers signup and the demo to a first-time visitor", () => {
+  it("sends a first-time visitor to the demo before any form", () => {
     const { primary, secondary } = callsToAction(null);
 
-    expect(primary).toEqual({ href: "/sign-in", label: "Get started" });
-    expect(secondary.href).toBe("/demo");
-    expect(secondary.label).toMatch(/no signup/i);
+    expect(primary).toEqual({ href: "/demo", label: "Try the demo" });
+    expect(secondary.href).toBe("/sign-in");
+    expect(secondary.label).toMatch(/upload/i);
   });
 
   it("sends a signed-in visitor to their workspace", () => {

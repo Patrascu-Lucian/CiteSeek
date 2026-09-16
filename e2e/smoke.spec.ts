@@ -14,10 +14,10 @@ test.describe("landing page", () => {
     ).toBeVisible();
 
     await expect(
-      page.getByRole("link", { name: /get started/i }),
+      page.getByRole("link", { name: /try the demo/i }),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: /try the demo/i }),
+      page.getByRole("link", { name: /sign in to upload your own/i }),
     ).toBeVisible();
   });
 
@@ -37,15 +37,19 @@ test.describe("landing page", () => {
 });
 
 test.describe("the landing page knows who is reading it", () => {
-  test("offers signup to a first-time visitor", async ({ page }) => {
+  test("puts the demo before sign-in for a first-time visitor", async ({
+    page,
+  }) => {
     await page.goto("/");
 
-    await expect(
-      page.getByRole("link", { name: /get started/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: /try the demo — no signup/i }),
-    ).toBeVisible();
+    const entries = page.getByRole("link", {
+      name: /^(try the demo|sign in to upload your own)$/i,
+    });
+    await expect(entries).toHaveCount(2);
+    await expect(entries.first()).toHaveAttribute("href", "/demo");
+    await expect(page.getByRole("link", { name: /get started/i })).toHaveCount(
+      0,
+    );
   });
 
   test("offers a returning guest their demo rather than a signup", async ({
