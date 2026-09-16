@@ -3451,3 +3451,25 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **a schedule tells you only as much as the thing it samples changes.** A weekly
   measurement of a branch that moves once a release is one measurement, repeated.
+
+## A case-sensitive search for a case-insensitive test, 16 September 2026
+
+- **Issue**: moving the landing page's calls to action — the demo first, sign-in second — was staged
+  with every reference to the old labels updated, and CI went red on a third one nobody had touched.
+  `e2e/auth.spec.ts:452` tabs to the sign-in call to action and presses Enter, and it found it with
+  `getByRole("link", { name: /get started/i })`. The label was gone, so the loop tabbed ten times,
+  found nothing focused, and the assertion timed out after 30 seconds, three times.
+
+- **Cause**: the sweep for the old labels was `git grep "Get started"`, which is case-sensitive. The
+  locator spells it `/get started/i` — lowercase, because the regex carries the `i` flag. Two other
+  specs matched the same search and were updated; this one was invisible to it.
+
+- **Fix**: the locator names the new label, `/sign in to upload your own/i`, which also cannot collide
+  with the header's own "Sign in". The tab bound goes from 10 to 15: sign-in is now the hero's second
+  button rather than its first, so it sits one stop further down a path that was already eight long,
+  and the bound is a stop against an endless loop rather than an assertion about the count. A comment
+  says which link is meant.
+
+- **Lesson**: **grep the identifier, not the prose.** A user-visible string is written in whatever
+  case the assertion needs, so a search for it has to be case-insensitive — or run against the thing
+  that does not vary, here the `href`.
