@@ -168,18 +168,17 @@ describe("the control row", () => {
     expect(controlRow(textbox)).toHaveAttribute("data-stacked");
   });
 
-  it("stays down while the draft shrinks, and comes back up when it is cleared", async () => {
-    /* Stacking widens the field, so the text that wrapped may no longer wrap:
-       measuring on the way down would stack, unstack and stack again. */
+  it("comes back up when the question no longer needs the room", async () => {
+    // Shift+Enter puts the button below, and deleting that newline has to put
+    // it back: a row that only returns on an empty field reads as stuck.
     const { textbox } = renderComposer();
-    measuredAt(3, textbox);
-    await userEvent.type(textbox, "A question long enough to wrap");
-
-    measuredAt(1, textbox);
-    await userEvent.type(textbox, "!");
+    measuredAt(2, textbox);
+    await userEvent.type(textbox, "One line{Shift>}{Enter}{/Shift}two");
     expect(controlRow(textbox)).toHaveAttribute("data-stacked");
 
-    await userEvent.clear(textbox);
+    measuredAt(1, textbox);
+    await userEvent.type(textbox, "{Backspace}");
+
     expect(controlRow(textbox)).not.toHaveAttribute("data-stacked");
   });
 

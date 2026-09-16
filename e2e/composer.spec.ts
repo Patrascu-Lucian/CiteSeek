@@ -76,13 +76,79 @@ test("keeps the control row below the field until the draft is sent", async ({
   await field.fill("one\ntwo\nthree");
   await expect(row).toHaveCount(1);
 
-  // Backspacing to something short leaves it stacked: the widened field would
-  // un-wrap the text, and re-measuring on the way down oscillates.
+  // Back up when the rows go, not only when the field is emptied.
   await field.fill("one");
-  await expect(row).toHaveCount(1);
+  await expect(row).toHaveCount(0);
 
+  await field.fill("one\ntwo");
+  await expect(row).toHaveCount(1);
   await field.fill("");
   await expect(row).toHaveCount(0);
+});
+
+test("stays down while a question is typed at the width that wraps", async ({
+  page,
+}) => {
+  /* The length that wraps beside the button but not underneath it depends on
+     the panel, so it is found here rather than written down, and the flicker
+     only shows on the keystroke after stacking. jsdom lays nothing out, so no
+     unit test can see this. */
+  const field = page.getByRole("textbox", { name: /ask a question/i });
+  const row = page.locator("[data-stacked]");
+
+  const straddles = await field.evaluate((element: HTMLTextAreaElement) => {
+    const style = getComputedStyle(element);
+    const lineHeight = parseFloat(style.lineHeight);
+    const padding =
+      parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+    const parent = element.parentElement!;
+    const send = parent.querySelector("button")!;
+    const gap = parseFloat(getComputedStyle(parent).columnGap);
+
+    // The field is inline right now, so this is the width beside the button.
+    const beside = element.clientWidth;
+    const underneath = beside + send.offsetWidth + gap;
+
+    /* `flex: none` because the field is a flex item: while it sits beside the
+       button, `flex-1` sizes it and an explicit width is ignored. */
+    const rowsAt = (width: number) => {
+      element.style.flex = "none";
+      element.style.width = `${width}px`;
+      element.style.height = "auto";
+      const content = element.scrollHeight;
+      element.style.flex = "";
+      element.style.width = "";
+      element.style.height = "";
+      return (content - padding) / lineHeight;
+    };
+
+    try {
+      /* One-character tokens, because the window between the two widths is the
+         button and the gap — 40px — and whole words step over it. */
+      for (let tokens = 2; tokens < 600; tokens += 1) {
+        element.value = Array.from({ length: tokens }, () => "a").join(" ");
+        if (rowsAt(underneath) <= 1.5 && rowsAt(beside) > 1.5) {
+          return element.value;
+        }
+      }
+      return null;
+    } finally {
+      element.value = "";
+    }
+  });
+
+  expect(
+    straddles,
+    "no question length wraps beside the button only",
+  ).not.toBeNull();
+
+  await field.fill(straddles!);
+  await expect(row).toHaveCount(1);
+
+  await field.press("End");
+  await field.pressSequentially("s");
+
+  await expect(row).toHaveCount(1);
 });
 
 test("has no violation where the label is now the only name", async ({
