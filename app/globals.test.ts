@@ -126,17 +126,23 @@ describe("the palette carries nothing the app never asks for", () => {
   const files = sourceFiles();
   const source = files.map((file) => readFileSync(file, "utf8")).join("\n");
 
-  it("reads the source it checks against, so it cannot pass on an empty scan", () => {
+  it("reads both sides, so it cannot pass on an empty scan", () => {
+    // `@theme inline` renamed or reformatted leaves no tokens to check and a
+    // green test, which is the shape this file guards against everywhere else.
+    expect(themeColors().length).toBeGreaterThan(10);
     expect(files.length).toBeGreaterThan(100);
     expect(source).toContain("bg-background");
   });
 
+  /* Six of these are prefixes of a longer sibling, so a bare substring lets
+     `bg-primary-foreground` answer for `--primary`: the name has to end where
+     the utility does. */
+  const reads = (source: string, name: string) =>
+    new RegExp(`-${name}(?![\\w-])|var\\(--${name}\\)`).test(source);
+
   it("exposes no color nothing reads", () => {
     const unread = themeColors().filter(
-      (name) =>
-        !KEPT.has(name) &&
-        !source.includes(`-${name}`) &&
-        !source.includes(`var(--${name})`),
+      (name) => !KEPT.has(name) && !reads(source, name),
     );
 
     expect(unread).toEqual([]);

@@ -3599,3 +3599,25 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **moving text out of a control moves it out of the control's name.** A rule against
   sentences in button labels is a rule about what is _shown_; what is _announced_ has to be put back
   deliberately.
+
+## Three guards that would have passed on nothing, 17 September 2026
+
+- **Issue**: release review read the palette guard added a day earlier and found two holes and a
+  third beside it. `themeColors()` slices the stylesheet from `@theme inline`, so renaming or
+  reformatting that line makes `indexOf` return −1, the block come out empty, and the test pass
+  having checked no tokens. The read itself was `source.includes("-" + name)`, which six of the
+  nineteen names satisfy through a longer sibling: `bg-primary-foreground` answers for `--primary`.
+  And the README's "95 entries of issue found → fix → lesson" was 36 short, last true in June.
+
+- **Cause**: the guard was written to catch a dead token and checked only the half that had gone
+  wrong. Its sibling suites in this repository all open with "finds what it checks, rather than
+  passing on a pattern that no longer matches"; the new one guarded the source scan that way and
+  not the stylesheet scan. The substring was the quickest thing that worked on the case at hand.
+
+- **Fix**: the empty-scan check now covers both sides, the name has to end where the utility does,
+  and the README's count is computed from the notes file by a test rather than typed. Each was
+  checked by breaking it: `@theme` alone, a `--color-primar` nothing reads, and a README that says 95.
+
+- **Lesson**: **a guard is code, and the first question about new code is what makes it fail.** Two
+  of these three would have gone green forever, and the number they were written to protect had
+  already drifted for three months with nothing watching it.
