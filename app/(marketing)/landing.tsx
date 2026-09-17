@@ -75,7 +75,14 @@ export function Landing({ primary, secondary, note }: LandingCallsToAction) {
           <div className="mt-10 flex flex-wrap items-center gap-3">
             {/* Both hrefs vary by actor, and two of the four write. */}
             <Button asChild size="lg">
-              <Link href={primary.href} prefetch={prefetchFor(primary.href)}>
+              {/* The cost is a sentence under the button for a sighted reader
+                  and nowhere at all for one moving by links, unless it is named
+                  as this one's description. */}
+              <Link
+                href={primary.href}
+                prefetch={prefetchFor(primary.href)}
+                aria-describedby={note ? "cta-note" : undefined}
+              >
                 {primary.label}
               </Link>
             </Button>
@@ -89,7 +96,11 @@ export function Landing({ primary, secondary, note }: LandingCallsToAction) {
             </Button>
           </div>
 
-          {note && <p className="text-muted-foreground mt-4 text-sm">{note}</p>}
+          {note && (
+            <p id="cta-note" className="text-muted-foreground mt-4 text-sm">
+              {note}
+            </p>
+          )}
         </div>
 
         {/* Out of flow in the sm band, beside the buttons: stacked it cost 288px
