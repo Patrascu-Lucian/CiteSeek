@@ -23,6 +23,16 @@ describe("Landing", () => {
     expect(screen.getByText(/no account\. no card\./i)).toBeInTheDocument();
   });
 
+  it("names the cost as the demo link's description, not only beside it", () => {
+    // A reader moving by links hears the label alone, and the sentence under the
+    // button is what says the demo costs nothing.
+    render(<Landing {...anonymous} />);
+
+    expect(
+      screen.getByRole("link", { name: /try the demo/i }),
+    ).toHaveAccessibleDescription(/no account/i);
+  });
+
   it("renders no cost line for a reader whose calls to action carry none", () => {
     render(
       <Landing primary={anonymous.primary} secondary={anonymous.secondary} />,

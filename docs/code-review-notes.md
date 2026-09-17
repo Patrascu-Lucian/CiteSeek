@@ -3577,3 +3577,25 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **bind a measurement to the thing it measures, not to the event that usually changes
   it.** Two of this component's three measurement bugs were the same mistake: a width read at the
   wrong moment, and a width read in the wrong layout.
+
+## A cost a sighted reader gained and a screen-reader user lost, 16 September 2026
+
+- **Issue**: release review found the landing page's primary link now reads "Try the demo" with
+  "No account. No card. Nothing to install." in a sibling paragraph. Nothing tied the two together,
+  so a reader moving by links heard the label alone — a fact they had in 1.8.0, when the label
+  itself said "no signup".
+
+- **Cause**: moving the sentence out of the label was right for both readers, and only half of it
+  was carried across. The label is what a link list reads; a paragraph beside it is not part of the
+  link unless it is named as its description.
+
+- **Why nothing caught it**: it is not a violation, so the axe sweep stays green, and it stayed
+  green here. The unit test asserted the sentence was _rendered_, which it was.
+
+- **Fix**: `aria-describedby` on the link, pointing at the paragraph, with a unit test on the
+  accessible description rather than on the text being present. Checked on a served build:
+  the link is described by `cta-note`, "No account. No card. Nothing to install."
+
+- **Lesson**: **moving text out of a control moves it out of the control's name.** A rule against
+  sentences in button labels is a rule about what is _shown_; what is _announced_ has to be put back
+  deliberately.
