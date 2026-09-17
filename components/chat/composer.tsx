@@ -1,6 +1,7 @@
 import {
   type KeyboardEvent,
   type SyntheticEvent,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -91,6 +92,30 @@ export function Composer({
   useLayoutEffect(() => {
     if (textareaRef.current) fit(textareaRef.current);
   }, [stacked]);
+
+  /* A keystroke is not the only thing that changes the width: rotating a phone
+     or resizing a window strands the row where the last one left it. This is the
+     only place a width moves without an input event. Width alone, because `fit`
+     changes the height and observing that would answer itself. */
+  useEffect(() => {
+    const element = textareaRef.current;
+    const row = element?.parentElement;
+    if (!element || !row || typeof ResizeObserver === "undefined") return;
+
+    let width = row.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (row.clientWidth === width) return;
+      width = row.clientWidth;
+
+      fit(element);
+      setStacked(rowsBesideTheButton(element) > 1.5);
+    });
+
+    observer.observe(row);
+    return () => {
+      observer.disconnect();
+    };
+  });
 
   function submit(event?: SyntheticEvent) {
     event?.preventDefault();

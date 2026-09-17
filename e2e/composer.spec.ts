@@ -66,9 +66,7 @@ test("keeps the send control inside the field, and a real target", async ({
   expect(under.bottomGap).toBeLessThan(0);
 });
 
-test("keeps the control row below the field until the draft is sent", async ({
-  page,
-}) => {
+test("follows the question up and down, not only down", async ({ page }) => {
   const field = page.getByRole("textbox", { name: /ask a question/i });
   const row = page.locator("[data-stacked]");
 
@@ -160,4 +158,66 @@ test("has no violation where the label is now the only name", async ({
     .analyze();
 
   expect(results.violations.map((violation) => violation.id)).toEqual([]);
+});
+
+test("follows a resize, not only a keystroke", async ({ page }) => {
+  /* A rotated phone or a resized window changes the width with no input event,
+     which used to leave the row where the last keystroke put it. The question
+     that fits one row at the wider viewport and wraps at the narrower one is
+     found here: font metrics differ between this machine and CI, so a length
+     written down is a length that wraps on one of them. */
+  const field = page.getByRole("textbox", { name: /ask a question/i });
+  const row = page.locator("[data-stacked]");
+
+  const widthOfField = () => field.evaluate((element) => element.clientWidth);
+
+  await page.setViewportSize({ width: 700, height: 720 });
+  const narrow = await widthOfField();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const wide = await widthOfField();
+
+  const question = await field.evaluate(
+    (element: HTMLTextAreaElement, widths: number[]) => {
+      const style = getComputedStyle(element);
+      const lineHeight = parseFloat(style.lineHeight);
+      const padding =
+        parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+
+      // `flex: none`, or the field takes its width from the row and ignores this.
+      const rowsAt = (width: number) => {
+        element.style.flex = "none";
+        element.style.width = `${width}px`;
+        element.style.height = "auto";
+        const content = element.scrollHeight;
+        element.style.flex = "";
+        element.style.width = "";
+        element.style.height = "";
+        return (content - padding) / lineHeight;
+      };
+
+      try {
+        for (let tokens = 2; tokens < 600; tokens += 1) {
+          element.value = Array.from({ length: tokens }, () => "a").join(" ");
+          if (rowsAt(widths[0]!) <= 1.5 && rowsAt(widths[1]!) > 1.5) {
+            return element.value;
+          }
+        }
+        return null;
+      } finally {
+        element.value = "";
+      }
+    },
+    [wide, narrow],
+  );
+
+  expect(question, "no question wraps at 700px only").not.toBeNull();
+
+  await field.fill(question!);
+  await expect(row).toHaveCount(0);
+
+  await page.setViewportSize({ width: 700, height: 720 });
+  await expect(row).toHaveCount(1);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(row).toHaveCount(0);
 });
