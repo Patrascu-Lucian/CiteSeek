@@ -3553,3 +3553,27 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **a one-way rule is a way of not measuring.** It was cheaper than finding the reference
   width, and it bought the flicker's absence with a control that ignores the reader half the time.
+
+## A row that followed the keystrokes and not the window, 16 September 2026
+
+- **Issue**: release review found the composer's control row stranded by a resize. `stacked` was
+  computed only in `onChange`, so narrowing a window left a one-row question with the button still
+  in its own row 40px below, until the reader typed. Rotating a phone reaches it, as does browser
+  zoom.
+
+- **Cause**: the decision was tied to the event that usually changes the width rather than to the
+  width. `fit()` had the same gap and had had it since the field first grew — the height went stale
+  on resize too — but a stale height is 20px and a stale row is a control that looks stuck, which is
+  the complaint the previous fix was written for.
+
+- **Fix**: a `ResizeObserver` on the row re-fits and re-decides, and it watches the width alone,
+  since `fit` changes the height and observing that would answer itself. It cannot loop, because the
+  question is measured at the width it has beside the button either way, so the second pass reaches
+  the same answer as the first.
+
+- **Checked by removing it**: the new E2E test fills a question that fits one row at 1280px, narrows
+  the viewport to 700px without typing, and expects the row to drop. Without the observer it fails.
+
+- **Lesson**: **bind a measurement to the thing it measures, not to the event that usually changes
+  it.** Two of this component's three measurement bugs were the same mistake: a width read at the
+  wrong moment, and a width read in the wrong layout.
