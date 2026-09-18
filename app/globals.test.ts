@@ -109,10 +109,17 @@ function themeColors(): string[] {
   );
 }
 
+/** The app, without the tests: a class name quoted in a test — or in the
+ * docstring below — is not the app reading the token. */
 function sourceFiles(): string[] {
   return SOURCE.flatMap((dir) =>
     readdirSync(join(ROOT, dir), { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile() && /\.(tsx?|css)$/.test(entry.name))
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          /\.(tsx?|css)$/.test(entry.name) &&
+          !/\.test\.tsx?$/.test(entry.name),
+      )
       .map((entry) => join(entry.parentPath, entry.name))
       .filter((path) => path !== join(ROOT, "app", "globals.css")),
   );
@@ -134,15 +141,26 @@ describe("the palette carries nothing the app never asks for", () => {
     expect(source).toContain("bg-background");
   });
 
-  /* Six of these are prefixes of a longer sibling, so a bare substring lets
-     `bg-primary-foreground` answer for `--primary`: the name has to end where
-     the utility does. */
-  const reads = (source: string, name: string) =>
-    new RegExp(`-${name}(?![\\w-])|var\\(--${name}\\)`).test(source);
+  /* The name has to be the whole of the utility's tail. The lookahead stops
+     `bg-primary-foreground` answering for `--primary`; a longer declared name
+     ending in this one — `muted-foreground` for `foreground` — is cut out first,
+     or it would answer from the other end. */
+  const reads = (source: string, name: string, all: string[]) => {
+    const longer = all.filter(
+      (other) => other !== name && other.endsWith(`-${name}`),
+    );
+    const rest = longer.reduce(
+      (text, other) => text.replaceAll(`-${other}`, " "),
+      source,
+    );
+
+    return new RegExp(`-${name}(?![\\w-])|var\\(--${name}\\)`).test(rest);
+  };
 
   it("exposes no color nothing reads", () => {
-    const unread = themeColors().filter(
-      (name) => !KEPT.has(name) && !reads(source, name),
+    const names = themeColors();
+    const unread = names.filter(
+      (name) => !KEPT.has(name) && !reads(source, name, names),
     );
 
     expect(unread).toEqual([]);
