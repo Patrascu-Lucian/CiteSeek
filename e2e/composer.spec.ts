@@ -54,13 +54,99 @@ test("keeps the send control inside the field, and a real target", async ({
     };
   };
 
-  // Beside a one-line question; under a grown one, bottom edges aligned.
+  // Beside a one-line question, bottom edges aligned; below a wrapped one, in
+  // its own row under the field rather than biting a corner out of it.
   const beside = await offset();
+  expect(beside.bottomGap).toBeCloseTo(0, 0);
+
   await field.fill("one\ntwo\nthree");
   const under = await offset();
 
   expect(under.top).toBeGreaterThan(beside.top);
-  expect(under.bottomGap).toBeCloseTo(0, 0);
+  expect(under.bottomGap).toBeLessThan(0);
+});
+
+test("follows the question up and down, not only down", async ({ page }) => {
+  const field = page.getByRole("textbox", { name: /ask a question/i });
+  const row = page.locator("[data-stacked]");
+
+  await expect(row).toHaveCount(0);
+  await field.fill("one\ntwo\nthree");
+  await expect(row).toHaveCount(1);
+
+  // Back up when the rows go, not only when the field is emptied.
+  await field.fill("one");
+  await expect(row).toHaveCount(0);
+
+  await field.fill("one\ntwo");
+  await expect(row).toHaveCount(1);
+  await field.fill("");
+  await expect(row).toHaveCount(0);
+});
+
+test("stays down while a question is typed at the width that wraps", async ({
+  page,
+}) => {
+  /* The length that wraps beside the button but not underneath it depends on
+     the panel, so it is found here rather than written down, and the flicker
+     only shows on the keystroke after stacking. jsdom lays nothing out, so no
+     unit test can see this. */
+  const field = page.getByRole("textbox", { name: /ask a question/i });
+  const row = page.locator("[data-stacked]");
+
+  const straddles = await field.evaluate((element: HTMLTextAreaElement) => {
+    const style = getComputedStyle(element);
+    const lineHeight = parseFloat(style.lineHeight);
+    const padding =
+      parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+    const parent = element.parentElement!;
+    const send = parent.querySelector("button")!;
+    const gap = parseFloat(getComputedStyle(parent).columnGap);
+
+    // The field is inline right now, so this is the width beside the button.
+    const beside = element.clientWidth;
+    const underneath = beside + send.offsetWidth + gap;
+
+    /* `flex: none` because the field is a flex item: while it sits beside the
+       button, `flex-1` sizes it and an explicit width is ignored. */
+    const rowsAt = (width: number) => {
+      element.style.flex = "none";
+      element.style.width = `${width}px`;
+      element.style.height = "auto";
+      const content = element.scrollHeight;
+      element.style.flex = "";
+      element.style.width = "";
+      element.style.height = "";
+      return (content - padding) / lineHeight;
+    };
+
+    try {
+      /* One-character tokens, because the window between the two widths is the
+         button and the gap — 40px — and whole words step over it. */
+      for (let tokens = 2; tokens < 600; tokens += 1) {
+        element.value = Array.from({ length: tokens }, () => "a").join(" ");
+        if (rowsAt(underneath) <= 1.5 && rowsAt(beside) > 1.5) {
+          return element.value;
+        }
+      }
+      return null;
+    } finally {
+      element.value = "";
+    }
+  });
+
+  expect(
+    straddles,
+    "no question length wraps beside the button only",
+  ).not.toBeNull();
+
+  await field.fill(straddles!);
+  await expect(row).toHaveCount(1);
+
+  await field.press("End");
+  await field.pressSequentially("s");
+
+  await expect(row).toHaveCount(1);
 });
 
 test("has no violation where the label is now the only name", async ({
@@ -72,4 +158,66 @@ test("has no violation where the label is now the only name", async ({
     .analyze();
 
   expect(results.violations.map((violation) => violation.id)).toEqual([]);
+});
+
+test("follows a resize, not only a keystroke", async ({ page }) => {
+  /* A rotated phone or a resized window changes the width with no input event,
+     which used to leave the row where the last keystroke put it. The question
+     that fits one row at the wider viewport and wraps at the narrower one is
+     found here: font metrics differ between this machine and CI, so a length
+     written down is a length that wraps on one of them. */
+  const field = page.getByRole("textbox", { name: /ask a question/i });
+  const row = page.locator("[data-stacked]");
+
+  const widthOfField = () => field.evaluate((element) => element.clientWidth);
+
+  await page.setViewportSize({ width: 700, height: 720 });
+  const narrow = await widthOfField();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const wide = await widthOfField();
+
+  const question = await field.evaluate(
+    (element: HTMLTextAreaElement, widths: number[]) => {
+      const style = getComputedStyle(element);
+      const lineHeight = parseFloat(style.lineHeight);
+      const padding =
+        parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+
+      // `flex: none`, or the field takes its width from the row and ignores this.
+      const rowsAt = (width: number) => {
+        element.style.flex = "none";
+        element.style.width = `${width}px`;
+        element.style.height = "auto";
+        const content = element.scrollHeight;
+        element.style.flex = "";
+        element.style.width = "";
+        element.style.height = "";
+        return (content - padding) / lineHeight;
+      };
+
+      try {
+        for (let tokens = 2; tokens < 600; tokens += 1) {
+          element.value = Array.from({ length: tokens }, () => "a").join(" ");
+          if (rowsAt(widths[0]!) <= 1.5 && rowsAt(widths[1]!) > 1.5) {
+            return element.value;
+          }
+        }
+        return null;
+      } finally {
+        element.value = "";
+      }
+    },
+    [wide, narrow],
+  );
+
+  expect(question, "no question wraps at 700px only").not.toBeNull();
+
+  await field.fill(question!);
+  await expect(row).toHaveCount(0);
+
+  await page.setViewportSize({ width: 700, height: 720 });
+  await expect(row).toHaveCount(1);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(row).toHaveCount(0);
 });

@@ -15,12 +15,26 @@ const user: Actor = {
 const guest: Actor = { type: "guest", id: "g1" };
 
 describe("callsToAction", () => {
-  it("offers signup and the demo to a first-time visitor", () => {
+  it("sends a first-time visitor to the demo before any form", () => {
     const { primary, secondary } = callsToAction(null);
 
-    expect(primary).toEqual({ href: "/sign-in", label: "Get started" });
-    expect(secondary.href).toBe("/demo");
-    expect(secondary.label).toMatch(/no signup/i);
+    expect(primary).toEqual({ href: "/demo", label: "Try the demo" });
+    expect(secondary.href).toBe("/sign-in");
+    expect(secondary.label).toMatch(/upload/i);
+  });
+
+  it("answers what the demo costs, in a sentence rather than in the label", () => {
+    const { primary, note } = callsToAction(null);
+
+    expect(primary.label).toBe("Try the demo");
+    expect(note).toMatch(/no account/i);
+  });
+
+  it("says nothing about accounts to a visitor who has one, or a session", () => {
+    // The same bug as the labels below, one line lower: "No account" under a
+    // button that opens their own workspace.
+    expect(callsToAction(user).note).toBeUndefined();
+    expect(callsToAction(guest).note).toBeUndefined();
   });
 
   it("sends a signed-in visitor to their workspace", () => {

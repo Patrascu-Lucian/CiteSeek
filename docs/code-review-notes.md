@@ -3451,3 +3451,225 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **a schedule tells you only as much as the thing it samples changes.** A weekly
   measurement of a branch that moves once a release is one measurement, repeated.
+
+## A case-sensitive search for a case-insensitive test, 16 September 2026
+
+- **Issue**: moving the landing page's calls to action — the demo first, sign-in second — was staged
+  with every reference to the old labels updated, and CI went red on a third one nobody had touched.
+  `e2e/auth.spec.ts:452` tabs to the sign-in call to action and presses Enter, and it found it with
+  `getByRole("link", { name: /get started/i })`. The label was gone, so the loop tabbed ten times,
+  found nothing focused, and the assertion timed out after 30 seconds, three times.
+
+- **Cause**: the sweep for the old labels was `git grep "Get started"`, which is case-sensitive. The
+  locator spells it `/get started/i` — lowercase, because the regex carries the `i` flag. Two other
+  specs matched the same search and were updated; this one was invisible to it.
+
+- **Fix**: the locator names the new label, `/sign in to upload your own/i`, which also cannot collide
+  with the header's own "Sign in". The tab bound goes from 10 to 15: sign-in is now the hero's second
+  button rather than its first, so it sits one stop further down a path that was already eight long,
+  and the bound is a stop against an endless loop rather than an assertion about the count. A comment
+  says which link is meant.
+
+- **Lesson**: **grep the identifier, not the prose.** A user-visible string is written in whatever
+  case the assertion needs, so a search for it has to be case-insensitive — or run against the thing
+  that does not vary, here the `href`.
+
+## An advisory that named two different fixed versions, 16 September 2026
+
+- **Issue**: Dependabot reported a moderate DoS in qs (`stringify` with `arrayFormat: "comma"` and
+  `encodeValuesOnly: true` throws on a null array entry) and said it could not fix it: "the latest
+  possible version that can be installed is 6.15.1". The same alert named the fix twice and
+  differently — "the earliest fixed version is 6.16.0" in its text, "Patched version 6.15.2" in its
+  table.
+
+- **Cause of the dead end**: `typed-rest-client`, which Stryker uses, depends on qs at an **exact**
+  pin rather than a range, so no bump of anything above it can move qs. That is what Dependabot
+  meant, and it is the same shape as the `sharp` and `postcss` pins already overridden here.
+
+- **What was checked rather than believed**: the published tarballs. 6.15.1 maps the array through
+  the raw encoder; 6.15.2 and 6.16.0 both guard null first. So 6.15.2 is the fixed version, and the
+  alert's "6.16.0" line is wrong. Reachability was read too: `typed-rest-client` defaults
+  `arrayFormat` to `"repeat"`, and Stryker's two call sites — `stryker init` and the dashboard
+  reporter — pass no format at all, while this repository runs neither. The path was already
+  unreachable.
+
+- **Fix**: an override at `^6.15.2`. Express already brought 6.16.0, so the tree collapses from two
+  copies to one, and the advisory's own proof of concept returns `a=,b` where it used to throw.
+  `pnpm-workspace.test.ts` fails if any qs in the lockfile falls back inside the affected range.
+
+- **Lesson**: **an advisory is a claim about a version, and versions are readable.** Two numbers in
+  one alert cannot both be the earliest fix; the registry settles it in the time it takes to argue.
+
+## A flex child that grew along an axis that had moved, 16 September 2026
+
+- **Issue**: moving the composer's send button to its own row collapsed the field to a single row.
+  Two E2E tests caught it — "opens at one row and grows with the question" measured 28px where it
+  expected more than 56 — and both had passed for months before this change.
+
+- **Cause**: the textarea carries `flex-1`, which is `flex: 1 1 0%` — grow, shrink, and **a basis of
+  zero along the main axis**. Inline the main axis is horizontal, so that basis governs width and the
+  inline height `fit()` measured is what the browser uses. Stacking sets `flex-col`, the main axis
+  becomes vertical, and the same class now governs height: the basis of zero wins over the inline
+  height and the field renders one row tall whatever it contains.
+
+- **Fix**: the field flexes only while it is beside the button — `flex-1` inline, `w-full` stacked.
+  Measured both ways against the stylesheet the build produced: 68px of inline height survives inline
+  and stacked with `w-full`, and collapses to 28px stacked with `flex-1`, which is the number CI
+  reported.
+
+- **Why the local check missed it**: the harness written to verify the stacked geometry gave its
+  textarea `rows="3"` rather than the inline height the component sets, so the field had an intrinsic
+  height to fall back on and the collapse never appeared. **A harness that substitutes for the thing
+  it stands in for is measuring something else** — the same shape as the stale-build and
+  two-request mistakes already in this file.
+
+- **Lesson**: **a utility class is relative to an axis, and changing `flex-direction` moves the axis
+  under every child.** `flex-1`, `items-*`, `self-*` and `w-full` all mean something different after
+  that switch, so a layout that flips direction has to be measured in both states, not reasoned about
+  from one.
+
+## A row that went down and would not come back up, 16 September 2026
+
+- **Issue**: with the send button moved to its own row, Shift+Enter dropped it correctly and deleting
+  that newline left it there. Only emptying the field restored the single row, which reads as stuck
+  rather than deliberate. Found by using it, not by a test — the tests asserted the behavior as
+  designed.
+
+- **Cause**: the transition was one way on purpose, and the reason was real: stacking frees the
+  button's width, so text that wraps beside it can fit on one row underneath, and measuring the
+  stacked width would unstack, re-wrap in the narrower row and stack again. The rule was written to
+  avoid that flicker and it also blocked the case that cannot flicker — a hard newline is two rows at
+  any width.
+
+- **Fix**: measure at one reference width instead of forbidding the way back. The question is always
+  read at the width it has _beside_ the button, so the decision cannot depend on the layout it
+  produced, and the row follows the question in both directions. A layout effect re-fits the height
+  after the row changes, since the width it was measured at has just moved.
+
+- **Measured first**: at 626px stacked and 586px inline, a hard newline reads 2.00 rows at both, and
+  eighteen words of "word" read 1.00 stacked against 2.00 inline — the case that would oscillate, and
+  the one the E2E test now types into. The unit tests cannot see it, since jsdom lays nothing out,
+  and the flicker needs a keystroke _after_ stacking to appear: nothing re-measures until then.
+
+- **Lesson**: **a one-way rule is a way of not measuring.** It was cheaper than finding the reference
+  width, and it bought the flicker's absence with a control that ignores the reader half the time.
+
+## A row that followed the keystrokes and not the window, 16 September 2026
+
+- **Issue**: release review found the composer's control row stranded by a resize. `stacked` was
+  computed only in `onChange`, so narrowing a window left a one-row question with the button still
+  in its own row 40px below, until the reader typed. Rotating a phone reaches it, as does browser
+  zoom.
+
+- **Cause**: the decision was tied to the event that usually changes the width rather than to the
+  width. `fit()` had the same gap and had had it since the field first grew — the height went stale
+  on resize too — but a stale height is 20px and a stale row is a control that looks stuck, which is
+  the complaint the previous fix was written for.
+
+- **Fix**: a `ResizeObserver` on the row re-fits and re-decides, and it watches the width alone,
+  since `fit` changes the height and observing that would answer itself. It cannot loop, because the
+  question is measured at the width it has beside the button either way, so the second pass reaches
+  the same answer as the first.
+
+- **Checked by removing it**: the new E2E test fills a question that fits one row at 1280px, narrows
+  the viewport to 700px without typing, and expects the row to drop. Without the observer it fails.
+
+- **Lesson**: **bind a measurement to the thing it measures, not to the event that usually changes
+  it.** Two of this component's three measurement bugs were the same mistake: a width read at the
+  wrong moment, and a width read in the wrong layout.
+
+## A cost a sighted reader gained and a screen-reader user lost, 16 September 2026
+
+- **Issue**: release review found the landing page's primary link now reads "Try the demo" with
+  "No account. No card. Nothing to install." in a sibling paragraph. Nothing tied the two together,
+  so a reader moving by links heard the label alone — a fact they had in 1.8.0, when the label
+  itself said "no signup".
+
+- **Cause**: moving the sentence out of the label was right for both readers, and only half of it
+  was carried across. The label is what a link list reads; a paragraph beside it is not part of the
+  link unless it is named as its description.
+
+- **Why nothing caught it**: it is not a violation, so the axe sweep stays green, and it stayed
+  green here. The unit test asserted the sentence was _rendered_, which it was.
+
+- **Fix**: `aria-describedby` on the link, pointing at the paragraph, with a unit test on the
+  accessible description rather than on the text being present. Checked on a served build:
+  the link is described by `cta-note`, "No account. No card. Nothing to install."
+
+- **Lesson**: **moving text out of a control moves it out of the control's name.** A rule against
+  sentences in button labels is a rule about what is _shown_; what is _announced_ has to be put back
+  deliberately.
+
+## Three guards that would have passed on nothing, 17 September 2026
+
+- **Issue**: release review read the palette guard added a day earlier and found two holes and a
+  third beside it. `themeColors()` slices the stylesheet from `@theme inline`, so renaming or
+  reformatting that line makes `indexOf` return −1, the block come out empty, and the test pass
+  having checked no tokens. The read itself was `source.includes("-" + name)`, which six of the
+  nineteen names satisfy through a longer sibling: `bg-primary-foreground` answers for `--primary`.
+  And the README's "95 entries of issue found → fix → lesson" was 36 short, last true in June.
+
+- **Cause**: the guard was written to catch a dead token and checked only the half that had gone
+  wrong. Its sibling suites in this repository all open with "finds what it checks, rather than
+  passing on a pattern that no longer matches"; the new one guarded the source scan that way and
+  not the stylesheet scan. The substring was the quickest thing that worked on the case at hand.
+
+- **Fix**: the empty-scan check now covers both sides, the name has to end where the utility does,
+  and the README's count is computed from the notes file by a test rather than typed. Each was
+  checked by breaking it: `@theme` alone, a `--color-primar` nothing reads, and a README that says 95.
+
+- **Lesson**: **a guard is code, and the first question about new code is what makes it fail.** Two
+  of these three would have gone green forever, and the number they were written to protect had
+  already drifted for three months with nothing watching it.
+
+## Guards that counted their own reflection, 18 September 2026
+
+- **Issue**: a second release review read the guards added the day before. The palette scan covered
+  `app`, `components` and `lib` including their tests, so a class name quoted in a test counted as
+  the app reading that token — `--accent` was held up partly by the docstring next to it explaining
+  why its sibling is exempt. The same corpus made "it cannot pass on an empty scan" self-satisfying:
+  the literal it looked for was in the test file doing the looking. And the name match had a
+  boundary on one side only, so `-foreground` matched inside `text-muted-foreground`.
+
+- **Cause**: the scan was written to answer "does this string appear anywhere under the app", which
+  is a cheaper question than the one ADR 023 states — whether the app reads the token. Tests are the
+  part of the tree most likely to name a class they do not use.
+
+- **Fix**: tests are out of the corpus, and a declared name that ends in the one being checked is cut
+  out before matching, so `muted-foreground` cannot answer for `foreground`. The reviewer's
+  suggestion, a lookbehind, was tried first and rejected by measurement: every utility has a prefix,
+  so requiring a non-word character before the hyphen reported sixteen live tokens as unread.
+  Deleting the real `bg-accent` from the citation chip now fails the guard, where before the
+  docstring kept it green.
+
+- **Also**: the README's entry count is counted from headings rather than from `**Lesson**` lines,
+  which were an exact proxy only by luck, and the note beside it said "36 short" of a number that had
+  moved three entries by the time it merged.
+
+- **Lesson**: **a test that scans the repository will scan itself.** Anything asserting on a string
+  the codebase contains has to say which part of the codebase counts, or the assertion's own text
+  becomes evidence for it.
+
+## A subscription that renewed itself every keystroke, 18 September 2026
+
+- **Issue**: review found the composer's `ResizeObserver` effect with no dependency array, and the
+  omission load-bearing: the callback reads `stacked` to know which width it is measuring from, so
+  `[]` — the obvious tidy-up — would have left it measuring at the inline width forever, silently.
+  `react-hooks/exhaustive-deps` says nothing about a missing array, only about an incomplete one.
+
+- **What the first fix got wrong**: adding `[stacked]` made the rule complain about
+  `rowsBesideTheButton`, and adding _that_ would have restored the per-render subscription the array
+  was added to stop, because the function is rebuilt on every render.
+
+- **Fix**: neither function needed the component's scope. `fit` and `rowsBesideTheButton` take the
+  element — and now the button and the current row — as arguments, and live at module scope, where
+  their identity is stable. The effect's dependency is then the one thing it actually depends on,
+  `stacked`, and the linter agrees without being told to be quiet.
+
+- **Also checked**: the file's first `useLayoutEffect` warns about nothing under React 19. A dev
+  build was loaded, a question typed until the row stacked, and the console carried the DevTools
+  notice and an HMR line, nothing else.
+
+- **Lesson**: **a hook's dependency list is a claim about what its callback closes over, so the fix
+  for an awkward list is usually to close over less.** Moving the two helpers out made the right
+  array obvious and the linter's complaint disappear at the same time.

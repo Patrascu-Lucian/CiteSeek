@@ -20,15 +20,41 @@ describe("Landing", () => {
 
     const demoLink = screen.getByRole("link", { name: /try the demo/i });
     expect(demoLink).toHaveAttribute("href", "/demo");
+    expect(screen.getByText(/no account\. no card\./i)).toBeInTheDocument();
   });
 
-  it("offers a sign-in path", () => {
+  it("names the cost as the demo link's description, not only beside it", () => {
+    // A reader moving by links hears the label alone, and the sentence under the
+    // button is what says the demo costs nothing.
     render(<Landing {...anonymous} />);
 
-    expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute(
-      "href",
-      "/sign-in",
+    expect(
+      screen.getByRole("link", { name: /try the demo/i }),
+    ).toHaveAccessibleDescription(/no account/i);
+  });
+
+  it("renders no cost line for a reader whose calls to action carry none", () => {
+    render(
+      <Landing primary={anonymous.primary} secondary={anonymous.secondary} />,
     );
+
+    expect(screen.queryByText(/no account/i)).not.toBeInTheDocument();
+  });
+
+  it("opens on the claim, not on a category label", () => {
+    render(<Landing {...anonymous} />);
+
+    const hero = screen.getAllByRole("heading", { level: 1 })[0]!
+      .parentElement!;
+    expect(hero.firstElementChild!.tagName).toBe("H1");
+  });
+
+  it("offers a sign-in path, named for what signing in adds", () => {
+    render(<Landing {...anonymous} />);
+
+    expect(
+      screen.getByRole("link", { name: /sign in to upload your own/i }),
+    ).toHaveAttribute("href", "/sign-in");
   });
 
   it("claims only the guarantee that holds on every branch", () => {

@@ -65,3 +65,28 @@ describe("the README's local-mode numbers", () => {
     );
   });
 });
+
+describe("the README's count of review notes", () => {
+  /* Every other headline number here is pinned to what produced it — the local
+     figures above, and Unit and E2E by `check:test-counts`. This one was copied
+     in at 95 and read 36 short by the time anyone checked. */
+  /* The headings themselves: a `**Lesson**` count is a proxy that holds only
+     while every entry ends in one, and the sentence claims entries. */
+  const notes = read("docs", "code-review-notes.md");
+  const count = (pattern: RegExp) => (notes.match(pattern) ?? []).length;
+  const entries =
+    count(/^### /gm) + count(/^## /gm) - count(/^## Milestone /gm);
+  const claimed = /(\d+) entries of _issue found/.exec(read("README.md"));
+
+  it("makes the claim it is checking", () => {
+    expect(
+      claimed,
+      "no 'N entries of issue found' line in the README",
+    ).not.toBe(null);
+    expect(entries).toBeGreaterThan(50);
+  });
+
+  it("counts the entries the notes file actually holds", () => {
+    expect(Number(claimed![1])).toBe(entries);
+  });
+});

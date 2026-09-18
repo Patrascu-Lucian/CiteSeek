@@ -12,6 +12,10 @@ export type CallToAction = { href: string; label: string };
 export type LandingCallsToAction = {
   primary: CallToAction;
   secondary: CallToAction;
+  /** What trying it costs, for a reader who has not. Absent once they have an
+   * account or a guest session, where it would answer a question they have
+   * already asked. */
+  note?: string;
 };
 
 export function callsToAction(actor: Actor): LandingCallsToAction {
@@ -31,8 +35,12 @@ export function callsToAction(actor: Actor): LandingCallsToAction {
     };
   }
 
+  // The demo first: the filled button is the one a stranger clicks, and it
+  // should reach the product rather than a form. The label stays a command; what
+  // it costs goes underneath, where a sentence belongs.
   return {
-    primary: { href: "/sign-in", label: "Get started" },
-    secondary: { href: "/demo", label: "Try the demo — no signup" },
+    primary: { href: "/demo", label: "Try the demo" },
+    secondary: { href: "/sign-in", label: "Sign in to upload your own" },
+    note: "No account. No card. Nothing to install.",
   };
 }

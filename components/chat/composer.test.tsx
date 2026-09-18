@@ -128,3 +128,82 @@ describe("the composer's shape", () => {
     expect(send).toHaveFocus();
   });
 });
+
+/**
+ * jsdom lays nothing out: `scrollHeight` is 0 and `line-height` computes to
+ * "normal", so the component reads NaN rows and never stacks. These give it the
+ * measurements a browser would, which is the only part of this that needs one —
+ * `e2e/composer.spec.ts` asserts the layout itself.
+ */
+function measuredAt(rows: number, textbox: HTMLElement) {
+  textbox.style.lineHeight = "20px";
+  textbox.style.paddingTop = "0px";
+  textbox.style.paddingBottom = "0px";
+  Object.defineProperty(textbox, "scrollHeight", {
+    configurable: true,
+    value: rows * 20,
+  });
+}
+
+const controlRow = (textbox: HTMLElement) => textbox.parentElement!;
+
+describe("the control row", () => {
+  it("stays beside a question that fits on one row", async () => {
+    const { textbox } = renderComposer();
+    measuredAt(1, textbox);
+
+    await userEvent.type(textbox, "How long is the notice period?");
+
+    expect(controlRow(textbox)).not.toHaveAttribute("data-stacked");
+  });
+
+  it("drops below a question that wraps", async () => {
+    // Bottom-aligned beside a wrapped question, the button takes a bite out of
+    // the corner of the text rather than sitting under it.
+    const { textbox } = renderComposer();
+    measuredAt(3, textbox);
+
+    await userEvent.type(textbox, "A question long enough to wrap");
+
+    expect(controlRow(textbox)).toHaveAttribute("data-stacked");
+  });
+
+  it("comes back up when the question no longer needs the room", async () => {
+    // Shift+Enter puts the button below, and deleting that newline has to put
+    // it back: a row that only returns on an empty field reads as stuck.
+    const { textbox } = renderComposer();
+    measuredAt(2, textbox);
+    await userEvent.type(textbox, "One line{Shift>}{Enter}{/Shift}two");
+    expect(controlRow(textbox)).toHaveAttribute("data-stacked");
+
+    measuredAt(1, textbox);
+    await userEvent.type(textbox, "{Backspace}");
+
+    expect(controlRow(textbox)).not.toHaveAttribute("data-stacked");
+  });
+
+  it("is inline again for the next question after one is sent", async () => {
+    const { textbox } = renderComposer();
+    measuredAt(3, textbox);
+    await userEvent.type(textbox, "A question long enough to wrap");
+
+    await userEvent.keyboard("{Enter}");
+
+    expect(controlRow(textbox)).not.toHaveAttribute("data-stacked");
+  });
+
+  it("moves the same button rather than rendering another one", async () => {
+    /* A wrapper rendered only when stacked would remount the button, dropping
+       focus to the body — the hazard the comment beside it already names, on
+       every transition rather than once per stream. */
+    const { textbox } = renderComposer();
+    const send = screen.getByRole("button", { name: /send the question/i });
+    measuredAt(3, textbox);
+
+    await userEvent.type(textbox, "A question long enough to wrap");
+
+    expect(screen.getByRole("button", { name: /send the question/i })).toBe(
+      send,
+    );
+  });
+});

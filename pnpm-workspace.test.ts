@@ -101,3 +101,31 @@ describe("the release-age exclusions", () => {
     );
   });
 });
+
+/* The override exists because `typed-rest-client` pins qs exactly at 6.15.1,
+   which is what made the advisory unfixable by a bump. It is retired when the
+   lockfile stops holding an affected copy on its own. */
+const qsVersions = [...lockfile.matchAll(/^ {2}qs@(\d+\.\d+\.\d+):/gm)].map(
+  (match) => match[1]!,
+);
+
+/** Affected >=6.11.1 <=6.15.1; the null guard lands in 6.15.2. */
+const vulnerable = (version: string) => {
+  const [major, minor, patch] = version.split(".").map(Number) as [
+    number,
+    number,
+    number,
+  ];
+  const n = major * 1_000_000 + minor * 1_000 + patch;
+  return n >= 6_011_001 && n <= 6_015_001;
+};
+
+describe("the qs override", () => {
+  it("finds the versions it checks, rather than passing on an empty list", () => {
+    expect(qsVersions.length).toBeGreaterThan(0);
+  });
+
+  it("leaves no copy in the range the DoS affects", () => {
+    expect(qsVersions.filter(vulnerable)).toEqual([]);
+  });
+});

@@ -44,7 +44,7 @@ const features = [
   },
 ] as const;
 
-export function Landing({ primary, secondary }: LandingCallsToAction) {
+export function Landing({ primary, secondary, note }: LandingCallsToAction) {
   return (
     <main id="main" className="flex flex-1 flex-col">
       <section
@@ -63,10 +63,7 @@ export function Landing({ primary, secondary }: LandingCallsToAction) {
         {/* In the sm band the graphic is out of flow beside this, and full-width
             copy would run underneath it. */}
         <div className="sm:max-w-[75%] md:max-w-none">
-          <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
-            Document intelligence
-          </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-balance lg:text-5xl">
+          <h1 className="text-4xl font-semibold tracking-tight text-balance lg:text-5xl">
             Ask your documents. Get answers you can verify.
           </h1>
           <p className="text-muted-foreground mt-6 max-w-2xl text-lg text-pretty">
@@ -78,7 +75,14 @@ export function Landing({ primary, secondary }: LandingCallsToAction) {
           <div className="mt-10 flex flex-wrap items-center gap-3">
             {/* Both hrefs vary by actor, and two of the four write. */}
             <Button asChild size="lg">
-              <Link href={primary.href} prefetch={prefetchFor(primary.href)}>
+              {/* The cost is a sentence under the button for a sighted reader
+                  and nowhere at all for one moving by links, unless it is named
+                  as this one's description. */}
+              <Link
+                href={primary.href}
+                prefetch={prefetchFor(primary.href)}
+                aria-describedby={note ? "cta-note" : undefined}
+              >
                 {primary.label}
               </Link>
             </Button>
@@ -91,6 +95,12 @@ export function Landing({ primary, secondary }: LandingCallsToAction) {
               </Link>
             </Button>
           </div>
+
+          {note && (
+            <p id="cta-note" className="text-muted-foreground mt-4 text-sm">
+              {note}
+            </p>
+          )}
         </div>
 
         {/* Out of flow in the sm band, beside the buttons: stacked it cost 288px
