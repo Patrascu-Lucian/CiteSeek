@@ -3621,3 +3621,31 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **a guard is code, and the first question about new code is what makes it fail.** Two
   of these three would have gone green forever, and the number they were written to protect had
   already drifted for three months with nothing watching it.
+
+## Guards that counted their own reflection, 18 September 2026
+
+- **Issue**: a second release review read the guards added the day before. The palette scan covered
+  `app`, `components` and `lib` including their tests, so a class name quoted in a test counted as
+  the app reading that token — `--accent` was held up partly by the docstring next to it explaining
+  why its sibling is exempt. The same corpus made "it cannot pass on an empty scan" self-satisfying:
+  the literal it looked for was in the test file doing the looking. And the name match had a
+  boundary on one side only, so `-foreground` matched inside `text-muted-foreground`.
+
+- **Cause**: the scan was written to answer "does this string appear anywhere under the app", which
+  is a cheaper question than the one ADR 023 states — whether the app reads the token. Tests are the
+  part of the tree most likely to name a class they do not use.
+
+- **Fix**: tests are out of the corpus, and a declared name that ends in the one being checked is cut
+  out before matching, so `muted-foreground` cannot answer for `foreground`. The reviewer's
+  suggestion, a lookbehind, was tried first and rejected by measurement: every utility has a prefix,
+  so requiring a non-word character before the hyphen reported sixteen live tokens as unread.
+  Deleting the real `bg-accent` from the citation chip now fails the guard, where before the
+  docstring kept it green.
+
+- **Also**: the README's entry count is counted from headings rather than from `**Lesson**` lines,
+  which were an exact proxy only by luck, and the note beside it said "36 short" of a number that had
+  moved three entries by the time it merged.
+
+- **Lesson**: **a test that scans the repository will scan itself.** Anything asserting on a string
+  the codebase contains has to say which part of the codebase counts, or the assertion's own text
+  becomes evidence for it.
