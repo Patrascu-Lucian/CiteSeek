@@ -3649,3 +3649,27 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **a test that scans the repository will scan itself.** Anything asserting on a string
   the codebase contains has to say which part of the codebase counts, or the assertion's own text
   becomes evidence for it.
+
+## A subscription that renewed itself every keystroke, 18 September 2026
+
+- **Issue**: review found the composer's `ResizeObserver` effect with no dependency array, and the
+  omission load-bearing: the callback reads `stacked` to know which width it is measuring from, so
+  `[]` — the obvious tidy-up — would have left it measuring at the inline width forever, silently.
+  `react-hooks/exhaustive-deps` says nothing about a missing array, only about an incomplete one.
+
+- **What the first fix got wrong**: adding `[stacked]` made the rule complain about
+  `rowsBesideTheButton`, and adding _that_ would have restored the per-render subscription the array
+  was added to stop, because the function is rebuilt on every render.
+
+- **Fix**: neither function needed the component's scope. `fit` and `rowsBesideTheButton` take the
+  element — and now the button and the current row — as arguments, and live at module scope, where
+  their identity is stable. The effect's dependency is then the one thing it actually depends on,
+  `stacked`, and the linter agrees without being told to be quiet.
+
+- **Also checked**: the file's first `useLayoutEffect` warns about nothing under React 19. A dev
+  build was loaded, a question typed until the row stacked, and the console carried the DevTools
+  notice and an HMR line, nothing else.
+
+- **Lesson**: **a hook's dependency list is a claim about what its callback closes over, so the fix
+  for an awkward list is usually to close over less.** Moving the two helpers out made the right
+  array obvious and the linter's complaint disappear at the same time.

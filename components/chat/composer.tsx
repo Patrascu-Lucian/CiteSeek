@@ -11,15 +11,55 @@ import { ArrowUp, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/**
- * Enter sends, Shift+Enter newlines — hence a textarea, since a question about a
- * document is often longer than one line.
- *
- * **The draft lives here, not in `ChatPanel`.** Lifted, every keystroke
- * re-rendered the panel and re-parsed every `Answer` through Streamdown —
- * measured at 20 transcript renders for 19 characters. Lifting is the right
- * default and was wrong here for one reason: **nothing above reads the draft.**
- */
+/* `auto` first, or `scrollHeight` can only ever grow. The border is added back
+   because `border-box` counts it in `height` and `scrollHeight` does not. */
+function fit(element: HTMLTextAreaElement) {
+  const style = getComputedStyle(element);
+  const border =
+    parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+
+  element.style.height = "auto";
+  element.style.height = `${element.scrollHeight + border}px`;
+}
+
+/* Always the width it has beside the button: read at the stacked width, a
+   question that only wraps beside it unstacks, re-wraps in the narrower row
+   and stacks again. Past 1.5 rows rather than 2, because sub-pixel line
+   heights read an exact two rows as 1.98. */
+function rowsBesideTheButton(
+  element: HTMLTextAreaElement,
+  send: HTMLButtonElement | null,
+  stacked: boolean,
+): number {
+  const style = getComputedStyle(element);
+  const row = element.parentElement;
+  const gap = row ? parseFloat(getComputedStyle(row).columnGap) : Number.NaN;
+  const beside = element.clientWidth - (send?.offsetWidth ?? Number.NaN) - gap;
+
+  const flex = element.style.flex;
+  const width = element.style.width;
+  const height = element.style.height;
+  if (stacked && Number.isFinite(beside)) {
+    // A flex item takes its size from the container, which would ignore the
+    // width this is measuring at.
+    element.style.flex = "none";
+    element.style.width = `${beside}px`;
+  }
+  element.style.height = "auto";
+  const content = element.scrollHeight;
+  element.style.height = height;
+  element.style.width = width;
+  element.style.flex = flex;
+
+  return (
+    (content - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)) /
+    parseFloat(style.lineHeight)
+  );
+}
+
+/** The draft lives here, not in `ChatPanel`: lifted, every keystroke re-parsed
+ * the transcript through Streamdown — 20 renders for 19 characters — and nothing
+ * above reads it. */
 export function Composer({
   onSubmit,
   onStop,
@@ -42,51 +82,6 @@ export function Composer({
   const [value, setValue] = useState("");
   const [stacked, setStacked] = useState(false);
 
-  /* `auto` first, or `scrollHeight` can only ever grow. The border is added back
-     because `border-box` counts it in `height` and `scrollHeight` does not. */
-  function fit(element: HTMLTextAreaElement) {
-    const style = getComputedStyle(element);
-    const border =
-      parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
-
-    element.style.height = "auto";
-    element.style.height = `${element.scrollHeight + border}px`;
-  }
-
-  /* Always the width it has beside the button: read at the stacked width, a
-     question that only wraps beside it unstacks, re-wraps in the narrower row
-     and stacks again. Past 1.5 rows rather than 2, because sub-pixel line
-     heights read an exact two rows as 1.98. */
-  function rowsBesideTheButton(element: HTMLTextAreaElement): number {
-    const style = getComputedStyle(element);
-    const row = element.parentElement;
-    const gap = row ? parseFloat(getComputedStyle(row).columnGap) : Number.NaN;
-    const beside =
-      element.clientWidth - (sendRef.current?.offsetWidth ?? Number.NaN) - gap;
-
-    const flex = element.style.flex;
-    const width = element.style.width;
-    const height = element.style.height;
-    if (stacked && Number.isFinite(beside)) {
-      // A flex item takes its size from the container, which would ignore the
-      // width this is measuring at.
-      element.style.flex = "none";
-      element.style.width = `${beside}px`;
-    }
-    element.style.height = "auto";
-    const content = element.scrollHeight;
-    element.style.height = height;
-    element.style.width = width;
-    element.style.flex = flex;
-
-    return (
-      (content -
-        parseFloat(style.paddingTop) -
-        parseFloat(style.paddingBottom)) /
-      parseFloat(style.lineHeight)
-    );
-  }
-
   // The width changes with the row, so the height measured in the other layout
   // is wrong by a row: re-fit once the browser has laid the new one out.
   useLayoutEffect(() => {
@@ -108,14 +103,16 @@ export function Composer({
       width = row.clientWidth;
 
       fit(element);
-      setStacked(rowsBesideTheButton(element) > 1.5);
+      setStacked(rowsBesideTheButton(element, sendRef.current, stacked) > 1.5);
     });
 
     observer.observe(row);
     return () => {
       observer.disconnect();
     };
-  });
+    // Not `[]`: the callback measures from whichever row it is in, so an
+    // observer subscribed once would read the inline width forever.
+  }, [stacked]);
 
   function submit(event?: SyntheticEvent) {
     event?.preventDefault();
@@ -163,7 +160,9 @@ export function Composer({
           onChange={(event) => {
             setValue(event.target.value);
             fit(event.target);
-            setStacked(rowsBesideTheButton(event.target) > 1.5);
+            setStacked(
+              rowsBesideTheButton(event.target, sendRef.current, stacked) > 1.5,
+            );
           }}
           onKeyDown={handleKeyDown}
           placeholder={`Ask a question about ${subject}…`}
