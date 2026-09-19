@@ -46,6 +46,33 @@ test.describe("asking a question", () => {
     await expect(chip).toHaveAccessibleName(/northwind-remote-work-handbook/i);
   });
 
+  test("copies the answer with a list of what each marker was", async ({
+    page,
+    context,
+  }) => {
+    // The citation's value lands outside the app — in the report the reader is
+    // writing — so what reaches the clipboard is the thing under test, not the
+    // button's own label.
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await ask(page, ANSWERABLE);
+    await expect(
+      page.getByRole("button", { name: /^Citation 1:/ }),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: /copy the answer/i }).click();
+    await expect(
+      page.getByRole("button", { name: /answer copied/i }),
+    ).toBeVisible();
+
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+
+    // A browser writes the clipboard in the platform's line endings — CRLF on
+    // Windows, LF on the Linux runner — so the break is matched either way.
+    expect(copied).toMatch(/\[1\]/);
+    expect(copied).toMatch(/\r?\nSources:\r?\n/);
+    expect(copied).toMatch(/\[1\] northwind-remote-work-handbook/i);
+  });
+
   test("clicking a citation opens the source at the cited passage", async ({
     page,
   }) => {

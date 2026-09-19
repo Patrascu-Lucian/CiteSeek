@@ -471,3 +471,51 @@ describe("MessageList — a question the server has not written down yet", () =>
     expect(screen.queryByRole("button", { name: /edit/i })).toBeNull();
   });
 });
+
+describe("MessageList — copying an answer", () => {
+  const props = {
+    onSelectSource: vi.fn(),
+    selectedChunkId: null,
+    uploadHref: "/w/w1",
+    documents: ["handbook.pdf"],
+    canUpload: true,
+    signedIn: true,
+    isDemo: false,
+    onAsk: () => undefined,
+  };
+
+  it("offers the control on the answer, not on the question", () => {
+    render(
+      <MessageList
+        {...props}
+        messages={[
+          userMessage("What is the policy?"),
+          assistantMessage("Paid in 30 days [1].", [SOURCE]),
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getAllByRole("button", { name: /copy the answer/i }),
+    ).toHaveLength(1);
+  });
+
+  it("waits until the answer has finished arriving", () => {
+    // Half an answer is not what a reader means to take away, and its markers
+    // are not all resolved yet.
+    render(
+      <MessageList
+        {...props}
+        streaming
+        messages={[
+          userMessage("What is the policy?"),
+          assistantMessage("Paid in 3", [SOURCE]),
+        ]}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /copy the answer/i }),
+    ).not.toBeInTheDocument();
+  });
+});
