@@ -3673,3 +3673,22 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **a hook's dependency list is a claim about what its callback closes over, so the fix
   for an awkward list is usually to close over less.** Moving the two helpers out made the right
   array obvious and the linter's complaint disappear at the same time.
+
+## A clipboard assertion that only held on one operating system, 19 September 2026
+
+- **Issue**: the end-to-end test for copying an answer read the clipboard back and matched
+  `/\nSources:\n/`. It failed here while the feature worked: the text was exactly right, and the
+  break between the prose and the source list was `\r\n`.
+
+- **Cause**: a browser writes the clipboard in the platform's line endings. Chromium on Windows
+  gives CRLF, the Linux runner gives LF, and the assertion was written against whichever machine it
+  was first run on. It would have passed in CI and failed for anyone developing on Windows, which is
+  the worse way round — the failure looks like a defect in the feature.
+
+- **Fix**: `/\r?\nSources:\r?\n/`, with a line saying why. The formatter itself is unchanged and its
+  unit tests still assert exact `\n`, because that is what the code produces; only the round trip
+  through the clipboard is platform-dependent.
+
+- **Lesson**: **anything that leaves the process comes back in the platform's dialect.** A string the
+  code owns can be asserted exactly; a string the operating system handed back has to be matched on
+  what it means.
