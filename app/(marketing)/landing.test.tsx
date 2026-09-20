@@ -110,8 +110,39 @@ describe("Landing", () => {
   it("lists the feature cards inside a list for screen-reader navigation", () => {
     render(<Landing {...anonymous} />);
 
-    const list = screen.getByRole("list");
+    const features = screen.getByRole("region", {
+      name: /what citeseek does/i,
+    });
+    const list = within(features).getByRole("list");
+
     expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("walks through how a question is answered, in order", () => {
+    render(<Landing {...anonymous} />);
+
+    const how = screen.getByRole("region", {
+      name: /how a question is answered/i,
+    });
+    const steps = within(how).getAllByRole("listitem");
+
+    expect(steps).toHaveLength(3);
+    expect(steps[1]).toHaveTextContent(/before the model writes/i);
+  });
+
+  it("shows the product, with the dark screenshot hidden from assistive tech", () => {
+    // Two files, one view: the `dark:` variant swaps them so a dark page is not
+    // shown a light product. Only one of the pair is describable, or a screen
+    // reader hears the same picture twice.
+    render(<Landing {...anonymous} />);
+
+    const how = screen.getByRole("region", {
+      name: /how a question is answered/i,
+    });
+    const described = within(how).getAllByRole("img");
+
+    expect(described).toHaveLength(1);
+    expect(described[0]).toHaveAccessibleName(/source panel open/i);
   });
 
   it("labels the feature section rather than leaving it anonymous", () => {
@@ -136,6 +167,10 @@ describe("the hero graphic", () => {
     const svg = container.querySelector("svg[role='presentation']");
     expect(svg).not.toBeNull();
     expect(svg).toHaveAttribute("aria-hidden", "true");
-    expect(screen.queryByRole("img")).toBeNull();
+
+    // Inside the hero only: the screenshot further down is a real image and is
+    // described.
+    const hero = svg!.closest("section")!;
+    expect(within(hero).queryByRole("img")).toBeNull();
   });
 });

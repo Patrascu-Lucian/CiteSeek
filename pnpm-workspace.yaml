@@ -1,7 +1,7 @@
 # Native postinstall scripts are opt-in under pnpm 11. These are all first-party
 # to the stack, so they are approved rather than ignored:
-#   sharp         -> Next.js image optimization. No route uses next/image,
-#                    so it is built but never invoked — see overrides.
+#   sharp         -> Next.js image optimization, which the landing page's
+#                    screenshots now use — so it is invoked, on our own files.
 #   unrs-resolver -> native module resolver used by eslint-config-next's import plugin
 #   esbuild       -> bundler used by drizzle-kit to run TS config and migrations
 #   onnxruntime-node, protobufjs -> denied. Both ship prebuilt binaries, so the
@@ -39,10 +39,12 @@ overrides:
   # sharp was already here via next, so this collapses two copies into one, as
   # postcss and esbuild do above. 0.35.4 is the floor rather than 0.35.3 because
   # below it sharp bundles libheif < 1.23.2 (GHSA-2jg2-4ch7-h545): AVIF decoding
-  # with two critical CVEs. Nothing imports sharp here at all — next/image is
-  # used on no route, so it is present only as next's optional native dep and is
-  # never invoked. The floor matters anyway: at ^0.35.3 this pin held the old
-  # copy in place against next's patched one.
+  # with two critical CVEs. **That floor became load-bearing on 20 September
+  # 2026**, when the landing page's screenshots started going through
+  # `next/image`: sharp is invoked now. What it decodes is two PNGs committed to
+  # this repository rather than anything a reader supplies, so the advisory's
+  # path is not reachable from a request — but the version it decodes with is no
+  # longer a precaution.
   sharp: ^0.35.4
   # Dev only — eslint and its config packages. 4.3.2 counts empty merge sources
   # against maxTotalMergeKeys; below it a small crafted document costs seconds of
