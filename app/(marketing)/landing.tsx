@@ -134,6 +134,65 @@ export function Landing({ primary, secondary, note }: LandingCallsToAction) {
           </ul>
         </div>
       </section>
+
+      <section
+        aria-labelledby="guarantee-heading"
+        className="border-border/60 border-t"
+      >
+        <div className={pageShell("5xl", "py-16 md:max-w-3xl")}>
+          <h2
+            id="guarantee-heading"
+            className="text-2xl font-semibold tracking-tight"
+          >
+            How that guarantee is built
+          </h2>
+          <div className="text-muted-foreground mt-4 space-y-4 text-base">
+            <p>
+              The passages are retrieved and sent to your browser before the
+              model writes a word. A marker in the answer resolves against that
+              payload, so it points at a passage that already existed — the
+              model chooses which to cite, and cannot cite what it was not
+              given.
+            </p>
+            <p>
+              A marker that resolves to nothing stays plain text rather than
+              becoming a link, so a number the model invented cannot present
+              itself as a source.
+            </p>
+            <p>
+              And when nothing retrieved is relevant enough, no answer is
+              generated at all: the reply saying so is written by CiteSeek, on a
+              branch where the model never runs.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="local-heading"
+        className="border-border/60 border-t"
+      >
+        <div className={pageShell("5xl", "py-16 md:max-w-3xl")}>
+          <h2
+            id="local-heading"
+            className="text-2xl font-semibold tracking-tight"
+          >
+            Or keep the documents in your browser
+          </h2>
+          <p className="text-muted-foreground mt-4 text-base">
+            Local mode runs the model on your machine, so the text of a document
+            never leaves it — the one claim here that is sovereignty rather than
+            a region on a map. It is experimental, and{" "}
+            {/* A plain anchor: /local needs the headers its own response
+                carries, and a client navigation keeps the previous page's
+                (ADR 028). */}
+            <a href="/local" className="hover:text-foreground underline">
+              the page says what it measures
+            </a>
+            .
+          </p>
+        </div>
+      </section>
     </main>
   );
 }
