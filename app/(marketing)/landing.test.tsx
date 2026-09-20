@@ -71,6 +71,42 @@ describe("Landing", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("explains the guarantee in its own section, not in a third of a card row", () => {
+    render(<Landing {...anonymous} />);
+
+    const section = screen.getByRole("region", {
+      name: /how that guarantee is built/i,
+    });
+
+    // The three things that make it structural: the payload precedes the prose,
+    // an unresolved marker is not a link, and the refusal branch runs no model.
+    expect(section).toHaveTextContent(/before the model writes a word/i);
+    expect(section).toHaveTextContent(/stays plain text/i);
+    expect(section).toHaveTextContent(/the model never runs/i);
+  });
+
+  it("does not promise that a refusal never cites", () => {
+    // `eval/refusals.md` measures model-written refusals carrying markers, so
+    // that claim is false on the branch where a question clears the floor.
+    render(<Landing {...anonymous} />);
+
+    expect(
+      screen.queryByText(/a refusal cannot cite/i),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/never cites/i)).not.toBeInTheDocument();
+  });
+
+  it("points at local mode with a document navigation, not a client one", () => {
+    // A route-scoped CSP only applies to a document response, so a `Link` here
+    // would leave this page's policy governing local mode (ADR 028).
+    render(<Landing {...anonymous} />);
+
+    const link = screen.getByRole("link", { name: /says what it measures/i });
+
+    expect(link).toHaveAttribute("href", "/local");
+    expect(link).not.toHaveAttribute("data-prefetch");
+  });
+
   it("lists the feature cards inside a list for screen-reader navigation", () => {
     render(<Landing {...anonymous} />);
 
