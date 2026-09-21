@@ -75,7 +75,12 @@ const features = [
   },
 ] as const;
 
-export function Landing({ primary, secondary, note }: LandingCallsToAction) {
+export function Landing({
+  primary,
+  secondary,
+  note,
+  closing,
+}: LandingCallsToAction) {
   return (
     <main id="main" className="flex flex-1 flex-col">
       <section
@@ -300,6 +305,29 @@ export function Landing({ primary, secondary, note }: LandingCallsToAction) {
             </a>
             .
           </p>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="closing-heading"
+        className="border-border/60 border-t"
+      >
+        <div className={pageShell("5xl", "py-16 md:max-w-3xl")}>
+          <h2
+            id="closing-heading"
+            className="text-2xl font-semibold tracking-tight"
+          >
+            {closing.heading}
+          </h2>
+          <p className="text-muted-foreground mt-4 text-base">{closing.body}</p>
+          <Button asChild size="lg" className="mt-8">
+            <Link
+              href={closing.action.href}
+              prefetch={prefetchFor(closing.action.href)}
+            >
+              {closing.action.label}
+            </Link>
+          </Button>
         </div>
       </section>
     </main>

@@ -3451,3 +3451,22 @@ after it.**
 
 Also outstanding for that slice, and not answerable from the DPA: how long Scaleway retains delivery
 logs holding recipient addresses. The page states a retention window, so it needs a number.
+
+## The citation-chip contrast test fails under full-suite load, 21 September 2026
+
+`e2e/a11y.spec.ts:309` — "a citation chip is distinguishable from the bubble behind it" — failed
+once in a full `pnpm test:e2e` run and passes every time it is run alone. Unrelated to the landing
+page work it surfaced during; the chat is not what that commit changed.
+
+Both reads came back as empty strings, which is what `getComputedStyle` returns for a node that is
+no longer in the document. The likely cause is the chip being replaced by a re-render while the
+answer is still streaming, between `toBeVisible()` and the `evaluate`. **This is a theory** — the
+error context was cleaned by the next run before it could be read, so the next occurrence should be
+kept.
+
+Two things to fix if it is confirmed:
+
+- the measurement should happen after the stream settles, not as soon as the chip appears;
+- `expect(bubbleBackground).not.toBe("rgba(0, 0, 0, 0)")` passes on `""`, so the guard the comment
+  above it describes — "a test that cannot fail is worse than no test" — has a hole exactly when
+  the node is detached. Asserting both values are non-empty closes it.
