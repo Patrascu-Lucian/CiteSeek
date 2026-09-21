@@ -3784,3 +3784,27 @@ tests, 117 E2E and a production build, green.
   code and watch it go red.** The test was real, the bug class was the one it was written for, and
   it still could not see the new case — because the trigger was viewport entry and the test never
   scrolled. Coverage of a behavior is not coverage of every element that has it.
+
+## A comment that was true for one day, 21 September 2026
+
+- **Issue**: the `adm-zip` override carried a written reason — `pnpm audit` names `>=0.6.1` as the
+  fix, but that is "npm's feed naming a release that was never published", GitHub says patched
+  versions None, and 0.6.0 is the latest on the registry. It justified an `audit.ignore` entry and a
+  by-hand alert dismissal. It was accurate when written on 10 September. adm-zip 0.6.1 was published
+  on **11 September**, and nothing looked again for ten days.
+
+- **Cause**: a claim about the state of the world outside the repository, written in the present
+  tense with no expiry. The two advisory sources disagreed, and the resolution — trust the GHSA over
+  npm's feed — was the right call on the evidence. It was also a bet that the feed was wrong rather
+  than early, and a bet has a date on it that a sentence does not.
+
+- **Fix**: the floor is `^0.6.1`, which clears both advisories against the package — the old
+  symlink one and a new allocation-before-validation DoS, each affected up to 0.6.0. The
+  `audit.ignore` entry is retired, `pnpm audit` reports nothing, and `pnpm-workspace.test.ts` fails
+  if a version at or below 0.6.0 comes back.
+
+- **Lesson**: **"there is nothing to upgrade to" is a measurement, not a property.** A comment
+  asserting what does not exist elsewhere starts decaying the moment it is written, and the thing
+  that made this one safe to hold — a test that fails when the version leaves the affected range —
+  is what should carry any such claim. Prose records the reasoning; a test is what notices the world
+  moved.

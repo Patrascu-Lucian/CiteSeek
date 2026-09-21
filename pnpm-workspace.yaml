@@ -57,19 +57,10 @@ overrides:
   # both 6.15.2 and 6.16.0. Express already brings 6.16.0, so this collapses two
   # copies into one, as postcss and esbuild do above.
   qs: ^6.15.2
-  # **Nothing to upgrade to.** GHSA-vwc7-r8mq-g2x9 / CVE-2026-76845, moderate,
-  # symlink-following on extract: affected >=0.5.9 <=0.6.0, **patched versions
-  # None**. `pnpm audit` disagrees and reports >=0.6.1 — npm's feed naming a
-  # release that was never published; GitHub's advisory and Dependabot both say
-  # None, and 0.6.0 is the latest on the registry. Unreachable here because the
-  # only caller is onnxruntime-node's postinstall, denied in allowBuilds above.
-  # The pin keeps one copy; it fixes nothing.
-  adm-zip: ^0.6.0
-
-# Ignored so `pnpm audit` reports what is new rather than failing on the adm-zip
-# advisory above forever. Not `--ignore-unfixable`, which would also silence a
-# future unfixable advisory we can reach. `pnpm-workspace.test.ts` retires this
-# entry once adm-zip leaves the affected range.
-audit:
-  ignore:
-    - GHSA-vwc7-r8mq-g2x9
+  # 0.6.1 clears both advisories at once, each affected up to 0.6.0:
+  # GHSA-vwc7-r8mq-g2x9 (symlink-following on extract) and the declared
+  # uncompressed size allocated before it is checked, where 105 bytes commit
+  # 1.8 GB. Still unreachable — the only caller is onnxruntime-node's
+  # postinstall, denied in allowBuilds above — so this is one copy and a floor,
+  # not a fix for anything we run.
+  adm-zip: ^0.6.1
