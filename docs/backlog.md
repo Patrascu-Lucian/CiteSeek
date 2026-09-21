@@ -3248,6 +3248,17 @@ the tree, so the ignore cannot outlive its reason. A scheduled `pnpm audit` job 
 not built: it would duplicate Dependabot's alerts, and without the ignore it would have been red
 from its first run.
 
+↳ **Decided, and the fix was one day away the whole time, 21 September 2026.** adm-zip 0.6.1 was
+published on 11 September — the day after the entry above said 0.6.0 was the latest and called
+`pnpm audit`'s `>=0.6.1` a release that was never published. **npm's feed was early, not wrong**,
+and nothing re-checked it, because the GHSA still read "patched versions: None" and the alert had
+been dismissed by hand. A second advisory against the same package is what made anyone look again:
+an entry's declared uncompressed size is allocated before it is validated, so 105 bytes commit
+about 1.8 GB. Both advisories are affected up to 0.6.0, so one floor clears both — the override is
+`^0.6.1`, the `audit.ignore` entry is gone, `pnpm audit` reports no known vulnerabilities, and
+`pnpm-workspace.test.ts` now fails if a version at or below 0.6.0 returns to the lockfile. The
+reachability finding above is unchanged: the postinstall stays denied.
+
 ## Provider photos, and the two ways to show one, 10 September 2026
 
 The account page draws initials. `users.image` already holds a URL to the reader's photo at GitHub
