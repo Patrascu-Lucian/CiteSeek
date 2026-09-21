@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -172,5 +175,49 @@ describe("the hero graphic", () => {
     // described.
     const hero = svg!.closest("section")!;
     expect(within(hero).queryByRole("img")).toBeNull();
+  });
+});
+
+describe("the strip of measured numbers", () => {
+  /* The point of the strip is that every figure on it came from a run. A number
+     typed here and nowhere else is the failure mode, so each is looked up in the
+     report it was measured by. */
+  const root = join(import.meta.dirname, "..", "..");
+  const sources = ["README.md", join("eval", "report.md")]
+    .map((file) => readFileSync(join(root, file), "utf8"))
+    .join("\n");
+
+  const figures = () =>
+    within(
+      screen.getByRole("region", { name: /what has been measured/i }),
+    ).getAllByRole("term");
+
+  it("shows four of them", () => {
+    render(<Landing {...anonymous} />);
+
+    expect(figures()).toHaveLength(4);
+  });
+
+  it("quotes only numbers a committed report also carries", () => {
+    render(<Landing {...anonymous} />);
+
+    const unsupported = figures()
+      .map((figure) => figure.textContent)
+      .filter((value) => !sources.includes(value));
+
+    expect(unsupported).toEqual([]);
+  });
+
+  it("claims no count of readers and no zero for invented citations", () => {
+    // `db:usage` says the readers are the author; `eval/refusals.md` measures
+    // refusals that do carry a marker, so neither claim would survive its source.
+    render(<Landing {...anonymous} />);
+
+    const strip = screen.getByRole("region", {
+      name: /what has been measured/i,
+    });
+
+    expect(strip).not.toHaveTextContent(/users|readers|visitors/i);
+    expect(strip).not.toHaveTextContent(/\b0 (invented|hallucinat)/i);
   });
 });

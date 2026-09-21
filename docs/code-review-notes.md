@@ -3744,3 +3744,22 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **a generated file is not part of the repository, however reliably it sits on your
   disk** — and a fix for a clean-checkout failure has to be tested on a clean checkout. Linting the
   file you changed is not the same as running the command CI runs.
+
+## A true number that was still the wrong one to quote, 21 September 2026
+
+- **Issue**: the proof strip led with **1.00 retrieval recall at eight passages**. The figure is
+  real and `eval/report.md` carries it, so the provenance test passed — but it is the most
+  flattering cell in that table. Precision at k=8 is 0.14 over three documents, and the README's
+  own prose leads with the top-three number instead, because that is the one that says something.
+
+- **Fix**: quote **0.95, the answering passage in the top three**. The comment beside the constant
+  now records why the higher number was rejected, so nobody restores it as an improvement.
+
+- **The test was weaker than it looked, too.** It asserts each figure appears somewhere in the
+  README or the report. `1.00` appears 38 times across them — mostly as cells in distance tables —
+  so the assertion would have held for a recall that had changed. `0.95` appears three times.
+  A membership check is only as strong as the rarity of the string it looks for.
+
+- **Lesson**: **a number being true is not the same as it being the one to publish.** Picking the
+  best cell out of a measured table is selection, and a page whose whole claim is "measured rather
+  than asserted" is the worst place to do it.

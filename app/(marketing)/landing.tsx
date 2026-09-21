@@ -29,6 +29,16 @@ const SHOT = {
   sizes: "(min-width: 1024px) 64rem, 100vw",
 } as const;
 
+/* Each figure is checked against a committed report by `landing.test.tsx`.
+   Recall is at three passages, not the eight where it reads 1.00: precision
+   there is 0.14. No reader counts, no zero for invented citations. */
+const PROOF = [
+  { value: "365 ms", label: "to the first source, deployed" },
+  { value: "0.85 s", label: "to the first token of prose" },
+  { value: "0.95", label: "of answers found in the top three passages" },
+  { value: "86.5%", label: "of 830 mutants caught in the pure core" },
+] as const;
+
 const steps = [
   {
     title: "The question is matched against your documents",
@@ -202,6 +212,35 @@ export function Landing({ primary, secondary, note }: LandingCallsToAction) {
               </li>
             ))}
           </ol>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="proof-heading"
+        className="border-border/60 border-t"
+      >
+        <div className={pageShell("5xl", "py-16")}>
+          <h2 id="proof-heading" className="sr-only">
+            What has been measured
+          </h2>
+          <dl className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {PROOF.map(({ value, label }) => (
+              <div key={label}>
+                <dt className="text-3xl font-semibold tracking-tight tabular-nums">
+                  {value}
+                </dt>
+                <dd className="text-muted-foreground mt-2 text-sm">{label}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="text-muted-foreground mt-8 text-sm">
+            Measured rather than asserted: the method behind each number, and
+            what it does not cover, is in the{" "}
+            <Link href="/about" className="hover:text-foreground underline">
+              about page
+            </Link>
+            .
+          </p>
         </div>
       </section>
 
