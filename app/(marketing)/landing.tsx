@@ -1,5 +1,9 @@
+import Image from "next/image";
 import Link from "next/link";
 import { FileText, MessageSquareQuote, ShieldCheck } from "lucide-react";
+
+import sourceLight from "@/docs/images/source.png";
+import sourceDark from "@/docs/images/dark.png";
 
 import { HeroGraphic } from "@/components/marketing/hero-graphic";
 import { Button } from "@/components/ui/button";
@@ -14,14 +18,31 @@ import {
 import type { LandingCallsToAction } from "./calls-to-action";
 import { pageShell } from "@/components/ui/page-shell";
 
-/**
- * The landing page's markup, with no idea who is reading it.
- *
- * Split from `page.tsx` for the same reason `DocumentList` is split from
- * `DocumentsPanel`: the page resolves the actor, which makes it async and pulls
- * in Auth.js, and neither of those can be rendered by React Testing Library.
- * Presentational and stateless, this one can.
- */
+/** Split from `page.tsx`, which resolves the actor: that makes it async and
+ * pulls in Auth.js, neither of which React Testing Library can render. */
+
+/* Written down because under Vitest the loader returns a URL string, not the
+   object next/image reads dimensions from. */
+const SHOT = {
+  width: 1280,
+  height: 960,
+  sizes: "(min-width: 1024px) 64rem, 100vw",
+} as const;
+
+const steps = [
+  {
+    title: "The question is matched against your documents",
+    body: "It is embedded and compared with the passages of the files in this workspace — scoped in the SQL of the search itself, not filtered afterward.",
+  },
+  {
+    title: "The passages are sent before the model writes",
+    body: "Whatever clears the relevance floor goes to your browser first. The model then writes with numbered markers against that payload, so a marker points at a passage that already arrived.",
+  },
+  {
+    title: "A marker opens the passage it came from",
+    body: "Clicking one opens the document at the exact characters the answer was grounded in, highlighted, with its page number — the offsets are recorded when the file is chunked.",
+  },
+] as const;
 
 const features = [
   {
@@ -132,6 +153,55 @@ export function Landing({ primary, secondary, note }: LandingCallsToAction) {
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="how-heading"
+        className="border-border/60 border-t"
+      >
+        <div className={pageShell("5xl", "py-16")}>
+          <h2
+            id="how-heading"
+            className="text-2xl font-semibold tracking-tight"
+          >
+            How a question is answered
+          </h2>
+
+          <figure className="mt-8">
+            {/* One view, two palettes: the same screen photographed in each, so
+                the `dark:` variant swaps the file rather than showing a light
+                product to a dark page. Both are written by `pnpm demo:shots`. */}
+            <Image
+              src={sourceLight}
+              {...SHOT}
+              alt="The source panel open beside a cited answer, with the cited passage highlighted and its page number shown"
+              className="border-border/60 rounded-lg border dark:hidden"
+            />
+            <Image
+              src={sourceDark}
+              {...SHOT}
+              alt=""
+              aria-hidden="true"
+              className="border-border/60 hidden rounded-lg border dark:block"
+            />
+            <figcaption className="text-muted-foreground mt-3 text-sm">
+              The demo workspace: an answer, its numbered markers, and the
+              passage one of them opens.
+            </figcaption>
+          </figure>
+
+          <ol className="mt-10 grid gap-6 sm:grid-cols-3">
+            {steps.map(({ title, body }, index) => (
+              <li key={title}>
+                <p className="text-muted-foreground text-sm font-medium">
+                  Step {index + 1}
+                </p>
+                <h3 className="mt-1 font-medium">{title}</h3>
+                <p className="text-muted-foreground mt-2 text-sm">{body}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
