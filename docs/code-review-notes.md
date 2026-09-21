@@ -3763,3 +3763,24 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **a number being true is not the same as it being the one to publish.** Picking the
   best cell out of a measured table is selection, and a page whose whole claim is "measured rather
   than asserted" is the worst place to do it.
+
+## A guard the test I trusted could not reach, 21 September 2026
+
+- **Issue**: the closing call to action at the foot of the landing page links to `/demo`, a GET that
+  sets a guest cookie. It was written with `prefetch={prefetchFor(href)}`, and I claimed
+  `e2e/auth.spec.ts`'s "reading the landing page starts no session" already covered it. Removing the
+  prop to prove that — the test still passed.
+
+- **Cause**: Next prefetches a `<Link>` when it **enters the viewport**, not when the page loads.
+  The hero's links are above the fold, which is why the original bug was caught there. A link at the
+  foot of a long page is never reached by a test that only calls `goto` and waits for the network to
+  settle, so its guard was unverifiable.
+
+- **Fix**: the test scrolls the closing link into view before it reads the cookies. With the guard
+  removed it then fails on `Received array: ["citeseek.guest"]`, which is the behavior a real reader
+  would have got: a session handed to anyone who scrolled to the bottom, without clicking anything.
+
+- **Lesson**: **"an existing test covers this" is a claim, and the way to check it is to break the
+  code and watch it go red.** The test was real, the bug class was the one it was written for, and
+  it still could not see the new case — because the trigger was viewport entry and the test never
+  scrolled. Coverage of a behavior is not coverage of every element that has it.

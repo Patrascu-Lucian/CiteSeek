@@ -82,4 +82,32 @@ describe("callsToAction", () => {
       expect(secondary.label).not.toBe("");
     }
   });
+
+  it("closes on the step the reader has not taken yet", () => {
+    expect(callsToAction(null).closing.action).toEqual({
+      href: "/demo",
+      label: "Open the demo workspace",
+    });
+    // A guest is already in the demo, so the demo is not the next step.
+    expect(callsToAction(guest).closing.action.href).toBe("/sign-in");
+    expect(callsToAction(user).closing.action.href).toBe("/w");
+  });
+
+  it("never gives the closing link a name the hero already used", () => {
+    // One accessible name, two links: indistinguishable in a link list, and the
+    // entry-link count in `smoke.spec.ts` stops meaning anything.
+    for (const actor of [null, user, guest]) {
+      const { primary, secondary, closing } = callsToAction(actor);
+
+      expect([primary.label, secondary.label]).not.toContain(
+        closing.action.label,
+      );
+      expect(closing.heading).not.toBe("");
+      expect(closing.body).not.toBe("");
+    }
+  });
+
+  it("tells a guest the demo is the thing that cannot take their file", () => {
+    expect(callsToAction(guest).closing.heading).toMatch(/cannot take a file/i);
+  });
 });

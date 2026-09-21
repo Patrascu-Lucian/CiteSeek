@@ -38,7 +38,11 @@ describe("Landing", () => {
 
   it("renders no cost line for a reader whose calls to action carry none", () => {
     render(
-      <Landing primary={anonymous.primary} secondary={anonymous.secondary} />,
+      <Landing
+        primary={anonymous.primary}
+        secondary={anonymous.secondary}
+        closing={anonymous.closing}
+      />,
     );
 
     expect(screen.queryByText(/no account/i)).not.toBeInTheDocument();
@@ -164,6 +168,7 @@ describe("the hero graphic", () => {
       <Landing
         primary={{ href: "/sign-in", label: "Get started" }}
         secondary={{ href: "/demo", label: "Try the demo" }}
+        closing={anonymous.closing}
       />,
     );
 
@@ -219,5 +224,31 @@ describe("the strip of measured numbers", () => {
 
     expect(strip).not.toHaveTextContent(/users|readers|visitors/i);
     expect(strip).not.toHaveTextContent(/\b0 (invented|hallucinat)/i);
+  });
+});
+
+describe("the invitation at the foot", () => {
+  it("ends on the reader's own next step, not on a sentence about the project", () => {
+    render(<Landing {...anonymous} />);
+
+    const closing = screen.getByRole("region", {
+      name: anonymous.closing.heading,
+    });
+
+    expect(
+      within(closing).getByRole("link", {
+        name: anonymous.closing.action.label,
+      }),
+    ).toHaveAttribute("href", "/demo");
+  });
+
+  it("does not repeat the hero's link name lower down the same page", () => {
+    // Two links with one accessible name are indistinguishable in a screen
+    // reader's link list, and they would void the entry count in `smoke.spec.ts`.
+    render(<Landing {...anonymous} />);
+
+    expect(
+      screen.getAllByRole("link", { name: anonymous.primary.label }),
+    ).toHaveLength(1);
   });
 });

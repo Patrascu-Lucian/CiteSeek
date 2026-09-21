@@ -8,11 +8,14 @@ test.describe("guest mode", () => {
     context,
   }) => {
     /*
-      `/demo` is a GET that sets a cookie, and Next prefetches `<Link>` targets —
-      so reading the landing page handed every visitor a session. `networkidle`
-      because a prefetch has not happened yet when `load` fires.
+      Next prefetches `<Link>` targets on viewport entry, and `/demo` is a GET
+      that sets a cookie. Hence the wait — none has fired at `load` — and the
+      scroll, without which only the links above the fold are tested.
     */
     await page.goto("/");
+    await page
+      .getByRole("link", { name: /open the demo workspace/i })
+      .scrollIntoViewIfNeeded();
     await page.waitForLoadState("networkidle");
 
     expect(
