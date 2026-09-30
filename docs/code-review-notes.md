@@ -3695,6 +3695,11 @@ tests, 117 E2E and a production build, green.
 
 ## A screenshot that became the largest paint, 20 September 2026
 
+> **Superseded in part on 30 September 2026** — see "A cost I published from two runs" below. The two
+> points this entry attributes to the screenshot do not survive a controlled re-measure: fifteen runs
+> on one harness read 94 with the figure and 94–95 without, LCP 3.0s either way. The heading still
+> holds — the figure does become the largest paint — but it does not make it later.
+
 - **Issue**: the landing page's new "how it works" section put a product screenshot on the page, and
   Lighthouse fell from 96 to 94 locally with largest-contentful-paint going 2.7s to 3.1s. Cumulative
   layout shift stayed at 0, which the explicit dimensions bought.
@@ -3831,3 +3836,27 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **a constant copied from a generated artifact is a coupling, and a comment saying
   where it came from does not hold it.** The comment beside these numbers already explained why they
   are written by hand; it could not notice the day the artifact changed underneath them.
+
+## A cost I published from two runs, 30 September 2026
+
+- **Issue**: ADR 057 and the release notes said the landing page's screenshot "costs two Lighthouse
+  points locally — 96 to 94, LCP 2.7 s to 3.1 s". Re-measuring properly does not reproduce it. On one
+  harness, back to back: **94 with the figure across nine runs, 94 to 95 without it across six, and
+  LCP 3.0 s either way.** The figure becomes the largest contentful paint without making it later.
+
+- **Cause**: the original pair came from two runs on two different builds taken on different days,
+  and the 96 was measured on a shorter page — before the proof strip and the closing section existed.
+  Two numbers from two states, subtracted, and written down as one cause. The cold-start run in every
+  set reads 84 to 91, so the noise floor was visibly wider than the effect being claimed.
+
+- **Fix**: fifteen runs, one server, one sitting, one variable — the figure removed and nothing else.
+  The ADR bullet now bounds the cost at a point instead of asserting two, and says the LCP does not
+  move. The no-figure set ran first, so warming favored the with-figure set and it still did not
+  score higher, which is what makes the bound honest rather than merely smaller.
+
+- **Lesson**: **a before-and-after pair is not a measurement of a difference.** Any A/B where the
+  noise between repeats of the same build is bigger than the gap between builds needs repeats,
+  interleaving and one changed variable — and if the "before" was a different page, there is no
+  comparison at all. This project already knew it: the README warns readers not to compare its
+  v0.7.0 Lighthouse row against v1.4.0 because the tooling differs, and I did the same thing one
+  table down.
