@@ -318,6 +318,14 @@ for (const theme of THEMES) {
         const chip = page.getByRole("button", { name: /^Citation 1:/ });
         await expect(chip).toBeVisible();
 
+        /* Measured once the stream is over. A re-render between resolving the
+           locator and running the evaluate leaves a detached node, whose computed
+           style is empty strings — which is how this failed twice. The colors are
+           not a function of streaming, so waiting costs the test nothing. */
+        await expect(
+          page.getByRole("button", { name: /^send the question$/i }),
+        ).toBeVisible({ timeout: 30_000 });
+
         /*
       The chip was `bg-muted` on a `bg-muted` bubble: drawn every time, in exactly
       the color behind it. axe passed and would again — its contrast rules compare
@@ -340,6 +348,10 @@ for (const theme of THEMES) {
           },
         );
 
+        // A detached read makes both values `""`, which fails the comparison
+        // below as "the chip is the color of the bubble" — a real bug this test
+        // exists for, reported for a reason that is not it.
+        expect(chipBackground, "the chip was detached when read").not.toBe("");
         expect(bubbleBackground).not.toBe("rgba(0, 0, 0, 0)");
         expect(chipBackground).not.toBe(bubbleBackground);
       });
