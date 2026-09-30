@@ -3808,3 +3808,26 @@ tests, 117 E2E and a production build, green.
   that made this one safe to hold — a test that fails when the version leaves the affected range —
   is what should carry any such claim. Prose records the reasoning; a test is what notices the world
   moved.
+
+## Three copies of one number, and nothing holding them together, 30 September 2026
+
+- **Issue**: the landing page states the screenshot's dimensions by hand — `next/image` reads them
+  from the static import in a build, but under Vitest the loader returns a URL string, so they are
+  written down. Those numbers are decided somewhere else entirely: `scripts/build-readme-shots.mts`
+  captures at `VIEWPORT = { width: 1280, height: 960 }`, and `page.screenshot()` takes the viewport
+  at scale 1. So the script's viewport, the two PNG files and the page's literals all held the same
+  pair, with nothing connecting them. **No defect yet** — all three agreed.
+
+- **What it would have cost**: re-shooting at another viewport changes the files and not the page.
+  Explicit `width`/`height` win over the import, so the image renders stretched and the box reserved
+  for it is the wrong shape — quietly undoing the CLS of 0 the section was measured at.
+
+- **Fix**: the test reads the IHDR of both PNGs and asserts the rendered `<img>` attributes match
+  them, and separately that the capture script's viewport is that same size — which fails on the
+  change to the script rather than after someone runs `pnpm demo:shots`. Falsified three ways: a
+  wrong literal, a changed viewport, and a file that is not a PNG (the signature check turns that
+  into a named failure instead of two garbage integers).
+
+- **Lesson**: **a constant copied from a generated artifact is a coupling, and a comment saying
+  where it came from does not hold it.** The comment beside these numbers already explained why they
+  are written by hand; it could not notice the day the artifact changed underneath them.

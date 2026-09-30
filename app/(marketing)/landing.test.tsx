@@ -8,6 +8,7 @@ import { callsToAction } from "./calls-to-action";
 import { Landing } from "./landing";
 
 const anonymous = callsToAction(null);
+const root = join(import.meta.dirname, "..", "..");
 
 describe("Landing", () => {
   it("states what the product does in a single top-level heading", () => {
@@ -187,7 +188,6 @@ describe("the strip of measured numbers", () => {
   /* The point of the strip is that every figure on it came from a run. A number
      typed here and nowhere else is the failure mode, so each is looked up in the
      report it was measured by. */
-  const root = join(import.meta.dirname, "..", "..");
   const sources = ["README.md", join("eval", "report.md")]
     .map((file) => readFileSync(join(root, file), "utf8"))
     .join("\n");
@@ -250,5 +250,55 @@ describe("the invitation at the foot", () => {
     expect(
       screen.getAllByRole("link", { name: anonymous.primary.label }),
     ).toHaveLength(1);
+  });
+});
+
+describe("the screenshot's declared size", () => {
+  /* `next/image` reads these from the static import in a build; under Vitest the
+     loader returns a URL string, so the page states them by hand. A pair that
+     does not match the file stretches the picture and reserves the wrong box. */
+  const dimensionsOf = (file: string) => {
+    const png = readFileSync(join(root, "docs", "images", file));
+
+    expect(png.subarray(0, 8).toString("hex"), `${file} is not a PNG`).toBe(
+      "89504e470d0a1a0a",
+    );
+
+    // Width and height open IHDR, which is the first chunk after the signature.
+    return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
+  };
+
+  it("is the size of the files, in both palettes", () => {
+    const light = dimensionsOf("source.png");
+    expect(dimensionsOf("dark.png")).toEqual(light);
+
+    const { container } = render(<Landing {...anonymous} />);
+    const declared = [...container.querySelectorAll("img")].map((img) => ({
+      width: Number(img.getAttribute("width")),
+      height: Number(img.getAttribute("height")),
+    }));
+
+    expect(declared).toEqual([light, light]);
+  });
+
+  it("is the viewport the capture script shoots at", () => {
+    // `page.screenshot()` takes the viewport at scale 1, so this is what the
+    // next `pnpm demo:shots` writes — red on the change, not after a re-shoot.
+    const script = readFileSync(
+      join(root, "scripts", "build-readme-shots.mts"),
+      "utf8",
+    );
+    const viewport = /const VIEWPORT = \{ width: (\d+), height: (\d+) \}/.exec(
+      script,
+    );
+
+    expect(
+      viewport,
+      "no VIEWPORT literal in the capture script",
+    ).not.toBeNull();
+    expect({
+      width: Number(viewport![1]),
+      height: Number(viewport![2]),
+    }).toEqual(dimensionsOf("source.png"));
   });
 });
