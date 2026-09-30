@@ -3860,3 +3860,33 @@ tests, 117 E2E and a production build, green.
   comparison at all. This project already knew it: the README warns readers not to compare its
   v0.7.0 Lighthouse row against v1.4.0 because the tooling differs, and I did the same thing one
   table down.
+
+## A flaky test that named the bug it exists for, 30 September 2026
+
+- **Issue**: `e2e/a11y.spec.ts`'s citation-chip contrast check failed twice in full-suite runs, once
+  per theme, reporting `Expected: not ""` on `expect(chipBackground).not.toBe(bubbleBackground)` —
+  which reads as "the chip is painted in exactly the bubble's color", the precise defect that test was
+  written for. It was not that. Both values were the empty string, which is what `getComputedStyle`
+  returns for an element no longer in the document.
+
+- **The theory that was wrong, and nearly became a product change.** `message-list.tsx` computes
+  `settled = !streaming || …` and `copyable = !isUser && settled && …`, and the assistant bubble is
+  rendered bare when not copyable and wrapped in `<TurnActions>` when it is. So when a stream ends the
+  bubble appears to move in the tree, which would remount the subtree and replace the chip — a
+  specific, plausible mechanism that also explained the timing. **A probe disproved it**: tagging the
+  live chip mid-stream with an attribute and focusing it, then waiting for the send button to return,
+  found the tag still there and focus still on the chip. No remount, so nothing in the component was
+  changed.
+
+- **Fix, in the test only.** It waits for the stream to finish before measuring, which removes the
+  window between Playwright resolving the locator and running the `evaluate` — the only place a
+  re-render can leave a stale handle. The colors are not a function of streaming, so waiting costs
+  nothing. A `not.toBe("")` on the chip goes first, so a detached read says it is detached instead of
+  blaming the contrast. Twelve consecutive runs pass, and painting the chip `bg-muted` still fails both
+  themes with real color values, so the test still does its job.
+
+- **Lesson**: **a failing assertion's message is a claim about the cause, and it is only as good as
+  what the test could distinguish.** This one could not tell "same color" from "no color", so it
+  reported the bug it was named after. And a mechanism that explains the symptom is a hypothesis: the
+  re-parenting story fit every observation and was still false, which one probe settled for the cost of
+  a few minutes against a change to shipped code.
