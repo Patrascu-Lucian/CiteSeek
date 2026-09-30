@@ -74,10 +74,19 @@ And what the page deliberately does not claim:
 - **A stale number fails a test rather than sitting on the page.** The cost is that re-running an
   evaluation can turn a unit test red, which is the intended direction: the page cannot drift away
   from the reports while the suite is green.
-- **The screenshot costs two Lighthouse points locally** — 96 to 94, LCP 2.7 s to 3.1 s, CLS 0. On a
-  412 px viewport the figure is the largest paint wherever the section is placed; above the cards,
-  below them, with `priority` and at a narrower width all measured 94. It is recorded rather than
-  tuned away, and owed a re-measure on the deploy, where the last landing run was 98.
+- **The screenshot costs a point at most, and does not move the LCP.** Locally the page measures 94
+  with the figure and 94 to 95 without it, and the largest contentful paint is 3.0 s either way — so
+  the figure _becomes_ the largest paint without making it later. CLS is 0 in both. Position,
+  `priority` and a narrower width all measure 94 as well. It is recorded rather than tuned away, and
+  owed a re-measure on the deploy, where the last landing run was 98.
+
+  **Corrected on 30 September 2026.** This bullet first read "costs two Lighthouse points — 96 to
+  94, LCP 2.7 s to 3.1 s", from a pair of runs taken on different builds on different days. Fifteen
+  runs on one harness, back to back — nine with the figure, six without — do not reproduce it. The
+  no-figure set ran first, so warming favored the with-figure set, and it still did not score
+  higher; that bounds the cost rather than dismissing it. What the bullet should have said is that a
+  single before-and-after pair is not a measurement of a difference.
+
 - **`next/image` means sharp is invoked now**, which two comments in `pnpm-workspace.yaml` had said
   it never was — one of them the reason its version floor exists. What it decodes is two PNGs
   committed here, not anything a reader supplies.
