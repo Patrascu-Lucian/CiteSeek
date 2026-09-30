@@ -3499,6 +3499,28 @@ and the check reports agreement it never established. That is the same class as 
 `docs/code-review-notes.md` that could not fail, one layer out: an instrument reading an input it did
 not verify is current.
 
+↳ **Confirmed on 30 September 2026, and the theory held.** It failed again under a full CI-mode run,
+this time on the **light** theme rather than dark, so it is not palette-specific. The reporter's
+message settles the cause:
+
+```
+Error: expect(received).not.toBe(expected)
+Expected: not ""
+    at e2ea11y.spec.ts:344:36
+```
+
+`chipBackground` was the **empty string** — what `getComputedStyle` returns for an element that is no
+longer in the document. The chip is replaced by a re-render while the answer is still streaming,
+between `toBeVisible()` and the `evaluate`. Retries are on in CI mode, so it passed second time and
+reported as flaky rather than failed.
+
+**And the guard above it does not hold.** Line 343 asserts the bubble is not `rgba(0, 0, 0, 0)`; it
+passed, because the value was `""`. The comment in that test says a test that cannot fail is worse
+than no test, and this is the case it does not cover.
+
+**The fix, now that the cause is known:** measure after the stream settles rather than as soon as the
+chip appears, and assert both values are non-empty before comparing them — the second half is one
+line and closes the hole regardless of the timing.
 **What would fix it, cheaply:** have the script refuse a report older than the newest file under the
 suite it covers, or older than a few minutes, and say so rather than comparing. `CI=1 pnpm test:e2e`
 is the workaround, and is what the release checks used.

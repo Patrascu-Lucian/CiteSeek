@@ -61,7 +61,7 @@ knows nothing about auth. The saving is cents against a balance that is already 
 Attach billing.
 
 **The $250 was a misreading and it is worth writing down, because it drove the delay.** Google's
-Tier 1, Tier 2 and Tier 3 are *rate-limit* tiers, not price plans. Tier 1 needs only a billing
+Tier 1, Tier 2 and Tier 3 are _rate-limit_ tiers, not price plans. Tier 1 needs only a billing
 account attached; the $250 is the cumulative spend that later qualifies a project for Tier 2's
 higher limits. Nothing is charged up front, and usage is per token from the first request.
 
