@@ -3481,3 +3481,24 @@ Two things to fix if it is confirmed:
 - `expect(bubbleBackground).not.toBe("rgba(0, 0, 0, 0)")` passes on `""`, so the guard the comment
   above it describes — "a test that cannot fail is worse than no test" — has a hole exactly when
   the node is detached. Asserting both values are non-empty closes it.
+
+## `check:test-counts` trusts a report that may be from another week, 30 September 2026
+
+The script takes a layer and a JUnit path and compares the count in that file against the README's
+table. In CI the file is always the one the job just wrote. Locally it is whatever is on disk:
+Playwright only registers the JUnit reporter when `CI` is set (`playwright.config.ts:37`), and
+Vitest's is likewise written by `pnpm test:coverage` rather than by `pnpm test`.
+
+Found by running the release checks by hand. `pnpm test:e2e` reported **187 passed**, and
+`pnpm check:test-counts E2E test-results/e2e.junit.xml` then failed with "recorded 181" — from a
+report dated **14 September**, sixteen days earlier. The message names the README as the thing to
+fix, which would have been the wrong edit.
+
+**The dangerous direction is the other one.** A stale report that happens to match the README passes,
+and the check reports agreement it never established. That is the same class as the tests in
+`docs/code-review-notes.md` that could not fail, one layer out: an instrument reading an input it did
+not verify is current.
+
+**What would fix it, cheaply:** have the script refuse a report older than the newest file under the
+suite it covers, or older than a few minutes, and say so rather than comparing. `CI=1 pnpm test:e2e`
+is the workaround, and is what the release checks used.
