@@ -9,12 +9,13 @@
 #   rather than the package. Node scripts still load it — the browser does not,
 #   and that is the path local mode ships on.
 #
-#   **onnxruntime-node: false is also the mitigation for CVE-2026-76845.** Its
-#   postinstall is the only caller of adm-zip, which has no patched release, and
-#   the advisory's precondition is a planted symlink in a temp or CI directory —
-#   exactly where that script extracts. Flipping this to true re-enables a
-#   vulnerable path, so this line is a security decision as much as a build one.
-#   `pnpm-workspace.test.ts` fails if it is allowed while that advisory is ignored.
+#   **onnxruntime-node: false is also what keeps adm-zip off every path this
+#   project runs.** That postinstall is its only caller, and it extracts an
+#   archive it downloaded — where both advisories against adm-zip land. The
+#   floor below is at a version clear of them, so this is defense in depth
+#   rather than the only mitigation; flipping it to true still puts an unzip of
+#   remote bytes back into an install. `pnpm-workspace.test.ts` fails if it is
+#   allowed, or if a version at or below 0.6.0 returns to the lockfile.
 allowBuilds:
   esbuild: true
   sharp: true

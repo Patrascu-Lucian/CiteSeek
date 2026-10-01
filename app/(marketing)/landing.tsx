@@ -7,7 +7,7 @@ import sourceDark from "@/docs/images/dark.png";
 
 import { HeroGraphic } from "@/components/marketing/hero-graphic";
 import { Button } from "@/components/ui/button";
-import { prefetchFor } from "@/lib/links";
+import { prefetchFor, REPOSITORY_URL } from "@/lib/links";
 import {
   Card,
   CardDescription,
@@ -29,6 +29,9 @@ const SHOT = {
   sizes: "(min-width: 1024px) 64rem, 100vw",
 } as const;
 
+const SHOT_ALT =
+  "The source panel open beside a cited answer, with the cited passage highlighted and its page number shown";
+
 /* Each figure is checked against a committed report by `landing.test.tsx`.
    Recall is at three passages, not the eight where it reads 1.00: precision
    there is 0.14. No reader counts, no zero for invented citations. */
@@ -36,7 +39,12 @@ const PROOF = [
   { value: "365 ms", label: "to the first source, deployed" },
   { value: "0.85 s", label: "to the first token of prose" },
   { value: "0.95", label: "of answers found in the top three passages" },
-  { value: "86.81%", label: "of 849 mutants caught in the pure core" },
+  // Not "the pure core", which the README defines as including `lib/local`:
+  // the mutation run covers retrieval and answering only.
+  {
+    value: "86.81%",
+    label: "of 849 mutants caught in retrieval and answering",
+  },
 ] as const;
 
 const steps = [
@@ -184,20 +192,20 @@ export function Landing({
           </h2>
 
           <figure className="mt-8">
-            {/* One view, two palettes: the same screen photographed in each, so
-                the `dark:` variant swaps the file rather than showing a light
-                product to a dark page. Both are written by `pnpm demo:shots`. */}
+            {/* Both carry the description: `display: none` keeps the hidden one
+                out of the accessibility tree, and describing only the light one
+                left a dark-themed reader with nothing. Both from
+                `pnpm demo:shots`. */}
             <Image
               src={sourceLight}
               {...SHOT}
-              alt="The source panel open beside a cited answer, with the cited passage highlighted and its page number shown"
+              alt={SHOT_ALT}
               className="border-border/60 rounded-lg border dark:hidden"
             />
             <Image
               src={sourceDark}
               {...SHOT}
-              alt=""
-              aria-hidden="true"
+              alt={SHOT_ALT}
               className="border-border/60 hidden rounded-lg border dark:block"
             />
             <figcaption className="text-muted-foreground mt-3 text-sm">
@@ -241,9 +249,14 @@ export function Landing({
           <p className="text-muted-foreground mt-8 text-sm">
             Measured rather than asserted: the method behind each number, and
             what it does not cover, is in the{" "}
-            <Link href="/about" className="hover:text-foreground underline">
-              about page
-            </Link>
+            {/* The README, not `/about`, which carries no numbers by design —
+                two copies of a measurement is one copy that goes stale. */}
+            <a
+              href={`${REPOSITORY_URL}#numbers`}
+              className="hover:text-foreground underline"
+            >
+              README&apos;s Numbers section
+            </a>
             .
           </p>
         </div>
@@ -275,8 +288,8 @@ export function Landing({
             </p>
             <p>
               And when nothing retrieved is relevant enough, no answer is
-              generated at all: the reply saying so is written by CiteSeek, on a
-              branch where the model never runs.
+              generated at all: the reply saying so is written by CiteSeek, not
+              by the model.
             </p>
           </div>
         </div>

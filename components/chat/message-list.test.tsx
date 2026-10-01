@@ -519,3 +519,41 @@ describe("MessageList — copying an answer", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("the answer when the stream ends", () => {
+  const list = (streaming: boolean) => (
+    <MessageList
+      messages={[
+        userMessage("What is the policy?"),
+        assistantMessage("Paid in 30 days [1].", [SOURCE]),
+      ]}
+      onSelectSource={vi.fn()}
+      selectedChunkId={null}
+      uploadHref="/w/w1"
+      documents={["handbook.pdf"]}
+      canUpload
+      signedIn
+      isDemo={false}
+      onAsk={() => undefined}
+      onDeleteTurn={() => undefined}
+      streaming={streaming}
+    />
+  );
+
+  it("keeps the same element, rather than rebuilding it around the copy control", () => {
+    /* `copyable` turns true at that moment, and a new parent makes React rebuild
+       the answer, parsing the prose again. Node identity is the only way to see
+       it: the rendered output is the same either way. */
+    const { container, rerender } = render(list(true));
+    const streamingBubble = container.querySelector(
+      "[data-message-bubble='assistant']",
+    );
+    expect(streamingBubble).not.toBeNull();
+
+    rerender(list(false));
+
+    expect(container.querySelector("[data-message-bubble='assistant']")).toBe(
+      streamingBubble,
+    );
+  });
+});
