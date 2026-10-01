@@ -3515,6 +3515,15 @@ Playwright resolving the locator and running the `evaluate` — and the test now
 finish, which removes it, plus a `not.toBe("")` so a detached read says so instead of blaming the
 contrast. Twelve consecutive runs pass, and repainting the chip `bg-muted` still fails both themes.
 
+↳ **Correction, 1 October 2026: the remount is real after all.** An external review of the 1.9.0
+diff showed the probe above could not have seen it — it ran against the fake model's 0 ms chunk
+delay, so the stream had ended before the chip was tagged, and the node it compared was already the
+rebuilt one. A unit test that flips `streaming` on `MessageList` shows the assistant bubble is a
+different element afterwards. The wrapper is always rendered now and only the copy control is
+conditional. The 21 September diagnosis was right that a re-render replaces the node, and wrong about when:
+it happens as the stream ends, not during it. The paragraph above is kept because its reasoning is
+what the review had to undo.
+
 ## `check:test-counts` trusts a report that may be from another week, 30 September 2026
 
 The script takes a layer and a JUnit path and compares the count in that file against the README's
@@ -3549,3 +3558,71 @@ the freshness check passes it, because it is seconds old. Walked into while runn
 next commit, and the message again pointed at the README. There is no honest check for it: the expected
 total is the README's own number, so comparing against it is the thing being tested. The mismatch
 message names the cause instead, since being far short is the symptom a filtered run produces.
+
+## A text selection in an answer still does not survive the stream ending, 1 October 2026
+
+Found by hand in a WebGPU browser on `/local` while smoke-testing the 1.9.0 release, after the fix for
+the answer being rebuilt had landed. The two are separate: that fix is verified to stop the rebuild —
+with `streaming` flipped on `MessageList`, the bubble, the `data-answer-prose` container and a text node
+inside it are all the same objects before and after, and the regression test pins the bubble. Selection
+still goes.
+
+So the cause is something jsdom cannot show, since it models no selection at all. What has been ruled
+out: the composer's `focus()` runs on submit, not on settle; local mode is not a separate renderer, it
+goes through `ChatPanel` and `MessageList` like the cloud chat.
+
+What is left to look at, cheapest first:
+
+- **The text node's content being rewritten in place.** A browser collapses a selection when the `data`
+  of the node holding it changes, even though the node is the same object. `Streamdown` withholds `[1]`
+  while streaming — it could be an incomplete link — so at settle the marker arrives and the prose
+  around it is re-laid out. Node identity would survive that; a selection would not.
+- **Whether it is specific to settling at all.** Select text in an answer that has already finished,
+  then ask a new question: if that selection also goes when the new answer streams, the cause is any
+  re-render of the list, not the settle.
+- **Whether the cloud chat behaves the same**, which separates the local transport from the shared path.
+
+Not a 1.9.0 blocker: it predates the release — the rebuild made it worse, not possible — and nothing in
+the release claims selection survives. The claim was removed from the commit comment, the review notes
+and the release message rather than left standing on one browser's word against jsdom's.
+
+## Five findings deferred from the 1.9.0 release review, 1 October 2026
+
+An external review of `develop` against `main` raised eleven findings. Four were fixed before tagging,
+along with two one-line ones (the mutation strip's scope, and the stale security comment above
+`allowBuilds`). These five were judged not to block the release. Each is recorded with the evidence
+the review gave, because that is the expensive part to reconstruct.
+
+**A copied answer drops the invented-marker warning (medium, needs a decision).** On screen an invented
+`[7]` stays plain text and carries an explicit note — _"[7] is not one of the passages found, so it is
+not a link. Treat that claim as unsupported."_ The clipboard keeps `[7]` and drops the note, so a paste
+reads like a citation with a missing entry. Worse, `lib/ai/citations.ts` deliberately refuses to link
+half of a mixed run such as `[1][7]`, because linking one _"would quietly drop the invented one and make
+the answer look better sourced"_ — and the clipboard builds its list from `citedMarkers`, whose own doc
+comment says it is not the same as the chips on screen. So the paste undoes that rule. Decide what a
+paste should say, then pin it: probably build the list from the markers actually linked, and append a
+line naming the unresolved ones.
+
+**The `/local` guard on the landing page cannot fail (low).** `landing.test.tsx` checks `href="/local"`
+and the absence of `data-prefetch`. Nothing emits `data-prefetch`, and a `next/link` renders as a bare
+anchor in jsdom, so the review's probe passed both assertions with a `<Link>` — the exact regression
+ADR 028 forbids, since a client navigation would leave this page's CSP governing local mode. The real
+guard is an E2E that checks for a document request, as `a11y.spec.ts` already does for the privacy page
+and the footer.
+
+**The provenance test is weaker than ADR 057 claims (low).** Of the four strip figures only `0.95` is
+checked against a tool's output (`eval/report.md`); `365 ms`, `0.85 s` and `86.81%` are checked against
+hand-typed README prose, so editing page and README together passes for any value. Stryker's report is
+gitignored. Either have the mutation run write its score to a committed file the test reads, or reword
+the ADR to say the figures are cross-checked against the README rather than against the runs.
+
+**Every copy button has the same accessible name (low).** With several answers a screen reader lists
+several identical "Copy the answer" buttons and voice control has no unique target. The sibling controls
+already solve it — `Edit the question "…"`, `Delete the exchange starting "…"`.
+
+**The question bubble has the same remount as the answer did (low, predates this release).** `deletable`
+flips when a turn settles, so the question is re-parented into `TurnActions` and rebuilt. Nothing in
+it is focusable, which is why it was left: the fix that landed for the
+answer wraps unconditionally, and doing the same here means passing `justify-end` on the wrapper and
+accepting a 4px shift from the empty controls slot. Worth doing with the layout checked, not in a
+release commit.

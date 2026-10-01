@@ -87,10 +87,13 @@ describe("Landing", () => {
     });
 
     // The three things that make it structural: the payload precedes the prose,
-    // an unresolved marker is not a link, and the refusal branch runs no model.
+    // an unresolved marker is not a link, and the refusal is not the model's
+    // words. Not "the model never runs" — on a follow-up the refusal branch
+    // rewrites the question through one before giving up (ADR 044).
     expect(section).toHaveTextContent(/before the model writes a word/i);
     expect(section).toHaveTextContent(/stays plain text/i);
-    expect(section).toHaveTextContent(/the model never runs/i);
+    expect(section).toHaveTextContent(/written by CiteSeek, not by the model/i);
+    expect(section).not.toHaveTextContent(/never runs/i);
   });
 
   it("does not promise that a refusal never cites", () => {
@@ -138,19 +141,20 @@ describe("Landing", () => {
     expect(steps[1]).toHaveTextContent(/before the model writes/i);
   });
 
-  it("shows the product, with the dark screenshot hidden from assistive tech", () => {
-    // Two files, one view: the `dark:` variant swaps them so a dark page is not
-    // shown a light product. Only one of the pair is describable, or a screen
-    // reader hears the same picture twice.
+  it("describes the product in whichever palette is showing", () => {
+    // Two here because jsdom applies no CSS. In a browser `display: none` keeps
+    // the hidden one out of the accessibility tree, so only one is announced.
     render(<Landing {...anonymous} />);
 
     const how = screen.getByRole("region", {
       name: /how a question is answered/i,
     });
-    const described = within(how).getAllByRole("img");
+    const shots = within(how).getAllByRole("img");
 
-    expect(described).toHaveLength(1);
-    expect(described[0]).toHaveAccessibleName(/source panel open/i);
+    expect(shots).toHaveLength(2);
+    for (const shot of shots) {
+      expect(shot).toHaveAccessibleName(/source panel open/i);
+    }
   });
 
   it("labels the feature section rather than leaving it anonymous", () => {
