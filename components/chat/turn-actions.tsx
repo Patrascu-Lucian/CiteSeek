@@ -13,6 +13,7 @@ export function TurnActions({
   children,
   bubble,
   className,
+  side = "before",
 }: {
   /** The controls, revealed together. */
   children: ReactNode;
@@ -21,6 +22,10 @@ export function TurnActions({
   /** The row's own alignment. This element *is* the row, so the bubble's
    * percentage width resolves against it rather than against the controls. */
   className?: string;
+  /** Which end the controls sit at: a question is right-aligned and takes them
+   * on its left, an answer is left-aligned and takes them on its right, so they
+   * always sit on the side the row grows away from. */
+  side?: "before" | "after";
 }) {
   const [held, setHeld] = useState(false);
   const timer = useRef<number | null>(null);
@@ -33,6 +38,21 @@ export function TurnActions({
     }
     origin.current = null;
   }
+
+  const controls = (
+    <div
+      // The opacity is here, not on the control, so a reveal test reads this.
+      data-turn-actions=""
+      className={cn(
+        "shrink-0 transition-opacity",
+        held
+          ? "opacity-100"
+          : "pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100",
+      )}
+    >
+      {children}
+    </div>
+  );
 
   return (
     <div
@@ -55,20 +75,9 @@ export function TurnActions({
       onPointerUp={cancel}
       onPointerCancel={cancel}
     >
-      <div
-        // The opacity is here, not on the control, so a reveal test reads this.
-        data-turn-actions=""
-        className={cn(
-          "shrink-0 transition-opacity",
-          held
-            ? "opacity-100"
-            : "pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100",
-        )}
-      >
-        {children}
-      </div>
-
+      {side === "before" ? controls : null}
       {bubble}
+      {side === "after" ? controls : null}
     </div>
   );
 }

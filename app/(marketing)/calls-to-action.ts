@@ -9,6 +9,16 @@ import type { Actor } from "@/lib/auth/actor";
 
 export type CallToAction = { href: string; label: string };
 
+/** The foot of the page, for a reader who got there. Its label is deliberately
+ * not the hero's: two links with the same name in one link list are a
+ * screen-reader nuisance, and it would void the entry-link count in
+ * `smoke.spec.ts`. */
+export type ClosingCallToAction = {
+  heading: string;
+  body: string;
+  action: CallToAction;
+};
+
 export type LandingCallsToAction = {
   primary: CallToAction;
   secondary: CallToAction;
@@ -16,6 +26,7 @@ export type LandingCallsToAction = {
    * account or a guest session, where it would answer a question they have
    * already asked. */
   note?: string;
+  closing: ClosingCallToAction;
 };
 
 export function callsToAction(actor: Actor): LandingCallsToAction {
@@ -23,6 +34,11 @@ export function callsToAction(actor: Actor): LandingCallsToAction {
     return {
       primary: { href: "/w", label: "Go to your workspace" },
       secondary: { href: "/demo", label: "Open the demo" },
+      closing: {
+        heading: "Your workspace is where this applies",
+        body: "The retrieval, the markers and the refusal all run the same way on the documents you upload.",
+        action: { href: "/w", label: "Open your workspace" },
+      },
     };
   }
 
@@ -32,6 +48,11 @@ export function callsToAction(actor: Actor): LandingCallsToAction {
       // Not "Get started" — a guest has started. What they have not done is
       // gained the ability to upload, which is the actual reason to sign in.
       secondary: { href: "/sign-in", label: "Sign in to upload your own" },
+      closing: {
+        heading: "The demo cannot take a file of yours",
+        body: "It is read-only, and that is the one thing signing in changes: your own documents, in a workspace only you can query.",
+        action: { href: "/sign-in", label: "Sign in to upload a file" },
+      },
     };
   }
 
@@ -42,5 +63,10 @@ export function callsToAction(actor: Actor): LandingCallsToAction {
     primary: { href: "/demo", label: "Try the demo" },
     secondary: { href: "/sign-in", label: "Sign in to upload your own" },
     note: "No account. No card. Nothing to install.",
+    closing: {
+      heading: "One document is already in there",
+      body: "A fictional company handbook, parsed into passages that kept their page numbers. Ask it something and follow a marker back to the line it came from.",
+      action: { href: "/demo", label: "Open the demo workspace" },
+    },
   };
 }

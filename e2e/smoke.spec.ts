@@ -53,6 +53,20 @@ test.describe("the landing page knows who is reading it", () => {
     );
   });
 
+  test("closes with an invitation the hero did not already make", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    await expect(
+      page.getByRole("link", { name: /^open the demo workspace$/i }),
+    ).toHaveAttribute("href", "/demo");
+    // Two links sharing a name are one entry in a screen reader's link list.
+    await expect(
+      page.getByRole("link", { name: /^try the demo$/i }),
+    ).toHaveCount(1);
+  });
+
   test("offers a returning guest their demo rather than a signup", async ({
     page,
   }) => {

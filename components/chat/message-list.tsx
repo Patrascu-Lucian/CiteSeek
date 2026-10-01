@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 
 import { DeleteTurnDialog } from "./delete-turn-dialog";
 import { EditQuestionForm } from "./edit-question-form";
+import { CopyAnswer } from "./copy-answer";
 import { TurnActions } from "./turn-actions";
 import { Refusal } from "./refusal";
 
@@ -188,6 +189,10 @@ export function MessageList({
           onDeleteTurn &&
           !((streaming || pending) && index >= messages.length - 2);
 
+        // Not while it is still arriving: half an answer is not the thing the
+        // reader means to take away, and its markers are not all resolved yet.
+        const copyable = !isUser && settled && messageText(message).length > 0;
+
         if (editingId === message.id && onEditQuestion) {
           return (
             <li key={message.id} className="flex justify-end">
@@ -292,8 +297,20 @@ export function MessageList({
                   onConfirm={() => onDeleteTurn(message.id)}
                 />
               </TurnActions>
-            ) : (
+            ) : isUser ? (
               bubble
+            ) : (
+              // Always wrapped: adding it when `copyable` turns true re-parents
+              // the bubble, so React unmounted and rebuilt the whole answer as
+              // the stream ended, parsing the prose a second time.
+              <TurnActions bubble={bubble} side="after">
+                {copyable ? (
+                  <CopyAnswer
+                    text={messageText(message)}
+                    sources={messageSources(message)}
+                  />
+                ) : null}
+              </TurnActions>
             )}
           </li>
         );

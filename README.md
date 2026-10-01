@@ -89,23 +89,23 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 136 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 148 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
 
-- [**A performance regression that did not exist**](docs/code-review-notes.md) — three wrong
+- [**A performance regression that did not exist**](docs/code-review-notes.md#a-performance-regression-that-did-not-exist) — three wrong
   guesses deep before anything was measured, and the measurement said the change had made no
   difference at all.
-- [**The metric that could not see half of what it measured**](docs/code-review-notes.md) — the
+- [**The metric that could not see half of what it measured**](docs/code-review-notes.md#the-metric-that-could-not-see-half-of-what-it-measured) — the
   relevance floor, the mechanism this project's headline claim rests on, was admitting **ten of
   ten** unanswerable questions in production. Every test passed throughout, because they run a fake
   embedder whose distances live in an unrelated range. A fake can prove a mechanism and hide the
   number that makes it work.
-- [**A deletion promise the schema could not keep**](docs/code-review-notes.md) — the privacy page
+- [**A deletion promise the schema could not keep**](docs/code-review-notes.md#a-deletion-promise-the-schema-could-not-keep) — the privacy page
   said account deletion removes "every usage record". No cascade reached that table, and production
   data showed a deleted account still carrying tokens. Found by looking at real data, not by a test.
-- [**The bug that needed a person**](docs/code-review-notes.md) — the local model's worked example
+- [**The bug that needed a person**](docs/code-review-notes.md#the-bug-that-needed-a-person-12-august-2026) — the local model's worked example
   was sent as conversation turns, which a model reads as things that were said. Typing `cite`
   returned the example's own sentence carrying a citation that **resolved**, so the chip opened a
   real passage of the reader's document that had nothing to do with the claim — a fabricated claim
@@ -117,6 +117,33 @@ Four that show the shape of it:
 The pattern is the same across all of them: a green suite is evidence about the thing it checks
 and silent about everything else, and the useful findings came from measuring rather than
 reasoning.
+
+### Four pull requests, if you read diffs
+
+One for each question a reviewer is actually asking. Picked for what they demonstrate, not for being
+recent — the dates are here so the spread is visible rather than assumed.
+
+- **Can the mechanism be built?**
+  [#18 — a streaming chat route with grounded citations](https://github.com/Patrascu-Lucian/CiteSeek/pull/18),
+  29 July. The claim this product makes is that a citation cannot be invented, and this is where that
+  becomes structural: the passages are resolved and sent before the model writes a word, so a marker
+  resolves against a payload that already exists ([ADR 012](docs/decisions/012-generation-model.md)).
+- **Do you measure, and do you believe the answer?**
+  [#362 — fifteen questions the documents do not cover](https://github.com/Patrascu-Lucian/CiteSeek/pull/362),
+  14 September. The next milestone's design was a banded floor: accept below one distance, refuse
+  above another, think hard only in between. Fifteen questions written before any distance was seen
+  put nine of them under the edge the design called safe to accept outright, and the band was never
+  built ([ADR 055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)).
+- **Do you catch yourself?**
+  [#354 — a refusal harness that runs what the chat route ships](https://github.com/Patrascu-Lucian/CiteSeek/pull/354),
+  13 September. Review noticed the harness measuring the model without the tools and step limit the
+  route passes it — so it was scoring a close relative of production, not production. Both now come
+  from the module the route imports, and the result held once they did.
+- **Can you say no?**
+  [#73 — build hybrid retrieval, measure it, and not ship it](https://github.com/Patrascu-Lucian/CiteSeek/pull/73),
+  5 August. Hybrid search is the standard answer for this problem, so it was built and swept across
+  every fusion weight. Every blend scored worse than vector alone, and it was deleted rather than
+  kept for the look of it ([ADR 021](docs/decisions/021-hybrid-retrieval-measured-and-not-shipped.md)).
 
 ## What works today
 
@@ -696,9 +723,9 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1064  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1092  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
-| E2E         | 185   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
+| E2E         | 187   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
@@ -706,8 +733,12 @@ Coverage says those lines ran, not that a test would notice them change, so `pnp
 measures the second: across `lib/rag` and `lib/ai`, 80.5% of 830 mutants were caught on the first
 run, with no threshold set against a number this new. Reading the rest found nine tests that could not
 fail on the behavior they are named for, which the percentage alone would never have said. With those
-fixed and the missing tests added, it is 86.5%, re-measured on every release
-([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)).
+fixed and the missing tests added, it was 86.5%
+([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)). Re-measuring every release paid
+for itself on the next one: the only module added since, the clipboard form of an answer, scored
+**73.68%**, and three of its five survivors were one gap — a sort every test reached with a single
+element, which sorts the same however the comparator behaves. It is **86.81% of 849 mutants** now,
+and that module is at 100%.
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)
 exercise ingestion, retrieval and the whole answer path with no API key and no network, so CI

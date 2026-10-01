@@ -3248,6 +3248,17 @@ the tree, so the ignore cannot outlive its reason. A scheduled `pnpm audit` job 
 not built: it would duplicate Dependabot's alerts, and without the ignore it would have been red
 from its first run.
 
+↳ **Decided, and the fix was one day away the whole time, 21 September 2026.** adm-zip 0.6.1 was
+published on 11 September — the day after the entry above said 0.6.0 was the latest and called
+`pnpm audit`'s `>=0.6.1` a release that was never published. **npm's feed was early, not wrong**,
+and nothing re-checked it, because the GHSA still read "patched versions: None" and the alert had
+been dismissed by hand. A second advisory against the same package is what made anyone look again:
+an entry's declared uncompressed size is allocated before it is validated, so 105 bytes commit
+about 1.8 GB. Both advisories are affected up to 0.6.0, so one floor clears both — the override is
+`^0.6.1`, the `audit.ignore` entry is gone, `pnpm audit` reports no known vulnerabilities, and
+`pnpm-workspace.test.ts` now fails if a version at or below 0.6.0 returns to the lockfile. The
+reachability finding above is unchanged: the postinstall stays denied.
+
 ## Provider photos, and the two ways to show one, 10 September 2026
 
 The account page draws initials. `users.image` already holds a URL to the reader's photo at GitHub
@@ -3451,3 +3462,167 @@ after it.**
 
 Also outstanding for that slice, and not answerable from the DPA: how long Scaleway retains delivery
 logs holding recipient addresses. The page states a retention window, so it needs a number.
+
+## The citation-chip contrast test fails under full-suite load, 21 September 2026
+
+`e2e/a11y.spec.ts:309` — "a citation chip is distinguishable from the bubble behind it" — failed
+once in a full `pnpm test:e2e` run and passes every time it is run alone. Unrelated to the landing
+page work it surfaced during; the chat is not what that commit changed.
+
+Both reads came back as empty strings, which is what `getComputedStyle` returns for a node that is
+no longer in the document. The likely cause is the chip being replaced by a re-render while the
+answer is still streaming, between `toBeVisible()` and the `evaluate`. **This is a theory** — the
+error context was cleaned by the next run before it could be read, so the next occurrence should be
+kept.
+
+Two things to fix if it is confirmed:
+
+- the measurement should happen after the stream settles, not as soon as the chip appears;
+- `expect(bubbleBackground).not.toBe("rgba(0, 0, 0, 0)")` passes on `""`, so the guard the comment
+  above it describes — "a test that cannot fail is worse than no test" — has a hole exactly when
+  the node is detached. Asserting both values are non-empty closes it.
+
+↳ **Reproduced on 30 September 2026, and the empty string is the cause.** It failed again under a
+full CI-mode run, this time on the **light** theme rather than dark, so it is not palette-specific. The reporter's
+message settles the cause:
+
+```
+Error: expect(received).not.toBe(expected)
+Expected: not ""
+    at e2e/a11y.spec.ts:344:36
+```
+
+`chipBackground` was the **empty string** — what `getComputedStyle` returns for an element that is no
+longer in the document. The chip is replaced by a re-render while the answer is still streaming,
+between `toBeVisible()` and the `evaluate`. Retries are on in CI mode, so it passed second time and
+reported as flaky rather than failed.
+
+**And the guard above it does not hold.** Line 343 asserts the bubble is not `rgba(0, 0, 0, 0)`; it
+passed, because the value was `""`. The comment in that test says a test that cannot fail is worse
+than no test, and this is the case it does not cover.
+
+**The fix, now that the cause is known:** measure after the stream settles rather than as soon as the
+chip appears, and assert both values are non-empty before comparing them — the second half is one
+line and closes the hole regardless of the timing.
+
+↳ **Fixed on 1 October 2026 (#418), and the diagnosis above was half wrong.** The cause of the empty
+string is right; "the chip is replaced by a re-render" named the wrong culprit. The suspicion was that
+`settled` flipping at the end of a stream turns `copyable` true, which moves the assistant bubble from
+being rendered bare into `<TurnActions>` — a re-parent, so a remount. **A probe disproved it**: the live
+chip was tagged with an attribute and focused mid-stream, and after the stream ended both the tag and
+the focus were still there. So no component changed. The window is narrower than that — between
+Playwright resolving the locator and running the `evaluate` — and the test now waits for the stream to
+finish, which removes it, plus a `not.toBe("")` so a detached read says so instead of blaming the
+contrast. Twelve consecutive runs pass, and repainting the chip `bg-muted` still fails both themes.
+
+↳ **Correction, 1 October 2026: the remount is real after all.** An external review of the 1.9.0
+diff showed the probe above could not have seen it — it ran against the fake model's 0 ms chunk
+delay, so the stream had ended before the chip was tagged, and the node it compared was already the
+rebuilt one. A unit test that flips `streaming` on `MessageList` shows the assistant bubble is a
+different element afterwards. The wrapper is always rendered now and only the copy control is
+conditional. The 21 September diagnosis was right that a re-render replaces the node, and wrong about when:
+it happens as the stream ends, not during it. The paragraph above is kept because its reasoning is
+what the review had to undo.
+
+## `check:test-counts` trusts a report that may be from another week, 30 September 2026
+
+The script takes a layer and a JUnit path and compares the count in that file against the README's
+table. In CI the file is always the one the job just wrote. Locally it is whatever is on disk:
+Playwright only registers the JUnit reporter when `CI` is set (`playwright.config.ts:37`), and
+Vitest's is likewise written by `pnpm test:coverage` rather than by `pnpm test`.
+
+Found by running the release checks by hand. `pnpm test:e2e` reported **187 passed**, and
+`pnpm check:test-counts E2E test-results/e2e.junit.xml` then failed with "recorded 181" — from a
+report dated **14 September**, sixteen days earlier. The message names the README as the thing to
+fix, which would have been the wrong edit.
+
+**The dangerous direction is the other one.** A stale report that happens to match the README passes,
+and the check reports agreement it never established. That is the same class as the tests in
+`docs/code-review-notes.md` that could not fail, one layer out: an instrument reading an input it did
+not verify is current.
+
+**What would fix it, cheaply:** have the script refuse a report older than the newest file under the
+suite it covers, or older than a few minutes, and say so rather than comparing. `CI=1 pnpm test:e2e`
+is the workaround, and is what the release checks used.
+
+↳ **Done, 1 October 2026.** The script refuses a report written more than 60 minutes ago and names
+its timestamp. Sixty rather than a few, because in CI the report is read seconds after the job wrote
+it, so the threshold never fires there and stays a local guard. Not the "newer than the test files"
+version: that would need a per-layer map of which globs each suite owns, duplicating two configs that
+would then be free to drift. Falsified on the case that mattered — the same report backdated a week,
+with a count that still matched, is refused rather than agreed with.
+
+↳ **A second shape of the same trap, 1 October 2026: fresh but partial.** Running one test file
+rewrites the whole report, so `pnpm vitest run README.test.ts` leaves a unit report recording 6 — and
+the freshness check passes it, because it is seconds old. Walked into while running the release checks for the
+next commit, and the message again pointed at the README. There is no honest check for it: the expected
+total is the README's own number, so comparing against it is the thing being tested. The mismatch
+message names the cause instead, since being far short is the symptom a filtered run produces.
+
+## A text selection in an answer still does not survive the stream ending, 1 October 2026
+
+Found by hand in a WebGPU browser on `/local` while smoke-testing the 1.9.0 release, after the fix for
+the answer being rebuilt had landed. The two are separate: that fix is verified to stop the rebuild —
+with `streaming` flipped on `MessageList`, the bubble, the `data-answer-prose` container and a text node
+inside it are all the same objects before and after, and the regression test pins the bubble. Selection
+still goes.
+
+So the cause is something jsdom cannot show, since it models no selection at all. What has been ruled
+out: the composer's `focus()` runs on submit, not on settle; local mode is not a separate renderer, it
+goes through `ChatPanel` and `MessageList` like the cloud chat.
+
+What is left to look at, cheapest first:
+
+- **The text node's content being rewritten in place.** A browser collapses a selection when the `data`
+  of the node holding it changes, even though the node is the same object. `Streamdown` withholds `[1]`
+  while streaming — it could be an incomplete link — so at settle the marker arrives and the prose
+  around it is re-laid out. Node identity would survive that; a selection would not.
+- **Whether it is specific to settling at all.** Select text in an answer that has already finished,
+  then ask a new question: if that selection also goes when the new answer streams, the cause is any
+  re-render of the list, not the settle.
+- **Whether the cloud chat behaves the same**, which separates the local transport from the shared path.
+
+Not a 1.9.0 blocker: it predates the release — the rebuild made it worse, not possible — and nothing in
+the release claims selection survives. The claim was removed from the commit comment, the review notes
+and the release message rather than left standing on one browser's word against jsdom's.
+
+## Five findings deferred from the 1.9.0 release review, 1 October 2026
+
+An external review of `develop` against `main` raised eleven findings. Four were fixed before tagging,
+along with two one-line ones (the mutation strip's scope, and the stale security comment above
+`allowBuilds`). These five were judged not to block the release. Each is recorded with the evidence
+the review gave, because that is the expensive part to reconstruct.
+
+**A copied answer drops the invented-marker warning (medium, needs a decision).** On screen an invented
+`[7]` stays plain text and carries an explicit note — _"[7] is not one of the passages found, so it is
+not a link. Treat that claim as unsupported."_ The clipboard keeps `[7]` and drops the note, so a paste
+reads like a citation with a missing entry. Worse, `lib/ai/citations.ts` deliberately refuses to link
+half of a mixed run such as `[1][7]`, because linking one _"would quietly drop the invented one and make
+the answer look better sourced"_ — and the clipboard builds its list from `citedMarkers`, whose own doc
+comment says it is not the same as the chips on screen. So the paste undoes that rule. Decide what a
+paste should say, then pin it: probably build the list from the markers actually linked, and append a
+line naming the unresolved ones.
+
+**The `/local` guard on the landing page cannot fail (low).** `landing.test.tsx` checks `href="/local"`
+and the absence of `data-prefetch`. Nothing emits `data-prefetch`, and a `next/link` renders as a bare
+anchor in jsdom, so the review's probe passed both assertions with a `<Link>` — the exact regression
+ADR 028 forbids, since a client navigation would leave this page's CSP governing local mode. The real
+guard is an E2E that checks for a document request, as `a11y.spec.ts` already does for the privacy page
+and the footer.
+
+**The provenance test is weaker than ADR 057 claims (low).** Of the four strip figures only `0.95` is
+checked against a tool's output (`eval/report.md`); `365 ms`, `0.85 s` and `86.81%` are checked against
+hand-typed README prose, so editing page and README together passes for any value. Stryker's report is
+gitignored. Either have the mutation run write its score to a committed file the test reads, or reword
+the ADR to say the figures are cross-checked against the README rather than against the runs.
+
+**Every copy button has the same accessible name (low).** With several answers a screen reader lists
+several identical "Copy the answer" buttons and voice control has no unique target. The sibling controls
+already solve it — `Edit the question "…"`, `Delete the exchange starting "…"`.
+
+**The question bubble has the same remount as the answer did (low, predates this release).** `deletable`
+flips when a turn settles, so the question is re-parented into `TurnActions` and rebuilt. Nothing in
+it is focusable, which is why it was left: the fix that landed for the
+answer wraps unconditionally, and doing the same here means passing `justify-end` on the wrapper and
+accepting a 4px shift from the empty controls slot. Worth doing with the layout checked, not in a
+release commit.

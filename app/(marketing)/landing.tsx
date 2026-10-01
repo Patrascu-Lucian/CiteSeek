@@ -1,9 +1,13 @@
+import Image from "next/image";
 import Link from "next/link";
 import { FileText, MessageSquareQuote, ShieldCheck } from "lucide-react";
 
+import sourceLight from "@/docs/images/source.png";
+import sourceDark from "@/docs/images/dark.png";
+
 import { HeroGraphic } from "@/components/marketing/hero-graphic";
 import { Button } from "@/components/ui/button";
-import { prefetchFor } from "@/lib/links";
+import { prefetchFor, REPOSITORY_URL } from "@/lib/links";
 import {
   Card,
   CardDescription,
@@ -14,14 +18,49 @@ import {
 import type { LandingCallsToAction } from "./calls-to-action";
 import { pageShell } from "@/components/ui/page-shell";
 
-/**
- * The landing page's markup, with no idea who is reading it.
- *
- * Split from `page.tsx` for the same reason `DocumentList` is split from
- * `DocumentsPanel`: the page resolves the actor, which makes it async and pulls
- * in Auth.js, and neither of those can be rendered by React Testing Library.
- * Presentational and stateless, this one can.
- */
+/** Split from `page.tsx`, which resolves the actor: that makes it async and
+ * pulls in Auth.js, neither of which React Testing Library can render. */
+
+/* Written down because under Vitest the loader returns a URL string, not the
+   object next/image reads dimensions from. */
+const SHOT = {
+  width: 1280,
+  height: 960,
+  sizes: "(min-width: 1024px) 64rem, 100vw",
+} as const;
+
+const SHOT_ALT =
+  "The source panel open beside a cited answer, with the cited passage highlighted and its page number shown";
+
+/* Each figure is checked against a committed report by `landing.test.tsx`.
+   Recall is at three passages, not the eight where it reads 1.00: precision
+   there is 0.14. No reader counts, no zero for invented citations. */
+const PROOF = [
+  { value: "365 ms", label: "to the first source, deployed" },
+  { value: "0.85 s", label: "to the first token of prose" },
+  { value: "0.95", label: "of answers found in the top three passages" },
+  // Not "the pure core", which the README defines as including `lib/local`:
+  // the mutation run covers retrieval and answering only.
+  {
+    value: "86.81%",
+    label: "of 849 mutants caught in retrieval and answering",
+  },
+] as const;
+
+const steps = [
+  {
+    title: "The question is matched against your documents",
+    body: "It is embedded and compared with the passages of the files in this workspace — scoped in the SQL of the search itself, not filtered afterward.",
+  },
+  {
+    title: "The passages are sent before the model writes",
+    body: "Whatever clears the relevance floor goes to your browser first. The model then writes with numbered markers against that payload, so a marker points at a passage that already arrived.",
+  },
+  {
+    title: "A marker opens the passage it came from",
+    body: "Clicking one opens the document at the exact characters the answer was grounded in, highlighted, with its page number — the offsets are recorded when the file is chunked.",
+  },
+] as const;
 
 const features = [
   {
@@ -44,7 +83,12 @@ const features = [
   },
 ] as const;
 
-export function Landing({ primary, secondary, note }: LandingCallsToAction) {
+export function Landing({
+  primary,
+  secondary,
+  note,
+  closing,
+}: LandingCallsToAction) {
   return (
     <main id="main" className="flex flex-1 flex-col">
       <section
@@ -132,6 +176,171 @@ export function Landing({ primary, secondary, note }: LandingCallsToAction) {
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="how-heading"
+        className="border-border/60 border-t"
+      >
+        <div className={pageShell("5xl", "py-16")}>
+          <h2
+            id="how-heading"
+            className="text-2xl font-semibold tracking-tight"
+          >
+            How a question is answered
+          </h2>
+
+          <figure className="mt-8">
+            {/* Both carry the description: `display: none` keeps the hidden one
+                out of the accessibility tree, and describing only the light one
+                left a dark-themed reader with nothing. Both from
+                `pnpm demo:shots`. */}
+            <Image
+              src={sourceLight}
+              {...SHOT}
+              alt={SHOT_ALT}
+              className="border-border/60 rounded-lg border dark:hidden"
+            />
+            <Image
+              src={sourceDark}
+              {...SHOT}
+              alt={SHOT_ALT}
+              className="border-border/60 hidden rounded-lg border dark:block"
+            />
+            <figcaption className="text-muted-foreground mt-3 text-sm">
+              The demo workspace: an answer, its numbered markers, and the
+              passage one of them opens.
+            </figcaption>
+          </figure>
+
+          <ol className="mt-10 grid gap-6 sm:grid-cols-3">
+            {steps.map(({ title, body }, index) => (
+              <li key={title}>
+                <p className="text-muted-foreground text-sm font-medium">
+                  Step {index + 1}
+                </p>
+                <h3 className="mt-1 font-medium">{title}</h3>
+                <p className="text-muted-foreground mt-2 text-sm">{body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="proof-heading"
+        className="border-border/60 border-t"
+      >
+        <div className={pageShell("5xl", "py-16")}>
+          <h2 id="proof-heading" className="sr-only">
+            What has been measured
+          </h2>
+          <dl className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {PROOF.map(({ value, label }) => (
+              <div key={label}>
+                <dt className="text-3xl font-semibold tracking-tight tabular-nums">
+                  {value}
+                </dt>
+                <dd className="text-muted-foreground mt-2 text-sm">{label}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="text-muted-foreground mt-8 text-sm">
+            Measured rather than asserted: the method behind each number, and
+            what it does not cover, is in the{" "}
+            {/* The README, not `/about`, which carries no numbers by design —
+                two copies of a measurement is one copy that goes stale. */}
+            <a
+              href={`${REPOSITORY_URL}#numbers`}
+              className="hover:text-foreground underline"
+            >
+              README&apos;s Numbers section
+            </a>
+            .
+          </p>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="guarantee-heading"
+        className="border-border/60 border-t"
+      >
+        <div className={pageShell("5xl", "py-16 md:max-w-3xl")}>
+          <h2
+            id="guarantee-heading"
+            className="text-2xl font-semibold tracking-tight"
+          >
+            How that guarantee is built
+          </h2>
+          <div className="text-muted-foreground mt-4 space-y-4 text-base">
+            <p>
+              The passages are retrieved and sent to your browser before the
+              model writes a word. A marker in the answer resolves against that
+              payload, so it points at a passage that already existed — the
+              model chooses which to cite, and cannot cite what it was not
+              given.
+            </p>
+            <p>
+              A marker that resolves to nothing stays plain text rather than
+              becoming a link, so a number the model invented cannot present
+              itself as a source.
+            </p>
+            <p>
+              And when nothing retrieved is relevant enough, no answer is
+              generated at all: the reply saying so is written by CiteSeek, not
+              by the model.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="local-heading"
+        className="border-border/60 border-t"
+      >
+        <div className={pageShell("5xl", "py-16 md:max-w-3xl")}>
+          <h2
+            id="local-heading"
+            className="text-2xl font-semibold tracking-tight"
+          >
+            Or keep the documents in your browser
+          </h2>
+          <p className="text-muted-foreground mt-4 text-base">
+            Local mode runs the model on your machine, so the text of a document
+            never leaves it — the one claim here that is sovereignty rather than
+            a region on a map. It is experimental, and{" "}
+            {/* A plain anchor: /local needs the headers its own response
+                carries, and a client navigation keeps the previous page's
+                (ADR 028). */}
+            <a href="/local" className="hover:text-foreground underline">
+              the page says what it measures
+            </a>
+            .
+          </p>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="closing-heading"
+        className="border-border/60 border-t"
+      >
+        <div className={pageShell("5xl", "py-16 md:max-w-3xl")}>
+          <h2
+            id="closing-heading"
+            className="text-2xl font-semibold tracking-tight"
+          >
+            {closing.heading}
+          </h2>
+          <p className="text-muted-foreground mt-4 text-base">{closing.body}</p>
+          <Button asChild size="lg" className="mt-8">
+            <Link
+              href={closing.action.href}
+              prefetch={prefetchFor(closing.action.href)}
+            >
+              {closing.action.label}
+            </Link>
+          </Button>
         </div>
       </section>
     </main>

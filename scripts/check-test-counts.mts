@@ -1,9 +1,15 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 // Not a Vitest test: counting the suite from inside it changes the count.
 
 const README = join(import.meta.dirname, "..", "README.md");
+
+/* The report is read in the same job that wrote it, seconds later. An older one
+   is from some previous run, and comparing the README against that is the
+   failure this guards: a count that happens to match reports agreement it never
+   established. Found reading a 16-day-old E2E report that said 181. */
+const FRESH_FOR_MINUTES = 60;
 
 const [layer, report] = process.argv.slice(2);
 
@@ -20,6 +26,16 @@ const xml = await readFile(report, "utf8").catch((cause: unknown) => {
     `No report at ${report}. Playwright writes its JUnit file only under CI=1, so a local run leaves none.`,
   );
 });
+
+const { mtime } = await stat(report);
+
+if (Date.now() - mtime.getTime() > FRESH_FOR_MINUTES * 60_000) {
+  throw new Error(
+    `${report} was written ${mtime.toISOString()}, over ${FRESH_FOR_MINUTES} minutes ago, so it is not ` +
+      "from the run this is checking. Re-run the suite first, and note that Playwright writes its " +
+      "JUnit file only under CI=1.",
+  );
+}
 
 const ran = /<testsuites[^>]*\btests="(\d+)"/.exec(xml)?.[1];
 
@@ -39,7 +55,11 @@ if (row === undefined) {
 if (row[2] !== ran) {
   throw new Error(
     `README says ${layer} is ${row[2]}; ${report} recorded ${ran}. ` +
-      "Update the table in README.md.",
+      // The freshness check above cannot see a filtered run: its report is
+      // current and partial, and a mismatch then reads as a wrong README.
+      "If that is far short, the report is from a filtered run — the reporter rewrites the whole " +
+      "file, so only a full suite leaves a complete one. Otherwise the table in README.md is what " +
+      "needs updating.",
   );
 }
 
