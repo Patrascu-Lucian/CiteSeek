@@ -3482,6 +3482,39 @@ Two things to fix if it is confirmed:
   above it describes — "a test that cannot fail is worse than no test" — has a hole exactly when
   the node is detached. Asserting both values are non-empty closes it.
 
+↳ **Reproduced on 30 September 2026, and the empty string is the cause.** It failed again under a
+full CI-mode run, this time on the **light** theme rather than dark, so it is not palette-specific. The reporter's
+message settles the cause:
+
+```
+Error: expect(received).not.toBe(expected)
+Expected: not ""
+    at e2e/a11y.spec.ts:344:36
+```
+
+`chipBackground` was the **empty string** — what `getComputedStyle` returns for an element that is no
+longer in the document. The chip is replaced by a re-render while the answer is still streaming,
+between `toBeVisible()` and the `evaluate`. Retries are on in CI mode, so it passed second time and
+reported as flaky rather than failed.
+
+**And the guard above it does not hold.** Line 343 asserts the bubble is not `rgba(0, 0, 0, 0)`; it
+passed, because the value was `""`. The comment in that test says a test that cannot fail is worse
+than no test, and this is the case it does not cover.
+
+**The fix, now that the cause is known:** measure after the stream settles rather than as soon as the
+chip appears, and assert both values are non-empty before comparing them — the second half is one
+line and closes the hole regardless of the timing.
+
+↳ **Fixed on 1 October 2026 (#418), and the diagnosis above was half wrong.** The cause of the empty
+string is right; "the chip is replaced by a re-render" named the wrong culprit. The suspicion was that
+`settled` flipping at the end of a stream turns `copyable` true, which moves the assistant bubble from
+being rendered bare into `<TurnActions>` — a re-parent, so a remount. **A probe disproved it**: the live
+chip was tagged with an attribute and focused mid-stream, and after the stream ended both the tag and
+the focus were still there. So no component changed. The window is narrower than that — between
+Playwright resolving the locator and running the `evaluate` — and the test now waits for the stream to
+finish, which removes it, plus a `not.toBe("")` so a detached read says so instead of blaming the
+contrast. Twelve consecutive runs pass, and repainting the chip `bg-muted` still fails both themes.
+
 ## `check:test-counts` trusts a report that may be from another week, 30 September 2026
 
 The script takes a layer and a JUnit path and compares the count in that file against the README's
@@ -3499,28 +3532,6 @@ and the check reports agreement it never established. That is the same class as 
 `docs/code-review-notes.md` that could not fail, one layer out: an instrument reading an input it did
 not verify is current.
 
-↳ **Confirmed on 30 September 2026, and the theory held.** It failed again under a full CI-mode run,
-this time on the **light** theme rather than dark, so it is not palette-specific. The reporter's
-message settles the cause:
-
-```
-Error: expect(received).not.toBe(expected)
-Expected: not ""
-    at e2ea11y.spec.ts:344:36
-```
-
-`chipBackground` was the **empty string** — what `getComputedStyle` returns for an element that is no
-longer in the document. The chip is replaced by a re-render while the answer is still streaming,
-between `toBeVisible()` and the `evaluate`. Retries are on in CI mode, so it passed second time and
-reported as flaky rather than failed.
-
-**And the guard above it does not hold.** Line 343 asserts the bubble is not `rgba(0, 0, 0, 0)`; it
-passed, because the value was `""`. The comment in that test says a test that cannot fail is worse
-than no test, and this is the case it does not cover.
-
-**The fix, now that the cause is known:** measure after the stream settles rather than as soon as the
-chip appears, and assert both values are non-empty before comparing them — the second half is one
-line and closes the hole regardless of the timing.
 **What would fix it, cheaply:** have the script refuse a report older than the newest file under the
 suite it covers, or older than a few minutes, and say so rather than comparing. `CI=1 pnpm test:e2e`
 is the workaround, and is what the release checks used.
@@ -3531,3 +3542,10 @@ it, so the threshold never fires there and stays a local guard. Not the "newer t
 version: that would need a per-layer map of which globs each suite owns, duplicating two configs that
 would then be free to drift. Falsified on the case that mattered — the same report backdated a week,
 with a count that still matched, is refused rather than agreed with.
+
+↳ **A second shape of the same trap, 1 October 2026: fresh but partial.** Running one test file
+rewrites the whole report, so `pnpm vitest run README.test.ts` leaves a unit report recording 6 — and
+the freshness check passes it, because it is seconds old. Walked into while running the release checks for the
+next commit, and the message again pointed at the README. There is no honest check for it: the expected
+total is the README's own number, so comparing against it is the thing being tested. The mismatch
+message names the cause instead, since being far short is the symptom a filtered run produces.

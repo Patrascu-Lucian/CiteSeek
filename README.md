@@ -89,7 +89,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 145 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 146 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -723,7 +723,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1089  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1091  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 187   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
@@ -733,8 +733,12 @@ Coverage says those lines ran, not that a test would notice them change, so `pnp
 measures the second: across `lib/rag` and `lib/ai`, 80.5% of 830 mutants were caught on the first
 run, with no threshold set against a number this new. Reading the rest found nine tests that could not
 fail on the behavior they are named for, which the percentage alone would never have said. With those
-fixed and the missing tests added, it is 86.5%, re-measured on every release
-([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)).
+fixed and the missing tests added, it was 86.5%
+([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)). Re-measuring every release paid
+for itself on the next one: the only module added since, the clipboard form of an answer, scored
+**73.68%**, and three of its five survivors were one gap — a sort every test reached with a single
+element, which sorts the same however the comparator behaves. It is **86.81% of 849 mutants** now,
+and that module is at 100%.
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)
 exercise ingestion, retrieval and the whole answer path with no API key and no network, so CI

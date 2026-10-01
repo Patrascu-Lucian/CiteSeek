@@ -55,7 +55,11 @@ if (row === undefined) {
 if (row[2] !== ran) {
   throw new Error(
     `README says ${layer} is ${row[2]}; ${report} recorded ${ran}. ` +
-      "Update the table in README.md.",
+      // The freshness check above cannot see a filtered run: its report is
+      // current and partial, and a mismatch then reads as a wrong README.
+      "If that is far short, the report is from a filtered run — the reporter rewrites the whole " +
+      "file, so only a full suite leaves a complete one. Otherwise the table in README.md is what " +
+      "needs updating.",
   );
 }
 

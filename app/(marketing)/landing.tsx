@@ -36,7 +36,7 @@ const PROOF = [
   { value: "365 ms", label: "to the first source, deployed" },
   { value: "0.85 s", label: "to the first token of prose" },
   { value: "0.95", label: "of answers found in the top three passages" },
-  { value: "86.5%", label: "of 830 mutants caught in the pure core" },
+  { value: "86.81%", label: "of 849 mutants caught in the pure core" },
 ] as const;
 
 const steps = [
