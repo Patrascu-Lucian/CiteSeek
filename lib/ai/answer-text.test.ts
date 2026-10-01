@@ -48,14 +48,14 @@ describe("answerAsText", () => {
 
   it("omits a page number the document does not have", () => {
     // Markdown and text files have no pages, and "page null" is worse than no
-    // page at all.
+    // page at all. Pinned whole: a `toContain` and a missing "page" also passed
+    // with the empty branch replaced by any other word.
     const text = answerAsText("A claim [1].", [source(1, "notes.md")], [1]);
 
-    expect(text).toContain("[1] notes.md");
-    expect(text).not.toContain("page");
+    expect(text).toBe("A claim [1].\n\nSources:\n[1] notes.md");
   });
 
-  it("numbers the list by the marker rather than by position", () => {
+  it("keeps the marker's own number instead of renumbering from one", () => {
     // An answer can cite [2] without citing [1], and the number in the prose is
     // the only thing tying them together.
     const text = answerAsText(
@@ -66,6 +66,31 @@ describe("answerAsText", () => {
 
     expect(text).toContain("[2] b.md");
     expect(text).not.toContain("[1]");
+  });
+
+  it("lists the cited sources in marker order, whatever order they arrive in", () => {
+    // Out of order on purpose: one source after the filter sorts the same
+    // however the comparator behaves, so dropping or breaking it survived.
+    const text = answerAsText(
+      "Both [1] and [2].",
+      [source(2, "second.md", 7), source(1, "first.md")],
+      [1, 2],
+    );
+
+    expect(text).toBe(
+      "Both [1] and [2].\n\nSources:\n[1] first.md\n[2] second.md, page 7",
+    );
+  });
+
+  it("trims the answer, so a pasted block opens on the prose", () => {
+    // Streamed text arrives with trailing newlines.
+    const text = answerAsText(
+      "\n  A claim [1].  \n\n",
+      [source(1, "notes.md")],
+      [1],
+    );
+
+    expect(text).toBe("A claim [1].\n\nSources:\n[1] notes.md");
   });
 
   it("returns a refusal as itself, with no empty heading under it", () => {

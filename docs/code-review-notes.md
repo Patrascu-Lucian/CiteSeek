@@ -3890,3 +3890,31 @@ tests, 117 E2E and a production build, green.
   reported the bug it was named after. And a mechanism that explains the symptom is a hypothesis: the
   re-parenting story fit every observation and was still false, which one probe settled for the cost of
   a few minutes against a change to shipped code.
+
+## The newest module was the weakest, and only mutation testing said so, 1 October 2026
+
+- **Issue**: `lib/ai/answer-text.ts` builds the clipboard form of an answer — the prose plus a numbered
+  source list. It shipped with five tests, all passing, and `lib/ai` is gated at 90% line coverage. It
+  is also the only file added to Stryker's scope since the 86.5% baseline, so its mutants had never
+  been run. **73.68%**: 5 of 19 survived, against 86.22% for the scope as a whole.
+
+- **Three of the five were one gap, and it is the gap this project keeps finding.** Dropping `.sort()`,
+  replacing its comparator with `() => undefined`, and flipping `a.marker - b.marker` to `+` all
+  survived. The test named _"numbers the list by the marker rather than by position"_ supplies two
+  sources and cites one, so after the filter a single element reaches the sort — and one element sorts
+  identically however the comparator behaves. The name claimed ordering; the test could not observe it.
+  Worse, the name described a different behavior than the body: what it actually pins is that a marker
+  keeps its own number rather than being renumbered from one. It is renamed to that, and a new test
+  supplies the sources out of order and asserts the whole string.
+
+- **The other two were assertions loose enough to pass on anything.** `.trim()` on the answer could be
+  deleted — nothing asserted it. And the `""` in `pageNumber === null ? "" : …` could be replaced with
+  any string not containing the word "page", because the test read `toContain(filename)` plus
+  `not.toContain("page")` rather than pinning the line. Both are `toBe` on the full output now.
+
+- **Lesson**: **a passing suite over covered lines says the code ran, and a test's name is not
+  evidence about what it can detect.** The README counts nine tests of this kind found by sorting
+  the first mutation run's survivors, all of them in code that predated the run; this is the first
+  found in code written after it. The reusable trick is in the shape of the failure: a
+  collection operation tested with one element — sort, dedupe, join, reduce — cannot fail, and one
+  element is the easiest fixture to reach for.
