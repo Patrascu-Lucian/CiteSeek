@@ -3863,6 +3863,11 @@ tests, 117 E2E and a production build, green.
 
 ## A flaky test that named the bug it exists for, 30 September 2026
 
+> **The probe in this entry was wrong, and an external review caught it on 1 October 2026** — see
+> "A probe that could not see what it was looking for" below. The remount is real; this entry's
+> second bullet says it is not. The fix described here still stands on its own, because the test was
+> also measuring at the wrong moment.
+
 - **Issue**: `e2e/a11y.spec.ts`'s citation-chip contrast check failed twice in full-suite runs, once
   per theme, reporting `Expected: not ""` on `expect(chipBackground).not.toBe(bubbleBackground)` —
   which reads as "the chip is painted in exactly the bubble's color", the precise defect that test was
@@ -3891,6 +3896,39 @@ tests, 117 E2E and a production build, green.
   re-parenting story fit every observation and was still false, which one probe settled for the cost of
   a few minutes against a change to shipped code.
 
+## A probe that could not see what it was looking for, 1 October 2026
+
+- **Issue**: the entry above concluded that the answer is not remounted when a stream ends, from a
+  Playwright probe that tagged the citation chip mid-stream and found the tag intact afterwards. An
+  external review of the 1.9.0 diff said the probe was inconclusive and the original suspicion right.
+  It is: a unit test that re-renders `MessageList` with `streaming` flipped shows the assistant bubble
+  is **a different DOM node** afterwards. `copyable` turns true, the bubble gains a `<TurnActions>`
+  parent, and React rebuilds the subtree — losing any selection in the answer and parsing the prose a
+  second time.
+
+- **Why the probe could not see it.** It ran against the fake chat model, whose chunk delay is 0 ms,
+  so the stream had finished before Playwright resolved the chip. What got tagged was already the
+  post-remount node, and a node compared with itself is always the same node. **The probe asserted
+  something true of the wrong moment**, which is the shape of the two entries before this one.
+
+- **And two of the review's own rows do not reproduce**, which is worth keeping because it cuts the
+  same way. Its evidence table and regression test have a keyboard user focusing a chip mid-stream;
+  no chip exists then. `Streamdown` withholds `[1]` while text is streaming — it could be the start of
+  an incomplete link — so the answer renders no buttons at all until it settles, on `main` as well as
+  here. The test it supplied fails on both branches at its first query, not at the assertion. The
+  defect is real; that consequence of it is not reachable, and the ones that are — a lost selection, a
+  double parse, a screen reader's position — do not involve focus.
+
+- **Fix**: the wrapper is now always rendered for an assistant turn and only the copy control is
+  conditional, so the bubble keeps its place in the tree. The regression test asserts node identity
+  across the flip, because the rendered output is identical either way. It fails without the fix.
+
+- **Lesson**: **a probe needs to be checked against the moment it claims to measure, not only against
+  the thing it claims to measure.** Timing was the whole experiment here, and the harness quietly
+  removed it. The general guard: when an experiment's result is "nothing happened", confirm the setup
+  could have observed something happening — the same question this file keeps asking of tests, now
+  asked of a measurement.
+
 ## The newest module was the weakest, and only mutation testing said so, 1 October 2026
 
 - **Issue**: `lib/ai/answer-text.ts` builds the clipboard form of an answer — the prose plus a numbered
@@ -3918,3 +3956,32 @@ tests, 117 E2E and a production build, green.
   found in code written after it. The reusable trick is in the shape of the failure: a
   collection operation tested with one element — sort, dedupe, join, reduce — cannot fail, and one
   element is the easiest fixture to reach for.
+
+## Three claims on the page whose job is checkable claims, 1 October 2026
+
+Raised by an external review of the 1.9.0 diff. Grouped because they are one failure: the landing page
+was written and tested against itself rather than against the things it points at.
+
+- **"The method behind each number is in the about page" — `/about` has no numbers.** Its own header
+  comment says so: _"No numbers here — they belong in the README, and two copies of a measurement is
+  one copy that goes stale."_ That is a good rule, and ADR 057 recorded a decision that contradicts it.
+  A reader following the link to check a figure found nothing, from the one section whose job is to make
+  figures checkable. The strip now links to the README's Numbers section, which states each method.
+
+- **"On a branch where the model never runs" is false for a follow-up.** On the refusal branch the
+  route calls `rewriteQuestion`, which calls `generateText` with the chat model, and only gives up if
+  the rewritten query also retrieves nothing. The route's own comment says this, and `/about` says it
+  correctly. What is true, and is what the page says now, is that the model never writes the reply. The
+  test asserted the wrong half of it, so it pinned the error in place.
+
+- **In dark mode the screenshot had no text alternative.** The light image carried the description and
+  `dark:hidden`; the dark one was `aria-hidden`. In dark mode `display: none` removes the first from the
+  accessibility tree and the attribute removes the second, so a screen-reader user got the caption and
+  nothing else. The unit test could not see it — jsdom applies no CSS, so it saw exactly one described
+  image and asserted that. Both images carry the description now, and the test counts both.
+
+- **Lesson**: **a test written from the same belief as the code confirms the belief, not the
+  behavior.** All three held for a release because each was pinned by an assertion derived from the
+  page rather than from the thing the page describes. The one that would have caught two of them is
+  cheap and was missing: follow the claim to its source — open `/about`, read the route — instead of
+  asserting that the sentence is present.

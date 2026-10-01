@@ -297,15 +297,20 @@ export function MessageList({
                   onConfirm={() => onDeleteTurn(message.id)}
                 />
               </TurnActions>
-            ) : copyable ? (
-              <TurnActions bubble={bubble} side="after">
-                <CopyAnswer
-                  text={messageText(message)}
-                  sources={messageSources(message)}
-                />
-              </TurnActions>
-            ) : (
+            ) : isUser ? (
               bubble
+            ) : (
+              // Always wrapped: adding it when `copyable` turns true re-parents
+              // the bubble, so React rebuilds the whole answer as the stream
+              // ends, losing any selection in it.
+              <TurnActions bubble={bubble} side="after">
+                {copyable ? (
+                  <CopyAnswer
+                    text={messageText(message)}
+                    sources={messageSources(message)}
+                  />
+                ) : null}
+              </TurnActions>
             )}
           </li>
         );

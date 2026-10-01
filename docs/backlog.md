@@ -3505,6 +3505,14 @@ than no test, and this is the case it does not cover.
 chip appears, and assert both values are non-empty before comparing them — the second half is one
 line and closes the hole regardless of the timing.
 
+↳ **Correction, 1 October 2026: the remount is real after all.** An external review of the 1.9.0
+diff showed the probe below could not have seen it — it ran against the fake model's 0 ms chunk
+delay, so the stream had ended before the chip was tagged, and the node it compared was already the
+rebuilt one. A unit test that flips `streaming` on `MessageList` shows the assistant bubble is a
+different element afterwards. The wrapper is always rendered now and only the copy control is
+conditional. The original diagnosis on 30 September was right; the paragraph below is kept because
+the reasoning in it is what the review had to undo.
+
 ↳ **Fixed on 1 October 2026 (#418), and the diagnosis above was half wrong.** The cause of the empty
 string is right; "the chip is replaced by a re-render" named the wrong culprit. The suspicion was that
 `settled` flipping at the end of a stream turns `copyable` true, which moves the assistant bubble from
@@ -3549,3 +3557,44 @@ the freshness check passes it, because it is seconds old. Walked into while runn
 next commit, and the message again pointed at the README. There is no honest check for it: the expected
 total is the README's own number, so comparing against it is the thing being tested. The mismatch
 message names the cause instead, since being far short is the symptom a filtered run produces.
+
+## Five findings deferred from the 1.9.0 release review, 1 October 2026
+
+An external review of `develop` against `main` raised eleven findings. Four were fixed before tagging,
+along with two one-line ones (the mutation strip's scope, and the stale security comment above
+`allowBuilds`). These five were judged not to block the release. Each is recorded with the evidence
+the review gave, because that is the expensive part to reconstruct.
+
+**A copied answer drops the invented-marker warning (medium, needs a decision).** On screen an invented
+`[7]` stays plain text and carries an explicit note — _"[7] is not one of the passages found, so it is
+not a link. Treat that claim as unsupported."_ The clipboard keeps `[7]` and drops the note, so a paste
+reads like a citation with a missing entry. Worse, `lib/ai/citations.ts` deliberately refuses to link
+half of a mixed run such as `[1][7]`, because linking one _"would quietly drop the invented one and make
+the answer look better sourced"_ — and the clipboard builds its list from `citedMarkers`, whose own doc
+comment says it is not the same as the chips on screen. So the paste undoes that rule. Decide what a
+paste should say, then pin it: probably build the list from the markers actually linked, and append a
+line naming the unresolved ones.
+
+**The `/local` guard on the landing page cannot fail (low).** `landing.test.tsx` checks `href="/local"`
+and the absence of `data-prefetch`. Nothing emits `data-prefetch`, and a `next/link` renders as a bare
+anchor in jsdom, so the review's probe passed both assertions with a `<Link>` — the exact regression
+ADR 028 forbids, since a client navigation would leave this page's CSP governing local mode. The real
+guard is an E2E that checks for a document request, as `a11y.spec.ts` already does for the privacy page
+and the footer.
+
+**The provenance test is weaker than ADR 057 claims (low).** Of the four strip figures only `0.95` is
+checked against a tool's output (`eval/report.md`); `365 ms`, `0.85 s` and `86.81%` are checked against
+hand-typed README prose, so editing page and README together passes for any value. Stryker's report is
+gitignored. Either have the mutation run write its score to a committed file the test reads, or reword
+the ADR to say the figures are cross-checked against the README rather than against the runs.
+
+**Every copy button has the same accessible name (low).** With several answers a screen reader lists
+several identical "Copy the answer" buttons and voice control has no unique target. The sibling controls
+already solve it — `Edit the question "…"`, `Delete the exchange starting "…"`.
+
+**The question bubble has the same remount as the answer did (low, predates this release).** `deletable`
+flips when a turn settles, so the question is re-parented into `TurnActions` and rebuilt, losing any
+selection in it. Nothing in it is focusable, which is why it was left: the fix that landed for the
+answer wraps unconditionally, and doing the same here means passing `justify-end` on the wrapper and
+accepting a 4px shift from the empty controls slot. Worth doing with the layout checked, not in a
+release commit.
