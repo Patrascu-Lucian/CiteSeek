@@ -3524,3 +3524,10 @@ line and closes the hole regardless of the timing.
 **What would fix it, cheaply:** have the script refuse a report older than the newest file under the
 suite it covers, or older than a few minutes, and say so rather than comparing. `CI=1 pnpm test:e2e`
 is the workaround, and is what the release checks used.
+
+↳ **Done, 1 October 2026.** The script refuses a report written more than 60 minutes ago and names
+its timestamp. Sixty rather than a few, because in CI the report is read seconds after the job wrote
+it, so the threshold never fires there and stays a local guard. Not the "newer than the test files"
+version: that would need a per-layer map of which globs each suite owns, duplicating two configs that
+would then be free to drift. Falsified on the case that mattered — the same report backdated a week,
+with a count that still matched, is refused rather than agreed with.
