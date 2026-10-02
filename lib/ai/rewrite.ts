@@ -48,18 +48,22 @@ export async function rewriteQuestion(
   messages: readonly ChatUIMessage[],
   asked: string,
 ): Promise<Rewrite | null> {
-  const history = messages
+  const spoken = messages
     .slice(-TURNS)
+    .filter((message) => message.parts.some((part) => part.type === "text"));
+
+  // A conversation of one has no subject to recover, and the rewrite would have
+  // to invent one to differ. Counted in messages: counting the joined history's
+  // lines let a first question containing a newline reach the model.
+  if (spoken.length < 2) return null;
+
+  const history = spoken
     .flatMap((message) =>
       message.parts
         .filter((part) => part.type === "text")
         .map((part) => `${message.role}: ${part.text}`),
     )
     .join("\n");
-
-  // A conversation of one has no subject to recover, and the rewrite would have
-  // to invent one to differ.
-  if (history.split("\n").length < 2) return null;
 
   // A best-effort second chance on a turn that has already failed to retrieve.
   // Letting a provider error escape would turn a refusal the reader can act on

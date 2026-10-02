@@ -13,16 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
-/** Long enough to identify the exchange, short enough to read as a title. */
-const LABEL_LIMIT = 60;
-
-function shorten(question: string): string {
-  const collapsed = question.replace(/\s+/g, " ").trim();
-
-  return collapsed.length > LABEL_LIMIT
-    ? `${collapsed.slice(0, LABEL_LIMIT).trimEnd()}…`
-    : collapsed;
-}
+import { shortenQuestion } from "./turn-label";
 
 /** Same rule as a conversation and a document (ADR 042): name what goes, and say
  * the answer goes with the question. */
@@ -37,7 +28,7 @@ export function DeleteTurnDialog({
   busy: boolean;
   onConfirm: () => void;
 }) {
-  const label = shorten(question);
+  const label = shortenQuestion(question);
 
   return (
     <AlertDialog>

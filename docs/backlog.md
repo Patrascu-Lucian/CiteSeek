@@ -3529,7 +3529,7 @@ what the review had to undo.
 The script takes a layer and a JUnit path and compares the count in that file against the README's
 table. In CI the file is always the one the job just wrote. Locally it is whatever is on disk:
 Playwright only registers the JUnit reporter when `CI` is set (`playwright.config.ts:37`), and
-Vitest's is likewise written by `pnpm test:coverage` rather than by `pnpm test`.
+Vitest writes its own on every run, so a filtered `pnpm vitest run` leaves a partial one.
 
 Found by running the release checks by hand. `pnpm test:e2e` reported **187 passed**, and
 `pnpm check:test-counts E2E test-results/e2e.junit.xml` then failed with "recorded 181" — from a
