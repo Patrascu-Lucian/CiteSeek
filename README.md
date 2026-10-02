@@ -89,7 +89,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 150 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 151 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -724,7 +724,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1094  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1096  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 189   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |

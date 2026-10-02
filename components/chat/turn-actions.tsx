@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { Children, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -39,20 +39,24 @@ export function TurnActions({
     origin.current = null;
   }
 
-  const controls = (
-    <div
-      // The opacity is here, not on the control, so a reveal test reads this.
-      data-turn-actions=""
-      className={cn(
-        "shrink-0 transition-opacity",
-        held
-          ? "opacity-100"
-          : "pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100",
-      )}
-    >
-      {children}
-    </div>
-  );
+  /* Nothing to reveal yet, and an empty slot is not free: the row's `gap-1` would
+     still put 4px beside the bubble, so the wrapper could not be rendered
+     unconditionally to stop a turn remounting when its controls arrive. */
+  const controls =
+    Children.toArray(children).length === 0 ? null : (
+      <div
+        // The opacity is here, not on the control, so a reveal test reads this.
+        data-turn-actions=""
+        className={cn(
+          "shrink-0 transition-opacity",
+          held
+            ? "opacity-100"
+            : "pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100",
+        )}
+      >
+        {children}
+      </div>
+    );
 
   return (
     <div

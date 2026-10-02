@@ -4020,3 +4020,26 @@ was written and tested against itself rather than against the things it points a
   on a name nothing produces cannot fail, and it reads like a check — which is worse than no check,
   because the test's name then promises the guarantee. The question that catches it is the one this file
   keeps returning to: what would make this fail? If the answer needs a browser, the test belongs in one.
+
+## The question kept the remount the answer was fixed for, 2 October 2026
+
+- **Issue**: the answer stopped being rebuilt at the end of a stream when its wrapper became
+  unconditional. The question had the same flip and kept it: `deletable` turns true at that same
+  moment, so the question bubble gained a `<TurnActions>` parent and React rebuilt it. It was left
+  because the fix looked like a layout change — an unconditional wrapper renders an empty controls
+  slot, and the row's `gap-1` would put 4px beside the bubble.
+
+- **Fix**: `TurnActions` renders no slot until it has a control to put in it, so the wrapper costs
+  nothing before then and can be unconditional. Two tests: the question's element survives the flip,
+  and no `[data-turn-actions]` exists while there is nothing to reveal. Both fail without the change.
+
+- **The layout worry was unfounded, and measuring said so in a minute.** The bubble's bounding box is
+  identical before and after the controls appear, at 1280px and at 412px with a question long enough
+  to reach its 85% ceiling: the row is `justify-end`, so the bubble stays flush right and the controls
+  take space that was empty. The deferral cost more than the check would have.
+
+- **An intermediate version shipped nothing because a test caught it.** The guard was first
+  `Children.count(children) === 0`, and `Children.count` counts `null` slots — with two conditional
+  controls both absent it returns 2, not 0. `Children.toArray(children).length` is the one that drops
+  them. The empty-slot test failed immediately, which is the entire reason to write the test that
+  asserts the absence rather than only the presence.
