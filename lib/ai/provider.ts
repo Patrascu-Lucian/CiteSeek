@@ -15,6 +15,7 @@ export type EmbeddingsProviderName = "google" | "fake" | "local" | "local-fake";
 export type ProviderEnv = {
   EMBEDDINGS_PROVIDER?: string | undefined;
   CHAT_PROVIDER?: string | undefined;
+  FAKE_CHAT_CHUNK_DELAY_MS?: string | undefined;
   GOOGLE_GENERATIVE_AI_API_KEY?: string | undefined;
   // Index signature so `process.env` is assignable — the weak-type check rejects
   // an all-optional target otherwise.
@@ -92,7 +93,10 @@ export function resolveChatProvider(
 }
 
 export function getChatModel(env: ProviderEnv = process.env): LanguageModel {
-  if (resolveChatProvider(env) === "fake") return fakeChatModel();
+  if (resolveChatProvider(env) === "fake")
+    // A streaming test needs the stream to still be running when it looks. Only
+    // read on the fake provider, so it cannot slow anything real.
+    return fakeChatModel(undefined, Number(env.FAKE_CHAT_CHUNK_DELAY_MS) || 0);
 
   const apiKey = env.GOOGLE_GENERATIVE_AI_API_KEY;
 
