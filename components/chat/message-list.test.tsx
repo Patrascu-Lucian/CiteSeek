@@ -565,6 +565,31 @@ describe("the answer when the stream ends", () => {
     />
   );
 
+  it("keeps the question's element too, when its controls arrive", () => {
+    // `deletable` turns true at the same moment, and gating the wrapper on it
+    // re-parented the question. Nothing in it is focusable, so a selection in a
+    // question was the visible cost.
+    const { container, rerender } = render(list(true));
+    const streamingQuestion = container.querySelector(
+      "[data-message-bubble='user']",
+    );
+    expect(streamingQuestion).not.toBeNull();
+
+    rerender(list(false));
+
+    expect(container.querySelector("[data-message-bubble='user']")).toBe(
+      streamingQuestion,
+    );
+  });
+
+  it("renders no controls slot before there is a control in it", () => {
+    // The row's `gap-1` would otherwise put 4px beside the bubble for an empty
+    // div, which is what made an unconditional wrapper a layout change.
+    const { container } = render(list(true));
+
+    expect(container.querySelectorAll("[data-turn-actions]")).toHaveLength(0);
+  });
+
   it("keeps the same element, rather than rebuilding it around the copy control", () => {
     /* `copyable` turns true at that moment, and a new parent makes React rebuild
        the answer, parsing the prose again. Node identity is the only way to see

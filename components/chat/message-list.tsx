@@ -276,9 +276,12 @@ export function MessageList({
             key={message.id}
             className={cn("flex", isUser ? "justify-end" : "justify-start")}
           >
-            {deletable ? (
+            {isUser && onDeleteTurn ? (
+              // Wrapped whenever deletion is possible at all: gating the wrapper
+              // on `deletable` re-parented the question when its answer settled,
+              // which rebuilds it.
               <TurnActions bubble={bubble} className="justify-end">
-                {onEditQuestion ? (
+                {deletable && onEditQuestion ? (
                   <Button
                     type="button"
                     variant="ghost"
@@ -290,12 +293,14 @@ export function MessageList({
                     <Pencil aria-hidden="true" className="size-3.5" />
                   </Button>
                 ) : null}
-                <DeleteTurnDialog
-                  question={messageText(message)}
-                  hasAnswer={messages[index + 1]?.role === "assistant"}
-                  busy={deletingId === message.id}
-                  onConfirm={() => onDeleteTurn(message.id)}
-                />
+                {deletable ? (
+                  <DeleteTurnDialog
+                    question={messageText(message)}
+                    hasAnswer={messages[index + 1]?.role === "assistant"}
+                    busy={deletingId === message.id}
+                    onConfirm={() => onDeleteTurn(message.id)}
+                  />
+                ) : null}
               </TurnActions>
             ) : isUser ? (
               bubble
