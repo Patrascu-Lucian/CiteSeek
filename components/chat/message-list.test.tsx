@@ -500,6 +500,31 @@ describe("MessageList — copying an answer", () => {
     ).toHaveLength(1);
   });
 
+  it("names each copy control for the question it answers", () => {
+    // Identical names give a screen reader's control list several "Copy the
+    // answer" entries, and voice control no unique target.
+    render(
+      <MessageList
+        {...props}
+        messages={[
+          userMessage("What is the policy?"),
+          assistantMessage("Paid in 30 days [1].", [SOURCE]),
+          userMessage("And the deposit?"),
+          assistantMessage("Protected in 30 days [1].", [SOURCE]),
+        ]}
+      />,
+    );
+
+    const names = screen
+      .getAllByRole("button", { name: /copy the answer/i })
+      .map((button) => button.getAttribute("aria-label"));
+
+    expect(names).toEqual([
+      "Copy the answer to “What is the policy?”",
+      "Copy the answer to “And the deposit?”",
+    ]);
+  });
+
   it("waits until the answer has finished arriving", () => {
     // Half an answer is not what a reader means to take away, and its markers
     // are not all resolved yet.

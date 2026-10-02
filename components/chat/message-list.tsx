@@ -308,6 +308,7 @@ export function MessageList({
                   <CopyAnswer
                     text={messageText(message)}
                     sources={messageSources(message)}
+                    question={messageText(messages[index - 1] ?? message)}
                   />
                 ) : null}
               </TurnActions>

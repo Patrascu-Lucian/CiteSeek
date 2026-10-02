@@ -24,6 +24,7 @@ describe("CopyAnswer", () => {
       <CopyAnswer
         text="The deposit is £1,200 [1]."
         sources={[source(1, "tenancy.pdf"), source(2, "unused.md")]}
+        question="How much is the deposit?"
       />,
     );
 
@@ -39,7 +40,13 @@ describe("CopyAnswer", () => {
     // every answer has one of these, and a region on each would announce the
     // whole transcript's worth.
     const user = userEvent.setup();
-    render(<CopyAnswer text="An answer [1]." sources={[source(1, "a.md")]} />);
+    render(
+      <CopyAnswer
+        text="An answer [1]."
+        sources={[source(1, "a.md")]}
+        question="A question?"
+      />,
+    );
 
     await user.click(screen.getByRole("button", { name: /copy the answer/i }));
 
@@ -57,7 +64,13 @@ describe("CopyAnswer", () => {
       value: () => Promise.reject(new Error("denied")),
     });
 
-    render(<CopyAnswer text="An answer [1]." sources={[source(1, "a.md")]} />);
+    render(
+      <CopyAnswer
+        text="An answer [1]."
+        sources={[source(1, "a.md")]}
+        question="A question?"
+      />,
+    );
     await user.click(screen.getByRole("button", { name: /copy the answer/i }));
 
     expect(

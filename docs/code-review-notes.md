@@ -3984,3 +3984,20 @@ was written and tested against itself rather than against the things it points a
   page rather than from the thing the page describes. The one that would have caught two of them is
   cheap and was missing: follow the claim to its source — open `/about`, read the route — instead of
   asserting that the sentence is present.
+
+## A guard that counted lines where it meant messages, 2 October 2026
+
+- **Issue**: the follow-up rewrite skips a conversation of one, because a first question has no earlier
+  turn to recover a subject from. The guard read `history.split("\n").length < 2` on the joined
+  transcript — lines, not messages. A single question containing a newline, from Shift+Enter or a paste,
+  reads as two lines and passes it. On the refusal branch that spends a model call the guard exists to
+  prevent, and shows the reader a "Searched for" line for a rewrite of their own first question.
+
+- **Fix**: count the messages that carry text, then join them. The test asks with
+  `"How much is the deposit?\nAnd when is it due?"` as the only message and expects no model call; it
+  fails on the old guard.
+
+- **Lesson**: **a count is only as good as the thing it counts, and joining collapses the distinction.**
+  The transcript was built for the prompt, where lines are the right unit, and then reused for a
+  decision where messages are. Both readings are reasonable on the same string, which is why the bug
+  survived review: the code looked like it was counting turns.
