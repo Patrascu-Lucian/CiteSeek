@@ -19,15 +19,12 @@ export const CHUNK_TARGET_CHARS = 600;
 export const CHUNK_MAX_CHARS = 800;
 export const CHUNK_OVERLAP_CHARS = 100;
 
-/** One embedding call per chunk, so this *is* the cost ceiling — unchanged by the
- * size revision, which halved the longest supported document to ~250 dense
- * pages. */
+/** One embedding call per chunk, so this *is* the cost ceiling. */
 export const MAX_CHUNKS_PER_DOCUMENT = 600;
 
-/** 600 passages at a measured ~455 characters, well under the plan's 500,000: the
- * two limits were set independently, so a 300,000-character upload fails here and
- * never reaches the storage check. **A typical size, not a ceiling** — passages
- * run to `CHUNK_MAX_CHARS`, so a dense document stores more. */
+/* 600 passages arrives between 266,609 and 300,102 characters across four
+   document shapes, so this average holds. Not a rival to the plan's
+   `extractedCharacters`, which totals a workspace where this bounds a document. */
 export const MAX_CHARS_PER_DOCUMENT = MAX_CHUNKS_PER_DOCUMENT * 455;
 
 export type Chunk = {
