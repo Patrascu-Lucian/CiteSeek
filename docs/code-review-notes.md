@@ -4001,3 +4001,22 @@ was written and tested against itself rather than against the things it points a
   The transcript was built for the prompt, where lines are the right unit, and then reused for a
   decision where messages are. Both readings are reasonable on the same string, which is why the bug
   survived review: the code looked like it was counting turns.
+
+## An assertion standing in for a guarantee it could not reach, 2 October 2026
+
+- **Issue**: the landing page links `/local` with a plain `<a>`, because ADR 028 gives that route its
+  own Content Security Policy and a client navigation would leave the landing page's governing it. The
+  unit test named for that — _"points at local mode with a document navigation, not a client one"_ —
+  asserted `href="/local"` and the absence of a `data-prefetch` attribute. **Nothing emits that
+  attribute.** A `next/link` renders as a bare anchor under jsdom, so the test passed on exactly the
+  regression it was written to prevent. Verified by swapping the anchor for a `<Link>`: the unit test
+  stayed green.
+
+- **Fix**: an E2E that counts document requests, as `a11y.spec.ts` already does for the privacy page
+  and the footer. With the `<Link>` in place it fails — `Expected length: 1, Received length: 0` — and
+  the unit test now claims only the destination, with the reason the rest cannot live there.
+
+- **Lesson**: **an attribute that no code emits is not a guard, it is a sentence.** `not.toHaveAttribute`
+  on a name nothing produces cannot fail, and it reads like a check — which is worse than no check,
+  because the test's name then promises the guarantee. The question that catches it is the one this file
+  keeps returning to: what would make this fail? If the answer needs a browser, the test belongs in one.

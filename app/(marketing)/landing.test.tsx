@@ -107,15 +107,17 @@ describe("Landing", () => {
     expect(screen.queryByText(/never cites/i)).not.toBeInTheDocument();
   });
 
-  it("points at local mode with a document navigation, not a client one", () => {
-    // A route-scoped CSP only applies to a document response, so a `Link` here
-    // would leave this page's policy governing local mode (ADR 028).
+  it("points at local mode", () => {
+    /* Only the destination. That it arrives by a document request, which ADR 028
+       needs for the route's own CSP, is pinned in `a11y.spec.ts`: a `next/link`
+       renders as a bare anchor here, so nothing in jsdom can tell the two apart.
+       The assertion that used to stand in for it — no `data-prefetch` attribute —
+       passed for a `Link` too, because nothing emits that attribute. */
     render(<Landing {...anonymous} />);
 
-    const link = screen.getByRole("link", { name: /says what it measures/i });
-
-    expect(link).toHaveAttribute("href", "/local");
-    expect(link).not.toHaveAttribute("data-prefetch");
+    expect(
+      screen.getByRole("link", { name: /says what it measures/i }),
+    ).toHaveAttribute("href", "/local");
   });
 
   it("lists the feature cards inside a list for screen-reader navigation", () => {
