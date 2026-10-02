@@ -2,9 +2,14 @@
  * filter matches nothing (stryker-js#6210), every covered mutant survives, and
  * the score reads as a finding. No covered mutant killed is the instrument
  * failing, not the suite, so it fails here rather than being published. */
-import { appendFile, readFile } from "node:fs/promises";
+import { appendFile, readFile, writeFile } from "node:fs/promises";
 
 const REPORT = "reports/mutation/mutation.json";
+
+/* Committed, because the landing page quotes this score and `landing.test.tsx`
+   checks every figure on it against something a tool wrote. The report itself is
+   gitignored, so the numbers the page uses are published here. */
+const PUBLISHED = "eval/mutation.md";
 
 type Mutant = { status: string; static?: boolean };
 
@@ -44,6 +49,24 @@ if (killedThroughFilter === 0) {
 
 // Stryker's formula, so the summary matches the HTML report.
 const score = (100 * detected) / (detected + undetected);
+
+const today = new Date().toISOString().slice(0, 10);
+
+await writeFile(
+  PUBLISHED,
+  `# Mutation testing
+
+Run ${today} by \`pnpm test:mutation\`, over \`lib/rag\` and \`lib/ai\`; the
+exclusions are in \`stryker.config.mjs\`.
+
+**${score.toFixed(2)}%** of **${String(statuses.length)} mutants** detected.
+
+${counts}
+
+A mutant is a deliberate change to the code, and a detected one is a change some
+test noticed. Coverage says only that a line ran.
+`,
+);
 
 // Set only on GitHub Actions, which renders the file on the run's page.
 const summary = process.env.GITHUB_STEP_SUMMARY;

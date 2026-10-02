@@ -4043,3 +4043,24 @@ was written and tested against itself rather than against the things it points a
   controls both absent it returns 2, not 0. `Children.toArray(children).length` is the one that drops
   them. The empty-slot test failed immediately, which is the entire reason to write the test that
   asserts the absence rather than only the presence.
+
+## A provenance check a stale copy could satisfy, 2 October 2026
+
+- **Issue**: every figure on the landing page's proof strip is checked against "a committed report",
+  which the 1.9.0 review pointed out means the README for three of the four — prose typed beside the
+  page, so editing both together passes for any value. The fix was to have `pnpm test:mutation` write
+  a committed `eval/mutation.md` and read that.
+
+- **The first version of that fix did nothing, and running it said so.** Adding `eval/mutation.md` to
+  the list of sources left the check a union: with the run reporting **86.33% of 856** and the page
+  still saying **86.81% of 849**, the test passed, because the stale README sentence still contained
+  the old figure. A test over a union of sources is only as strict as its loosest member.
+
+- **Fix**: the mutation figure gets its own assertion, against `eval/mutation.md` alone — the `<dt>`
+  value and the mutant count from its `<dd>`. It fails on the page as it stood, which is how the stale
+  86.81% was found rather than shipped. Falsified the other way too: nudging the published score to
+  86.99% turns it red.
+
+- **Lesson**: **adding a stricter source to a permissive check does not make the check stricter.** The
+  shape to look for is `sources.join()` plus `includes` — every figure can be satisfied by any file,
+  so one hand-written file licenses everything. The one that works names which file owns which number.

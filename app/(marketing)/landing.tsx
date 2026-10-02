@@ -42,8 +42,8 @@ const PROOF = [
   // Not "the pure core", which the README defines as including `lib/local`:
   // the mutation run covers retrieval and answering only.
   {
-    value: "86.81%",
-    label: "of 849 mutants caught in retrieval and answering",
+    value: "86.33%",
+    label: "of 856 mutants caught in retrieval and answering",
   },
 ] as const;
 
