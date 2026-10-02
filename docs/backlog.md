@@ -3632,3 +3632,42 @@ it is focusable, which is why it was left: the fix that landed for the
 answer wraps unconditionally, and doing the same here means passing `justify-end` on the wrapper and
 accepting a 4px shift from the empty controls slot. Worth doing with the layout checked, not in a
 release commit.
+
+## Two size limits that were never in conflict, 2 October 2026
+
+Raised by the 1.9.0 review sweep and by the 1.9.1 plan as a bug: _273,000 characters per document
+against the plan tier's 500,000, so a 300,000-character upload fails with the wrong error._ Checked
+before fixing, and **the premise does not hold.**
+
+`extractedCharacters` is a **workspace** total — `sumExtractedCharacters` sums
+`length(content_text)` over every document in the workspace (`lib/documents/queries.ts:99`).
+`MAX_CHUNKS_PER_DOCUMENT` bounds **one document**. They are not two numbers for the same thing, so
+neither is "wrong" for arriving first: a single oversized document is refused per document, and that
+refusal names what to do — _"This document produces 1126 passages, above the limit of 600. Split it
+into smaller documents."_ Two documents of ~250,000 characters reach the workspace total exactly, so
+it is not dead either.
+
+**Measured while checking, and worth keeping.** Binary-searching the real chunker for the character
+count at which 600 passages is reached, across four shapes:
+
+| Shape            | 600 passages at    |
+| ---------------- | ------------------ |
+| Dense prose      | 266,609 characters |
+| Short paragraphs | 296,512            |
+| All headings     | 300,102            |
+| One-word lines   | 298,907            |
+
+A ±6% band, because the chunker merges small segments toward `CHUNK_TARGET_CHARS` rather than
+emitting one passage per line. The guess that a document of many hard breaks would produce hundreds of
+tiny passages and throw after a few thousand characters is wrong. It also means the 273,000 the usage
+view quotes sits inside the band and is a fair approximation.
+
+**What changed instead:** the two comments that invited the misreading. `config.ts` now says its limit
+is a workspace total and names where a single document stops; `chunking.ts` carries the measured band
+and says plainly that the plan limit is not a competing ceiling. The one real defect was that
+`chunking.ts` claimed "~250 dense pages" while `config.ts` measured 1,537 characters a page, which
+would make it ~173 — two comments assuming different page densities. The page figure is gone;
+characters are what the constant is in.
+
+**Lesson for the sweep that found it:** a limit's scope is part of its value. Comparing two numbers
+without checking what each one counts produces a bug report that costs more than the bug would have.
