@@ -725,7 +725,7 @@ Playwright smoke suite all gate every pull request.
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
 | Unit        | 1092  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
-| E2E         | 188   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
+| E2E         | 187   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.

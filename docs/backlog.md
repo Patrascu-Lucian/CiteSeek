@@ -3571,23 +3571,17 @@ So the cause is something jsdom cannot show, since it models no selection at all
 out: the composer's `focus()` runs on submit, not on settle; local mode is not a separate renderer, it
 goes through `ChatPanel` and `MessageList` like the cloud chat.
 
-↳ **Measured on 2 October 2026, and it is upstream.** The renderer rebuilds the paragraph on each
-batch of tokens, so the text node the selection is anchored in is gone before the answer finishes.
-A `MutationObserver` on `[data-answer-prose]` across one answer, with the fake model slowed to
-120 ms a chunk, recorded **13 mutations — `characterData` on the text and `childList` on its `<p>`
-— and the selected text node removed from the document.** Nine of the thirteen happened before any
-citation chip existed, so resolving the marker is not the cause either.
+What is left to look at, cheapest first:
 
-Two things this rules out, both of which had been suspected: the bubble's own wrapper, which keeps
-its identity across the settle, and our marker linking. What remains is the markdown renderer
-re-parsing rather than appending, which is not ours to change.
+- **The text node's content being rewritten in place.** A browser collapses a selection when the `data`
+  of the node holding it changes, even though the node is the same object. `Streamdown` withholds `[1]`
+  while streaming — it could be an incomplete link — so at settle the marker arrives and the prose
+  around it is re-laid out. Node identity would survive that; a selection would not.
+- **Whether it is specific to settling at all.** Select text in an answer that has already finished,
+  then ask a new question: if that selection also goes when the new answer streams, the cause is any
+  re-render of the list, not the settle.
+- **Whether the cloud chat behaves the same**, which separates the local transport from the shared path.
 
-**A selection made after the answer settles survives** — including through a later answer streaming
-beside it, with zero mutations in the finished prose. That is the case a reader copying an answer is
-in, which is why this stays low.
-
-Recorded as `test.fixme` in `e2e/chat.spec.ts`, which fails for the right reason when enabled
-(`Expected: "Accordin", Received: ""`), so it turns green by itself if the renderer ever appends.
 Not a 1.9.0 blocker: it predates the release — the rebuild made it worse, not possible — and nothing in
 the release claims selection survives. The claim was removed from the commit comment, the review notes
 and the release message rather than left standing on one browser's word against jsdom's.
