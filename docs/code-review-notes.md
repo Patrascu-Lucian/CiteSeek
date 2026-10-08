@@ -4064,3 +4064,28 @@ was written and tested against itself rather than against the things it points a
 - **Lesson**: **adding a stricter source to a permissive check does not make the check stricter.** The
   shape to look for is `sources.join()` plus `includes` — every figure can be satisfied by any file,
   so one hand-written file licenses everything. The one that works names which file owns which number.
+
+## A smaller image that bought nothing, 13 October 2026
+
+- **Issue**: the product screenshot rendered at the full 64rem shell on a desktop — about a viewport of
+  product UI, with empty space beside it — and it is the page's largest contentful paint. Moving it
+  into a two-column row from `lg` and narrowing `sizes` from 64rem to 38rem was expected to help the
+  score as well as the layout.
+
+- **It halved the bytes and changed the score by nothing.** The browser now takes the 640w candidate at
+  27.7 KB, where it took 828w at 42.8 KB on a phone and 1080w at 64.5 KB on a desktop. Fifteen
+  Lighthouse runs on 2 October: **94 in every one**, the same as before, with LCP 3.0 s → 3.1 s and
+  CLS 0 either way.
+
+- **Third measurement, same answer.** Position and `priority` were measured in September; removing the
+  figure entirely was measured on 30 September and moved the median by at most a point. The LCP here is
+  the request chain — HTML, then CSS and JS, then the image discovered and fetched — and 27.7 KB at the
+  simulated 1.6 Mbps is about 140 ms of it.
+
+- **Kept anyway, for the reason it was asked for**, which was never the score: the figure took most of
+  the fold and the space beside it was empty. Recording that the performance half failed is the point —
+  the alternative is a commit message implying an optimization that did not happen.
+
+- **Lesson**: **a payload win is not a score win, and the difference is where the time goes.** A
+  3-second LCP made of waiting cannot be fixed by sending less; the only lever that moves it is removing
+  a step from the chain. Measure which of the two you have before optimizing the one you assume.
