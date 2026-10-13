@@ -3606,6 +3606,10 @@ identically, which also makes "jsdom models no selection" above false. `useKeptS
 selection as offsets into the answer's text and restores it after each commit; two component tests and
 the un-parked E2E, on a third server whose stream is slowed, fail without it.
 
+↳ **Narrower than that, until the release review.** The DOM moves only a boundary inside the replaced
+node, so a selection reaching into it from an earlier node is shortened, not collapsed — and the hook
+restored only collapsed ones. It now restores whenever the offsets differ, with a test for each shape.
+
 ## Five findings deferred from the 1.9.0 release review, 1 October 2026
 
 An external review of `develop` against `main` raised eleven findings. Four were fixed before tagging,
@@ -3677,7 +3681,7 @@ tiny passages and throw after a few thousand characters is wrong. It also means 
 view quotes sits inside the band and is a fair approximation.
 
 **What changed instead:** the two comments that invited the misreading. `config.ts` now says its limit
-is a workspace total and names where a single document stops; `chunking.ts` carries the measured band
+is a workspace total, not a per-document ceiling; `chunking.ts` carries the measured band
 and says plainly that the plan limit is not a competing ceiling. The one real defect was that
 `chunking.ts` claimed "~250 dense pages" while `config.ts` measured 1,537 characters a page, which
 would make it ~173 — two comments assuming different page densities. The page figure is gone;

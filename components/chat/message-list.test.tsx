@@ -472,6 +472,42 @@ describe("MessageList — a question the server has not written down yet", () =>
   });
 });
 
+describe("MessageList — naming a turn's controls", () => {
+  it("names Edit with the same shortened question as Delete", () => {
+    const question = `${"How much annual leave do employees receive ".repeat(2)}\nin their first year?`;
+
+    render(
+      <MessageList
+        messages={[
+          userMessage(question),
+          assistantMessage("Twenty days [1].", [SOURCE]),
+        ]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        uploadHref="/w/w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
+        isDemo={false}
+        onAsk={() => undefined}
+        onDeleteTurn={vi.fn()}
+        onEditQuestion={vi.fn()}
+      />,
+    );
+
+    const edit = screen.getByRole("button", { name: /^edit the question/i });
+    const shortened = edit.getAttribute("aria-label")!.match(/“(.*)”/)![1]!;
+
+    expect(shortened).not.toContain("\n");
+    expect(shortened.endsWith("…")).toBe(true);
+    expect(
+      screen.getByRole("button", {
+        name: `Delete the exchange starting “${shortened}”`,
+      }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("MessageList — copying an answer", () => {
   const props = {
     onSelectSource: vi.fn(),
@@ -509,8 +545,11 @@ describe("MessageList — copying an answer", () => {
         messages={[
           userMessage("What is the policy?"),
           assistantMessage("Paid in 30 days [1].", [SOURCE]),
-          userMessage("And the deposit?"),
-          assistantMessage("Protected in 30 days [1].", [SOURCE]),
+          { ...userMessage("And the deposit?"), id: "m3" },
+          {
+            ...assistantMessage("Protected in 30 days [1].", [SOURCE]),
+            id: "m4",
+          },
         ]}
       />,
     );

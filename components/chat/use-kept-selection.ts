@@ -23,10 +23,23 @@ function pointAt(root: Node, offset: number): [Node, number] {
   return last ? [last, last.textContent?.length ?? 0] : [root, 0];
 }
 
+/** Where the selection sits in `root`'s text, or null if it is not inside it. */
+function offsetsOf(root: Node, selection: Selection): Kept | null {
+  const { anchorNode, focusNode } = selection;
+  if (!anchorNode || !focusNode) return null;
+  if (!root.contains(anchorNode) || !root.contains(focusNode)) return null;
+
+  return {
+    anchor: offsetIn(root, anchorNode, selection.anchorOffset),
+    focus: offsetIn(root, focusNode, selection.focusOffset),
+  };
+}
+
 /**
  * React commits new text by replacing a text node's whole value, and the DOM
- * collapses a selection inside replaced text, so one made mid-stream was lost at
- * the next token. Kept as offsets, which a token changes only past its end.
+ * moves any selection boundary inside replaced text to its start: a selection
+ * within the node collapses, one reaching into it loses its tail. Kept as
+ * offsets, which a token changes only past its end.
  */
 export function useKeptSelection(
   root: RefObject<HTMLElement | null>,
@@ -38,19 +51,9 @@ export function useKeptSelection(
     const record = () => {
       const node = root.current;
       const selection = getSelection();
-      const { anchorNode, focusNode } = selection ?? {};
       kept.current =
-        node &&
-        selection &&
-        !selection.isCollapsed &&
-        anchorNode &&
-        focusNode &&
-        node.contains(anchorNode) &&
-        node.contains(focusNode)
-          ? {
-              anchor: offsetIn(node, anchorNode, selection.anchorOffset),
-              focus: offsetIn(node, focusNode, selection.focusOffset),
-            }
+        node && selection && !selection.isCollapsed
+          ? offsetsOf(node, selection)
           : null;
     };
 
@@ -61,11 +64,15 @@ export function useKeptSelection(
   useLayoutEffect(() => {
     const node = root.current;
     const selection = getSelection();
-    if (!node || !selection?.isCollapsed || !kept.current) return;
+    const want = kept.current;
+    if (!node || !selection || !want) return;
+
+    const now = offsetsOf(node, selection);
+    if (now?.anchor === want.anchor && now.focus === want.focus) return;
 
     selection.setBaseAndExtent(
-      ...pointAt(node, kept.current.anchor),
-      ...pointAt(node, kept.current.focus),
+      ...pointAt(node, want.anchor),
+      ...pointAt(node, want.focus),
     );
   }, [root, text]);
 }

@@ -4067,6 +4067,12 @@ was written and tested against itself rather than against the things it points a
 
 ## A smaller image that bought nothing, 13 October 2026
 
+> **Corrected on 13 October 2026** — see "A measurement that could not see its change" below. The
+> fifteen runs used Lighthouse's mobile profile, where the phone fetches the same 750w image in both
+> versions, and the sizes quoted here mix candidates from two viewports. On the desktop preset, where
+> the image does change: 1080w at 67.0 KB to 640w at 30.3 KB, performance 100 and LCP 0.66 s in both.
+> The conclusion holds, for a different reason than the one given.
+
 - **Issue**: the product screenshot rendered at the full 64rem shell on a desktop — about a viewport of
   product UI, with empty space beside it — and it is the page's largest contentful paint. Moving it
   into a two-column row from `lg` and narrowing `sizes` from 64rem to 38rem was expected to help the
@@ -4112,6 +4118,10 @@ was written and tested against itself rather than against the things it points a
 
 ## A cause called upstream one layer too early, 13 October 2026
 
+> **Narrower than stated, corrected on 13 October 2026** — see "A fix that covered the case its tests
+> chose" below. The hook as first shipped restored only a collapsed selection, so one reaching into
+> the growing text from an earlier node still lost its tail.
+
 - **Issue**: a selection made in an answer while it streams was lost. On 2 October a `MutationObserver`
   recorded `characterData` on the text and `childList` on its `<p>`, and the write-up concluded the
   markdown renderer re-parses rather than appends — "upstream of this repository" — and parked the
@@ -4154,3 +4164,47 @@ was written and tested against itself rather than against the things it points a
 
 - **Lesson**: **a fix to a threshold needs a test on the threshold.** The test written with it pinned
   the bug report's input, which was one message; the boundary the change actually moved was two.
+
+## A fix that covered the case its tests chose, 13 October 2026
+
+- **Issue**: the 1.9.1 release review found that `useKeptSelection` restored a selection only when a
+  token had collapsed it. React rewrites one text node per token, and the DOM moves only the boundary
+  inside that node: a selection made entirely within it collapses, but one that starts earlier — in a
+  bold run, a citation chip, an earlier paragraph — and ends in it is shortened instead. The hook saw
+  a selection that was not collapsed, returned, and then recorded the shortened one as the reader's.
+
+- **Every test chose the case that worked.** Both component tests and the E2E selected the first eight
+  characters of the first text node, so all three ended inside the node being rewritten. A cited
+  paragraph is usually several nodes, which makes the untested shape the common one.
+
+- **Fix**: restore whenever the live offsets differ from the recorded ones, not only when collapsed.
+  Two tests, from inside bold into the growing text and from an earlier paragraph into it, fail on
+  the shipped hook (`"cording"` where `"cording to the"` was selected) and pass now. The E2E also
+  asserts that the answer grew after the selection was made, since a stream that had already ended
+  would have let it pass with nothing to survive.
+
+- **Lesson**: **a test's input is a claim about which cases matter.** "Select the first eight
+  characters" was the easiest selection to script, and it was the one shape the mechanism handled. The
+  failure was in the mechanism's own description — a boundary moves only inside the replaced node —
+  and reading that sentence for what it excludes would have named the missing test.
+
+## A measurement that could not see its change, 13 October 2026
+
+- **Issue**: the review also found that the fifteen Lighthouse runs behind "A smaller image that
+  bought nothing" ran the mobile profile, 412 px wide. Below 1024 px `sizes` resolves to `100vw` in
+  both versions, so the image fetched was byte-identical before and after: the runs could not have
+  shown a difference. The sizes quoted mixed candidates from two viewports, and "27.7 KB at the
+  simulated 1.6 Mbps" paired the desktop image with the mobile network.
+
+- **And `sizes` overshot.** 38rem is three fifths of the 64rem shell, but the shell's width includes
+  its gutters and the columns share a gap: the figure renders at 35.1rem from 1280 px up. At 2x the
+  browser took 1920w at 79.3 KB; `35rem` takes 1200w at 72.4 KB. 1x is 640w either way.
+
+- **Fix**: `sizes` is 35rem, measured. Re-measured on the desktop preset, five runs per build: 1080w at
+  67.0 KB with v1.9.0's 64rem, 640w at 30.3 KB now, performance 100 and LCP 0.66 s in both. The entry
+  carries a correction; its conclusion stands, for a different reason — on a phone nothing changed,
+  and on a desktop there was nothing to buy.
+
+- **Lesson**: **a before-and-after first has to show it saw the change.** Logging which image each
+  run fetched would have shown 750w twice. The 1.9.0 entry about two runs was about too few
+  measurements; this one is about fifteen of the wrong thing, which repetition only made look sturdier.
