@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
 import { DEMO_EXAMPLE_QUESTIONS } from "../lib/demo/example-questions";
+import { SLOW_STREAM_PORT } from "./ports";
 
 /**
  * The milestone's exit criteria, driven through a real browser: ask, watch it
@@ -390,23 +391,10 @@ test.describe("starting from nothing", () => {
 });
 
 test.describe("a selection inside an answer", () => {
-  /*
-    Streamdown re-renders the paragraph on each batch of tokens, so the text node
-    a selection is anchored in is replaced while the answer arrives: measured on
-    2 October 2026 as 13 mutations over one answer, `characterData` on the text
-    and `childList` on its `<p>`, 9 of them before any citation chip existed. The
-    marker resolving is not the cause, and neither is the bubble's own wrapper,
-    which keeps its identity across the settle.
-
-    Selecting after the answer settles works, and that is what a reader copying
-    an answer does. This is the mid-stream case only, and it needs the renderer to
-    append rather than re-parse, which is upstream of this repository.
-
-    Repro, since the stream is instant by default:
-    `FAKE_CHAT_CHUNK_DELAY_MS=120 pnpm exec playwright test e2e/chat.spec.ts`
-  */
-  test.fixme("survives the stream ending", async ({ page }) => {
-    await page.goto("/demo");
+  // The slow server: at the suite's instant stream, the answer is finished
+  // before anything in it can be selected.
+  test("survives the stream ending", async ({ page }) => {
+    await page.goto(`http://localhost:${String(SLOW_STREAM_PORT)}/demo`);
     await expect(
       page.getByRole("heading", { level: 2, name: /ask/i }),
     ).toBeVisible();
@@ -417,7 +405,8 @@ test.describe("a selection inside an answer", () => {
     await page.getByRole("button", { name: /send/i }).click();
 
     const prose = page.locator("[data-answer-prose]").first();
-    await expect(prose).toBeVisible();
+    // Global setup warms only the main server, so this question is a cold one.
+    await expect(prose).toBeVisible({ timeout: 30_000 });
     await expect(
       page.getByRole("button", { name: /^stop the answer$/i }),
     ).toBeVisible();

@@ -4109,3 +4109,29 @@ was written and tested against itself rather than against the things it points a
 - **Lesson**: **a guarantee that rests on what a dependency fails to do breaks in a patch release.**
   The test was written to pin an absence in our code, and it caught a change in someone else's; the
   fix moves the guarantee into a call the route makes.
+
+## A cause called upstream one layer too early, 13 October 2026
+
+- **Issue**: a selection made in an answer while it streams was lost. On 2 October a `MutationObserver`
+  recorded `characterData` on the text and `childList` on its `<p>`, and the write-up concluded the
+  markdown renderer re-parses rather than appends — "upstream of this repository" — and parked the
+  test as `fixme`. The plan for this release said to link the upstream issue.
+
+- **Looking for that issue is what undid it.** Before drafting one, a probe on a bare `<p>` in
+  Chromium: `nodeValue = old + new` loses a selection, `appendData` keeps it. React's
+  `commitTextUpdate` is `textInstance.nodeValue = newText`. So the `characterData` mutations were
+  React's, and no renderer built on React could have kept the selection by appending. The issue would
+  have asked Streamdown for something it cannot do. The same probe in jsdom behaved identically, which
+  also made the backlog's "jsdom models no selection at all" false — the reason given for having no
+  fast test.
+
+- **Fix**: `useKeptSelection` records the selection as offsets into the answer's text on
+  `selectionchange` and, when a commit has collapsed it, restores it. Two component tests (it survives
+  a token; one the reader cleared stays cleared), each falsified. The E2E is un-parked and runs on a
+  third server whose fake model waits 120 ms a chunk, since at the suite's instant stream the answer is
+  finished before it can be selected: 5 of 5 with the hook, 3 of 3 red without.
+
+- **Lesson**: **"upstream" is a claim about the layer below, and it needs the layer below
+  reproduced.** The measurement was right and the attribution skipped a layer: React sits between the
+  renderer and the DOM. A ten-line probe on one text node, run before writing "not ours to change",
+  would have pointed at the fix two weeks earlier.

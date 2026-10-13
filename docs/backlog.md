@@ -3598,6 +3598,14 @@ Not a 1.9.0 blocker: it predates the release — the rebuild made it worse, not 
 the release claims selection survives. The claim was removed from the commit comment, the review notes
 and the release message rather than left standing on one browser's word against jsdom's.
 
+↳ **Fixed, 13 October 2026, and it was never upstream.** The `characterData` mutations above are React's,
+not the renderer's: `commitTextUpdate` assigns `nodeValue`, and the DOM collapses a selection inside
+replaced text. On a bare `<p>` in Chromium, `nodeValue = old + new` loses the selection and
+`appendData` keeps it, so no renderer built on React could have appended its way out. jsdom behaves
+identically, which also makes "jsdom models no selection" above false. `useKeptSelection` records the
+selection as offsets into the answer's text and restores it after each commit; two component tests and
+the un-parked E2E, on a third server whose stream is slowed, fail without it.
+
 ## Five findings deferred from the 1.9.0 release review, 1 October 2026
 
 An external review of `develop` against `main` raised eleven findings. Four were fixed before tagging,

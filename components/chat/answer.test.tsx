@@ -251,3 +251,57 @@ describe("Answer — a chip standing where a number could", () => {
     );
   });
 });
+
+describe("Answer — a selection made while it streams", () => {
+  const streaming = {
+    sources: [source()],
+    onSelectSource: vi.fn(),
+    selectedChunkId: null,
+    settled: false,
+  };
+
+  function selectFirst(characters: number) {
+    const prose = document.querySelector("[data-answer-prose]");
+    const text = document
+      .createTreeWalker(prose!, NodeFilter.SHOW_TEXT)
+      .nextNode();
+    const range = document.createRange();
+    range.setStart(text!, 0);
+    range.setEnd(text!, characters);
+    getSelection()!.removeAllRanges();
+    getSelection()!.addRange(range);
+  }
+
+  // `selectionchange` is queued as a task, as in a browser.
+  const nextTask = () => new Promise((resolve) => setTimeout(resolve));
+
+  it("keeps it when the next tokens arrive", async () => {
+    const { rerender } = render(
+      <Answer {...streaming} text="According to the handbook" />,
+    );
+    selectFirst(8);
+    await nextTask();
+
+    rerender(
+      <Answer {...streaming} text="According to the handbook, expenses" />,
+    );
+
+    expect(getSelection()!.toString()).toBe("Accordin");
+  });
+
+  it("does not bring back one the reader cleared", async () => {
+    const { rerender } = render(
+      <Answer {...streaming} text="According to the handbook" />,
+    );
+    selectFirst(8);
+    await nextTask();
+    getSelection()!.removeAllRanges();
+    await nextTask();
+
+    rerender(
+      <Answer {...streaming} text="According to the handbook, expenses" />,
+    );
+
+    expect(getSelection()!.toString()).toBe("");
+  });
+});
