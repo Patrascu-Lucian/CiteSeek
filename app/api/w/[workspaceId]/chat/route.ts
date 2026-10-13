@@ -325,6 +325,10 @@ export async function POST(
         },
       });
 
+      // From ai 7.0.127 a reader who disconnects cancels the merged stream, and
+      // generation with it; this second reader keeps `onFinish` running.
+      void result.consumeStream();
+
       // The standalone helper over `result.toUIMessageStream()`: the method is
       // deprecated and goes away in the next major.
       writer.merge(

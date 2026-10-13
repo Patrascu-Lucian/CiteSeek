@@ -37,16 +37,12 @@ minimumReleaseAgeExclude: []
 overrides:
   postcss: ^8.5.25
   esbuild: ^0.28.1
-  # sharp was already here via next, so this collapses two copies into one, as
-  # postcss and esbuild do above. 0.35.4 is the floor rather than 0.35.3 because
-  # below it sharp bundles libheif < 1.23.2 (GHSA-2jg2-4ch7-h545): AVIF decoding
-  # with two critical CVEs. **That floor became load-bearing on 20 September
-  # 2026**, when the landing page's screenshots started going through
-  # `next/image`: sharp is invoked now. What it decodes is two PNGs committed to
-  # this repository rather than anything a reader supplies, so the advisory's
-  # path is not reachable from a request — but the version it decodes with is no
-  # longer a precaution.
-  sharp: ^0.35.4
+  # sharp was already here via next, so this collapses two copies into one. The
+  # floor follows its bundled decoders: 0.35.4 for libheif (GHSA-2jg2-4ch7-h545,
+  # AVIF), 0.35.5 for librsvg (GHSA-wq5f-xc86-pv6w, SVG). `next/image` invokes it,
+  # on two PNGs committed here — neither advisory's format, and nothing a reader
+  # supplies — so the floor is hygiene, not exposure.
+  sharp: ^0.35.5
   # Dev only — eslint and its config packages. 4.3.2 counts empty merge sources
   # against maxTotalMergeKeys; below it a small crafted document costs seconds of
   # CPU. Nothing loads untrusted YAML here; the bump is free.
