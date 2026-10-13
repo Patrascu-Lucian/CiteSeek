@@ -4089,3 +4089,23 @@ was written and tested against itself rather than against the things it points a
 - **Lesson**: **a payload win is not a score win, and the difference is where the time goes.** A
   3-second LCP made of waiting cannot be fixed by sending less; the only lever that moves it is removing
   a step from the chain. Measure which of the two you have before optimizing the one you assume.
+
+## A patch release that stopped the meter, 13 October 2026
+
+- **Issue**: Dependabot's group bump turned one integration test red — a reader who closes the tab
+  mid-answer is no longer metered and the turn is not stored. Not flaky: 3 of 3 on the bump, 2 of 2
+  on develop. Bumping `ai` alone reproduced it, and bisecting the seven releases after 7.0.118 put it
+  at 7.0.127, whose changelog reads "cancel merged UI message streams when the consumer disconnects".
+
+- **The route had been relying on an SDK gap.** It forwards no `abortSignal`, so a disconnect did not
+  stop generation, but only because `createUIMessageStream` drained the model stream with no way to
+  cancel it. The backlog entry that added the test said an `ai` upgrade could remove that half; a
+  patch release did.
+
+- **Fix**: `result.consumeStream()`, unawaited, the SDK's documented way to run a stream to completion
+  server-side. It never rejects, so it leaves no unhandled promise. Falsified on 7.0.127: 3 of 3 red
+  without the line, 3 of 3 green with it.
+
+- **Lesson**: **a guarantee that rests on what a dependency fails to do breaks in a patch release.**
+  The test was written to pin an absence in our code, and it caught a change in someone else's; the
+  fix moves the guarantee into a call the route makes.

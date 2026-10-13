@@ -781,6 +781,12 @@ trigger rather than a schedule, and 7 is closed.
   stream in a detached loop with no `cancel` handler, so a canceled response does not stop
   consumption either. An `ai` upgrade could remove that half without touching this repo.
 
+  ↳ **13 October 2026: one did.** `ai` 7.0.127 cancels a merged stream when the consumer
+  disconnects, generation with it, and this entry's test went red on the Dependabot bump —
+  3 of 3, bisected to that patch. The route now calls `result.consumeStream()`, the SDK's
+  documented way to finish server-side, so the guarantee rests on a call the route makes
+  rather than on a loop the SDK left uncancelable.
+
   **The entry overstated its source.** The review said `onFinish` is "_not guaranteed_ to
   run", flagged that it could not check against the installed SDK — "treat it as _worth
   confirming_ rather than confirmed" — and named the exact experiment to settle it. This
