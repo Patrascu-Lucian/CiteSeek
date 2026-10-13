@@ -4135,3 +4135,22 @@ was written and tested against itself rather than against the things it points a
   reproduced.** The measurement was right and the attribution skipped a layer: React sits between the
   renderer and the DOM. A ten-line probe on one text node, run before writing "not ours to change",
   would have pointed at the fix two weeks earlier.
+
+## A guard fixed without its boundary, 13 October 2026
+
+- **Issue**: 1.9.1 changed the follow-up rewrite's guard to count spoken messages rather than lines
+  (`spoken.length < 2`), with a test for the case that motivated it — a first question containing a
+  newline. The mutation run for the release kept `< 2` → `<= 2` alive: every test sent one message or
+  three, so nothing stood on two.
+
+- **Two is a real conversation**: the reader stops the first answer before any text arrives, then asks
+  "how much?". The assistant turn has no text and drops out, the first question still carries the
+  subject, and a guard at `<= 2` would have refused without trying.
+
+- **Fix**: a test with exactly that history, which fails on the mutant applied by hand. The re-run:
+  86.45% of 856, one more killed, and the surviving mutants on this release's lines sorted — three in
+  the fake model's delay setting, killed only by the browser test outside Stryker's scope, and two that
+  change behavior only for a conversation no client produces.
+
+- **Lesson**: **a fix to a threshold needs a test on the threshold.** The test written with it pinned
+  the bug report's input, which was one message; the boundary the change actually moved was two.
