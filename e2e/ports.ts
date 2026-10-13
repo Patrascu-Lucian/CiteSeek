@@ -8,3 +8,7 @@ export const E2E_PORT = Number(process.env.E2E_PORT ?? 3000);
  * measurement somebody once took by hand. `MAINTENANCE` is read per request but
  * the environment is fixed per process, so one server cannot serve both. */
 export const MAINTENANCE_PORT = E2E_PORT + 1;
+
+/** A third, whose fake model waits between chunks, for the one spec that needs
+ * an answer still streaming when it acts. Fixed per process for the same reason. */
+export const SLOW_STREAM_PORT = E2E_PORT + 2;

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Streamdown } from "streamdown";
 import { AlertTriangle } from "lucide-react";
 
@@ -12,6 +12,7 @@ import type { ChatSource } from "@/lib/ai/types";
 import { CitationLink } from "./citation-chip";
 import { CitationProvider } from "./citation-context";
 import { InertImage, SemanticEmphasis, SemanticStrong } from "./safe-markdown";
+import { useKeptSelection } from "./use-kept-selection";
 
 /**
  * `Streamdown` rather than a plain renderer: text arrives a token at a time, so
@@ -54,6 +55,9 @@ export function Answer({
     [sources, selectedChunkId, onSelectSource],
   );
 
+  const prose = useRef<HTMLDivElement>(null);
+  useKeptSelection(prose, text);
+
   const invented = unresolvedMarkers(text, sources);
   const groundless =
     settled &&
@@ -68,7 +72,7 @@ export function Answer({
     <CitationProvider value={citations}>
       {/* Read by `scripts/eval-local-markers.mts`: the notices below sit inside
           the bubble, and it must not record them as the model's words. */}
-      <div data-answer-prose="">
+      <div ref={prose} data-answer-prose="">
         <Streamdown
           parseIncompleteMarkdown
           className="prose-sm max-w-none [&_ol]:list-decimal [&_ol,&_ul]:my-2 [&_ol,&_ul]:pl-5 [&_p]:my-2 [&_ul]:list-disc"
