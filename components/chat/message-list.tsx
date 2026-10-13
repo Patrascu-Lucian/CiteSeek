@@ -10,6 +10,7 @@ import { DeleteTurnDialog } from "./delete-turn-dialog";
 import { EditQuestionForm } from "./edit-question-form";
 import { CopyAnswer } from "./copy-answer";
 import { TurnActions } from "./turn-actions";
+import { shortenQuestion } from "./turn-label";
 import { Refusal } from "./refusal";
 
 /** `Answer` pulls in Streamdown — **428 KB raw**, measured, and it was in the
@@ -286,7 +287,7 @@ export function MessageList({
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    aria-label={`Edit the question “${messageText(message)}”`}
+                    aria-label={`Edit the question “${shortenQuestion(messageText(message))}”`}
                     disabled={busyId === message.id}
                     onClick={() => onStartEdit?.(message.id)}
                   >

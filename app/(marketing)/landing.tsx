@@ -26,9 +26,9 @@ import { pageShell } from "@/components/ui/page-shell";
 const SHOT = {
   width: 1280,
   height: 960,
-  // 38rem is the figure's share of the two-column row from lg; it was 64rem,
-  // the whole shell, when the figure sat alone.
-  sizes: "(min-width: 1024px) 38rem, 100vw",
+  // Measured at 35.1rem from lg: three fifths of the shell after its gutters
+  // and the column gap. 38rem, three fifths of the whole shell, over-fetched at 2x.
+  sizes: "(min-width: 1024px) 35rem, 100vw",
 } as const;
 
 const SHOT_ALT =

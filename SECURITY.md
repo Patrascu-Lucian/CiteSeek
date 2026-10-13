@@ -47,11 +47,15 @@ link here:
   three separate ways; a day of demo availability is knowingly at risk. See `docs/backlog.md`.
 - **Guest conversations are not persisted**, so they are not recoverable. That is deliberate
   ([ADR 013](docs/decisions/013-chat-persistence.md)).
-- **Advisories in packages this app never executes** are pinned forward anyway, in
-  `pnpm-workspace.yaml`. `sharp` and `adm-zip` arrive through `@huggingface/transformers`, and
-  neither is on the path local mode ships: images are never decoded here, and `adm-zip` comes via
-  `onnxruntime-node`, while the browser loads `onnxruntime-web`. Pinned rather than argued away,
-  because "we do not call it" is a claim that quietly expires.
+- **Advisories in packages this app never executes, or never feeds untrusted input,** are pinned
+  forward anyway, in `pnpm-workspace.yaml`. `adm-zip` comes via `onnxruntime-node`, while the
+  browser loads `onnxruntime-web`. `sharp` is invoked by `next/image`, on two screenshots committed
+  to this repository and nothing a reader supplies. Pinned rather than argued away, because "we do
+  not call it" is a claim that quietly expires — this one did, when the screenshots arrived.
+- **Two advisories with no fixed release to pin to.** `braces` ≤ 3.0.3 (GHSA-vfj7-8cjw-p6xm) is
+  reached only through dev tooling. `sprintf-js` ≤ 1.1.3 (GHSA-hp3w-g68c-fv3c) arrives through
+  `mammoth > argparse`, which only mammoth's command-line entry loads; `lib/rag/extract.ts`
+  imports the library. `pnpm audit` reports both until a fix is published.
 
 ## Handling of your report
 

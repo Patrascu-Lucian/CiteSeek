@@ -411,7 +411,7 @@ test.describe("a selection inside an answer", () => {
       page.getByRole("button", { name: /^stop the answer$/i }),
     ).toBeVisible();
 
-    const selected = await prose.evaluate((node) => {
+    const { selected, length } = await prose.evaluate((node) => {
       const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
       const text = walker.nextNode();
       if (!text) throw new Error("the answer rendered no text to select");
@@ -422,7 +422,10 @@ test.describe("a selection inside an answer", () => {
       const selection = getSelection();
       selection?.removeAllRanges();
       selection?.addRange(range);
-      return selection?.toString() ?? "";
+      return {
+        selected: selection?.toString() ?? "",
+        length: node.textContent?.length ?? 0,
+      };
     });
 
     expect(selected).toHaveLength(8);
@@ -432,6 +435,8 @@ test.describe("a selection inside an answer", () => {
       page.getByRole("button", { name: /^send the question$/i }),
     ).toBeVisible({ timeout: 30_000 });
 
+    // Otherwise the stream could have ended before the selection was made.
+    expect((await prose.textContent())?.length).toBeGreaterThan(length);
     expect(await page.evaluate(() => getSelection()?.toString() ?? "")).toBe(
       selected,
     );

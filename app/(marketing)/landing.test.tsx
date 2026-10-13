@@ -261,6 +261,9 @@ describe("the strip of measured numbers", () => {
     const score = mutants!.previousElementSibling?.textContent ?? "";
     const total = mutants!.textContent?.match(/\d[\d,]*/)?.[0] ?? "";
 
+    // Every string contains "", so an empty lookup would pass what follows.
+    expect(score).toMatch(/^\d+(\.\d+)?%$/);
+    expect(total).not.toBe("");
     expect(published).toContain(score);
     expect(published).toContain(total);
   });
