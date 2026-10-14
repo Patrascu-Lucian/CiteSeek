@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 
 import { answerAsText } from "@/lib/ai/answer-text";
-import { citedMarkers } from "@/lib/ai/citations";
 import type { ChatSource } from "@/lib/ai/types";
 import { Button } from "@/components/ui/button";
 
@@ -38,9 +37,7 @@ export function CopyAnswer({
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(
-        answerAsText(text, sources, citedMarkers(text, sources)),
-      );
+      await navigator.clipboard.writeText(answerAsText(text, sources));
     } catch {
       // A denied permission or an insecure origin. Saying nothing is better than
       // a confirmation the clipboard did not earn.

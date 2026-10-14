@@ -6,6 +6,8 @@ import {
   citationLabel,
   citedMarkers,
   linkCitationMarkers,
+  markerVerdict,
+  opensWithRefusal,
   unresolvedMarkers,
   parseCitationHref,
 } from "./citations";
@@ -239,5 +241,88 @@ describe("citedMarkers", () => {
         source({ marker: 30, chunkId: "c30" }),
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("opensWithRefusal", () => {
+  it("recognizes the declining form rule 7 asks for", () => {
+    expect(opensWithRefusal("The documents do not cover parking.")).toBe(true);
+  });
+
+  it("reads past leading whitespace and an opening quote", () => {
+    expect(opensWithRefusal("  The documents do not cover parking.")).toBe(
+      true,
+    );
+    expect(opensWithRefusal("“The documents do not cover parking.”")).toBe(
+      true,
+    );
+  });
+
+  it("does not care about the opener's case", () => {
+    expect(opensWithRefusal("the documents do not cover parking.")).toBe(true);
+  });
+
+  it("counts the opener only at the start", () => {
+    // An answer can quote the phrase; only a reply that opens with it declines.
+    expect(
+      opensWithRefusal(
+        "Parking is free [1]. The documents do not cover tolls.",
+      ),
+    ).toBe(false);
+  });
+
+  it("does not stretch to a near miss, on purpose", () => {
+    // Measured once in sixty committed replies, and missed here by design: the
+    // looser match would also take the true answer below (ADR 058).
+    expect(
+      opensWithRefusal("The documents do not specify which inhibitor [3]."),
+    ).toBe(false);
+    expect(
+      opensWithRefusal(
+        "The documents do not require a certificate for seven days or fewer [3].",
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("a declining reply's markers", () => {
+  const three = [
+    source({ marker: 1 }),
+    source({ marker: 2, chunkId: "chunk-2" }),
+    source({ marker: 3, chunkId: "chunk-3" }),
+  ];
+  const declining =
+    "The documents do not cover the warranty; they mention the guard [1][2] and storage [3].";
+
+  it("are left as text, though every one resolves", () => {
+    expect(linkCitationMarkers(declining, three)).toBe(declining);
+  });
+
+  it("are neither linked nor reported as invented", () => {
+    // One situation, one note: a declining reply is not also told its marker
+    // was invented.
+    expect(
+      markerVerdict("The documents do not cover the warranty [1][9].", three),
+    ).toEqual({ linked: [], invented: [], declined: true });
+  });
+
+  it("do not make a reply without markers a declined one", () => {
+    // Nothing was unlinked, so there is nothing to explain.
+    expect(markerVerdict("The documents do not cover parking.", three)).toEqual(
+      { linked: [], invented: [], declined: false },
+    );
+  });
+});
+
+describe("markerVerdict", () => {
+  const two = [source({ marker: 1 }), source({ marker: 2, chunkId: "c2" })];
+
+  it("lists exactly the markers drawn as chips", () => {
+    // `[1][7]` is all or nothing, so its `1` is not a chip; `[2]` is.
+    expect(markerVerdict("Mixed [1][7], then [2] and [2].", two)).toEqual({
+      linked: [2],
+      invented: [7],
+      declined: false,
+    });
   });
 });
