@@ -26,16 +26,22 @@ const MARKER_NUMBER = /\d+/g;
 export const DECLINING_OPENER = "The documents do not cover";
 
 /**
- * Whether a reply is in the declining form rule 7 asks for. The exact opener and
- * nothing looser: "The documents do not require …" begins plenty of true answers
+ * What the page reads as declining: the opener rule 7 asks for, and each phrase a
+ * committed eval run caught opening a decline that is a decline in every use.
+ * Never "The documents do not" alone: "do not require …" begins true answers
  * (ADR 058).
  */
+const DECLINING_OPENERS = [DECLINING_OPENER, "The documents do not specify"];
+
 export function opensWithRefusal(text: string): boolean {
-  return text
+  const opening = text
     .trimStart()
     .replace(/^["“']/, "")
-    .toLowerCase()
-    .startsWith(DECLINING_OPENER.toLowerCase());
+    .toLowerCase();
+
+  return DECLINING_OPENERS.some((opener) =>
+    opening.startsWith(opener.toLowerCase()),
+  );
 }
 
 const linkable = (run: readonly number[], known: ReadonlySet<number>) =>

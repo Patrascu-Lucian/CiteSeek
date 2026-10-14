@@ -272,17 +272,27 @@ describe("opensWithRefusal", () => {
     ).toBe(false);
   });
 
-  it("does not stretch to a near miss, on purpose", () => {
-    // Measured once in sixty committed replies, and missed here by design: the
-    // looser match would also take the true answer below (ADR 058).
+  it("recognizes the one other opener the eval caught declining", () => {
+    // One reply in sixty in each committed report, every time a decline.
     expect(
       opensWithRefusal("The documents do not specify which inhibitor [3]."),
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("does not stretch to every reply that opens alike", () => {
+    // "The documents do not" alone would take this true answer (ADR 058).
     expect(
       opensWithRefusal(
         "The documents do not require a certificate for seven days or fewer [3].",
       ),
     ).toBe(false);
+  });
+
+  it("strips a quote only where it opens the reply", () => {
+    // Removed anywhere, a stray quote would splice a declining opener together.
+    expect(opensWithRefusal('The doc"uments do not cover parking.')).toBe(
+      false,
+    );
   });
 });
 
