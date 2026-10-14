@@ -3651,6 +3651,12 @@ answer wraps unconditionally, and doing the same here means passing `justify-end
 accepting a 4px shift from the empty controls slot. Worth doing with the layout checked, not in a
 release commit.
 
+↳ **1.9.1, 14 October 2026: four of the five shipped.** The `/local` guard is an E2E that fails on a
+`<Link>` (#430), copy buttons are named for their question (#428), the question no longer remounts and
+the empty slot is gone rather than accepted (#431), and the mutation figure is checked against the file
+the run writes (#432) — the two latency figures still match README prose. The clipboard finding moves
+to 1.10.0, where the decision about markers in refusals settles what a paste should carry.
+
 ## Two size limits that were never in conflict, 2 October 2026
 
 Raised by the 1.9.0 review sweep and by the 1.9.1 plan as a bug: _273,000 characters per document
@@ -3689,3 +3695,45 @@ characters are what the constant is in.
 
 **Lesson for the sweep that found it:** a limit's scope is part of its value. Comparing two numbers
 without checking what each one counts produces a bug report that costs more than the bug would have.
+
+## What the 1.9.1 smoke test found, 14 October 2026
+
+The release's smoke test was meant to run on a Vercel preview with the real model. Getting it there
+took four steps, and each one was a finding.
+
+**The preview database was three migrations behind (recorded, no action).** Nothing had deployed a
+preview since August, so the Neon branch previews use stopped at 8 of 11. `db:check` refused the build
+and named the missing three, which is that guard doing its job. Migrating it by hand first reached a
+different database that was already current; the host `db:check` prints is what showed that, before
+anything was changed. The habit that follows: read the host in the first line before the migrate.
+
+**A provider mismatch fails as polite refusals (medium, open).** With the build fixed, the first
+suggested question — answered by name in the handbook — was refused as "nothing relevant". Preview had
+`EMBEDDINGS_PROVIDER=fake`, while the demo passages on its database were embedded by Gemini. Read from
+the stored vectors: fake ones are word counts, so no component is negative and almost all are zero;
+these averaged 399 negative components of 768 and no zeros. A fake question vector against real
+passages lands below the floor for every question, and nothing logs it: the reader sees a refusal that
+is the product working, and the operator sees nothing. It took four diagnostic steps to find. The floor
+itself is chosen from the configured provider per query, so a mismatch also compares against the
+wrong provider's threshold. A guard is cheap: compare the configured provider with a fingerprint of
+one stored vector in scope, at startup or on the first retrieval, and fail loudly where it disagrees.
+
+**Whether Preview should carry a real model key (needs a decision).** As configured, Preview had fake
+embeddings, no `CHAT_PROVIDER` — which means the real chat model — and no API key. It could prove that a
+build deploys, never that an answer works, and a question that cleared retrieval would have failed at
+the model call. For this smoke test the real provider and a key were set on Preview, then removed. The
+options:
+
+- **A key of its own on Preview**, with its own quota so its use is visible and revocable apart from
+  production's, behind Vercel's deployment protection. The release is smoke-tested before it reaches
+  `main`: the only check that runs the real model before the tag rather than after it.
+- **Fake throughout:** seed Preview's database with the fake embedder and set `CHAT_PROVIDER=fake`. Free
+  and consistent; proves the plumbing, not the answers, and moves the real-model check to production
+  after the tag.
+- Not the configuration it had, which was neither: a fake half and a real half that cannot agree.
+
+**A copied source list cannot tell same-page passages apart (low, for 1.10.0).** A five-marker answer
+copied as `[1]`, `[2]` and `[3]` all reading "northwind-remote-work-handbook.pdf, page 1". They are
+different passages; on screen a marker opens the one it means, and on paper nothing distinguishes them.
+1.10.0 already reworks what the clipboard carries for invented markers, so a short quote per source
+belongs in the same change.
