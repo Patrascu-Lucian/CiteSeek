@@ -136,7 +136,7 @@ export function markerVerdict(
     .flat();
 
   return {
-    linked: [...new Set(linked)].sort((a, b) => a - b),
+    linked: [...new Set(linked)],
     invented: unresolvedMarkers(text, sources),
     declined: false,
   };

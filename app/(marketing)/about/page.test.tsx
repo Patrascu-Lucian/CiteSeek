@@ -76,6 +76,10 @@ describe("the about page", () => {
     expect(
       screen.getByText(/attach a citation marker to that refusal/i),
     ).toBeInTheDocument();
+    // ADR 058, scoped as it is: the form is enforced, the rate is not.
+    expect(
+      screen.getByText(/renders none of its markers as links/i),
+    ).toHaveTextContent(/still links them/i);
   });
 
   it("carries the landmark the skip link points at", () => {

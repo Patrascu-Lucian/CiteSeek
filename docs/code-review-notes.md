@@ -4226,3 +4226,23 @@ was written and tested against itself rather than against the things it points a
 - **Lesson**: **a consequence is a claim about the code, and it gets checked like one.** Every other
   sentence in that ADR was traced to `eval/refusals.md` or the prompt before it was written; the one
   that was not came from the design as first sketched, and it described a page that does not exist.
+
+## The price of a rule, counted rather than illustrated, 14 October 2026
+
+- **Issue**: ADR 058 chose to unlink every marker in a reply that declines, and named its cost with one
+  example — the warranty reply, whose `[7]` pointed at a relevant passage. One example reads like an
+  edge case. The re-run eval unlinked 35 replies across three runs, and reading each one put 10 of
+  them in the warranty shape: a cited clause stating a fact the question was reaching for. The price
+  is 29% of the unlinked replies, not one.
+
+- **The mutation run found two gaps in the same change.** The plural invented-marker note — the exact
+  words the clipboard now sends — was tested only in a component test, which sits outside the mutation
+  run's scope, so its separator and plural branch survived. And `markerVerdict` sorted a list whose
+  only reader filters it by membership: three mutants survived because no order was ever observable.
+
+- **Fix**: the count and the rule for reading it are in the ADR, so it can be redone. The note is
+  pinned whole in `lib/ai`; the sort is gone rather than tested.
+
+- **Lesson**: **an example is not a measurement of a cost.** The decision may well stand at 29% — a
+  structural rule was the point — but the record has to let a reader weigh the number, not the
+  anecdote. Mutants that survive on a sort nobody reads are a deletion, not a missing test.
