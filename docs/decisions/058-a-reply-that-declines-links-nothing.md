@@ -70,7 +70,16 @@ migration.
 - The partial answer is the price. The warranty reply's `[7]` was relevant and is no longer a link,
   and a chip is the only thing on the page that opens a passage, so that passage cannot be reached
   from that reply at all. `pnpm eval:refusals` counts those losses by reading the verbatim replies, so
-  the price is a number.
+  the price is a number. **Measured on 14 October 2026, across three runs: 35 declining replies had
+  their markers unlinked, and 10 of them had cited a specific fact bearing on the question** — the
+  warranty clause, the downgrade rule asked about an upgrade, the corrosion-inhibitor instruction, the
+  Severity 1 response target. The other 25 cited a list of what the documents cover. The reading's
+  rule: a cited clause that states a fact the question was reaching for counts as a loss, and one
+  that names topics does not.
+- Both replies measured so far that declined in another wording opened "The documents do not
+  specify". Unlike "do not require", that phrasing is a decline in every use, so it is the candidate
+  if the detector ever widens; it stays exact until a run shows the miss costs more than one reply in
+  sixty.
 - The model's rate is unchanged, and the README and the landing page say that: what changes is that a
   marker on a declining reply no longer presents itself as a source.
 - Local mode sends the same system prompt (`buildSystemPrompt`), so the rule reaches it through the

@@ -64,6 +64,9 @@ And what the page deliberately does not claim:
   renders as plain text, and the refusal is written by CiteSeek rather than by the model (ADR 055).
   Not "the model never runs on that branch": a follow-up is rewritten into a standalone query through
   one before the branch gives up (ADR 044). It never writes the reply, which is the claim that holds.
+  Since ADR 058 a refusal in the declining form the prompt asks for links none of its markers, which
+  narrows the gap without closing it: the model's rate is unchanged, and a refusal worded otherwise
+  still links them.
 - **Not "EU-only".** Data is stored in Frankfurt; document text still reaches Gemini.
 - **Recall at three passages, not eight.** Recall reaches 1.00 at the eight passages the route
   actually retrieves, and precision there is 0.14 over three documents. Quoting the ceiling cell of

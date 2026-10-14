@@ -5,6 +5,7 @@ import {
   CITATION_HREF_PREFIX,
   citationLabel,
   citedMarkers,
+  inventedMarkersNote,
   linkCitationMarkers,
   markerVerdict,
   opensWithRefusal,
@@ -323,6 +324,26 @@ describe("markerVerdict", () => {
       linked: [2],
       invented: [7],
       declined: false,
+    });
+  });
+});
+
+describe("inventedMarkersNote", () => {
+  // Pinned whole here as well as on the page: the clipboard sends these exact
+  // words, and the page's test sits outside the mutation run's scope.
+  it("speaks of one number in the singular", () => {
+    expect(inventedMarkersNote([7])).toEqual({
+      list: "[7]",
+      explanation:
+        "is not one of the passages found, so it is not a link. Treat that claim as unsupported.",
+    });
+  });
+
+  it("lists several, separated, in the plural", () => {
+    expect(inventedMarkersNote([7, 9])).toEqual({
+      list: "[7], [9]",
+      explanation:
+        "are not among the passages found, so they are not links. Treat those claims as unsupported.",
     });
   });
 });

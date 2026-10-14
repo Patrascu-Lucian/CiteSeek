@@ -44,8 +44,8 @@ const PROOF = [
   // Not "the pure core", which the README defines as including `lib/local`:
   // the mutation run covers retrieval and answering only.
   {
-    value: "86.45%",
-    label: "of 856 mutants caught in retrieval and answering",
+    value: "87.14%",
+    label: "of 910 mutants caught in retrieval and answering",
   },
 ] as const;
 
@@ -292,7 +292,9 @@ export function Landing({
             <p>
               A marker that resolves to nothing stays plain text rather than
               becoming a link, so a number the model invented cannot present
-              itself as a source.
+              itself as a source. Neither can a marker in a reply that declines
+              the question in the form the model is told to use: none of them
+              becomes a link, and the reply says why.
             </p>
             <p>
               And when nothing retrieved is relevant enough, no answer is

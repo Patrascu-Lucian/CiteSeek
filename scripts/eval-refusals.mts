@@ -64,6 +64,7 @@ const { processDocument } = await import("../lib/rag/ingest.ts");
 const { retrieveChunks } = await import("../lib/rag/retrieve.ts");
 const { buildSources, buildSystemPrompt } = await import("../lib/ai/prompt.ts");
 const { getChatModel } = await import("../lib/ai/provider.ts");
+const { markerVerdict } = await import("../lib/ai/citations.ts");
 const { generateText } = await import("ai");
 const { CHAT_STEP_LIMIT, chatTools } = await import("../lib/chats/tools.ts");
 
@@ -147,11 +148,18 @@ try {
     question: string;
     text: string;
     cited: boolean;
+    linked: boolean;
   }[] = [];
   const rates = new Map(SETS.map(({ name }) => [name, [] as number[]]));
+  // What the page does with those markers (ADR 058), read through the same
+  // function the page calls, so the two cannot be measured apart.
+  const linkedRates = new Map(SETS.map(({ name }) => [name, [] as number[]]));
+  const unlinkedRates = new Map(SETS.map(({ name }) => [name, [] as number[]]));
 
   for (let run = 1; run <= RUNS; run += 1) {
     const cited = new Map(SETS.map(({ name }) => [name, 0]));
+    const linkedCount = new Map(SETS.map(({ name }) => [name, 0]));
+    const unlinkedCount = new Map(SETS.map(({ name }) => [name, 0]));
 
     for (const { set, question, sources } of reaching) {
       const { text } = await generateText({
@@ -164,10 +172,29 @@ try {
 
       const marked = cites(text, sources.length);
       if (marked) cited.set(set, (cited.get(set) ?? 0) + 1);
-      answers.push({ run, set, question, text: text.trim(), cited: marked });
+
+      const verdict = markerVerdict(text, sources);
+      const linked = verdict.linked.length > 0;
+      if (linked) linkedCount.set(set, (linkedCount.get(set) ?? 0) + 1);
+      if (verdict.declined) {
+        unlinkedCount.set(set, (unlinkedCount.get(set) ?? 0) + 1);
+      }
+
+      answers.push({
+        run,
+        set,
+        question,
+        text: text.trim(),
+        cited: marked,
+        linked,
+      });
     }
 
     for (const [set, count] of cited) rates.get(set)?.push(count);
+    for (const [set, count] of linkedCount) linkedRates.get(set)?.push(count);
+    for (const [set, count] of unlinkedCount) {
+      unlinkedRates.get(set)?.push(count);
+    }
     console.log(
       `  run ${String(run)}: ${[...cited].map(([set, count]) => `${String(count)} of ${String(clearing(set))} ${set}`).join(", ")} carried a marker`,
     );
@@ -181,12 +208,20 @@ try {
     "and asks for a detail it does not cover, so that set samples the hard region",
     "on purpose and its rate is not the product's.",
     "",
-    "| set | clear the shipped floor | replies carrying a marker, per run |",
-    "| --- | ----------------------- | ---------------------------------- |",
-    ...SETS.map(
-      ({ name, questions }) =>
-        `| ${name} | ${String(clearing(name))} of ${String(questions.length)} | ${(rates.get(name) ?? []).join(", ")} of ${String(clearing(name))} |`,
-    ),
+    "| set | clear the shipped floor | carrying a marker | rendered as a link | unlinked by its form |",
+    "| --- | ----------------------- | ----------------- | ------------------ | -------------------- |",
+    ...SETS.map(({ name, questions }) => {
+      const per = (counts: Map<string, number[]>) =>
+        `${(counts.get(name) ?? []).join(", ")} of ${String(clearing(name))}`;
+
+      return `| ${name} | ${String(clearing(name))} of ${String(questions.length)} | ${per(rates)} | ${per(linkedRates)} | ${per(unlinkedRates)} |`;
+    }),
+    "",
+    "Per run. A reply that opens in the declining form links none of its markers",
+    '(ADR 058), so "rendered as a link" is what a reader can still click on a',
+    "refusal: replies that declined in some other wording. Whether an unlinked",
+    "marker pointed at something relevant is read from the answers below, not",
+    "counted here.",
     "",
     "Rule 4 of the system prompt forbids attaching a marker to a refusal, so a",
     "marker on a refusal is the prompt broken by its own definition. Answers are",
@@ -198,6 +233,7 @@ try {
       `## Run ${String(one.run)} — ${one.set} — ${one.question}`,
       "",
       `Cited: ${String(one.cited)}`,
+      `Linked on the page: ${String(one.linked)}`,
       "",
       one.text,
       "",
