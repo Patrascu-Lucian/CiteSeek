@@ -781,6 +781,12 @@ trigger rather than a schedule, and 7 is closed.
   stream in a detached loop with no `cancel` handler, so a canceled response does not stop
   consumption either. An `ai` upgrade could remove that half without touching this repo.
 
+  ↳ **13 October 2026: one did.** `ai` 7.0.127 cancels a merged stream when the consumer
+  disconnects, generation with it, and this entry's test went red on the Dependabot bump —
+  3 of 3, bisected to that patch. The route now calls `result.consumeStream()`, the SDK's
+  documented way to finish server-side, so the guarantee rests on a call the route makes
+  rather than on a loop the SDK left uncancelable.
+
   **The entry overstated its source.** The review said `onFinish` is "_not guaranteed_ to
   run", flagged that it could not check against the installed SDK — "treat it as _worth
   confirming_ rather than confirmed" — and named the exact experiment to settle it. This
@@ -3529,7 +3535,7 @@ what the review had to undo.
 The script takes a layer and a JUnit path and compares the count in that file against the README's
 table. In CI the file is always the one the job just wrote. Locally it is whatever is on disk:
 Playwright only registers the JUnit reporter when `CI` is set (`playwright.config.ts:37`), and
-Vitest's is likewise written by `pnpm test:coverage` rather than by `pnpm test`.
+Vitest writes its own on every run, so a filtered `pnpm vitest run` leaves a partial one.
 
 Found by running the release checks by hand. `pnpm test:e2e` reported **187 passed**, and
 `pnpm check:test-counts E2E test-results/e2e.junit.xml` then failed with "recorded 181" — from a
@@ -3571,20 +3577,38 @@ So the cause is something jsdom cannot show, since it models no selection at all
 out: the composer's `focus()` runs on submit, not on settle; local mode is not a separate renderer, it
 goes through `ChatPanel` and `MessageList` like the cloud chat.
 
-What is left to look at, cheapest first:
+↳ **Measured on 2 October 2026, and it is upstream.** The renderer rebuilds the paragraph on each
+batch of tokens, so the text node the selection is anchored in is gone before the answer finishes.
+A `MutationObserver` on `[data-answer-prose]` across one answer, with the fake model slowed to
+120 ms a chunk, recorded **13 mutations — `characterData` on the text and `childList` on its `<p>`
+— and the selected text node removed from the document.** Nine of the thirteen happened before any
+citation chip existed, so resolving the marker is not the cause either.
 
-- **The text node's content being rewritten in place.** A browser collapses a selection when the `data`
-  of the node holding it changes, even though the node is the same object. `Streamdown` withholds `[1]`
-  while streaming — it could be an incomplete link — so at settle the marker arrives and the prose
-  around it is re-laid out. Node identity would survive that; a selection would not.
-- **Whether it is specific to settling at all.** Select text in an answer that has already finished,
-  then ask a new question: if that selection also goes when the new answer streams, the cause is any
-  re-render of the list, not the settle.
-- **Whether the cloud chat behaves the same**, which separates the local transport from the shared path.
+Two things this rules out, both of which had been suspected: the bubble's own wrapper, which keeps
+its identity across the settle, and our marker linking. What remains is the markdown renderer
+re-parsing rather than appending, which is not ours to change.
 
+**A selection made after the answer settles survives** — including through a later answer streaming
+beside it, with zero mutations in the finished prose. That is the case a reader copying an answer is
+in, which is why this stays low.
+
+Recorded as `test.fixme` in `e2e/chat.spec.ts`, which fails for the right reason when enabled
+(`Expected: "Accordin", Received: ""`), so it turns green by itself if the renderer ever appends.
 Not a 1.9.0 blocker: it predates the release — the rebuild made it worse, not possible — and nothing in
 the release claims selection survives. The claim was removed from the commit comment, the review notes
 and the release message rather than left standing on one browser's word against jsdom's.
+
+↳ **Fixed, 13 October 2026, and it was never upstream.** The `characterData` mutations above are React's,
+not the renderer's: `commitTextUpdate` assigns `nodeValue`, and the DOM collapses a selection inside
+replaced text. On a bare `<p>` in Chromium, `nodeValue = old + new` loses the selection and
+`appendData` keeps it, so no renderer built on React could have appended its way out. jsdom behaves
+identically, which also makes "jsdom models no selection" above false. `useKeptSelection` records the
+selection as offsets into the answer's text and restores it after each commit; two component tests and
+the un-parked E2E, on a third server whose stream is slowed, fail without it.
+
+↳ **Narrower than that, until the release review.** The DOM moves only a boundary inside the replaced
+node, so a selection reaching into it from an earlier node is shortened, not collapsed — and the hook
+restored only collapsed ones. It now restores whenever the offsets differ, with a test for each shape.
 
 ## Five findings deferred from the 1.9.0 release review, 1 October 2026
 
@@ -3626,3 +3650,42 @@ it is focusable, which is why it was left: the fix that landed for the
 answer wraps unconditionally, and doing the same here means passing `justify-end` on the wrapper and
 accepting a 4px shift from the empty controls slot. Worth doing with the layout checked, not in a
 release commit.
+
+## Two size limits that were never in conflict, 2 October 2026
+
+Raised by the 1.9.0 review sweep and by the 1.9.1 plan as a bug: _273,000 characters per document
+against the plan tier's 500,000, so a 300,000-character upload fails with the wrong error._ Checked
+before fixing, and **the premise does not hold.**
+
+`extractedCharacters` is a **workspace** total — `sumExtractedCharacters` sums
+`length(content_text)` over every document in the workspace (`lib/documents/queries.ts:99`).
+`MAX_CHUNKS_PER_DOCUMENT` bounds **one document**. They are not two numbers for the same thing, so
+neither is "wrong" for arriving first: a single oversized document is refused per document, and that
+refusal names what to do — _"This document produces 1126 passages, above the limit of 600. Split it
+into smaller documents."_ Two documents of ~250,000 characters reach the workspace total exactly, so
+it is not dead either.
+
+**Measured while checking, and worth keeping.** Binary-searching the real chunker for the character
+count at which 600 passages is reached, across four shapes:
+
+| Shape            | 600 passages at    |
+| ---------------- | ------------------ |
+| Dense prose      | 266,609 characters |
+| Short paragraphs | 296,512            |
+| All headings     | 300,102            |
+| One-word lines   | 298,907            |
+
+A ±6% band, because the chunker merges small segments toward `CHUNK_TARGET_CHARS` rather than
+emitting one passage per line. The guess that a document of many hard breaks would produce hundreds of
+tiny passages and throw after a few thousand characters is wrong. It also means the 273,000 the usage
+view quotes sits inside the band and is a fair approximation.
+
+**What changed instead:** the two comments that invited the misreading. `config.ts` now says its limit
+is a workspace total, not a per-document ceiling; `chunking.ts` carries the measured band
+and says plainly that the plan limit is not a competing ceiling. The one real defect was that
+`chunking.ts` claimed "~250 dense pages" while `config.ts` measured 1,537 characters a page, which
+would make it ~173 — two comments assuming different page densities. The page figure is gone;
+characters are what the constant is in.
+
+**Lesson for the sweep that found it:** a limit's scope is part of its value. Comparing two numbers
+without checking what each one counts produces a bug report that costs more than the bug would have.

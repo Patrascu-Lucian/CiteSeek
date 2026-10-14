@@ -109,9 +109,15 @@ export function parseCitationHref(href: string | undefined): number | null {
   return Number.isInteger(marker) && marker > 0 ? marker : null;
 }
 
-/** The label a screen reader hears instead of a bare number. */
-export function citationLabel(source: ChatSource): string {
+/** Shared with the clipboard's source list, so the chip a reader hears and the
+ * line they paste cannot drift apart. */
+export function sourceLocation(source: ChatSource): string {
   const page = source.pageNumber === null ? "" : `, page ${source.pageNumber}`;
 
-  return `Citation ${source.marker}: ${source.filename}${page}`;
+  return `${source.filename}${page}`;
+}
+
+/** The label a screen reader hears instead of a bare number. */
+export function citationLabel(source: ChatSource): string {
+  return `Citation ${source.marker}: ${sourceLocation(source)}`;
 }

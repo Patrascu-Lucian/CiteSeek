@@ -11,6 +11,13 @@ on:
       - "lib/ai/prompt.ts"
       - "vitest.model.config.ts"
       - ".github/workflows/model.yml"
+      # The runtime arrives through the lockfile: a transformers bump moved
+      # onnxruntime two minor versions with no file here changing, so this suite
+      # first saw those versions on the push to `main` after the release.
+      - "package.json"
+      - "pnpm-lock.yaml"
+  # Its last run is otherwise whatever the last matching PR was.
+  workflow_dispatch:
 
 concurrency:
   group: model-${{ github.ref }}

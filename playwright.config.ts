@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 import { assertDisposableDatabase } from "./lib/env/disposable-database.ts";
 import { loadLocalEnv } from "./lib/env/load-local-env.ts";
-import { E2E_PORT, MAINTENANCE_PORT } from "./e2e/ports.ts";
+import { E2E_PORT, MAINTENANCE_PORT, SLOW_STREAM_PORT } from "./e2e/ports.ts";
 
 // The signed-in specs connect from `DATABASE_URL`, which nothing here set — so
 // they only ever ran in CI. Order matters: `loadEnvFile` never overwrites, so the
@@ -21,6 +21,17 @@ const PORT = E2E_PORT;
 // `localhost`, not `127.0.0.1`: Next normalizes redirects to the host it was
 // started on, so a test on 127.0.0.1 loses its cookies at the origin boundary.
 const baseURL = `http://localhost:${PORT}`;
+
+const FAKE_AND_UNCAPPED = {
+  // Every spec arrives from one address, so any honest cap fails the suite.
+  // `off` still runs the queries; integration tests cover the 429 paths.
+  USAGE_LIMITS: "off",
+  // Pinned, not inherited: unset means the real provider, and the server now
+  // reads `.env.local`. "The answer cites [1]" against a real model is a coin
+  // toss that spends quota.
+  EMBEDDINGS_PROVIDER: "fake",
+  CHAT_PROVIDER: "fake",
+};
 
 export default defineConfig({
   testDir: "./e2e",
@@ -74,16 +85,14 @@ export default defineConfig({
       // it and the suite fails on "capacity reached", with nothing naming the cause.
       reuseExistingServer: false,
       timeout: 120_000,
-      env: {
-        // Every spec arrives from one address, so any honest cap fails the suite.
-        // `off` still runs the queries; integration tests cover the 429 paths.
-        USAGE_LIMITS: "off",
-        // Pinned, not inherited: unset means the real provider, and the server now
-        // reads `.env.local`. "The answer cites [1]" against a real model is a coin
-        // toss that spends quota.
-        EMBEDDINGS_PROVIDER: "fake",
-        CHAT_PROVIDER: "fake",
-      },
+      env: FAKE_AND_UNCAPPED,
+    },
+    {
+      command: `pnpm start --port ${SLOW_STREAM_PORT}`,
+      url: `http://localhost:${SLOW_STREAM_PORT}`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: { ...FAKE_AND_UNCAPPED, FAKE_CHAT_CHUNK_DELAY_MS: "120" },
     },
   ],
 });

@@ -3984,3 +3984,227 @@ was written and tested against itself rather than against the things it points a
   page rather than from the thing the page describes. The one that would have caught two of them is
   cheap and was missing: follow the claim to its source — open `/about`, read the route — instead of
   asserting that the sentence is present.
+
+## A guard that counted lines where it meant messages, 2 October 2026
+
+- **Issue**: the follow-up rewrite skips a conversation of one, because a first question has no earlier
+  turn to recover a subject from. The guard read `history.split("\n").length < 2` on the joined
+  transcript — lines, not messages. A single question containing a newline, from Shift+Enter or a paste,
+  reads as two lines and passes it. On the refusal branch that spends a model call the guard exists to
+  prevent, and shows the reader a "Searched for" line for a rewrite of their own first question.
+
+- **Fix**: count the messages that carry text, then join them. The test asks with
+  `"How much is the deposit?\nAnd when is it due?"` as the only message and expects no model call; it
+  fails on the old guard.
+
+- **Lesson**: **a count is only as good as the thing it counts, and joining collapses the distinction.**
+  The transcript was built for the prompt, where lines are the right unit, and then reused for a
+  decision where messages are. Both readings are reasonable on the same string, which is why the bug
+  survived review: the code looked like it was counting turns.
+
+## An assertion standing in for a guarantee it could not reach, 2 October 2026
+
+- **Issue**: the landing page links `/local` with a plain `<a>`, because ADR 028 gives that route its
+  own Content Security Policy and a client navigation would leave the landing page's governing it. The
+  unit test named for that — _"points at local mode with a document navigation, not a client one"_ —
+  asserted `href="/local"` and the absence of a `data-prefetch` attribute. **Nothing emits that
+  attribute.** A `next/link` renders as a bare anchor under jsdom, so the test passed on exactly the
+  regression it was written to prevent. Verified by swapping the anchor for a `<Link>`: the unit test
+  stayed green.
+
+- **Fix**: an E2E that counts document requests, as `a11y.spec.ts` already does for the privacy page
+  and the footer. With the `<Link>` in place it fails — `Expected length: 1, Received length: 0` — and
+  the unit test now claims only the destination, with the reason the rest cannot live there.
+
+- **Lesson**: **an attribute that no code emits is not a guard, it is a sentence.** `not.toHaveAttribute`
+  on a name nothing produces cannot fail, and it reads like a check — which is worse than no check,
+  because the test's name then promises the guarantee. The question that catches it is the one this file
+  keeps returning to: what would make this fail? If the answer needs a browser, the test belongs in one.
+
+## The question kept the remount the answer was fixed for, 2 October 2026
+
+- **Issue**: the answer stopped being rebuilt at the end of a stream when its wrapper became
+  unconditional. The question had the same flip and kept it: `deletable` turns true at that same
+  moment, so the question bubble gained a `<TurnActions>` parent and React rebuilt it. It was left
+  because the fix looked like a layout change — an unconditional wrapper renders an empty controls
+  slot, and the row's `gap-1` would put 4px beside the bubble.
+
+- **Fix**: `TurnActions` renders no slot until it has a control to put in it, so the wrapper costs
+  nothing before then and can be unconditional. Two tests: the question's element survives the flip,
+  and no `[data-turn-actions]` exists while there is nothing to reveal. Both fail without the change.
+
+- **The layout worry was unfounded, and measuring said so in a minute.** The bubble's bounding box is
+  identical before and after the controls appear, at 1280px and at 412px with a question long enough
+  to reach its 85% ceiling: the row is `justify-end`, so the bubble stays flush right and the controls
+  take space that was empty. The deferral cost more than the check would have.
+
+- **An intermediate version shipped nothing because a test caught it.** The guard was first
+  `Children.count(children) === 0`, and `Children.count` counts `null` slots — with two conditional
+  controls both absent it returns 2, not 0. `Children.toArray(children).length` is the one that drops
+  them. The empty-slot test failed immediately, which is the entire reason to write the test that
+  asserts the absence rather than only the presence.
+
+## A provenance check a stale copy could satisfy, 2 October 2026
+
+- **Issue**: every figure on the landing page's proof strip is checked against "a committed report",
+  which the 1.9.0 review pointed out means the README for three of the four — prose typed beside the
+  page, so editing both together passes for any value. The fix was to have `pnpm test:mutation` write
+  a committed `eval/mutation.md` and read that.
+
+- **The first version of that fix did nothing, and running it said so.** Adding `eval/mutation.md` to
+  the list of sources left the check a union: with the run reporting **86.33% of 856** and the page
+  still saying **86.81% of 849**, the test passed, because the stale README sentence still contained
+  the old figure. A test over a union of sources is only as strict as its loosest member.
+
+- **Fix**: the mutation figure gets its own assertion, against `eval/mutation.md` alone — the `<dt>`
+  value and the mutant count from its `<dd>`. It fails on the page as it stood, which is how the stale
+  86.81% was found rather than shipped. Falsified the other way too: nudging the published score to
+  86.99% turns it red.
+
+- **Lesson**: **adding a stricter source to a permissive check does not make the check stricter.** The
+  shape to look for is `sources.join()` plus `includes` — every figure can be satisfied by any file,
+  so one hand-written file licenses everything. The one that works names which file owns which number.
+
+## A smaller image that bought nothing, 13 October 2026
+
+> **Corrected on 13 October 2026** — see "A measurement that could not see its change" below. The
+> fifteen runs used Lighthouse's mobile profile, where the phone fetches the same 750w image in both
+> versions, and the sizes quoted here mix candidates from two viewports. On the desktop preset, where
+> the image does change: 1080w at 67.0 KB to 640w at 30.3 KB, performance 100 and LCP 0.66 s in both.
+> The conclusion holds, for a different reason than the one given.
+
+- **Issue**: the product screenshot rendered at the full 64rem shell on a desktop — about a viewport of
+  product UI, with empty space beside it — and it is the page's largest contentful paint. Moving it
+  into a two-column row from `lg` and narrowing `sizes` from 64rem to 38rem was expected to help the
+  score as well as the layout.
+
+- **It halved the bytes and changed the score by nothing.** The browser now takes the 640w candidate at
+  27.7 KB, where it took 828w at 42.8 KB on a phone and 1080w at 64.5 KB on a desktop. Fifteen
+  Lighthouse runs on 2 October: **94 in every one**, the same as before, with LCP 3.0 s → 3.1 s and
+  CLS 0 either way.
+
+- **Third measurement, same answer.** Position and `priority` were measured in September; removing the
+  figure entirely was measured on 30 September and moved the median by at most a point. The LCP here is
+  the request chain — HTML, then CSS and JS, then the image discovered and fetched — and 27.7 KB at the
+  simulated 1.6 Mbps is about 140 ms of it.
+
+- **Kept anyway, for the reason it was asked for**, which was never the score: the figure took most of
+  the fold and the space beside it was empty. Recording that the performance half failed is the point —
+  the alternative is a commit message implying an optimization that did not happen.
+
+- **Lesson**: **a payload win is not a score win, and the difference is where the time goes.** A
+  3-second LCP made of waiting cannot be fixed by sending less; the only lever that moves it is removing
+  a step from the chain. Measure which of the two you have before optimizing the one you assume.
+
+## A patch release that stopped the meter, 13 October 2026
+
+- **Issue**: Dependabot's group bump turned one integration test red — a reader who closes the tab
+  mid-answer is no longer metered and the turn is not stored. Not flaky: 3 of 3 on the bump, 2 of 2
+  on develop. Bumping `ai` alone reproduced it, and bisecting the seven releases after 7.0.118 put it
+  at 7.0.127, whose changelog reads "cancel merged UI message streams when the consumer disconnects".
+
+- **The route had been relying on an SDK gap.** It forwards no `abortSignal`, so a disconnect did not
+  stop generation, but only because `createUIMessageStream` drained the model stream with no way to
+  cancel it. The backlog entry that added the test said an `ai` upgrade could remove that half; a
+  patch release did.
+
+- **Fix**: `result.consumeStream()`, unawaited, the SDK's documented way to run a stream to completion
+  server-side. It never rejects, so it leaves no unhandled promise. Falsified on 7.0.127: 3 of 3 red
+  without the line, 3 of 3 green with it.
+
+- **Lesson**: **a guarantee that rests on what a dependency fails to do breaks in a patch release.**
+  The test was written to pin an absence in our code, and it caught a change in someone else's; the
+  fix moves the guarantee into a call the route makes.
+
+## A cause called upstream one layer too early, 13 October 2026
+
+> **Narrower than stated, corrected on 13 October 2026** — see "A fix that covered the case its tests
+> chose" below. The hook as first shipped restored only a collapsed selection, so one reaching into
+> the growing text from an earlier node still lost its tail.
+
+- **Issue**: a selection made in an answer while it streams was lost. On 2 October a `MutationObserver`
+  recorded `characterData` on the text and `childList` on its `<p>`, and the write-up concluded the
+  markdown renderer re-parses rather than appends — "upstream of this repository" — and parked the
+  test as `fixme`. The plan for this release said to link the upstream issue.
+
+- **Looking for that issue is what undid it.** Before drafting one, a probe on a bare `<p>` in
+  Chromium: `nodeValue = old + new` loses a selection, `appendData` keeps it. React's
+  `commitTextUpdate` is `textInstance.nodeValue = newText`. So the `characterData` mutations were
+  React's, and no renderer built on React could have kept the selection by appending. The issue would
+  have asked Streamdown for something it cannot do. The same probe in jsdom behaved identically, which
+  also made the backlog's "jsdom models no selection at all" false — the reason given for having no
+  fast test.
+
+- **Fix**: `useKeptSelection` records the selection as offsets into the answer's text on
+  `selectionchange` and, when a commit has collapsed it, restores it. Two component tests (it survives
+  a token; one the reader cleared stays cleared), each falsified. The E2E is un-parked and runs on a
+  third server whose fake model waits 120 ms a chunk, since at the suite's instant stream the answer is
+  finished before it can be selected: 5 of 5 with the hook, 3 of 3 red without.
+
+- **Lesson**: **"upstream" is a claim about the layer below, and it needs the layer below
+  reproduced.** The measurement was right and the attribution skipped a layer: React sits between the
+  renderer and the DOM. A ten-line probe on one text node, run before writing "not ours to change",
+  would have pointed at the fix two weeks earlier.
+
+## A guard fixed without its boundary, 13 October 2026
+
+- **Issue**: 1.9.1 changed the follow-up rewrite's guard to count spoken messages rather than lines
+  (`spoken.length < 2`), with a test for the case that motivated it — a first question containing a
+  newline. The mutation run for the release kept `< 2` → `<= 2` alive: every test sent one message or
+  three, so nothing stood on two.
+
+- **Two is a real conversation**: the reader stops the first answer before any text arrives, then asks
+  "how much?". The assistant turn has no text and drops out, the first question still carries the
+  subject, and a guard at `<= 2` would have refused without trying.
+
+- **Fix**: a test with exactly that history, which fails on the mutant applied by hand. The re-run:
+  86.45% of 856, one more killed, and the surviving mutants on this release's lines sorted — three in
+  the fake model's delay setting, killed only by the browser test outside Stryker's scope, and two that
+  change behavior only for a conversation no client produces.
+
+- **Lesson**: **a fix to a threshold needs a test on the threshold.** The test written with it pinned
+  the bug report's input, which was one message; the boundary the change actually moved was two.
+
+## A fix that covered the case its tests chose, 13 October 2026
+
+- **Issue**: the 1.9.1 release review found that `useKeptSelection` restored a selection only when a
+  token had collapsed it. React rewrites one text node per token, and the DOM moves only the boundary
+  inside that node: a selection made entirely within it collapses, but one that starts earlier — in a
+  bold run, a citation chip, an earlier paragraph — and ends in it is shortened instead. The hook saw
+  a selection that was not collapsed, returned, and then recorded the shortened one as the reader's.
+
+- **Every test chose the case that worked.** Both component tests and the E2E selected the first eight
+  characters of the first text node, so all three ended inside the node being rewritten. A cited
+  paragraph is usually several nodes, which makes the untested shape the common one.
+
+- **Fix**: restore whenever the live offsets differ from the recorded ones, not only when collapsed.
+  Two tests, from inside bold into the growing text and from an earlier paragraph into it, fail on
+  the shipped hook (`"cording"` where `"cording to the"` was selected) and pass now. The E2E also
+  asserts that the answer grew after the selection was made, since a stream that had already ended
+  would have let it pass with nothing to survive.
+
+- **Lesson**: **a test's input is a claim about which cases matter.** "Select the first eight
+  characters" was the easiest selection to script, and it was the one shape the mechanism handled. The
+  failure was in the mechanism's own description — a boundary moves only inside the replaced node —
+  and reading that sentence for what it excludes would have named the missing test.
+
+## A measurement that could not see its change, 13 October 2026
+
+- **Issue**: the review also found that the fifteen Lighthouse runs behind "A smaller image that
+  bought nothing" ran the mobile profile, 412 px wide. Below 1024 px `sizes` resolves to `100vw` in
+  both versions, so the image fetched was byte-identical before and after: the runs could not have
+  shown a difference. The sizes quoted mixed candidates from two viewports, and "27.7 KB at the
+  simulated 1.6 Mbps" paired the desktop image with the mobile network.
+
+- **And `sizes` overshot.** 38rem is three fifths of the 64rem shell, but the shell's width includes
+  its gutters and the columns share a gap: the figure renders at 35.1rem from 1280 px up. At 2x the
+  browser took 1920w at 79.3 KB; `35rem` takes 1200w at 72.4 KB. 1x is 640w either way.
+
+- **Fix**: `sizes` is 35rem, measured. Re-measured on the desktop preset, five runs per build: 1080w at
+  67.0 KB with v1.9.0's 64rem, 640w at 30.3 KB now, performance 100 and LCP 0.66 s in both. The entry
+  carries a correction; its conclusion stands, for a different reason — on a phone nothing changed,
+  and on a desktop there was nothing to buy.
+
+- **Lesson**: **a before-and-after first has to show it saw the change.** Logging which image each
+  run fetched would have shown 750w twice. The 1.9.0 entry about two runs was about too few
+  measurements; this one is about fifteen of the wrong thing, which repetition only made look sturdier.

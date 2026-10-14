@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
 import { DEMO_EXAMPLE_QUESTIONS } from "../lib/demo/example-questions";
+import { SLOW_STREAM_PORT } from "./ports";
 
 /**
  * The milestone's exit criteria, driven through a real browser: ask, watch it
@@ -386,5 +387,58 @@ test.describe("starting from nothing", () => {
     await page.goto("/demo");
 
     await expect(page.getByText(/your documents/i)).toHaveCount(0);
+  });
+});
+
+test.describe("a selection inside an answer", () => {
+  // The slow server: at the suite's instant stream, the answer is finished
+  // before anything in it can be selected.
+  test("survives the stream ending", async ({ page }) => {
+    await page.goto(`http://localhost:${String(SLOW_STREAM_PORT)}/demo`);
+    await expect(
+      page.getByRole("heading", { level: 2, name: /ask/i }),
+    ).toBeVisible();
+
+    await page
+      .getByRole("textbox", { name: /ask a question/i })
+      .fill("When is reimbursement paid?");
+    await page.getByRole("button", { name: /send/i }).click();
+
+    const prose = page.locator("[data-answer-prose]").first();
+    // Global setup warms only the main server, so this question is a cold one.
+    await expect(prose).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByRole("button", { name: /^stop the answer$/i }),
+    ).toBeVisible();
+
+    const { selected, length } = await prose.evaluate((node) => {
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      const text = walker.nextNode();
+      if (!text) throw new Error("the answer rendered no text to select");
+
+      const range = document.createRange();
+      range.setStart(text, 0);
+      range.setEnd(text, 8);
+      const selection = getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      return {
+        selected: selection?.toString() ?? "",
+        length: node.textContent?.length ?? 0,
+      };
+    });
+
+    expect(selected).toHaveLength(8);
+
+    // Nothing is clicked: a click would collapse the selection by itself.
+    await expect(
+      page.getByRole("button", { name: /^send the question$/i }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Otherwise the stream could have ended before the selection was made.
+    expect((await prose.textContent())?.length).toBeGreaterThan(length);
+    expect(await page.evaluate(() => getSelection()?.toString() ?? "")).toBe(
+      selected,
+    );
   });
 });

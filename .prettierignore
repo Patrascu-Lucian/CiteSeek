@@ -9,6 +9,8 @@ eval/local-answers*.md
 eval/local-markers.md
 # Same, from `pnpm eval:refusals` — verbatim model output, several runs of it.
 eval/refusals.md
+# Same, from `pnpm test:mutation` — a score the landing page is checked against.
+eval/mutation.md
 .next/
 out/
 build/

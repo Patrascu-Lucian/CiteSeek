@@ -89,7 +89,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 148 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 158 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -127,7 +127,8 @@ recent — the dates are here so the spread is visible rather than assumed.
   [#18 — a streaming chat route with grounded citations](https://github.com/Patrascu-Lucian/CiteSeek/pull/18),
   29 July. The claim this product makes is that a citation cannot be invented, and this is where that
   becomes structural: the passages are resolved and sent before the model writes a word, so a marker
-  resolves against a payload that already exists ([ADR 012](docs/decisions/012-generation-model.md)).
+  resolves against a payload that already exists
+  ([ADR 011](docs/decisions/011-retrieval-and-citation-strategy.md)).
 - **Do you measure, and do you believe the answer?**
   [#362 — fifteen questions the documents do not cover](https://github.com/Patrascu-Lucian/CiteSeek/pull/362),
   14 September. The next milestone's design was a banded floor: accept below one distance, refuse
@@ -723,9 +724,9 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1092  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1104  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
-| E2E         | 187   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
+| E2E         | 189   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
@@ -737,7 +738,7 @@ fixed and the missing tests added, it was 86.5%
 ([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)). Re-measuring every release paid
 for itself on the next one: the only module added since, the clipboard form of an answer, scored
 **73.68%**, and three of its five survivors were one gap — a sort every test reached with a single
-element, which sorts the same however the comparator behaves. It is **86.81% of 849 mutants** now,
+element, which sorts the same however the comparator behaves. It is **86.45% of 856 mutants** now,
 and that module is at 100%.
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)

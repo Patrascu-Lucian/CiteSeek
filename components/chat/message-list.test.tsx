@@ -472,6 +472,42 @@ describe("MessageList — a question the server has not written down yet", () =>
   });
 });
 
+describe("MessageList — naming a turn's controls", () => {
+  it("names Edit with the same shortened question as Delete", () => {
+    const question = `${"How much annual leave do employees receive ".repeat(2)}\nin their first year?`;
+
+    render(
+      <MessageList
+        messages={[
+          userMessage(question),
+          assistantMessage("Twenty days [1].", [SOURCE]),
+        ]}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        uploadHref="/w/w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
+        isDemo={false}
+        onAsk={() => undefined}
+        onDeleteTurn={vi.fn()}
+        onEditQuestion={vi.fn()}
+      />,
+    );
+
+    const edit = screen.getByRole("button", { name: /^edit the question/i });
+    const shortened = edit.getAttribute("aria-label")!.match(/“(.*)”/)![1]!;
+
+    expect(shortened).not.toContain("\n");
+    expect(shortened.endsWith("…")).toBe(true);
+    expect(
+      screen.getByRole("button", {
+        name: `Delete the exchange starting “${shortened}”`,
+      }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("MessageList — copying an answer", () => {
   const props = {
     onSelectSource: vi.fn(),
@@ -498,6 +534,34 @@ describe("MessageList — copying an answer", () => {
     expect(
       screen.getAllByRole("button", { name: /copy the answer/i }),
     ).toHaveLength(1);
+  });
+
+  it("names each copy control for the question it answers", () => {
+    // Identical names give a screen reader's control list several "Copy the
+    // answer" entries, and voice control no unique target.
+    render(
+      <MessageList
+        {...props}
+        messages={[
+          userMessage("What is the policy?"),
+          assistantMessage("Paid in 30 days [1].", [SOURCE]),
+          { ...userMessage("And the deposit?"), id: "m3" },
+          {
+            ...assistantMessage("Protected in 30 days [1].", [SOURCE]),
+            id: "m4",
+          },
+        ]}
+      />,
+    );
+
+    const names = screen
+      .getAllByRole("button", { name: /copy the answer/i })
+      .map((button) => button.getAttribute("aria-label"));
+
+    expect(names).toEqual([
+      "Copy the answer to “What is the policy?”",
+      "Copy the answer to “And the deposit?”",
+    ]);
   });
 
   it("waits until the answer has finished arriving", () => {
@@ -539,6 +603,31 @@ describe("the answer when the stream ends", () => {
       streaming={streaming}
     />
   );
+
+  it("keeps the question's element too, when its controls arrive", () => {
+    // `deletable` turns true at the same moment, and gating the wrapper on it
+    // re-parented the question. Nothing in it is focusable, so a selection in a
+    // question was the visible cost.
+    const { container, rerender } = render(list(true));
+    const streamingQuestion = container.querySelector(
+      "[data-message-bubble='user']",
+    );
+    expect(streamingQuestion).not.toBeNull();
+
+    rerender(list(false));
+
+    expect(container.querySelector("[data-message-bubble='user']")).toBe(
+      streamingQuestion,
+    );
+  });
+
+  it("renders no controls slot before there is a control in it", () => {
+    // The row's `gap-1` would otherwise put 4px beside the bubble for an empty
+    // div, which is what made an unconditional wrapper a layout change.
+    const { container } = render(list(true));
+
+    expect(container.querySelectorAll("[data-turn-actions]")).toHaveLength(0);
+  });
 
   it("keeps the same element, rather than rebuilding it around the copy control", () => {
     /* `copyable` turns true at that moment, and a new parent makes React rebuild

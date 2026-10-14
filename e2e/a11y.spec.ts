@@ -716,6 +716,26 @@ test.describe("response headers", () => {
     expect(documents.filter((url) => url.endsWith("/local"))).toHaveLength(1);
   });
 
+  test("the landing page reaches /local with a document request", async ({
+    page,
+  }) => {
+    // The landing page is where a stranger meets local mode, and a <Link> here
+    // would leave its own policy governing it. The unit test beside it cannot
+    // see this: a `next/link` renders as a bare anchor under jsdom.
+    const documents: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "document") documents.push(request.url());
+    });
+
+    await page.goto("/");
+    await page.getByRole("link", { name: /says what it measures/i }).click();
+    await expect(
+      page.getByRole("heading", { name: "Local mode" }),
+    ).toBeVisible();
+
+    expect(documents.filter((url) => url.endsWith("/local"))).toHaveLength(1);
+  });
+
   test("the WASM relaxation reaches /local and stops there", async ({
     page,
   }) => {

@@ -1,3 +1,4 @@
+import { sourceLocation } from "./citations";
 import type { ChatSource } from "./types";
 
 /**
@@ -14,12 +15,7 @@ export function answerAsText(
   const listed = sources
     .filter((source) => cited.includes(source.marker))
     .sort((a, b) => a.marker - b.marker)
-    .map((source) => {
-      const page =
-        source.pageNumber === null ? "" : `, page ${source.pageNumber}`;
-
-      return `[${String(source.marker)}] ${source.filename}${page}`;
-    });
+    .map((source) => `[${String(source.marker)}] ${sourceLocation(source)}`);
 
   const answer = text.trim();
   if (listed.length === 0) return answer;

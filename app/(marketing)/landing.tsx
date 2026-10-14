@@ -26,7 +26,9 @@ import { pageShell } from "@/components/ui/page-shell";
 const SHOT = {
   width: 1280,
   height: 960,
-  sizes: "(min-width: 1024px) 64rem, 100vw",
+  // Measured at 35.1rem from lg: three fifths of the shell after its gutters
+  // and the column gap. 38rem, three fifths of the whole shell, over-fetched at 2x.
+  sizes: "(min-width: 1024px) 35rem, 100vw",
 } as const;
 
 const SHOT_ALT =
@@ -42,8 +44,8 @@ const PROOF = [
   // Not "the pure core", which the README defines as including `lib/local`:
   // the mutation run covers retrieval and answering only.
   {
-    value: "86.81%",
-    label: "of 849 mutants caught in retrieval and answering",
+    value: "86.45%",
+    label: "of 856 mutants caught in retrieval and answering",
   },
 ] as const;
 
@@ -191,40 +193,46 @@ export function Landing({
             How a question is answered
           </h2>
 
-          <figure className="mt-8">
-            {/* Both carry the description: `display: none` keeps the hidden one
+          {/* Side by side from lg, where the figure alone ran to the full 64rem
+              shell and most of the fold. Grid placement rather than `order`, so
+              the steps read first on a wide screen and the explanation sits
+              beside the thing it explains. */}
+          <div className="mt-8 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start lg:gap-10">
+            <figure className="lg:col-start-2 lg:row-start-1">
+              {/* Both carry the description: `display: none` keeps the hidden one
                 out of the accessibility tree, and describing only the light one
                 left a dark-themed reader with nothing. Both from
                 `pnpm demo:shots`. */}
-            <Image
-              src={sourceLight}
-              {...SHOT}
-              alt={SHOT_ALT}
-              className="border-border/60 rounded-lg border dark:hidden"
-            />
-            <Image
-              src={sourceDark}
-              {...SHOT}
-              alt={SHOT_ALT}
-              className="border-border/60 hidden rounded-lg border dark:block"
-            />
-            <figcaption className="text-muted-foreground mt-3 text-sm">
-              The demo workspace: an answer, its numbered markers, and the
-              passage one of them opens.
-            </figcaption>
-          </figure>
+              <Image
+                src={sourceLight}
+                {...SHOT}
+                alt={SHOT_ALT}
+                className="border-border/60 rounded-lg border dark:hidden"
+              />
+              <Image
+                src={sourceDark}
+                {...SHOT}
+                alt={SHOT_ALT}
+                className="border-border/60 hidden rounded-lg border dark:block"
+              />
+              <figcaption className="text-muted-foreground mt-3 text-sm">
+                The demo workspace: an answer, its numbered markers, and the
+                passage one of them opens.
+              </figcaption>
+            </figure>
 
-          <ol className="mt-10 grid gap-6 sm:grid-cols-3">
-            {steps.map(({ title, body }, index) => (
-              <li key={title}>
-                <p className="text-muted-foreground text-sm font-medium">
-                  Step {index + 1}
-                </p>
-                <h3 className="mt-1 font-medium">{title}</h3>
-                <p className="text-muted-foreground mt-2 text-sm">{body}</p>
-              </li>
-            ))}
-          </ol>
+            <ol className="mt-10 grid gap-6 sm:grid-cols-3 lg:col-start-1 lg:row-start-1 lg:mt-0 lg:grid-cols-1">
+              {steps.map(({ title, body }, index) => (
+                <li key={title}>
+                  <p className="text-muted-foreground text-sm font-medium">
+                    Step {index + 1}
+                  </p>
+                  <h3 className="mt-1 font-medium">{title}</h3>
+                  <p className="text-muted-foreground mt-2 text-sm">{body}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </section>
 

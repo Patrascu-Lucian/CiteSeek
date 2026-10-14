@@ -48,7 +48,8 @@ That resolves the concrete questions as follows.
   is not offered a signup. This holds for the closing call to action as well as the hero.
 - **Figures are quoted, not asserted.** `landing.test.tsx` looks each one up in `README.md` or
   `eval/report.md` and fails if it stops appearing there. A number typed on the page and nowhere
-  else cannot ship.
+  else cannot ship. The mutation figure is checked against `eval/mutation.md` alone, which the run
+  writes; the two latency figures still match README prose rather than a tool's output.
 - **The screenshot is the product**, not an illustration — the source panel open beside a cited
   answer, in both palettes, written by `pnpm demo:shots`.
 - **The README carries the method.** The strip gives the figure and links to the README's Numbers
@@ -79,9 +80,10 @@ And what the page deliberately does not claim:
   from the reports while the suite is green.
 - **The screenshot costs a point at most, and does not move the LCP.** Locally the page measures 94
   with the figure and 94 to 95 without it, and the largest contentful paint is 3.0 s either way — so
-  the figure _becomes_ the largest paint without making it later. CLS is 0 in both. Position,
-  `priority` and a narrower width all measure 94 as well. It is recorded rather than tuned away, and
-  owed a re-measure on the deploy, where the last landing run was 98.
+  the figure _becomes_ the largest paint without making it later. CLS is 0 in both. Position and
+  `priority` measure 94 as well. So did a narrower width, but on the mobile profile, which fetches
+  the same image either way; on the desktop preset it is 100 before and after. It is recorded rather
+  than tuned away, and owed a re-measure on the deploy, where the last landing run was 98.
 
   **Corrected on 30 September 2026.** This bullet first read "costs two Lighthouse points — 96 to
   94, LCP 2.7 s to 3.1 s", from a pair of runs taken on different builds on different days. Fifteen

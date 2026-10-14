@@ -10,6 +10,7 @@ import { DeleteTurnDialog } from "./delete-turn-dialog";
 import { EditQuestionForm } from "./edit-question-form";
 import { CopyAnswer } from "./copy-answer";
 import { TurnActions } from "./turn-actions";
+import { shortenQuestion } from "./turn-label";
 import { Refusal } from "./refusal";
 
 /** `Answer` pulls in Streamdown — **428 KB raw**, measured, and it was in the
@@ -276,26 +277,31 @@ export function MessageList({
             key={message.id}
             className={cn("flex", isUser ? "justify-end" : "justify-start")}
           >
-            {deletable ? (
+            {isUser && onDeleteTurn ? (
+              // Wrapped whenever deletion is possible at all: gating the wrapper
+              // on `deletable` re-parented the question when its answer settled,
+              // which rebuilds it.
               <TurnActions bubble={bubble} className="justify-end">
-                {onEditQuestion ? (
+                {deletable && onEditQuestion ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    aria-label={`Edit the question “${messageText(message)}”`}
+                    aria-label={`Edit the question “${shortenQuestion(messageText(message))}”`}
                     disabled={busyId === message.id}
                     onClick={() => onStartEdit?.(message.id)}
                   >
                     <Pencil aria-hidden="true" className="size-3.5" />
                   </Button>
                 ) : null}
-                <DeleteTurnDialog
-                  question={messageText(message)}
-                  hasAnswer={messages[index + 1]?.role === "assistant"}
-                  busy={deletingId === message.id}
-                  onConfirm={() => onDeleteTurn(message.id)}
-                />
+                {deletable ? (
+                  <DeleteTurnDialog
+                    question={messageText(message)}
+                    hasAnswer={messages[index + 1]?.role === "assistant"}
+                    busy={deletingId === message.id}
+                    onConfirm={() => onDeleteTurn(message.id)}
+                  />
+                ) : null}
               </TurnActions>
             ) : isUser ? (
               bubble
@@ -308,6 +314,7 @@ export function MessageList({
                   <CopyAnswer
                     text={messageText(message)}
                     sources={messageSources(message)}
+                    question={messageText(messages[index - 1] ?? message)}
                   />
                 ) : null}
               </TurnActions>

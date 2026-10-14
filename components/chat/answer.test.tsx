@@ -251,3 +251,97 @@ describe("Answer — a chip standing where a number could", () => {
     );
   });
 });
+
+describe("Answer — a selection made while it streams", () => {
+  const streaming = {
+    sources: [source()],
+    onSelectSource: vi.fn(),
+    selectedChunkId: null,
+    settled: false,
+  };
+
+  /** By character offsets across the answer's text nodes, so a selection can
+   * start in one node and end in another. */
+  function select(from: number, to: number) {
+    const prose = document.querySelector("[data-answer-prose]")!;
+    const walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    let passed = 0;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const length = node.textContent!.length;
+      if (from >= passed && from <= passed + length)
+        range.setStart(node, from - passed);
+      if (to >= passed && to <= passed + length)
+        range.setEnd(node, to - passed);
+      passed += length;
+    }
+    getSelection()!.removeAllRanges();
+    getSelection()!.addRange(range);
+    return getSelection()!.toString();
+  }
+
+  // `selectionchange` is queued as a task, as in a browser.
+  const nextTask = () => new Promise((resolve) => setTimeout(resolve));
+
+  it("keeps it when the next tokens arrive", async () => {
+    const { rerender } = render(
+      <Answer {...streaming} text="According to the handbook" />,
+    );
+    select(0, 8);
+    await nextTask();
+
+    rerender(
+      <Answer {...streaming} text="According to the handbook, expenses" />,
+    );
+
+    expect(getSelection()!.toString()).toBe("Accordin");
+  });
+
+  it("does not bring back one the reader cleared", async () => {
+    const { rerender } = render(
+      <Answer {...streaming} text="According to the handbook" />,
+    );
+    select(0, 8);
+    await nextTask();
+    getSelection()!.removeAllRanges();
+    await nextTask();
+
+    rerender(
+      <Answer {...streaming} text="According to the handbook, expenses" />,
+    );
+
+    expect(getSelection()!.toString()).toBe("");
+  });
+
+  // A token rewrites only the last text node, which shortens a selection
+  // reaching into it rather than collapsing it.
+  it("keeps one that starts in bold and ends in the text still growing", async () => {
+    const { rerender } = render(
+      <Answer {...streaming} text="**According** to the handbook" />,
+    );
+    const selected = select(2, 16);
+    await nextTask();
+
+    rerender(
+      <Answer {...streaming} text="**According** to the handbook, expenses" />,
+    );
+
+    expect(selected).toBe("cording to the");
+    expect(getSelection()!.toString()).toBe(selected);
+  });
+
+  it("keeps one that starts in an earlier paragraph", async () => {
+    const { rerender } = render(
+      <Answer {...streaming} text={"First paragraph.\n\nSecond one"} />,
+    );
+    const selected = select(6, 22);
+    await nextTask();
+
+    rerender(
+      <Answer {...streaming} text={"First paragraph.\n\nSecond one grows"} />,
+    );
+
+    expect(selected).toContain("Second");
+    expect(getSelection()!.toString()).toBe(selected);
+  });
+});

@@ -6,6 +6,8 @@ import { citedMarkers } from "@/lib/ai/citations";
 import type { ChatSource } from "@/lib/ai/types";
 import { Button } from "@/components/ui/button";
 
+import { shortenQuestion } from "./turn-label";
+
 /** Long enough to read, short enough that a second copy is not blocked by it. */
 const CONFIRM_MS = 2000;
 
@@ -17,9 +19,13 @@ const CONFIRM_MS = 2000;
 export function CopyAnswer({
   text,
   sources,
+  question,
 }: {
   text: string;
   sources: readonly ChatSource[];
+  /** Names which answer this copies: several rows otherwise give a screen reader
+   * a list of identical buttons, and voice control no unique target. */
+  question: string;
 }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | null>(null);
@@ -52,8 +58,13 @@ export function CopyAnswer({
       variant="ghost"
       size="icon-xs"
       // The label changes with the state, so the confirmation reaches a screen
-      // reader without a live region announcing every other row's copy too.
-      aria-label={copied ? "Answer copied" : "Copy the answer"}
+      // reader without a live region announcing every other row's copy too. The
+      // confirmation stays short: only one button is in that state at a time.
+      aria-label={
+        copied
+          ? "Answer copied"
+          : `Copy the answer to “${shortenQuestion(question)}”`
+      }
       onClick={() => void copy()}
     >
       {copied ? (

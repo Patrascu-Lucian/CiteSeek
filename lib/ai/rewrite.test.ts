@@ -127,6 +127,32 @@ describe("rewriteQuestion", () => {
     ).resolves.toBeNull();
   });
 
+  // The guard counted lines in the joined history, so a pasted or Shift+Entered
+  // first question passed it and spent a model call on the refusal branch.
+  it("does not reach the model for a first message containing a newline", async () => {
+    reply.text = "How much is the tenancy deposit?";
+    const asked = "How much is the deposit?\nAnd when is it due?";
+
+    await expect(rewriteQuestion([user(asked)], asked)).resolves.toBeNull();
+  });
+
+  it("recovers the subject from a first question whose answer never began", async () => {
+    // Two spoken messages, the fewest that have an earlier turn: the reader
+    // stopped the first answer before any text arrived.
+    reply.text = "How much is the tenancy deposit?";
+
+    await expect(
+      rewriteQuestion(
+        [
+          user("Is the deposit protected?"),
+          { ...assistant(""), parts: [{ type: "step-start" }] },
+          user("how much?"),
+        ],
+        "how much?",
+      ),
+    ).resolves.toMatchObject({ question: "How much is the tenancy deposit?" });
+  });
+
   it("returns the rewrite with the tokens it cost", async () => {
     reply.text = "How much is the tenancy deposit?";
 

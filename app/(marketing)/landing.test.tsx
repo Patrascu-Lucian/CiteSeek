@@ -107,15 +107,17 @@ describe("Landing", () => {
     expect(screen.queryByText(/never cites/i)).not.toBeInTheDocument();
   });
 
-  it("points at local mode with a document navigation, not a client one", () => {
-    // A route-scoped CSP only applies to a document response, so a `Link` here
-    // would leave this page's policy governing local mode (ADR 028).
+  it("points at local mode", () => {
+    /* Only the destination. That it arrives by a document request, which ADR 028
+       needs for the route's own CSP, is pinned in `a11y.spec.ts`: a `next/link`
+       renders as a bare anchor here, so nothing in jsdom can tell the two apart.
+       The assertion that used to stand in for it — no `data-prefetch` attribute —
+       passed for a `Link` too, because nothing emits that attribute. */
     render(<Landing {...anonymous} />);
 
-    const link = screen.getByRole("link", { name: /says what it measures/i });
-
-    expect(link).toHaveAttribute("href", "/local");
-    expect(link).not.toHaveAttribute("data-prefetch");
+    expect(
+      screen.getByRole("link", { name: /says what it measures/i }),
+    ).toHaveAttribute("href", "/local");
   });
 
   it("lists the feature cards inside a list for screen-reader navigation", () => {
@@ -192,7 +194,14 @@ describe("the strip of measured numbers", () => {
   /* The point of the strip is that every figure on it came from a run. A number
      typed here and nowhere else is the failure mode, so each is looked up in the
      report it was measured by. */
-  const sources = ["README.md", join("eval", "report.md")]
+  /* `eval/mutation.md` is written by the run itself, so the mutation figure is
+     checked against a tool's output rather than against prose typed beside the
+     page. The other three are still README rows. */
+  const sources = [
+    "README.md",
+    join("eval", "report.md"),
+    join("eval", "mutation.md"),
+  ]
     .map((file) => readFileSync(join(root, file), "utf8"))
     .join("\n");
 
@@ -215,6 +224,48 @@ describe("the strip of measured numbers", () => {
       .filter((value) => !sources.includes(value));
 
     expect(unsupported).toEqual([]);
+  });
+
+  it("backs the numbers in the labels too, not only the headline figures", () => {
+    // "of 856 mutants caught …" sits in a <dd>, which the check above never read.
+    render(<Landing {...anonymous} />);
+
+    const described = within(
+      screen.getByRole("region", { name: /what has been measured/i }),
+    ).getAllByRole("definition");
+
+    const unsupported = described
+      .flatMap((label) => label.textContent?.match(/\d[\d,.]*/g) ?? [])
+      .filter((value) => !sources.includes(value));
+
+    expect(unsupported).toEqual([]);
+  });
+
+  it("takes the mutation score from the run, not from prose beside it", () => {
+    /* The check above is a union, so the README alone can satisfy it — which is
+       how the page kept 86.81% of 849 after a run said 86.33% of 856. This one
+       reads only `eval/mutation.md`, which `pnpm test:mutation` writes. */
+    const published = readFileSync(join(root, "eval", "mutation.md"), "utf8");
+
+    render(<Landing {...anonymous} />);
+
+    const strip = screen.getByRole("region", {
+      name: /what has been measured/i,
+    });
+    const mutants = within(strip)
+      .getAllByRole("definition")
+      .find((label) => /mutants/i.test(label.textContent ?? ""));
+
+    expect(mutants, "no figure on the strip is about mutants").toBeDefined();
+
+    const score = mutants!.previousElementSibling?.textContent ?? "";
+    const total = mutants!.textContent?.match(/\d[\d,]*/)?.[0] ?? "";
+
+    // Every string contains "", so an empty lookup would pass what follows.
+    expect(score).toMatch(/^\d+(\.\d+)?%$/);
+    expect(total).not.toBe("");
+    expect(published).toContain(score);
+    expect(published).toContain(total);
   });
 
   it("claims no count of readers and no zero for invented citations", () => {
