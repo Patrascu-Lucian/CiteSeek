@@ -3,10 +3,13 @@ import { describe, expect, it } from "vitest";
 import { answerAsText } from "./answer-text";
 import type { ChatSource } from "./types";
 
+/** Empty unless a test is about the excerpt, so the list's other rules are
+ * pinned without it. */
 const source = (
   marker: number,
   filename: string,
   pageNumber: number | null = null,
+  quote = "",
 ): ChatSource => ({
   marker,
   filename,
@@ -15,7 +18,7 @@ const source = (
   documentId: "doc",
   charStart: 0,
   charEnd: 10,
-  quote: "…",
+  quote,
 });
 
 describe("answerAsText", () => {
@@ -139,6 +142,98 @@ describe("answerAsText", () => {
     it("adds nothing to a declining reply with no markers", () => {
       expect(answerAsText("The documents do not cover parking.", two)).toBe(
         "The documents do not cover parking.",
+      );
+    });
+  });
+
+  // Three markers on one page read "page 1" three times; the start of each
+  // passage is what tells a reader which one a marker meant.
+  describe("telling passages on one page apart", () => {
+    it("gives each listed source the start of its passage", () => {
+      const text = answerAsText("Paid [1], within 30 days [2].", [
+        source(1, "handbook.pdf", 1, "Reimbursement is paid through payroll."),
+        source(2, "handbook.pdf", 1, "Claims are paid within 30 days."),
+      ]);
+
+      expect(text).toBe(
+        "Paid [1], within 30 days [2].\n\nSources:\n" +
+          "[1] handbook.pdf, page 1 — “Reimbursement is paid through payroll.”\n" +
+          "[2] handbook.pdf, page 1 — “Claims are paid within 30 days.”",
+      );
+    });
+
+    it("cuts a long passage at a word, and keeps a word that fits exactly", () => {
+      // The 60th character ends "claim," and the 61st is a space, so the whole
+      // word fits; backing up to the previous space would drop it.
+      const text = answerAsText("Paid [1].", [
+        source(
+          1,
+          "a.pdf",
+          null,
+          "Expenses are reimbursed within 30 days of an approved claim, and paid through payroll.",
+        ),
+      ]);
+
+      expect(text).toBe(
+        "Paid [1].\n\nSources:\n" +
+          "[1] a.pdf — “Expenses are reimbursed within 30 days of an approved claim,…”",
+      );
+    });
+
+    it("backs up to the last whole word when the cut lands inside one", () => {
+      const text = answerAsText("Paid [1].", [
+        source(
+          1,
+          "a.pdf",
+          null,
+          "Expenses are reimbursed within thirty days of an approved claim.",
+        ),
+      ]);
+
+      expect(text).toBe(
+        "Paid [1].\n\nSources:\n" +
+          "[1] a.pdf — “Expenses are reimbursed within thirty days of an approved…”",
+      );
+    });
+
+    it("collapses the passage's line breaks and runs of spaces", () => {
+      const text = answerAsText("Paid [1].", [
+        source(1, "a.pdf", null, "  Paid\n\nwithin   30 days. "),
+      ]);
+
+      expect(text).toBe(
+        "Paid [1].\n\nSources:\n[1] a.pdf — “Paid within 30 days.”",
+      );
+    });
+
+    it("leaves a passage of exactly the limit whole", () => {
+      const sixty = `${"word ".repeat(11)}words`;
+
+      expect([...sixty]).toHaveLength(60);
+      expect(answerAsText("Paid [1].", [source(1, "a.pdf", null, sixty)])).toBe(
+        `Paid [1].\n\nSources:\n[1] a.pdf — “${sixty}”`,
+      );
+    });
+
+    it("cuts a word longer than the limit where the limit falls", () => {
+      // No space to back up to: the cut itself is the excerpt.
+      const text = answerAsText("Paid [1].", [
+        source(1, "a.pdf", null, "a".repeat(70)),
+      ]);
+
+      expect(text).toBe(
+        `Paid [1].\n\nSources:\n[1] a.pdf — “${"a".repeat(60)}…”`,
+      );
+    });
+
+    it("never halves a character that takes two code units", () => {
+      // Sliced by UTF-16 units, the 60th code point here would be cut in two.
+      const text = answerAsText("Paid [1].", [
+        source(1, "a.pdf", null, `${"a".repeat(59)}😀 and more`),
+      ]);
+
+      expect(text).toBe(
+        `Paid [1].\n\nSources:\n[1] a.pdf — “${"a".repeat(59)}😀…”`,
       );
     });
   });

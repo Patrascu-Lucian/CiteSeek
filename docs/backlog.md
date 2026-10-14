@@ -3737,3 +3737,6 @@ copied as `[1]`, `[2]` and `[3]` all reading "northwind-remote-work-handbook.pdf
 different passages; on screen a marker opens the one it means, and on paper nothing distinguishes them.
 1.10.0 already reworks what the clipboard carries for invented markers, so a short quote per source
 belongs in the same change.
+
+↳ **Done in 1.10.0.** Each copied source carries the start of its passage, cut at a word near 60
+characters: `[1] handbook.pdf, page 1 — “Reimbursement is paid through payroll.”`.
