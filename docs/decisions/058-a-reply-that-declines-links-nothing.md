@@ -42,16 +42,17 @@ The marked refusals come in two shapes, both in the committed runs:
 **A reply that opens with "The documents do not cover" renders none of its markers as links.** They
 stay plain text, and one note follows the reply, in the same register as the note for an invented
 marker ([ADR 036](036-saying-why-a-citation-did-not-link.md)): the reply declines the question, so its
-markers are not links. The passages stay reachable from the source panel. When this note shows, the
-invented-marker and nothing-cited notes do not, as the answer already avoids two warnings for one
-situation.
+markers are not links. When this note shows, the invented-marker and nothing-cited notes do not, as
+the answer already avoids two warnings for one situation.
 
 **The detector matches the exact opener, and nothing looser.** One of the 60 committed replies
 declined as "The documents do not specify…", with a marker, and an exact match misses it. Widening to
 "The documents do not" would also catch a true answer such as "The documents do not require a
 certificate for absences of seven days or fewer [3]", and unlinking a correct citation is worse than
-missing a decline. The opener is one constant exported from `lib/ai/prompt.ts` and read by the
-detector, so the instruction and the check cannot drift apart.
+missing a decline. The opener is one constant, which rule 7 is written from and the detector reads,
+so the instruction and the check cannot drift apart. It lives beside the detector in
+`lib/ai/citations.ts` rather than in the prompt module, because the page loads the detector and has
+no use for the system prompt's text.
 
 **The clipboard follows the screen.** A copied reply lists only the markers that rendered as links,
 and carries the same note the screen shows, so a paste cannot read better sourced than the page. This
@@ -66,8 +67,10 @@ migration.
 - The guarantee is scoped to the form, and says so: **a reply in the declining form links nothing.**
   How often the model declines without that form is measured beside it in `pnpm eval:refusals`, as
   its own column, rather than folded into a "0 linked" that would hide it.
-- The partial answer is the price. The warranty reply's `[7]` was relevant and is no longer a link.
-  `pnpm eval:refusals` counts those losses by reading the verbatim replies, so the price is a number.
+- The partial answer is the price. The warranty reply's `[7]` was relevant and is no longer a link,
+  and a chip is the only thing on the page that opens a passage, so that passage cannot be reached
+  from that reply at all. `pnpm eval:refusals` counts those losses by reading the verbatim replies, so
+  the price is a number.
 - The model's rate is unchanged, and the README and the landing page say that: what changes is that a
   marker on a declining reply no longer presents itself as a source.
 - Local mode sends the same system prompt (`buildSystemPrompt`), so the rule reaches it through the

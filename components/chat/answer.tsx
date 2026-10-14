@@ -3,9 +3,11 @@ import { Streamdown } from "streamdown";
 import { AlertTriangle } from "lucide-react";
 
 import {
+  DECLINED_MARKERS_NOTE,
   citedMarkers,
+  inventedMarkersNote,
   linkCitationMarkers,
-  unresolvedMarkers,
+  markerVerdict,
 } from "@/lib/ai/citations";
 import type { ChatSource } from "@/lib/ai/types";
 
@@ -58,13 +60,14 @@ export function Answer({
   const prose = useRef<HTMLDivElement>(null);
   useKeptSelection(prose, text);
 
-  const invented = unresolvedMarkers(text, sources);
+  const { invented, declined } = markerVerdict(text, sources);
   const groundless =
     settled &&
     sources.length > 0 &&
     text.trim().length > 0 &&
-    // No invented ones either: an answer citing `[7]` already gets the note
-    // above, and two warnings for one situation is how both stop being read.
+    // No other note either: an answer citing `[7]` already gets one, and two
+    // warnings for one situation is how both stop being read.
+    !declined &&
     invented.length === 0 &&
     citedMarkers(text, sources).length === 0;
 
@@ -82,6 +85,7 @@ export function Answer({
         </Streamdown>
       </div>
 
+      {declined ? <DeclinedMarkers /> : null}
       {invented.length > 0 ? <InventedMarkers markers={invented} /> : null}
       {groundless ? <NothingCited /> : null}
     </CitationProvider>
@@ -116,18 +120,25 @@ function NothingCited() {
  * it as a broken button (ADR 036).
  */
 function InventedMarkers({ markers }: { markers: readonly number[] }) {
-  const list = markers.map((marker) => `[${String(marker)}]`).join(", ");
-  const one = markers.length === 1;
+  const { list, explanation } = inventedMarkersNote(markers);
 
   return (
     <p className="text-muted-foreground mt-2 flex gap-2 text-xs">
       <AlertTriangle aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
       <span>
-        <strong>{list}</strong>{" "}
-        {one
-          ? "is not one of the passages found, so it is not a link. Treat that claim as unsupported."
-          : "are not among the passages found, so they are not links. Treat those claims as unsupported."}
+        <strong>{list}</strong> {explanation}
       </span>
+    </p>
+  );
+}
+
+/** A marker on a refusal claims a source for a claim the reply did not make, so
+ * a declining reply links none of them, whatever the model wrote (ADR 058). */
+function DeclinedMarkers() {
+  return (
+    <p className="text-muted-foreground mt-2 flex gap-2 text-xs">
+      <AlertTriangle aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+      <span>{DECLINED_MARKERS_NOTE}</span>
     </p>
   );
 }

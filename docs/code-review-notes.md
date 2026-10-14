@@ -4208,3 +4208,21 @@ was written and tested against itself rather than against the things it points a
 - **Lesson**: **a before-and-after first has to show it saw the change.** Logging which image each
   run fetched would have shown 750w twice. The 1.9.0 entry about two runs was about too few
   measurements; this one is about fifteen of the wrong thing, which repetition only made look sturdier.
+
+## A cost the decision record understated, 14 October 2026
+
+- **Issue**: ADR 058, which unlinks every marker in a reply that declines, said the unlinked passages
+  "stay reachable from the source panel". Writing the note that tells the reader so meant finding that
+  panel, and there is none to find: a citation chip is the only thing on the page that opens a passage.
+  Unlink the chips and the warranty reply's relevant `[7]` is unreachable from that reply at all.
+
+- **Why it mattered**: the sentence sat in the Consequences section, where it softened the one cost
+  the decision admits. A reader weighing "link nothing" against "keep the links" would have read the
+  price as a click moved somewhere else, when it is the passage gone from that turn.
+
+- **Fix**: the ADR states the cost as it is, and the note the reader sees promises nothing about where
+  the passages went.
+
+- **Lesson**: **a consequence is a claim about the code, and it gets checked like one.** Every other
+  sentence in that ADR was traced to `eval/refusals.md` or the prompt before it was written; the one
+  that was not came from the design as first sketched, and it described a page that does not exist.
