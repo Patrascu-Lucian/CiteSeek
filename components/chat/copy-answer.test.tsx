@@ -14,7 +14,7 @@ const source = (marker: number, filename: string): ChatSource => ({
   documentId: "doc",
   charStart: 0,
   charEnd: 10,
-  quote: "…",
+  quote: "The deposit is £1,200, held in a protection scheme.",
 });
 
 describe("CopyAnswer", () => {
@@ -31,7 +31,8 @@ describe("CopyAnswer", () => {
     await user.click(screen.getByRole("button", { name: /copy the answer/i }));
 
     expect(await navigator.clipboard.readText()).toBe(
-      "The deposit is £1,200 [1].\n\nSources:\n[1] tenancy.pdf",
+      "The deposit is £1,200 [1].\n\nSources:\n" +
+        "[1] tenancy.pdf — “The deposit is £1,200, held in a protection scheme.”",
     );
   });
 
