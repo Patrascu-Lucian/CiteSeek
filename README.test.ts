@@ -90,3 +90,38 @@ describe("the README's count of review notes", () => {
     expect(Number(claimed![1])).toBe(entries);
   });
 });
+
+/* The refusal report is re-run when the rule around it changes, and a README
+   sentence quoting the run before stayed behind once already. */
+describe("the README's refusal-marker counts", () => {
+  const report = read("eval", "refusals.md");
+  const prose = read("README.md").replace(/\n>? */g, " ");
+
+  /** The per-run counts in the "carrying a marker" column of one set's row. */
+  const carrying = (set: string) => {
+    const row = report
+      .split("\n")
+      .find((line) => line.startsWith(`| ${set} |`));
+    const cell = row?.split("|")[3] ?? "";
+    return (cell.split(" of ")[0] ?? "").split(",").map(Number);
+  };
+
+  const range = (counts: number[]) => {
+    const [low, high] = [Math.min(...counts), Math.max(...counts)];
+    return low === high
+      ? `${String(low)}`
+      : `between ${String(low)} and ${String(high)}`;
+  };
+
+  it("reads three runs from each row", () => {
+    expect(carrying("golden")).toHaveLength(3);
+    expect(carrying("uncovered")).toHaveLength(3);
+  });
+
+  it("quotes the range the latest report measured", () => {
+    expect(prose).toContain(`${range(carrying("golden"))} of the golden five`);
+    expect(prose).toContain(
+      `${range(carrying("uncovered"))} of the adversarial fifteen`,
+    );
+  });
+});

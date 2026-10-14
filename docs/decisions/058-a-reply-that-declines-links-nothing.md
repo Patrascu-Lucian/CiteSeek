@@ -5,9 +5,10 @@
 When retrieval finds nothing relevant, the refusal is written by CiteSeek and the model never runs
 ([ADR 017](017-answering-questions-the-documents-cannot-answer.md)). When the floor admits a
 question the documents cannot answer, the model writes the refusal, and rule 4 of the system prompt
-forbids it to carry a marker. It carries one anyway: `eval/refusals.md` measures 2 of the 5 golden
-refusals and 9 to 11 of the 15 uncovered ones per run with a marker
-([ADR 055](055-a-second-signal-measured-and-not-shipped.md)).
+forbids it to carry a marker. It carries one anyway: when this was decided, `eval/refusals.md`
+measured 2 of the 5 golden refusals and 9 to 11 of the 15 uncovered ones per run with a marker
+([ADR 055](055-a-second-signal-measured-and-not-shipped.md)). The counts move between runs, and the
+file carries the latest.
 
 Rewording rule 4 cannot be shown to help. Three wordings measured within each other's range, and
 telling a rate near 0.3 from 0.1 takes about 62 leaked questions per variant against the five the
@@ -52,7 +53,8 @@ certificate for absences of seven days or fewer [3]", and unlinking a correct ci
 missing a decline. The opener is one constant, which rule 7 is written from and the detector reads,
 so the instruction and the check cannot drift apart. It lives beside the detector in
 `lib/ai/citations.ts` rather than in the prompt module, because the page loads the detector and has
-no use for the system prompt's text.
+no use for the system prompt's text. **Widened to a second opener on 14 October 2026; see the
+amendment below.**
 
 **The clipboard follows the screen.** A copied reply lists only the markers that rendered as links,
 and carries the same note the screen shows, so a paste cannot read better sourced than the page. This
@@ -76,12 +78,32 @@ migration.
   Severity 1 response target. The other 25 cited a list of what the documents cover. The reading's
   rule: a cited clause that states a fact the question was reaching for counts as a loss, and one
   that names topics does not.
-- Both replies measured so far that declined in another wording opened "The documents do not
-  specify". Unlike "do not require", that phrasing is a decline in every use, so it is the candidate
-  if the detector ever widens; it stays exact until a run shows the miss costs more than one reply in
-  sixty.
+- Every reply measured so far that declined in another wording opened "The documents do not
+  specify": one in each of the three committed 60-reply reports, each a decline citing a relevant
+  partial fact. That is what the amendment below acts on.
 - The model's rate is unchanged, and the README and the landing page say that: what changes is that a
   marker on a declining reply no longer presents itself as a source.
 - Local mode sends the same system prompt (`buildSystemPrompt`), so the rule reaches it through the
   same rendering. Whether the 0.5B model uses the opener is not measured; where it does not, its
   markers keep their links, and that is recorded rather than claimed away.
+
+## Amendment, 14 October 2026: a second opener
+
+**The detector also reads "The documents do not specify" as declining, and nothing else.** In each of
+the three committed reports of 60 replies, exactly one reply declined with that phrase instead of the
+one rule 7 asks for: the Severity 1 resolution target once, the corrosion inhibitor twice. Each was a
+decline citing a relevant partial fact, the shape the rule already unlinks when the model writes "do
+not cover". Left exact, whether a reader could click such a marker depended on which synonym the
+model picked. The trigger first written here, waiting until the miss cost more than one reply in
+sixty, measured a rate; this is an identified phrase, and it does not need waiting out.
+
+**The inclusion rule, so this does not become a heuristic.** A phrase joins the list only if it has
+opened a decline in a committed eval run and it is a decline in every use. A verb that can begin a
+true answer, as "require" can, never joins, and neither does "The documents do not" on its own.
+
+- The cost is the one already accepted above: at worst a partial answer loses its link, as 10 of the
+  35 unlinked replies did. It is not a new kind of risk.
+- The prompt still asks for "cover" only, so it is byte-identical and the model's measured behavior
+  still describes it. The list is the page's reading, not a second instruction.
+- The public copy now says a refusal "worded in a way the page does not recognize" still links, since
+  the page recognizes more than the prompt's own form.

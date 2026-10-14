@@ -38,8 +38,8 @@ the allowance.
 
 ## Why this is not the contradiction it looks like
 
-ROADMAP 7.5 carries a standing instruction: _do not extend `enforceUsageLimits` to carry both._
-That was written about **stock** limits — documents, conversations, saved messages — which never
+[ADR 039](039-the-default-plan-s-ceiling.md) is explicit that `enforceUsageLimits` is not to carry
+both kinds of limit. That was written about **stock** limits — documents, conversations, saved messages — which never
 heal and whose refusal has to name what to delete. Mixing those into a flow limit would produce one
 function returning two refusals whose remedies contradict each other.
 

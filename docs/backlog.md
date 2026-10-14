@@ -3469,7 +3469,7 @@ after it.**
 Also outstanding for that slice, and not answerable from the DPA: how long Scaleway retains delivery
 logs holding recipient addresses. The page states a retention window, so it needs a number.
 
-## The citation-chip contrast test fails under full-suite load, 21 September 2026
+## ~~The citation-chip contrast test fails under full-suite load~~, 21 September 2026
 
 `e2e/a11y.spec.ts:309` — "a citation chip is distinguishable from the bubble behind it" — failed
 once in a full `pnpm test:e2e` run and passes every time it is run alone. Unrelated to the landing
@@ -3530,7 +3530,7 @@ conditional. The 21 September diagnosis was right that a re-render replaces the 
 it happens as the stream ends, not during it. The paragraph above is kept because its reasoning is
 what the review had to undo.
 
-## `check:test-counts` trusts a report that may be from another week, 30 September 2026
+## ~~`check:test-counts` trusts a report that may be from another week~~, 30 September 2026
 
 The script takes a layer and a JUnit path and compares the count in that file against the README's
 table. In CI the file is always the one the job just wrote. Locally it is whatever is on disk:
@@ -3565,7 +3565,7 @@ next commit, and the message again pointed at the README. There is no honest che
 total is the README's own number, so comparing against it is the thing being tested. The mismatch
 message names the cause instead, since being far short is the symptom a filtered run produces.
 
-## A text selection in an answer still does not survive the stream ending, 1 October 2026
+## ~~A text selection in an answer still does not survive the stream ending~~, 1 October 2026
 
 Found by hand in a WebGPU browser on `/local` while smoke-testing the 1.9.0 release, after the fix for
 the answer being rebuilt had landed. The two are separate: that fix is verified to stop the rebuild —
@@ -3610,7 +3610,7 @@ the un-parked E2E, on a third server whose stream is slowed, fail without it.
 node, so a selection reaching into it from an earlier node is shortened, not collapsed — and the hook
 restored only collapsed ones. It now restores whenever the offsets differ, with a test for each shape.
 
-## Five findings deferred from the 1.9.0 release review, 1 October 2026
+## ~~Five findings deferred from the 1.9.0 release review~~, 1 October 2026
 
 An external review of `develop` against `main` raised eleven findings. Four were fixed before tagging,
 along with two one-line ones (the mutation strip's scope, and the stale security comment above
@@ -3656,6 +3656,9 @@ release commit.
 the empty slot is gone rather than accepted (#431), and the mutation figure is checked against the file
 the run writes (#432) — the two latency figures still match README prose. The clipboard finding moves
 to 1.10.0, where the decision about markers in refusals settles what a paste should carry.
+
+↳ **1.10.0, 14 October 2026: the fifth shipped too.** A copied reply lists only the markers the page
+linked and carries the page's own note, invented markers included (#443, ADR 058).
 
 ## Two size limits that were never in conflict, 2 October 2026
 
@@ -3717,6 +3720,12 @@ is the product working, and the operator sees nothing. It took four diagnostic s
 itself is chosen from the configured provider per query, so a mismatch also compares against the
 wrong provider's threshold. A guard is cheap: compare the configured provider with a fingerprint of
 one stored vector in scope, at startup or on the first retrieval, and fail loudly where it disagrees.
+
+↳ **The same silence in CI, found by the 1.10.0 release review (patch work, open).** `lib/db/seed.mts`
+prints "failed, 0 passages embedded" and still exits 0, and the integration job seeds with no
+embeddings provider and no key, so the demo document fails on every build while "Seed demo workspace"
+and its idempotency check stay green — the second only ever exercises the failed path. A failed seed
+should exit non-zero, and that job should set `EMBEDDINGS_PROVIDER: fake` as the E2E job already does.
 
 **Whether Preview should carry a real model key (needs a decision).** As configured, Preview had fake
 embeddings, no `CHAT_PROVIDER` — which means the real chat model — and no API key. It could prove that a

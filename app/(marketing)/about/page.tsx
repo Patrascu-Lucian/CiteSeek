@@ -114,8 +114,8 @@ export default function AboutPage() {
           is told to write one — &ldquo;The documents do not
           cover&hellip;&rdquo; — renders none of its markers as links, and says
           why. The model attaches them as often as before; what changed is that
-          they no longer present themselves as sources. A refusal worded some
-          other way still links them.
+          they no longer present themselves as sources. A refusal worded in a
+          way the page does not recognize still links them.
         </p>
       </Section>
 

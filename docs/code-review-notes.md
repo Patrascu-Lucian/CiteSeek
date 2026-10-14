@@ -4246,3 +4246,47 @@ was written and tested against itself rather than against the things it points a
 - **Lesson**: **an example is not a measurement of a cost.** The decision may well stand at 29% — a
   structural rule was the point — but the record has to let a reader weigh the number, not the
   anecdote. Mutants that survive on a sort nobody reads are a deletion, not a missing test.
+
+## A trigger that waited out a phrase it had already identified, 14 October 2026
+
+- **Issue**: ADR 058 matched one opener exactly and named its trigger for widening: "until a run shows
+  the miss costs more than one reply in sixty". The release review laid out every committed report
+  since the opener existed: one miss in each of the three 60-reply reports, every one opening "The
+  documents do not specify", every one a real decline citing a relevant fact.
+
+- **Caught by Lucian, reviewing the decision**: the trigger measured a rate, and this was not a rate.
+  It was the same phrase three times out of three, so whether a reader could click a refusal's marker
+  depended on which synonym the model picked. And the ADR's own argument already covered it: the
+  looser match was rejected because "do not require" begins true answers, while it called "do not
+  specify" a decline in every use.
+
+- **Fix**: the detector reads exactly two openers, and ADR 058's amendment states the rule that keeps
+  it from becoming a heuristic: a phrase joins only if it has opened a decline in a committed run and
+  is a decline in every use. The prompt still asks for "cover" only, so it is byte-identical and the
+  measured behavior still describes it.
+
+- **Lesson**: **a threshold for noise is the wrong test for a pattern.** "Wait until it costs more"
+  fits a miss that varies; a miss that repeats the same words is identified already, and waiting only
+  keeps it shipping.
+
+## A re-run that left its own sentences behind, 14 October 2026
+
+- **Issue**: #444 re-ran the refusal eval and committed new counts, while the README and ADR 058 kept
+  quoting the previous run — "2 of the golden five in each run", which no run in the new file showed.
+  The commit even edited the lines directly beneath them. Found by the 1.10.0 release review.
+
+- **Fix**: the README quotes the latest report as a range, and `README.test.ts` now reads the report's
+  table and fails when the sentence and the file disagree; changing the range to the old one turns it
+  red. ADR 058 keeps its numbers as what was measured when it was decided, the way ADR 055 scopes its
+  own.
+
+- **And the excerpt code shipped with this fix had five surviving mutants on first run.** Two were
+  redundant code — an empty-quote branch and a `trimEnd` that nothing could reach — deleted rather than
+  tested. Two were real gaps: no quote exactly at the 60-character limit, and no word longer than it,
+  because the emoji test happened to have a space just past the cut. One was an equivalent `> 0`,
+  removed by writing the condition as the `-1` it really is. Writing the first test had already caught
+  a word that fit exactly being dropped.
+
+- **Lesson**: **a number copied out of a generated file needs a test the next generation can fail.**
+  Every other figure in the README was already pinned this way; the one that was not is the one that
+  went stale.

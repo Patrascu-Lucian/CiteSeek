@@ -10,7 +10,6 @@ import { fileURLToPath } from "node:url";
 import { loadLocalEnv } from "../lib/env/load-local-env.ts";
 import { namesHost } from "../lib/env/named-host.ts";
 import { GOLDEN_SET, UNCOVERED_SET } from "../eval/golden-set.ts";
-import { cites } from "../eval/scoring.ts";
 
 // Read before `loadLocalEnv`: `.env.local` must not be what decides to spend
 // money, or which database to write to.
@@ -170,10 +169,16 @@ try {
         stopWhen: CHAT_STEP_LIMIT,
       });
 
-      const marked = cites(text, sources.length);
+      // All three columns read markers with the page's grammar: `cites` takes
+      // only a single in-range `[n]`, so `[1, 2]` or an invented `[9]` would
+      // count as unlinked without counting as carried.
+      const verdict = markerVerdict(text, sources);
+      const marked =
+        verdict.declined ||
+        verdict.linked.length > 0 ||
+        verdict.invented.length > 0;
       if (marked) cited.set(set, (cited.get(set) ?? 0) + 1);
 
-      const verdict = markerVerdict(text, sources);
       const linked = verdict.linked.length > 0;
       if (linked) linkedCount.set(set, (linkedCount.get(set) ?? 0) + 1);
       if (verdict.declined) {
@@ -217,11 +222,12 @@ try {
       return `| ${name} | ${String(clearing(name))} of ${String(questions.length)} | ${per(rates)} | ${per(linkedRates)} | ${per(unlinkedRates)} |`;
     }),
     "",
-    "Per run. A reply that opens in the declining form links none of its markers",
-    '(ADR 058), so "rendered as a link" is what a reader can still click on a',
-    "refusal: replies that declined in some other wording. Whether an unlinked",
-    "marker pointed at something relevant is read from the answers below, not",
-    "counted here.",
+    "Per run, every column reading markers as the page does. A reply that opens",
+    "in a declining form the page recognizes links none of its markers (ADR 058),",
+    'so "rendered as a link" is what a reader can still click on a refusal:',
+    "replies that declined in a wording the page does not recognize. Whether an",
+    "unlinked marker pointed at something relevant is read from the answers",
+    "below, not counted here.",
     "",
     "Rule 4 of the system prompt forbids attaching a marker to a refusal, so a",
     "marker on a refusal is the prompt broken by its own definition. Answers are",
