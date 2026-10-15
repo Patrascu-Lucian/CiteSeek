@@ -9,10 +9,14 @@ import type { ChatSource } from "./types";
 /** Enough to tell two passages on one page apart, which "page 1" alone cannot. */
 const EXCERPT_CHARS = 60;
 
-/** Cut at a word, by code point, so an emoji or an accent is never halved. */
+// Grapheme is the default granularity.
+const GRAPHEMES = new Intl.Segmenter();
+
+/** Cut at a word, by grapheme: a code point would still split a flag, a ZWJ
+ * emoji or an accent written as two marks. */
 function excerpt(quote: string): string {
   const flat = quote.replace(/\s+/g, " ").trim();
-  const chars = [...flat];
+  const chars = [...GRAPHEMES.segment(flat)].map(({ segment }) => segment);
   if (chars.length <= EXCERPT_CHARS) return flat;
 
   const cut = chars.slice(0, EXCERPT_CHARS).join("");

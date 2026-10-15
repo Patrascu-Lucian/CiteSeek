@@ -226,6 +226,20 @@ describe("answerAsText", () => {
       );
     });
 
+    it("never halves a character built from several code points", () => {
+      // At the cut: a ZWJ family, a flag, a skin tone and a decomposed "é".
+      // Cut by code point, each lost its second half.
+      for (const whole of ["👨‍👩‍👧", "🇬🇧", "👍🏽", "é"]) {
+        const text = answerAsText("Paid [1].", [
+          source(1, "a.pdf", null, `${"a".repeat(59)}${whole}bbbb`),
+        ]);
+
+        expect(text).toBe(
+          `Paid [1].\n\nSources:\n[1] a.pdf — “${"a".repeat(59)}${whole}…”`,
+        );
+      }
+    });
+
     it("never halves a character that takes two code units", () => {
       // Sliced by UTF-16 units, the 60th code point here would be cut in two.
       const text = answerAsText("Paid [1].", [

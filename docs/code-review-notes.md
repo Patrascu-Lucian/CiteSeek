@@ -4290,3 +4290,15 @@ was written and tested against itself rather than against the things it points a
 - **Lesson**: **a number copied out of a generated file needs a test the next generation can fail.**
   Every other figure in the README was already pinned this way; the one that was not is the one that
   went stale.
+
+↳ **The same miss, three sentences deeper, found by the pre-release check.** Scoping ADR 058's rates
+sentence left three others describing #444's report as "the committed" one: 59 of 60 on the opener,
+the one "do not specify", and the price of 10 of 35 — which a reader redoing it on the current file
+would count as 12 of 38. A decision record cannot be pinned the way the README is, because its
+numbers are meant to stay those of its moment; what it can do is name the run each one came from, and
+now it does.
+
+↳ **And a comment that promised more than its code.** The excerpt said it never halved "an emoji or an
+accent", and it cut by code point: a ZWJ family, a flag, a skin tone and a decomposed "é" each lost
+their second half at the cut. It now cuts by grapheme with `Intl.Segmenter`, and one test holds all
+four, failing on the code-point version.

@@ -730,7 +730,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1133  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1134  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 189   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
@@ -744,7 +744,7 @@ fixed and the missing tests added, it was 86.5%
 ([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)). Re-measuring every release paid
 for itself on the next one: the only module added since, the clipboard form of an answer, scored
 **73.68%**, and three of its five survivors were one gap — a sort every test reached with a single
-element, which sorts the same however the comparator behaves. It is **87.63% of 938 mutants** now,
+element, which sorts the same however the comparator behaves. It is **87.65% of 939 mutants** now,
 and that module is at 100%.
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)
