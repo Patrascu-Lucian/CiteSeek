@@ -55,7 +55,8 @@ link here:
 - **Two advisories with no fixed release to pin to.** `braces` ≤ 3.0.3 (GHSA-vfj7-8cjw-p6xm) is
   reached only through dev tooling. `sprintf-js` ≤ 1.1.3 (GHSA-hp3w-g68c-fv3c) arrives through
   `mammoth > argparse`, which only mammoth's command-line entry loads; `lib/rag/extract.ts`
-  imports the library. `pnpm audit` reports both until a fix is published.
+  imports the library. `pnpm-workspace.test.ts` checks that path and fails when it changes.
+  `pnpm audit` reports both until a fix is published.
 
 ## Handling of your report
 
