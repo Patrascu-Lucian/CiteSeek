@@ -16,7 +16,8 @@ golden set has (`docs/backlog.md`, 12 September 2026). A rule enforced in code c
 which is the argument the rest of this project makes.
 
 What makes that buildable is that the declining form is now fixed. Rule 7 asks for "The documents do
-not cover X", and 59 of the 60 committed replies open with exactly that.
+not cover X", and 59 of the 60 replies in the report this was decided on (#444) open with exactly
+that.
 
 The marked refusals come in two shapes, both in the committed runs:
 
@@ -46,7 +47,7 @@ marker ([ADR 036](036-saying-why-a-citation-did-not-link.md)): the reply decline
 markers are not links. When this note shows, the invented-marker and nothing-cited notes do not, as
 the answer already avoids two warnings for one situation.
 
-**The detector matches the exact opener, and nothing looser.** One of the 60 committed replies
+**The detector matches the exact opener, and nothing looser.** One of the 60 replies in that report
 declined as "The documents do not specify…", with a marker, and an exact match misses it. Widening to
 "The documents do not" would also catch a true answer such as "The documents do not require a
 certificate for absences of seven days or fewer [3]", and unlinking a correct citation is worse than
@@ -72,12 +73,14 @@ migration.
 - The partial answer is the price. The warranty reply's `[7]` was relevant and is no longer a link,
   and a chip is the only thing on the page that opens a passage, so that passage cannot be reached
   from that reply at all. `pnpm eval:refusals` counts those losses by reading the verbatim replies, so
-  the price is a number. **Measured on 14 October 2026, across three runs: 35 declining replies had
-  their markers unlinked, and 10 of them had cited a specific fact bearing on the question** — the
+  the price is a number. **Measured on the report committed with #444, three runs: 35 declining
+  replies had their markers unlinked, and 10 of them had cited a specific fact bearing on the
+  question** — the
   warranty clause, the downgrade rule asked about an upgrade, the corrosion-inhibitor instruction, the
   Severity 1 response target. The other 25 cited a list of what the documents cover. The reading's
   rule: a cited clause that states a fact the question was reaching for counts as a loss, and one
-  that names topics does not.
+  that names topics does not. The re-run committed with the amendment below reads 38 unlinked and
+  12 in that shape, 14 if two replies citing the pressure sensor's fault code count.
 - Every reply measured so far that declined in another wording opened "The documents do not
   specify": one in each of the three committed 60-reply reports, each a decline citing a relevant
   partial fact. That is what the amendment below acts on.
@@ -97,12 +100,16 @@ not cover". Left exact, whether a reader could click such a marker depended on w
 model picked. The trigger first written here, waiting until the miss cost more than one reply in
 sixty, measured a rate; this is an identified phrase, and it does not need waiting out.
 
+The re-run committed with this amendment had all 60 replies open "do not cover" and none "do not
+specify", so it rendered no link in any run of either set. That says the model used the prompt's
+form throughout, not that the second opener was exercised: its tests are what show it works.
+
 **The inclusion rule, so this does not become a heuristic.** A phrase joins the list only if it has
 opened a decline in a committed eval run and it is a decline in every use. A verb that can begin a
 true answer, as "require" can, never joins, and neither does "The documents do not" on its own.
 
 - The cost is the one already accepted above: at worst a partial answer loses its link, as 10 of the
-  35 unlinked replies did. It is not a new kind of risk.
+  35 unlinked replies in #444's report did. It is not a new kind of risk.
 - The prompt still asks for "cover" only, so it is byte-identical and the model's measured behavior
   still describes it. The list is the page's reading, not a second instruction.
 - The public copy now says a refusal "worded in a way the page does not recognize" still links, since
