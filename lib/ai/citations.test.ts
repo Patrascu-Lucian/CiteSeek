@@ -5,7 +5,10 @@ import {
   CITATION_HREF_PREFIX,
   citationLabel,
   citedMarkers,
+  inventedMarkersNote,
   linkCitationMarkers,
+  markerVerdict,
+  opensWithRefusal,
   unresolvedMarkers,
   parseCitationHref,
 } from "./citations";
@@ -239,5 +242,118 @@ describe("citedMarkers", () => {
         source({ marker: 30, chunkId: "c30" }),
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("opensWithRefusal", () => {
+  it("recognizes the declining form rule 7 asks for", () => {
+    expect(opensWithRefusal("The documents do not cover parking.")).toBe(true);
+  });
+
+  it("reads past leading whitespace and an opening quote", () => {
+    expect(opensWithRefusal("  The documents do not cover parking.")).toBe(
+      true,
+    );
+    expect(opensWithRefusal("“The documents do not cover parking.”")).toBe(
+      true,
+    );
+  });
+
+  it("does not care about the opener's case", () => {
+    expect(opensWithRefusal("the documents do not cover parking.")).toBe(true);
+  });
+
+  it("counts the opener only at the start", () => {
+    // An answer can quote the phrase; only a reply that opens with it declines.
+    expect(
+      opensWithRefusal(
+        "Parking is free [1]. The documents do not cover tolls.",
+      ),
+    ).toBe(false);
+  });
+
+  it("recognizes the one other opener the eval caught declining", () => {
+    // One reply in sixty in each committed report, every time a decline.
+    expect(
+      opensWithRefusal("The documents do not specify which inhibitor [3]."),
+    ).toBe(true);
+  });
+
+  it("does not stretch to every reply that opens alike", () => {
+    // "The documents do not" alone would take this true answer (ADR 058).
+    expect(
+      opensWithRefusal(
+        "The documents do not require a certificate for seven days or fewer [3].",
+      ),
+    ).toBe(false);
+  });
+
+  it("strips a quote only where it opens the reply", () => {
+    // Removed anywhere, a stray quote would splice a declining opener together.
+    expect(opensWithRefusal('The doc"uments do not cover parking.')).toBe(
+      false,
+    );
+  });
+});
+
+describe("a declining reply's markers", () => {
+  const three = [
+    source({ marker: 1 }),
+    source({ marker: 2, chunkId: "chunk-2" }),
+    source({ marker: 3, chunkId: "chunk-3" }),
+  ];
+  const declining =
+    "The documents do not cover the warranty; they mention the guard [1][2] and storage [3].";
+
+  it("are left as text, though every one resolves", () => {
+    expect(linkCitationMarkers(declining, three)).toBe(declining);
+  });
+
+  it("are neither linked nor reported as invented", () => {
+    // One situation, one note: a declining reply is not also told its marker
+    // was invented.
+    expect(
+      markerVerdict("The documents do not cover the warranty [1][9].", three),
+    ).toEqual({ linked: [], invented: [], declined: true });
+  });
+
+  it("do not make a reply without markers a declined one", () => {
+    // Nothing was unlinked, so there is nothing to explain.
+    expect(markerVerdict("The documents do not cover parking.", three)).toEqual(
+      { linked: [], invented: [], declined: false },
+    );
+  });
+});
+
+describe("markerVerdict", () => {
+  const two = [source({ marker: 1 }), source({ marker: 2, chunkId: "c2" })];
+
+  it("lists exactly the markers drawn as chips", () => {
+    // `[1][7]` is all or nothing, so its `1` is not a chip; `[2]` is.
+    expect(markerVerdict("Mixed [1][7], then [2] and [2].", two)).toEqual({
+      linked: [2],
+      invented: [7],
+      declined: false,
+    });
+  });
+});
+
+describe("inventedMarkersNote", () => {
+  // Pinned whole here as well as on the page: the clipboard sends these exact
+  // words, and the page's test sits outside the mutation run's scope.
+  it("speaks of one number in the singular", () => {
+    expect(inventedMarkersNote([7])).toEqual({
+      list: "[7]",
+      explanation:
+        "is not one of the passages found, so it is not a link. Treat that claim as unsupported.",
+    });
+  });
+
+  it("lists several, separated, in the plural", () => {
+    expect(inventedMarkersNote([7, 9])).toEqual({
+      list: "[7], [9]",
+      explanation:
+        "are not among the passages found, so they are not links. Treat those claims as unsupported.",
+    });
   });
 });

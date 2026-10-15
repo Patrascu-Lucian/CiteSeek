@@ -179,6 +179,33 @@ describe("Answer — a marker the model invented", () => {
   });
 });
 
+describe("Answer — a reply that declines", () => {
+  const two = [source(), source({ marker: 2, chunkId: "chunk-2" })];
+
+  it("links none of its markers and says why, once", () => {
+    // Both markers resolve; the reply's form is what unlinks them (ADR 058).
+    renderAnswer({
+      text: "The documents do not cover the warranty; they mention the guard [1][2].",
+      sources: two,
+    });
+
+    expect(screen.queryAllByRole("button", { name: /citation/i })).toEqual([]);
+    expect(
+      screen.getByText(/declines the question, so its markers are not links/i),
+    ).toBeVisible();
+    expect(screen.queryByText(/not one of the passages/i)).toBeNull();
+    expect(screen.queryByText(/nothing here is cited/i)).toBeNull();
+  });
+
+  it("keeps the uncited-refusal note when it carries no markers", () => {
+    // Nothing was unlinked, so the existing note is the right one.
+    renderAnswer({ text: "The documents do not cover parking.", sources: two });
+
+    expect(screen.getByText(/nothing here is cited/i)).toBeVisible();
+    expect(screen.queryByText(/declines the question/i)).toBeNull();
+  });
+});
+
 describe("Answer — an answer that cites nothing", () => {
   it("says so when passages were found and none were cited", () => {
     // "You can upload up to 2 files" — false, specific, and carrying no marker,

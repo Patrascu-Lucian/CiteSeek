@@ -109,6 +109,14 @@ export default function AboutPage() {
           rather than a false claim, and the difference between what is
           guaranteed here and what is merely reliable.
         </p>
+        <p className="mt-3">
+          So the page enforces part of it. A refusal written the way the model
+          is told to write one — &ldquo;The documents do not
+          cover&hellip;&rdquo; — renders none of its markers as links, and says
+          why. The model attaches them as often as before; what changed is that
+          they no longer present themselves as sources. A refusal worded in a
+          way the page does not recognize still links them.
+        </p>
       </Section>
 
       <Section title="How it is built">

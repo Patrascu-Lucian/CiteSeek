@@ -3469,7 +3469,7 @@ after it.**
 Also outstanding for that slice, and not answerable from the DPA: how long Scaleway retains delivery
 logs holding recipient addresses. The page states a retention window, so it needs a number.
 
-## The citation-chip contrast test fails under full-suite load, 21 September 2026
+## ~~The citation-chip contrast test fails under full-suite load~~, 21 September 2026
 
 `e2e/a11y.spec.ts:309` — "a citation chip is distinguishable from the bubble behind it" — failed
 once in a full `pnpm test:e2e` run and passes every time it is run alone. Unrelated to the landing
@@ -3530,7 +3530,7 @@ conditional. The 21 September diagnosis was right that a re-render replaces the 
 it happens as the stream ends, not during it. The paragraph above is kept because its reasoning is
 what the review had to undo.
 
-## `check:test-counts` trusts a report that may be from another week, 30 September 2026
+## ~~`check:test-counts` trusts a report that may be from another week~~, 30 September 2026
 
 The script takes a layer and a JUnit path and compares the count in that file against the README's
 table. In CI the file is always the one the job just wrote. Locally it is whatever is on disk:
@@ -3565,7 +3565,7 @@ next commit, and the message again pointed at the README. There is no honest che
 total is the README's own number, so comparing against it is the thing being tested. The mismatch
 message names the cause instead, since being far short is the symptom a filtered run produces.
 
-## A text selection in an answer still does not survive the stream ending, 1 October 2026
+## ~~A text selection in an answer still does not survive the stream ending~~, 1 October 2026
 
 Found by hand in a WebGPU browser on `/local` while smoke-testing the 1.9.0 release, after the fix for
 the answer being rebuilt had landed. The two are separate: that fix is verified to stop the rebuild —
@@ -3610,7 +3610,7 @@ the un-parked E2E, on a third server whose stream is slowed, fail without it.
 node, so a selection reaching into it from an earlier node is shortened, not collapsed — and the hook
 restored only collapsed ones. It now restores whenever the offsets differ, with a test for each shape.
 
-## Five findings deferred from the 1.9.0 release review, 1 October 2026
+## ~~Five findings deferred from the 1.9.0 release review~~, 1 October 2026
 
 An external review of `develop` against `main` raised eleven findings. Four were fixed before tagging,
 along with two one-line ones (the mutation strip's scope, and the stale security comment above
@@ -3651,6 +3651,15 @@ answer wraps unconditionally, and doing the same here means passing `justify-end
 accepting a 4px shift from the empty controls slot. Worth doing with the layout checked, not in a
 release commit.
 
+↳ **1.9.1, 14 October 2026: four of the five shipped.** The `/local` guard is an E2E that fails on a
+`<Link>` (#430), copy buttons are named for their question (#428), the question no longer remounts and
+the empty slot is gone rather than accepted (#431), and the mutation figure is checked against the file
+the run writes (#432) — the two latency figures still match README prose. The clipboard finding moves
+to 1.10.0, where the decision about markers in refusals settles what a paste should carry.
+
+↳ **1.10.0, 14 October 2026: the fifth shipped too.** A copied reply lists only the markers the page
+linked and carries the page's own note, invented markers included (#443, ADR 058).
+
 ## Two size limits that were never in conflict, 2 October 2026
 
 Raised by the 1.9.0 review sweep and by the 1.9.1 plan as a bug: _273,000 characters per document
@@ -3689,3 +3698,54 @@ characters are what the constant is in.
 
 **Lesson for the sweep that found it:** a limit's scope is part of its value. Comparing two numbers
 without checking what each one counts produces a bug report that costs more than the bug would have.
+
+## What the 1.9.1 smoke test found, 14 October 2026
+
+The release's smoke test was meant to run on a Vercel preview with the real model. Getting it there
+took four steps, and each one was a finding.
+
+**The preview database was three migrations behind (recorded, no action).** Nothing had deployed a
+preview since August, so the Neon branch previews use stopped at 8 of 11. `db:check` refused the build
+and named the missing three, which is that guard doing its job. Migrating it by hand first reached a
+different database that was already current; the host `db:check` prints is what showed that, before
+anything was changed. The habit that follows: read the host in the first line before the migrate.
+
+**A provider mismatch fails as polite refusals (medium, open).** With the build fixed, the first
+suggested question — answered by name in the handbook — was refused as "nothing relevant". Preview had
+`EMBEDDINGS_PROVIDER=fake`, while the demo passages on its database were embedded by Gemini. Read from
+the stored vectors: fake ones are word counts, so no component is negative and almost all are zero;
+these averaged 399 negative components of 768 and no zeros. A fake question vector against real
+passages lands below the floor for every question, and nothing logs it: the reader sees a refusal that
+is the product working, and the operator sees nothing. It took four diagnostic steps to find. The floor
+itself is chosen from the configured provider per query, so a mismatch also compares against the
+wrong provider's threshold. A guard is cheap: compare the configured provider with a fingerprint of
+one stored vector in scope, at startup or on the first retrieval, and fail loudly where it disagrees.
+
+↳ **The same silence in CI, found by the 1.10.0 release review (patch work, open).** `lib/db/seed.mts`
+prints "failed, 0 passages embedded" and still exits 0, and the integration job seeds with no
+embeddings provider and no key, so the demo document fails on every build while "Seed demo workspace"
+and its idempotency check stay green — the second only ever exercises the failed path. A failed seed
+should exit non-zero, and that job should set `EMBEDDINGS_PROVIDER: fake` as the E2E job already does.
+
+**Whether Preview should carry a real model key (needs a decision).** As configured, Preview had fake
+embeddings, no `CHAT_PROVIDER` — which means the real chat model — and no API key. It could prove that a
+build deploys, never that an answer works, and a question that cleared retrieval would have failed at
+the model call. For this smoke test the real provider and a key were set on Preview, then removed. The
+options:
+
+- **A key of its own on Preview**, with its own quota so its use is visible and revocable apart from
+  production's, behind Vercel's deployment protection. The release is smoke-tested before it reaches
+  `main`: the only check that runs the real model before the tag rather than after it.
+- **Fake throughout:** seed Preview's database with the fake embedder and set `CHAT_PROVIDER=fake`. Free
+  and consistent; proves the plumbing, not the answers, and moves the real-model check to production
+  after the tag.
+- Not the configuration it had, which was neither: a fake half and a real half that cannot agree.
+
+**A copied source list cannot tell same-page passages apart (low, for 1.10.0).** A five-marker answer
+copied as `[1]`, `[2]` and `[3]` all reading "northwind-remote-work-handbook.pdf, page 1". They are
+different passages; on screen a marker opens the one it means, and on paper nothing distinguishes them.
+1.10.0 already reworks what the clipboard carries for invented markers, so a short quote per source
+belongs in the same change.
+
+↳ **Done in 1.10.0.** Each copied source carries the start of its passage, cut at a word near 60
+characters: `[1] handbook.pdf, page 1 — “Reimbursement is paid through payroll.”`.

@@ -92,6 +92,11 @@ describe("Landing", () => {
     // rewrites the question through one before giving up (ADR 044).
     expect(section).toHaveTextContent(/before the model writes a word/i);
     expect(section).toHaveTextContent(/stays plain text/i);
+    // Scoped to the form, as ADR 058 is: a wording the page does not recognize
+    // still links.
+    expect(section).toHaveTextContent(
+      /declines the question in the form the model is told to use/i,
+    );
     expect(section).toHaveTextContent(/written by CiteSeek, not by the model/i);
     expect(section).not.toHaveTextContent(/never runs/i);
   });

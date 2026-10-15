@@ -85,11 +85,12 @@ shaped the product rather than the toolchain.
 | [035](docs/decisions/035-where-the-worked-example-goes.md)                   | A worked example belongs in the system prompt | In the message array it is transcript, and the model answered out of it with a citation   |
 | [039](docs/decisions/039-the-default-plan-s-ceiling.md)                      | Stock limits are not the rate limiter         | A limit that never heals has to name what to delete; one that heals only has to wait      |
 | [055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)        | Measure a second signal, then keep the floor  | Both signals lost to a tighter floor, and every question past it drew a refusal anyway    |
+| [058](docs/decisions/058-a-reply-that-declines-links-nothing.md)             | A declining reply links no marker             | A relevant marker in a partial answer goes with the rest: a rule, not a heuristic         |
 
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 158 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 162 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -540,12 +541,17 @@ weaker than "says so when nothing relevant is found" sounds, and the observed be
 because the prompt catches what the floor misses.
 
 The leak's real cost is smaller and different: many of those refusals attach a citation marker,
-which the prompt's own rules forbid on a refusal — 2 of the golden five in each run, and 9 to 13 of
-the adversarial fifteen, where a question about the edge of a topic draws a citation to the topic.
+which the prompt's own rules forbid on a refusal — in the latest report, between 1 and 2 of the
+golden five per run, and between 10 and 12 of the adversarial fifteen, where a question about the
+edge of a topic draws a citation to the topic.
 The counts move from run to run, so the file carries the latest rather than a settled number.
 Rewording that rule was tried three ways on the five golden questions and the difference was too
-small to measure, so it stays as shipped. What the measurement does settle is the part that
-matters: nothing is invented. It is also why no second signal ships in front of the prompt — the
+small to measure, so it stays as shipped, and the page enforces what the wording could not: a reply
+that opens in the declining form the prompt asks for renders none of its markers as links, says why,
+and copies with no source list ([ADR 058](docs/decisions/058-a-reply-that-declines-links-nothing.md)).
+The model attaches them as often as before, and a refusal worded in a way the page does not
+recognize still links them; `eval/refusals.md` counts those in a column of their own. What the measurement does settle is the
+part that matters: nothing is invented. It is also why no second signal ships in front of the prompt — the
 ones measured lost to simply tightening the floor, and a gate would replace refusals the model
 already writes ([ADR 055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)).
 
@@ -724,7 +730,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1104  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1134  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 189   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
@@ -738,7 +744,7 @@ fixed and the missing tests added, it was 86.5%
 ([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)). Re-measuring every release paid
 for itself on the next one: the only module added since, the clipboard form of an answer, scored
 **73.68%**, and three of its five survivors were one gap — a sort every test reached with a single
-element, which sorts the same however the comparator behaves. It is **86.45% of 856 mutants** now,
+element, which sorts the same however the comparator behaves. It is **87.65% of 939 mutants** now,
 and that module is at 100%.
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)

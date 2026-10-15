@@ -4208,3 +4208,97 @@ was written and tested against itself rather than against the things it points a
 - **Lesson**: **a before-and-after first has to show it saw the change.** Logging which image each
   run fetched would have shown 750w twice. The 1.9.0 entry about two runs was about too few
   measurements; this one is about fifteen of the wrong thing, which repetition only made look sturdier.
+
+## A cost the decision record understated, 14 October 2026
+
+- **Issue**: ADR 058, which unlinks every marker in a reply that declines, said the unlinked passages
+  "stay reachable from the source panel". Writing the note that tells the reader so meant finding that
+  panel, and there is none to find: a citation chip is the only thing on the page that opens a passage.
+  Unlink the chips and the warranty reply's relevant `[7]` is unreachable from that reply at all.
+
+- **Why it mattered**: the sentence sat in the Consequences section, where it softened the one cost
+  the decision admits. A reader weighing "link nothing" against "keep the links" would have read the
+  price as a click moved somewhere else, when it is the passage gone from that turn.
+
+- **Fix**: the ADR states the cost as it is, and the note the reader sees promises nothing about where
+  the passages went.
+
+- **Lesson**: **a consequence is a claim about the code, and it gets checked like one.** Every other
+  sentence in that ADR was traced to `eval/refusals.md` or the prompt before it was written; the one
+  that was not came from the design as first sketched, and it described a page that does not exist.
+
+## The price of a rule, counted rather than illustrated, 14 October 2026
+
+- **Issue**: ADR 058 chose to unlink every marker in a reply that declines, and named its cost with one
+  example — the warranty reply, whose `[7]` pointed at a relevant passage. One example reads like an
+  edge case. The re-run eval unlinked 35 replies across three runs, and reading each one put 10 of
+  them in the warranty shape: a cited clause stating a fact the question was reaching for. The price
+  is 29% of the unlinked replies, not one.
+
+- **The mutation run found two gaps in the same change.** The plural invented-marker note — the exact
+  words the clipboard now sends — was tested only in a component test, which sits outside the mutation
+  run's scope, so its separator and plural branch survived. And `markerVerdict` sorted a list whose
+  only reader filters it by membership: three mutants survived because no order was ever observable.
+
+- **Fix**: the count and the rule for reading it are in the ADR, so it can be redone. The note is
+  pinned whole in `lib/ai`; the sort is gone rather than tested.
+
+- **Lesson**: **an example is not a measurement of a cost.** The decision may well stand at 29% — a
+  structural rule was the point — but the record has to let a reader weigh the number, not the
+  anecdote. Mutants that survive on a sort nobody reads are a deletion, not a missing test.
+
+## A trigger that waited out a phrase it had already identified, 14 October 2026
+
+- **Issue**: ADR 058 matched one opener exactly and named its trigger for widening: "until a run shows
+  the miss costs more than one reply in sixty". The release review laid out every committed report
+  since the opener existed: one miss in each of the three 60-reply reports, every one opening "The
+  documents do not specify", every one a real decline citing a relevant fact.
+
+- **Caught by Lucian, reviewing the decision**: the trigger measured a rate, and this was not a rate.
+  It was the same phrase three times out of three, so whether a reader could click a refusal's marker
+  depended on which synonym the model picked. And the ADR's own argument already covered it: the
+  looser match was rejected because "do not require" begins true answers, while it called "do not
+  specify" a decline in every use.
+
+- **Fix**: the detector reads exactly two openers, and ADR 058's amendment states the rule that keeps
+  it from becoming a heuristic: a phrase joins only if it has opened a decline in a committed run and
+  is a decline in every use. The prompt still asks for "cover" only, so it is byte-identical and the
+  measured behavior still describes it.
+
+- **Lesson**: **a threshold for noise is the wrong test for a pattern.** "Wait until it costs more"
+  fits a miss that varies; a miss that repeats the same words is identified already, and waiting only
+  keeps it shipping.
+
+## A re-run that left its own sentences behind, 14 October 2026
+
+- **Issue**: #444 re-ran the refusal eval and committed new counts, while the README and ADR 058 kept
+  quoting the previous run — "2 of the golden five in each run", which no run in the new file showed.
+  The commit even edited the lines directly beneath them. Found by the 1.10.0 release review.
+
+- **Fix**: the README quotes the latest report as a range, and `README.test.ts` now reads the report's
+  table and fails when the sentence and the file disagree; changing the range to the old one turns it
+  red. ADR 058 keeps its numbers as what was measured when it was decided, the way ADR 055 scopes its
+  own.
+
+- **And the excerpt code shipped with this fix had five surviving mutants on first run.** Two were
+  redundant code — an empty-quote branch and a `trimEnd` that nothing could reach — deleted rather than
+  tested. Two were real gaps: no quote exactly at the 60-character limit, and no word longer than it,
+  because the emoji test happened to have a space just past the cut. One was an equivalent `> 0`,
+  removed by writing the condition as the `-1` it really is. Writing the first test had already caught
+  a word that fit exactly being dropped.
+
+- **Lesson**: **a number copied out of a generated file needs a test the next generation can fail.**
+  Every other figure in the README was already pinned this way; the one that was not is the one that
+  went stale.
+
+↳ **The same miss, three sentences deeper, found by the pre-release check.** Scoping ADR 058's rates
+sentence left three others describing #444's report as "the committed" one: 59 of 60 on the opener,
+the one "do not specify", and the price of 10 of 35 — which a reader redoing it on the current file
+would count as 12 of 38. A decision record cannot be pinned the way the README is, because its
+numbers are meant to stay those of its moment; what it can do is name the run each one came from, and
+now it does.
+
+↳ **And a comment that promised more than its code.** The excerpt said it never halved "an emoji or an
+accent", and it cut by code point: a ZWJ family, a flag, a skin tone and a decomposed "é" each lost
+their second half at the cut. It now cuts by grapheme with `Intl.Segmenter`, and one test holds all
+four, failing on the code-point version.
