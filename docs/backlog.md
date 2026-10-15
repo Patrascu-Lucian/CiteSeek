@@ -3749,3 +3749,36 @@ belongs in the same change.
 
 ↳ **Done in 1.10.0.** Each copied source carries the start of its passage, cut at a word near 60
 characters: `[1] handbook.pdf, page 1 — “Reimbursement is paid through payroll.”`.
+
+## A third way to decline, met on the live site, 15 October 2026
+
+The 1.10.0 exit check asked the deployed demo three questions next to what its handbook covers, each
+in a fresh conversation, and read what the page did with the markers.
+
+| Question                                            | Reply opened                              | Links | Note | Copy                     |
+| --------------------------------------------------- | ----------------------------------------- | ----- | ---- | ------------------------ |
+| Can I get reimbursed for a gym membership?          | "The documents do not cover…" `[4]`       | 0     | yes  | the note, no source list |
+| How much notice do I need to give for unpaid leave? | "The documents do not cover…" `[1][2][3]` | 0     | yes  | the note, no source list |
+| What is the warranty on the company laptop?         | "The documents do not mention…" `[3]`     | 1     | no   | a source list            |
+
+The third reply in full: _"The documents do not mention a warranty on the company laptop, but they do
+state that equipment which fails within the three-year period is replaced rather than repaired [3]."_
+A decline citing a relevant fact — the shape ADR 058 unlinks — in a wording the page does not
+recognize, so its marker stayed a link. That is the case the public copy already discloses ("a
+refusal worded in a way the page does not recognize still links them"), so nothing claims otherwise;
+but the milestone's exit criterion as written, none of three rendering a link, was not met.
+
+**Not a reason to widen yet, by ADR 058's own rule.** A phrase joins the detector only if it has
+opened a decline in a committed eval run and is a decline in every use. This one comes from a live
+answer, not a committed run, and "do not mention" is less plainly a decline than "do not specify":
+"The documents do not mention any fee for early termination [2]" reads as an answer about what the
+documents say.
+
+**What would settle it:**
+
+- **Measure first.** Add questions shaped like this one — a policy topic the handbook touches without
+  answering — to the refusal eval, so a committed run shows whether "do not mention" recurs, and
+  decide by the rule.
+- **Or tighten rule 7.** It already names "…do not contain information about…" as a failure, and
+  naming the wanted form once moved the opener to 15 of 15. Naming "mention" too is a prompt change,
+  so it needs the eval to show it moved something and changed nothing else.
