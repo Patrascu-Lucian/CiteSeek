@@ -3727,6 +3727,12 @@ embeddings provider and no key, so the demo document fails on every build while 
 and its idempotency check stay green — the second only ever exercises the failed path. A failed seed
 should exit non-zero, and that job should set `EMBEDDINGS_PROVIDER: fake` as the E2E job already does.
 
+↳ **Fixed in 1.10.1.** The integration job seeds with the fake embedder, and the seed exits 1 unless
+the fixture it leaves behind is `ready`, naming the ingestion error. A fixture an earlier run left
+failed is replaced rather than kept as "already holds", so a re-run with the provider fixed repairs
+the demo. Run against a throwaway database: a bad key exits 1 with the provider's error, the next run
+replaces the failed document and exits 0, and a third reports it present.
+
 **Whether Preview should carry a real model key (needs a decision).** As configured, Preview had fake
 embeddings, no `CHAT_PROVIDER` — which means the real chat model — and no API key. It could prove that a
 build deploys, never that an answer works, and a question that cleared retrieval would have failed at
