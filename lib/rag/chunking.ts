@@ -19,6 +19,14 @@ export const CHUNK_TARGET_CHARS = 600;
 export const CHUNK_MAX_CHARS = 800;
 export const CHUNK_OVERLAP_CHARS = 100;
 
+export type ChunkSizes = { target: number; max: number; overlap: number };
+
+const SHIPPED_SIZES: ChunkSizes = {
+  target: CHUNK_TARGET_CHARS,
+  max: CHUNK_MAX_CHARS,
+  overlap: CHUNK_OVERLAP_CHARS,
+};
+
 /** One embedding call per chunk, so this *is* the cost ceiling. */
 export const MAX_CHUNKS_PER_DOCUMENT = 600;
 
@@ -76,17 +84,17 @@ function splitOn(
 /** Progressively finer separators: sentences, whitespace, then an arbitrary cut
  * for minified files, base64 blobs or languages written without spaces. Each
  * fallback loses meaning, so it is reached only when the previous failed. */
-function segmentBySize(text: string, range: Boundary): Boundary[] {
-  if (range.end - range.start <= CHUNK_MAX_CHARS) return [range];
+function segmentBySize(text: string, range: Boundary, max: number): Boundary[] {
+  if (range.end - range.start <= max) return [range];
 
   for (const pattern of [/(?<=[.!?])[ \n]+/g, /\s+/g]) {
     const parts = splitOn(text, range, pattern);
-    if (parts) return parts.flatMap((part) => segmentBySize(text, part));
+    if (parts) return parts.flatMap((part) => segmentBySize(text, part, max));
   }
 
   const pieces: Boundary[] = [];
-  for (let start = range.start; start < range.end; start += CHUNK_MAX_CHARS) {
-    pieces.push({ start, end: Math.min(start + CHUNK_MAX_CHARS, range.end) });
+  for (let start = range.start; start < range.end; start += max) {
+    pieces.push({ start, end: Math.min(start + max, range.end) });
   }
   return pieces;
 }
@@ -94,9 +102,9 @@ function segmentBySize(text: string, range: Boundary): Boundary[] {
 /** Paragraphs split *unconditionally*, not only when oversized: they are the
  * strongest semantic boundary extracted text has, and running across one because
  * the length happened to fit is a worse passage for no benefit. */
-function segment(text: string, range: Boundary): Boundary[] {
+function segment(text: string, range: Boundary, max: number): Boundary[] {
   const paragraphs = splitOn(text, range, /\n{2,}/g) ?? [range];
-  return paragraphs.flatMap((paragraph) => segmentBySize(text, paragraph));
+  return paragraphs.flatMap((paragraph) => segmentBySize(text, paragraph, max));
 }
 
 /** Trailing context re-attached to the next chunk, cut at a whitespace boundary. */
@@ -104,8 +112,9 @@ function overlapStart(
   text: string,
   chunkStart: number,
   chunkEnd: number,
+  overlap: number,
 ): number {
-  const earliest = Math.max(chunkStart, chunkEnd - CHUNK_OVERLAP_CHARS);
+  const earliest = Math.max(chunkStart, chunkEnd - overlap);
   if (earliest <= chunkStart) return chunkEnd;
 
   // Prefer to begin the overlap at a word boundary; a mid-word start reads as
@@ -114,13 +123,16 @@ function overlapStart(
   return whitespace === -1 ? earliest : earliest + whitespace + 1;
 }
 
+/** `sizes` is for measuring other sizes (`pnpm eval:answers --chunk=`); the
+ * product passes nothing and gets the shipped ones. */
 export function chunkText(
   text: string,
   pageSpans: readonly PageSpan[] | null = null,
+  sizes: ChunkSizes = SHIPPED_SIZES,
 ): Chunk[] {
   if (text.length === 0) return [];
 
-  const segments = segment(text, { start: 0, end: text.length });
+  const segments = segment(text, { start: 0, end: text.length }, sizes.max);
   const chunks: Chunk[] = [];
 
   let pending: Boundary | null = null;
@@ -155,7 +167,7 @@ export function chunkText(
 
     const combinedLength = piece.end - pending.start;
 
-    if (combinedLength <= CHUNK_TARGET_CHARS) {
+    if (combinedLength <= sizes.target) {
       pending.end = piece.end;
       continue;
     }
@@ -167,14 +179,14 @@ export function chunkText(
     flush();
 
     const resumeAt = Math.min(
-      overlapStart(text, closedStart, closedEnd),
+      overlapStart(text, closedStart, closedEnd, sizes.overlap),
       piece.start,
     );
 
     // Overlap is context, not an entitlement: dropped when it would push the next
     // chunk past the maximum, which only happens on unbroken max-sized runs.
     pending =
-      piece.end - resumeAt <= CHUNK_MAX_CHARS
+      piece.end - resumeAt <= sizes.max
         ? { start: resumeAt, end: piece.end }
         : { ...piece };
   }
