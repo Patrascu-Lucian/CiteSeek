@@ -1,7 +1,7 @@
 # 059 — Passages per answer for Gemini
 
-**Status**: proposed. The method and the rule below are committed before the run they judge, and
-before the harness that runs it; the result is added after the run.
+**Status**: accepted, 16 October 2026: eight stays. The method and the rule were committed before
+the run they judge (#456), and before the harness that ran it (#457).
 
 ## Context
 
@@ -38,4 +38,30 @@ this corpus is therefore no evidence for three, which is why a tie keeps eight.
 
 ## Result
 
-To be written after the run.
+`eval/answers.md`, three runs over a corpus of 25 passages:
+
+| passages | grounded | cites the answering passage | declined | input tokens (mean) |
+| -------- | -------- | --------------------------- | -------- | ------------------- |
+| 3        | 23/24    | 22/24                       | 2/24     | 845                 |
+| 8        | 23/24    | 23/24                       | 0/24     | 1,213               |
+| oracle   | 23/24    | 21/24                       | 3/24     | 601                 |
+
+**Eight stays.** Grounding is identical. On citations three is a trade, not a gain: one question
+cites its passage at three and not at eight, and two do at eight and not at three. A trade keeps
+the default, and three is the only count with false refusals.
+
+**What three loses comes through ADR 058.** Seeing less, the model hedges on questions it can
+answer: _"The documents do not cover the total amount to be handed over at the start, though they
+state that the deposit is five weeks' rent [1]."_ The value and the citation are right, but the
+reply opens in the declining form, so the page unlinks the marker
+([ADR 058](058-a-reply-that-declines-links-nothing.md)). Both citations three loses are that shape,
+as are all three of the oracle's declines, where the model sees a single passage. At eight the
+shape does not occur in this set, so eight also keeps ADR 058's cost off answerable questions.
+
+Three would save about 30% of input tokens. By the rule that does not decide, and at cents a day it
+is not worth a false refusal.
+
+One question scores ungrounded at every count for a reason that is the set's, not the model's:
+"How much notice do I give to move out?" expects the landlord's two months, and every answer gives
+the tenant's one month, correctly. It misses identically everywhere, so it cannot move the
+comparison; it is recorded in `docs/backlog.md`.
