@@ -646,6 +646,7 @@ Run by hand, never in CI, output committed:
 
 ```bash
 pnpm eval:retrieval    # retrieval quality against eval/golden-set.ts (needs a real key)
+pnpm eval:answers      # what Gemini answers at 3 and 8 passages (a real key; --fake is free)
 pnpm eval:local        # the local embedder's recall, in Node, no provider
 pnpm eval:local-answers # what the local model answers, in Node on the CPU
 pnpm eval:local-markers # the same questions in a browser on WebGPU
@@ -703,9 +704,9 @@ let one file supply both the wrong answer and the confirmation of it.
 prints the `export SEED_HOST=…` line for the host it actually reached. In Neon's console it is
 the first segment of the connection hostname (`ep-…`), shown per branch under Connect.
 
-Three other commands guard themselves the same way, under their own names and from the shell only:
-`pnpm eval:retrieval` and `pnpm eval:refusals` use `EVAL_HOST` (they ingest documents and spend
-quota) and `pnpm db:usage` uses `USAGE_HOST` (it reads, but reading the wrong branch gives a
+Four other commands guard themselves the same way, under their own names and from the shell only:
+`pnpm eval:retrieval`, `pnpm eval:refusals` and `pnpm eval:answers` use `EVAL_HOST` (they ingest
+documents and spend quota) and `pnpm db:usage` uses `USAGE_HOST` (it reads, but reading the wrong branch gives a
 confident wrong answer). The
 schema commands above need neither — `db:check` changes nothing and prints the host it reached,
 and `db:migrate` carries no data and spends no quota.
