@@ -3729,7 +3729,7 @@ should exit non-zero, and that job should set `EMBEDDINGS_PROVIDER: fake` as the
 
 ↳ **Fixed in 1.10.1.** The integration job seeds with the fake embedder, and the seed exits 1 unless
 the fixture it leaves behind is `ready`, naming the ingestion error. A fixture an earlier run left
-failed is replaced rather than kept as "already holds", so a re-run with the provider fixed repairs
+anything but `ready` (failed, or unfinished) is replaced rather than kept as "already holds", so a re-run with the provider fixed repairs
 the demo. Run against a throwaway database: a bad key exits 1 with the provider's error, the next run
 replaces the failed document and exits 0, and a third reports it present.
 
@@ -3772,7 +3772,7 @@ state that equipment which fails within the three-year period is replaced rather
 A decline citing a relevant fact — the shape ADR 058 unlinks — in a wording the page does not
 recognize, so its marker stayed a link. That is the case the public copy already discloses ("a
 refusal worded in a way the page does not recognize still links them"), so nothing claims otherwise;
-but the milestone's exit criterion as written, none of three rendering a link, was not met.
+but the check's own bar, none of the three rendering a link, was not met.
 
 **Not a reason to widen yet, by ADR 058's own rule.** A phrase joins the detector only if it has
 opened a decline in a committed eval run and is a decline in every use. This one comes from a live
@@ -3788,3 +3788,20 @@ documents say.
 - **Or tighten rule 7.** It already names "…do not contain information about…" as a failure, and
   naming the wanted form once moved the opener to 15 of 15. Naming "mention" too is a prompt change,
   so it needs the eval to show it moved something and changed nothing else.
+
+## The seed waits out the shared pool, and two at once now clash, 16 October 2026
+
+Found by the 1.10.1 release review, both in `lib/db/seed.mts`, neither from that release's fix.
+
+**Every run waits about 20 seconds after its work is done (low, CI time).** The script opens and
+closes its own single connection, but the fixture work goes through the `lib/db` singleton, whose
+pool has `idle_timeout: 20` and is never closed, so the process lives until it idles out. CI shows a
+20-second gap after each seed step, before 1.10.1 as well, about a minute per run across the three
+seeds. Closing the shared client in the script's `finally` brought a no-op run from 21 seconds to
+one, in the review's local test.
+
+**Two seeds against one database now race (low, noisy rather than harmful).** Since 1.10.1 a fixture
+that is not `ready` is replaced, so a second seed started while the first is still processing
+deletes the first one's document: the first then logs an empty status and exits 1, and the second
+finishes with one ready fixture. Before, the second run was a no-op. Only a second seed against the
+same database can cause it, and the demo workspace is read-only to every actor.

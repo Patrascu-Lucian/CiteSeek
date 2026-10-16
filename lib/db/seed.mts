@@ -178,7 +178,6 @@ async function seedFixtureDocument(workspaceId: string) {
   console.log(
     `Seeded ${FIXTURE_FILENAME} — ${seeded?.status}, ${seeded?.embeddedChunkCount ?? 0} passages embedded.`,
   );
-  // `error` is sanitized at write and never holds document text.
   if (seeded?.error) console.error(`Ingestion error: ${seeded.error}`);
 
   process.exitCode = seedExitCode(seeded?.status);

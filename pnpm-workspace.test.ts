@@ -123,10 +123,9 @@ describe("the qs override", () => {
   });
 });
 
-/* sprintf-js ≤ 1.1.3 (GHSA-hp3w-g68c-fv3c) has no fixed release, and `SECURITY.md`
-   calls it unreachable: it arrives only as mammoth → argparse 1 → sprintf-js, and
-   only mammoth's command-line tool loads argparse. When the first test here
-   fails, a fix or another path has arrived: delete this block and that sentence. */
+/* Keeps `SECURITY.md`'s "unreachable" true for sprintf-js ≤ 1.1.3. If the first
+   test fails, it left the tree: delete this block and that sentence. If another
+   fails, the path changed: check it before deleting anything. */
 const snapshots = lockfile.slice(lockfile.indexOf("\nsnapshots:\n"));
 
 /** Snapshot entries whose dependencies include `name` at `version`. */
@@ -177,7 +176,12 @@ describe("the sprintf-js advisory nothing reaches", () => {
     expect(
       sprintfVersions.flatMap((v) => dependentsOf("sprintf-js", v)),
     ).toEqual(["argparse@1.0.10"]);
-    expect(dependentsOf("argparse", "1.0.10")).toEqual(["mammoth@1.13.0"]);
+    // By name: mammoth is a caret dependency, and its version is not the path.
+    expect(
+      dependentsOf("argparse", "1.0.10").map((entry) =>
+        entry.slice(0, entry.lastIndexOf("@")),
+      ),
+    ).toEqual(["mammoth"]);
   });
 
   it("is loaded by mammoth's command-line tool and nothing the app imports", () => {
