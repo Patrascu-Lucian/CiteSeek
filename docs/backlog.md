@@ -1625,7 +1625,8 @@ read better than more.~~ **Shipped 30 August 2026 as
 [ADR 047](decisions/047-fewer-passages-for-a-smaller-model.md): `LOCAL_RETRIEVAL_LIMIT = 3`,
 local mode only.** Three grounds 15/24 where eight grounds 13/24, with the answering passage still
 retrieved 24/24 — two rows, not the four the unfiltered sweep showed, because the floor was already
-doing half the work. Gemini keeps eight and is unmeasured at three. And
+doing half the work. Gemini keeps eight, ~~unmeasured at three~~ measured there on 16 October 2026
+and kept ([ADR 059](decisions/059-passages-per-answer-for-gemini.md)). And
 ~~`markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a
 numeric exemplar targets.~~ **Tried and rejected, 31 August 2026
 ([ADR 050](decisions/050-a-rule-obeyed-as-the-thing-it-forbids.md)).** A line naming where the
@@ -3805,3 +3806,24 @@ that is not `ready` is replaced, so a second seed started while the first is sti
 deletes the first one's document: the first then logs an empty status and exits 1, and the second
 finishes with one ready fixture. Before, the second run was a no-op. Only a second seed against the
 same database can cause it, and the demo workspace is read-only to every actor.
+
+## An answer the set expects wrongly, and hedged answers at low counts, 16 October 2026
+
+Found reading the verbatim answers of the first `pnpm eval:answers` run (ADR 059).
+
+**One `ANSWER_SET` expectation is wrong (low, the eval's own defect).** "How much notice do I give to
+move out?" expects "two months", the landlord's notice. The fixture reads "The tenant gives one
+month's notice ending on a rent payment date; the landlord gives two months'", and the question asks
+what _I_ give, so every answer — one month — was right and scored ungrounded. It missed identically
+at every count, so ADR 059's comparison stands. Fixing it means the expected value becomes "one
+month", which also changes the local answer report's baseline (ADR 047 scored the same question);
+re-run both when it changes, so neither compares across the fix. The golden set's retrieval entry
+for the same question is unaffected: its quote sits in the sentence that holds both answers.
+
+**A hedge on an answerable question reads as a decline (low, a cost of ADR 058).** With fewer
+passages — three, or the oracle's one — Gemini sometimes opens a correct, cited answer in the
+declining form: "The documents do not cover the total amount to be handed over at the start, though
+they state that the deposit is five weeks' rent [1]." The page then unlinks the right marker and
+shows the decline note. At eight passages this did not occur in the set, which is part of why eight
+stays; at a lower count it would be a false refusal the reader sees. Worth watching whenever the
+count or the prompt changes.
