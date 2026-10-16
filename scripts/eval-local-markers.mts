@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 import { chromium, type Page } from "@playwright/test";
 
-import { LOCAL_ANSWER_SET } from "../eval/golden-set.ts";
+import { ANSWER_SET } from "../eval/golden-set.ts";
 import { grounds } from "../eval/scoring.ts";
 import { LOCAL_RETRIEVAL_LIMIT } from "../lib/rag/retrieval-config.ts";
 
@@ -34,7 +34,7 @@ const FIXTURES = [
 
 const limit = Number(
   process.argv.find((one) => one.startsWith("--limit="))?.slice(8) ??
-    LOCAL_ANSWER_SET.length,
+    ANSWER_SET.length,
 );
 
 // `slice(0, NaN)` is empty: a typo would index everything, ask nothing, and
@@ -43,7 +43,7 @@ if (!Number.isInteger(limit) || limit < 1) {
   throw new Error(`--limit must be a positive integer, got: ${String(limit)}`);
 }
 
-const cases = LOCAL_ANSWER_SET.slice(0, limit);
+const cases = ANSWER_SET.slice(0, limit);
 
 type Row = {
   question: string;
@@ -54,7 +54,7 @@ type Row = {
 
 // Only a full run resumes or records: a `--limit` smoke test's rows were once
 // adopted by the next real run and published.
-const full = limit === LOCAL_ANSWER_SET.length;
+const full = limit === ANSWER_SET.length;
 
 type Progress = { baseUrl: string; rows: Row[] };
 
@@ -71,7 +71,7 @@ const done: Row[] =
            exists. */
         .then((saved) =>
           saved.filter((row) =>
-            LOCAL_ANSWER_SET.some((one) => one.question === row.question),
+            ANSWER_SET.some((one) => one.question === row.question),
           ),
         )
         .catch((cause: unknown) => {
@@ -342,7 +342,7 @@ const report = [
   ]),
 ].join("\n");
 
-const partial = rows.length < LOCAL_ANSWER_SET.length;
+const partial = rows.length < ANSWER_SET.length;
 
 // A partial run's report is indistinguishable from a full one at a glance.
 if (!partial) {
@@ -353,6 +353,6 @@ if (!partial) {
 console.log(
   `\ngrounded:${share((row) => row.grounded)}  cited:${share((row) => row.chips > 0)}  ` +
     (partial
-      ? `${String(rows.length)} of ${String(LOCAL_ANSWER_SET.length)} questions, so nothing written`
+      ? `${String(rows.length)} of ${String(ANSWER_SET.length)} questions, so nothing written`
       : "Written to eval/local-markers.md"),
 );

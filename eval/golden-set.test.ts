@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   FOLLOW_UP_SET,
   GOLDEN_SET,
-  LOCAL_ANSWER_SET,
+  ANSWER_SET,
   UNCOVERED_SET,
 } from "./golden-set";
 
@@ -26,7 +26,7 @@ describe.each([
   },
   {
     name: "local-answer",
-    expectations: LOCAL_ANSWER_SET.flatMap((one) => one.expect),
+    expectations: ANSWER_SET.flatMap((one) => one.expect),
   },
 ])("the $name set", ({ expectations }) => {
   it("quotes every passage verbatim", () => {
@@ -57,11 +57,9 @@ describe("the sets together", () => {
   it("has no quote that another quote contains", () => {
     // Reword a fixture and the longer quote fails loudly, while the shorter one
     // keeps matching a passage that no longer means what it was chosen for.
-    const quotes = [
-      ...GOLDEN_SET,
-      ...FOLLOW_UP_SET,
-      ...LOCAL_ANSWER_SET,
-    ].flatMap((one) => one.expect.map((e) => e.quote));
+    const quotes = [...GOLDEN_SET, ...FOLLOW_UP_SET, ...ANSWER_SET].flatMap(
+      (one) => one.expect.map((e) => e.quote),
+    );
 
     for (const quote of quotes) {
       expect(
@@ -133,7 +131,7 @@ describe("the local-answer set", () => {
     // The alternates are there for how a model might write the value, so they
     // need not appear. If none does, the case scores 0 forever and reads as a
     // model failure rather than a case that asks for wording nobody wrote.
-    for (const one of LOCAL_ANSWER_SET) {
+    for (const one of ANSWER_SET) {
       const sources = one.expect.map((e) => text(e.file));
 
       expect(
@@ -148,7 +146,7 @@ describe("the local-answer set", () => {
   it("asks only questions the corpus answers", () => {
     // Grounding is the measurement, so an unanswerable case scores a floor the
     // report has no column for.
-    for (const one of LOCAL_ANSWER_SET) {
+    for (const one of ANSWER_SET) {
       expect(one.expect.length, one.question).toBeGreaterThan(0);
       expect(one.answerContains.length, one.question).toBeGreaterThan(0);
     }
@@ -158,11 +156,11 @@ describe("the local-answer set", () => {
     // The manual was a pure distractor for the first eight questions: the score
     // moved with two documents and the third only competed for retrieval.
     const files = new Set(
-      LOCAL_ANSWER_SET.flatMap((one) => one.expect).map((e) => e.file),
+      ANSWER_SET.flatMap((one) => one.expect).map((e) => e.file),
     );
 
     expect(files.size).toBe(3);
-    expect(LOCAL_ANSWER_SET.length).toBeGreaterThanOrEqual(20);
+    expect(ANSWER_SET.length).toBeGreaterThanOrEqual(20);
   });
 });
 
