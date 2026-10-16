@@ -434,9 +434,10 @@ export const FOLLOW_UP_SET: readonly FollowUpCase[] = [
 
 /** Separate again: these expect something of the *answer*, which nothing else
  * here does. */
-export type LocalAnswerCase = {
+export type AnswerCase = {
   question: string;
-  /** The passage the model is handed. Retrieval is not what this measures. */
+  /** The passage that holds the answer: handed over whole as the oracle, and
+   * looked for in what retrieval returned. */
   expect: readonly Expectation[];
   /** Acceptable spellings of the fact. A floor, not a grade — it cannot tell a
    * value from a negated one, so yes/no questions do not belong here. */
@@ -445,7 +446,7 @@ export type LocalAnswerCase = {
 
 /** Answers that are one specific value — where the local model was seen failing:
  * a marker where a number belongs, or the wrong number (`docs/backlog.md`). */
-export const LOCAL_ANSWER_SET: readonly LocalAnswerCase[] = [
+export const ANSWER_SET: readonly AnswerCase[] = [
   {
     question: "How quickly does someone get back to me if everything is down?",
     expect: [

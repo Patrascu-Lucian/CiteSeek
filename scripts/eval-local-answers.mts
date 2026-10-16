@@ -12,7 +12,7 @@
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { GOLDEN_SET, LOCAL_ANSWER_SET } from "../eval/golden-set.ts";
+import { GOLDEN_SET, ANSWER_SET } from "../eval/golden-set.ts";
 import { cites, grounds } from "../eval/scoring.ts";
 import { NO_RELEVANT_PASSAGES_REPLY } from "../lib/ai/prompt.ts";
 import type { ChatSource } from "../lib/ai/types.ts";
@@ -146,7 +146,7 @@ if (!useFake) {
     "RETRIEVAL_DOCUMENT",
   );
 
-  for (const one of LOCAL_ANSWER_SET) {
+  for (const one of ANSWER_SET) {
     const { vectors: query } = await localEmbedder(
       [one.question],
       "RETRIEVAL_QUERY",
@@ -302,7 +302,7 @@ async function ask(question: string, sources: readonly ChatSource[]) {
   return { answer: answer.trim(), cited: cites(answer, sources.length) };
 }
 
-for (const [index, one] of LOCAL_ANSWER_SET.entries()) {
+for (const [index, one] of ANSWER_SET.entries()) {
   const started = Date.now();
 
   const already = resumed.get(one.question);
@@ -311,9 +311,7 @@ for (const [index, one] of LOCAL_ANSWER_SET.entries()) {
   // default run would report an eight-passage column built from threes.
   if (already && COUNTS.every((count) => already.at.has(count))) {
     rows.push(already);
-    console.log(
-      `  ${String(index + 1)}/${String(LOCAL_ANSWER_SET.length)} resumed`,
-    );
+    console.log(`  ${String(index + 1)}/${String(ANSWER_SET.length)} resumed`);
     continue;
   }
 
@@ -375,7 +373,7 @@ for (const [index, one] of LOCAL_ANSWER_SET.entries()) {
     return result.grounded ? "o" : result.retrieved ? "x" : "·";
   }).join("");
   console.log(
-    `  ${String(index + 1)}/${String(LOCAL_ANSWER_SET.length)} oracle:${rows.at(-1)!.oracle.grounded ? "ok  " : "WRONG"} sweep:${sweep}  ${String(Math.round((Date.now() - started) / 1000))}s`,
+    `  ${String(index + 1)}/${String(ANSWER_SET.length)} oracle:${rows.at(-1)!.oracle.grounded ? "ok  " : "WRONG"} sweep:${sweep}  ${String(Math.round((Date.now() - started) / 1000))}s`,
   );
 }
 
