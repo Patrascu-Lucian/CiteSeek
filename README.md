@@ -90,7 +90,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 162 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 163 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -620,7 +620,7 @@ Requires Node 24 (see `.nvmrc`) and pnpm 11.
 ```bash
 nvm use                      # Node 24 LTS
 pnpm install                 # also enables the git hooks in .githooks/
-cp .env.example .env.local   # fill in DATABASE_URL
+cp .env.example .env.local   # fill in DATABASE_URL and the API key, or set both providers to fake
 docker compose up -d         # or point DATABASE_URL at a Neon branch
 pnpm db:migrate
 pnpm db:seed
@@ -730,7 +730,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1134  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1141  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 189   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |

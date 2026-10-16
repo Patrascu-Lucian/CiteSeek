@@ -18,7 +18,7 @@ import postgres from "postgres";
 import { loadLocalEnv } from "../env/load-local-env.ts";
 import { namesHost } from "../env/named-host.ts";
 import * as schema from "./schema.ts";
-import { planFixtureSeed } from "./seed-plan.ts";
+import { planFixtureSeed, seedExitCode } from "./seed-plan.ts";
 import { workspaces } from "./schema.ts";
 
 // Captured before `.env.local` applies, so the guards can tell a deliberate
@@ -172,10 +172,15 @@ async function seedFixtureDocument(workspaceId: string) {
   // Awaited: a script must not exit with the work half done.
   await processDocument(workspaceId, document.id, bytes, FIXTURE_MIME);
 
-  const [seeded] = await listDocuments(workspaceId);
+  const seeded = (await listDocuments(workspaceId)).find(
+    ({ id }) => id === document.id,
+  );
   console.log(
     `Seeded ${FIXTURE_FILENAME} — ${seeded?.status}, ${seeded?.embeddedChunkCount ?? 0} passages embedded.`,
   );
+  if (seeded?.error) console.error(`Ingestion error: ${seeded.error}`);
+
+  process.exitCode = seedExitCode(seeded?.status);
 }
 
 async function main() {

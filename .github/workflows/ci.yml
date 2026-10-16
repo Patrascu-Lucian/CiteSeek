@@ -121,6 +121,9 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/citeseek_test
+      # For the seed steps. Unset means the real embedder, which has no key here,
+      # so the demo document failed on every run behind a green step.
+      EMBEDDINGS_PROVIDER: fake
 
     steps:
       - uses: actions/checkout@v7

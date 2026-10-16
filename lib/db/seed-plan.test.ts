@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { planFixtureSeed } from "./seed-plan";
+import { planFixtureSeed, seedExitCode } from "./seed-plan";
 
 const FILENAME = "northwind-remote-work-handbook.pdf";
 const SUPERSEDED = ["northwind-remote-work-handbook.md"];
 
-function plan(existing: { id: string; filename: string }[]) {
+/** `ready` unless a test says otherwise: the earlier cases are about filenames. */
+function plan(existing: { id: string; filename: string; status?: string }[]) {
   return planFixtureSeed({
-    existing,
+    existing: existing.map((one) => ({ status: "ready", ...one })),
     filename: FILENAME,
     supersededFilenames: SUPERSEDED,
   });
@@ -70,5 +71,36 @@ describe("planFixtureSeed", () => {
       plan([{ id: "d1", filename: "northwind-remote-work-handbook.md" }])
         .reason,
     ).toMatch(/replacing/i);
+  });
+
+  it("replaces a fixture an earlier run left failed", () => {
+    // Kept, it would read as present to every later run, and a re-run with the
+    // provider fixed could never repair the demo.
+    expect(plan([{ id: "d1", filename: FILENAME, status: "failed" }])).toEqual({
+      create: true,
+      remove: ["d1"],
+      reason: `replacing ${FILENAME}, which was failed`,
+    });
+  });
+
+  it("replaces a fixture an interrupted run left unfinished", () => {
+    for (const status of ["queued", "processing"]) {
+      expect(plan([{ id: "d1", filename: FILENAME, status }])).toMatchObject({
+        create: true,
+        remove: ["d1"],
+      });
+    }
+  });
+});
+
+describe("seedExitCode", () => {
+  it("passes only a ready fixture", () => {
+    expect(seedExitCode("ready")).toBe(0);
+  });
+
+  it("fails every other status, and a fixture that is not there", () => {
+    for (const status of ["failed", "queued", "processing", undefined]) {
+      expect(seedExitCode(status)).toBe(1);
+    }
   });
 });

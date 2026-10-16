@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { join, sep } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -120,5 +120,72 @@ describe("the qs override", () => {
 
   it("leaves no copy in the range the DoS affects", () => {
     expect(qsVersions.filter(vulnerable)).toEqual([]);
+  });
+});
+
+/* Keeps `SECURITY.md`'s "unreachable" true for sprintf-js ≤ 1.1.3. If the first
+   test fails, it left the tree: delete this block and that sentence. If another
+   fails, the path changed: check it before deleting anything. */
+const snapshots = lockfile.slice(lockfile.indexOf("\nsnapshots:\n"));
+
+/** Snapshot entries whose dependencies include `name` at `version`. */
+const dependentsOf = (name: string, version: string) =>
+  snapshots
+    .split(/\n(?= {2}\S)/)
+    .filter((entry) => entry.includes(`\n      ${name}: ${version}`))
+    .map((entry) => entry.trim().split(":")[0]!);
+
+// Each version appears under `packages:` and again under `snapshots:`.
+const sprintfVersions = [
+  ...new Set(
+    [...lockfile.matchAll(/^ {2}sprintf-js@(\d+\.\d+\.\d+):/gm)].map(
+      (match) => match[1]!,
+    ),
+  ),
+];
+
+/** Every file in mammoth's installed package that loads argparse. */
+const loadsArgparse = () => {
+  const root = realpathSync(
+    join(import.meta.dirname, "node_modules", "mammoth"),
+  );
+
+  return readdirSync(root, { recursive: true, encoding: "utf8" })
+    .filter((file) => !file.includes("node_modules"))
+    .filter((file) => statSync(join(root, file)).isFile())
+    .filter((file) =>
+      /require\(\s*["']argparse["']\s*\)/.test(
+        readFileSync(join(root, file), "utf8"),
+      ),
+    )
+    .map((file) => file.split(sep).join("/"));
+};
+
+describe("the sprintf-js advisory nothing reaches", () => {
+  it("is still in the lockfile, at a version the advisory affects", () => {
+    expect(sprintfVersions.length).toBeGreaterThan(0);
+    expect(
+      sprintfVersions.every(
+        (version) =>
+          version.localeCompare("1.1.3", undefined, { numeric: true }) <= 0,
+      ),
+    ).toBe(true);
+  });
+
+  it("arrives only through argparse 1, and that only through mammoth", () => {
+    expect(
+      sprintfVersions.flatMap((v) => dependentsOf("sprintf-js", v)),
+    ).toEqual(["argparse@1.0.10"]);
+    // By name: mammoth is a caret dependency, and its version is not the path.
+    expect(
+      dependentsOf("argparse", "1.0.10").map((entry) =>
+        entry.slice(0, entry.lastIndexOf("@")),
+      ),
+    ).toEqual(["mammoth"]);
+  });
+
+  it("is loaded by mammoth's command-line tool and nothing the app imports", () => {
+    // `bin/mammoth` matching shows the pattern can match at all.
+    expect(loadsArgparse()).toEqual(["bin/mammoth"]);
   });
 });

@@ -19,12 +19,24 @@ export function planFixtureSeed({
   filename,
   supersededFilenames,
 }: {
-  existing: readonly { id: string; filename: string }[];
+  existing: readonly { id: string; filename: string; status: string }[];
   filename: string;
   supersededFilenames: readonly string[];
 }): FixtureSeedPlan {
-  if (existing.some((document) => document.filename === filename)) {
+  const fixture = existing.find((document) => document.filename === filename);
+
+  if (fixture?.status === "ready") {
     return { create: false, remove: [], reason: `already holds ${filename}` };
+  }
+
+  // A fixture an earlier run left anything but ready is replaced, not kept:
+  // kept, every later run would report it present and none could repair it.
+  if (fixture) {
+    return {
+      create: true,
+      remove: [fixture.id],
+      reason: `replacing ${filename}, which was ${fixture.status}`,
+    };
   }
 
   const superseded = existing.filter((document) =>
@@ -44,4 +56,10 @@ export function planFixtureSeed({
   // Anything else in the workspace is left alone: this owns one document, not
   // the workspace. A demo someone added a second file to should keep it.
   return { create: true, remove: [], reason: `seeding ${filename}` };
+}
+
+/** Only `ready` passes: a demo whose document failed serves every guest a
+ * refusal, so a seed that leaves one behind must not report success. */
+export function seedExitCode(status: string | undefined): 0 | 1 {
+  return status === "ready" ? 0 : 1;
 }

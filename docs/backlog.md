@@ -3727,6 +3727,12 @@ embeddings provider and no key, so the demo document fails on every build while 
 and its idempotency check stay green — the second only ever exercises the failed path. A failed seed
 should exit non-zero, and that job should set `EMBEDDINGS_PROVIDER: fake` as the E2E job already does.
 
+↳ **Fixed in 1.10.1.** The integration job seeds with the fake embedder, and the seed exits 1 unless
+the fixture it leaves behind is `ready`, naming the ingestion error. A fixture an earlier run left
+anything but `ready` (failed, or unfinished) is replaced rather than kept as "already holds", so a re-run with the provider fixed repairs
+the demo. Run against a throwaway database: a bad key exits 1 with the provider's error, the next run
+replaces the failed document and exits 0, and a third reports it present.
+
 **Whether Preview should carry a real model key (needs a decision).** As configured, Preview had fake
 embeddings, no `CHAT_PROVIDER` — which means the real chat model — and no API key. It could prove that a
 build deploys, never that an answer works, and a question that cleared retrieval would have failed at
@@ -3749,3 +3755,53 @@ belongs in the same change.
 
 ↳ **Done in 1.10.0.** Each copied source carries the start of its passage, cut at a word near 60
 characters: `[1] handbook.pdf, page 1 — “Reimbursement is paid through payroll.”`.
+
+## A third way to decline, met on the live site, 15 October 2026
+
+The 1.10.0 exit check asked the deployed demo three questions next to what its handbook covers, each
+in a fresh conversation, and read what the page did with the markers.
+
+| Question                                            | Reply opened                              | Links | Note | Copy                     |
+| --------------------------------------------------- | ----------------------------------------- | ----- | ---- | ------------------------ |
+| Can I get reimbursed for a gym membership?          | "The documents do not cover…" `[4]`       | 0     | yes  | the note, no source list |
+| How much notice do I need to give for unpaid leave? | "The documents do not cover…" `[1][2][3]` | 0     | yes  | the note, no source list |
+| What is the warranty on the company laptop?         | "The documents do not mention…" `[3]`     | 1     | no   | a source list            |
+
+The third reply in full: _"The documents do not mention a warranty on the company laptop, but they do
+state that equipment which fails within the three-year period is replaced rather than repaired [3]."_
+A decline citing a relevant fact — the shape ADR 058 unlinks — in a wording the page does not
+recognize, so its marker stayed a link. That is the case the public copy already discloses ("a
+refusal worded in a way the page does not recognize still links them"), so nothing claims otherwise;
+but the check's own bar, none of the three rendering a link, was not met.
+
+**Not a reason to widen yet, by ADR 058's own rule.** A phrase joins the detector only if it has
+opened a decline in a committed eval run and is a decline in every use. This one comes from a live
+answer, not a committed run, and "do not mention" is less plainly a decline than "do not specify":
+"The documents do not mention any fee for early termination [2]" reads as an answer about what the
+documents say.
+
+**What would settle it:**
+
+- **Measure first.** Add questions shaped like this one — a policy topic the handbook touches without
+  answering — to the refusal eval, so a committed run shows whether "do not mention" recurs, and
+  decide by the rule.
+- **Or tighten rule 7.** It already names "…do not contain information about…" as a failure, and
+  naming the wanted form once moved the opener to 15 of 15. Naming "mention" too is a prompt change,
+  so it needs the eval to show it moved something and changed nothing else.
+
+## The seed waits out the shared pool, and two at once now clash, 16 October 2026
+
+Found by the 1.10.1 release review, both in `lib/db/seed.mts`, neither from that release's fix.
+
+**Every run waits about 20 seconds after its work is done (low, CI time).** The script opens and
+closes its own single connection, but the fixture work goes through the `lib/db` singleton, whose
+pool has `idle_timeout: 20` and is never closed, so the process lives until it idles out. CI shows a
+20-second gap after each seed step, before 1.10.1 as well, about a minute per run across the three
+seeds. Closing the shared client in the script's `finally` brought a no-op run from 21 seconds to
+one, in the review's local test.
+
+**Two seeds against one database now race (low, noisy rather than harmful).** Since 1.10.1 a fixture
+that is not `ready` is replaced, so a second seed started while the first is still processing
+deletes the first one's document: the first then logs an empty status and exits 1, and the second
+finishes with one ready fixture. Before, the second run was a no-op. Only a second seed against the
+same database can cause it, and the demo workspace is read-only to every actor.
