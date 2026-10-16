@@ -29,8 +29,8 @@ export function planFixtureSeed({
     return { create: false, remove: [], reason: `already holds ${filename}` };
   }
 
-  // A fixture left failed by an earlier run is replaced, not kept: kept, every
-  // later run would report it present and a re-run could never repair it.
+  // A fixture an earlier run left anything but ready is replaced, not kept:
+  // kept, every later run would report it present and none could repair it.
   if (fixture) {
     return {
       create: true,

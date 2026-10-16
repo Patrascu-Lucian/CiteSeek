@@ -4302,3 +4302,26 @@ now it does.
 accent", and it cut by code point: a ZWJ family, a flag, a skin tone and a decomposed "é" each lost
 their second half at the cut. It now cuts by grapheme with `Intl.Segmenter`, and one test holds all
 four, failing on the code-point version.
+
+## A guard that pinned more than it guards, 16 October 2026
+
+- **Issue**: the test keeping sprintf-js's "unreachable" honest checked that argparse 1.0.10's only
+  dependent was `mammoth@1.13.0`. The path it guards is mammoth → argparse 1 → sprintf-js; mammoth's
+  version is not part of it. mammoth is a caret dependency with five releases this year, and
+  Dependabot bundles minor and patch bumps into one weekly group, so the first mammoth release would
+  have turned that whole group red over a path that had not changed. Found by the 1.10.1 release
+  review, reproduced by bumping only mammoth in the lockfile.
+
+- **And its comment pointed at the wrong remedy.** It said that when the first test fails, "a fix or
+  another path has arrived: delete this block". A new path fails the second or third test, never the
+  first, and argparse 1 accepts only `~1.0.2`, so no fixed sprintf-js can reach the tree on its own.
+  Followed literally, the comment would have deleted the guard while the advisory still applied.
+
+- **Fix**: compare dependents by name. It passes with mammoth bumped and still fails when a second
+  package depends on argparse 1. The comment now gives each test's failure its own meaning: the first
+  means sprintf-js left or was overridden, and the block goes; the other two mean the path changed,
+  and it gets checked before anything is deleted.
+
+- **Lesson**: **a guard should fail on exactly what it guards.** Every extra fact pinned — a version, a
+  count — is a way to go red on a change that is fine, and a guard that cries wolf on routine bumps
+  teaches people to delete it.
