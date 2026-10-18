@@ -272,10 +272,19 @@ describe("opensWithRefusal", () => {
     ).toBe(false);
   });
 
-  it("recognizes the one other opener the eval caught declining", () => {
+  it('recognizes "specify", which the eval caught declining', () => {
     // One reply in sixty in each committed report, every time a decline.
     expect(
       opensWithRefusal("The documents do not specify which inhibitor [3]."),
+    ).toBe(true);
+  });
+
+  it('recognizes "mention", which the eval caught declining', () => {
+    // Two replies in the 90-reply report, both on the laptop warranty.
+    expect(
+      opensWithRefusal(
+        "The documents do not mention a warranty on company laptops; they state that equipment failing within the three-year period is replaced rather than repaired [3].",
+      ),
     ).toBe(true);
   });
 
@@ -335,6 +344,15 @@ describe("markerVerdict", () => {
       invented: [7],
       declined: false,
     });
+  });
+
+  it("keeps the links of an answer that says what is not mentioned later", () => {
+    expect(
+      markerVerdict(
+        "Equipment that fails within three years is replaced [1]. The documents do not mention a warranty.",
+        two,
+      ),
+    ).toEqual({ linked: [1], invented: [], declined: false });
   });
 });
 

@@ -31,7 +31,11 @@ export const DECLINING_OPENER = "The documents do not cover";
  * Never "The documents do not" alone: "do not require …" begins true answers
  * (ADR 058).
  */
-const DECLINING_OPENERS = [DECLINING_OPENER, "The documents do not specify"];
+const DECLINING_OPENERS = [
+  DECLINING_OPENER,
+  "The documents do not specify",
+  "The documents do not mention",
+];
 
 export function opensWithRefusal(text: string): boolean {
   const opening = text

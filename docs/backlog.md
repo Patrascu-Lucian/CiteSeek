@@ -3790,6 +3790,12 @@ documents say.
   naming the wanted form once moved the opener to 15 of 15. Naming "mention" too is a prompt change,
   so it needs the eval to show it moved something and changed nothing else.
 
+↳ **Done in 1.11.0.** The first branch ran: the handbook's ten adjacent questions went into the
+refusal eval, and "do not mention" opened 2 of the 90 replies in the committed run (#463), both on
+the laptop warranty. It now unlinks like "cover" and "specify" (ADR 058's third amendment). The
+"less plainly a decline" reasoning above applied equally to "specify", which was already on the list.
+Rule 7 is unchanged.
+
 ## The seed waits out the shared pool, and two at once now clash, 16 October 2026
 
 Found by the 1.10.1 release review, both in `lib/db/seed.mts`, neither from that release's fix.

@@ -4325,3 +4325,22 @@ four, failing on the code-point version.
 - **Lesson**: **a guard should fail on exactly what it guards.** Every extra fact pinned — a version, a
   count — is a way to go red on a change that is fine, and a guard that cries wolf on routine bumps
   teaches people to delete it.
+
+## A reason for waiting that fit what was already shipped, 18 October 2026
+
+- **Issue**: when the live site first met "The documents do not mention…", the backlog kept it out of
+  the declining openers as "less plainly a decline" than "specify", on the strength of one
+  counterexample: "The documents do not mention any fee for early termination [2]" reads as an answer
+  about what the documents say. Lucian put "specify" in its place, and it read exactly the same. The
+  counterexample did not separate the new phrase from one already on the list, so it was never a
+  reason, only a hesitation written as one.
+
+- **Fix**: the phrase was measured first, as the entry offered: the handbook's adjacent questions went
+  into the refusal eval, and "do not mention" opened 2 of the 90 replies in the committed run. It now
+  unlinks like the other two, and ADR 058's amendment records what does separate the cases: the verb.
+  "Cover", "specify" and "mention" are about what the text contains, so they open with an absence no
+  passage can back; "require" is about what the rules do, so it can open a true answer.
+
+- **Lesson**: **test a reason for excluding something against what you already included.** An argument
+  that would also exclude a member of the list is not about the candidate; a rule that names the
+  property instead — here, the verb — is the one the next candidate can be judged by.
