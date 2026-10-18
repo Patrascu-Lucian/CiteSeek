@@ -3827,3 +3827,23 @@ they state that the deposit is five weeks' rent [1]." The page then unlinks the 
 shows the decline note. At eight passages this did not occur in the set, which is part of why eight
 stays; at a lower count it would be a false refusal the reader sees. Worth watching whenever the
 count or the prompt changes.
+
+## Repeats in one session are not independent, 18 October 2026
+
+Found comparing the chunk-size run (`eval/answers-chunks.md`) with the passage-count run two days
+earlier (`eval/answers.md`), which share one setting: 600 characters at eight passages.
+
+**Three runs in a session agree more than two sessions do (low, the instrument).** In both reports
+the per-run columns never differ: every question scores the same in all three runs. Yet "How fast is
+a non-emergency repair attended?" was uncited in all three runs on 16 October and cited in all three
+on 18 October, with the same code and settings. So `ANSWER_RUNS` measures variance within a session,
+which looks close to none, and not the drift between sessions, which moved a verdict's only gain
+(ADR 059's amendment). When a comparison turns on one or two questions, run the session again before
+reading it as an effect; two sessions of one run each would say more than one session of three.
+
+**The low-context hedges fall on the two vaguest questions.** The same two lose their citation at
+three passages and at 400-character chunks. "How much warning do I need to give before it renews?"
+names no "it", and the model reads it as the tenancy, which the fixtures never say renews, before
+giving the support plan's 30 days. "How much do I have to hand over at the start?" can mean the
+deposit alone or the deposit and the first month, since rent is paid in advance. With less text in
+view the model names the gap before answering, which ADR 058 reads as a decline.

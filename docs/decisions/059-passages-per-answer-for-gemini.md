@@ -50,6 +50,12 @@ this corpus is therefore no evidence for three, which is why a tie keeps eight.
 cites its passage at three and not at eight, and two do at eight and not at three. A trade keeps
 the default, and three is the only count with false refusals.
 
+↳ **Amended, 18 October 2026.** The one citation three gained, "How fast is a non-emergency repair
+attended?", was cited at eight in all three runs when the chunk-size run asked it again two days
+later at the same settings (`eval/answers-chunks.md`). Each session's three runs agreed and the two
+sessions disagreed, so that gain was drift between sessions, not three. Without it three only
+loses, and eight stays all the more.
+
 **What three loses comes through ADR 058.** Seeing less, the model hedges on questions it can
 answer: _"The documents do not cover the total amount to be handed over at the start, though they
 state that the deposit is five weeks' rent [1]."_ The value and the citation are right, but the
