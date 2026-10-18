@@ -54,8 +54,8 @@ certificate for absences of seven days or fewer [3]", and unlinking a correct ci
 missing a decline. The opener is one constant, which rule 7 is written from and the detector reads,
 so the instruction and the check cannot drift apart. It lives beside the detector in
 `lib/ai/citations.ts` rather than in the prompt module, because the page loads the detector and has
-no use for the system prompt's text. **Widened to a second opener on 14 October 2026; see the
-amendment below.**
+no use for the system prompt's text. **Widened to a second opener on 14 October 2026 and a third on
+18 October 2026; see the amendments below.**
 
 **The clipboard follows the screen.** A copied reply lists only the markers that rendered as links,
 and carries the same note the screen shows, so a paste cannot read better sourced than the page. This
@@ -81,9 +81,9 @@ migration.
   rule: a cited clause that states a fact the question was reaching for counts as a loss, and one
   that names topics does not. The re-run committed with the amendment below reads 38 unlinked and
   12 in that shape, 14 if two replies citing the pressure sensor's fault code count.
-- Every reply measured so far that declined in another wording opened "The documents do not
-  specify": one in each of the three committed 60-reply reports, each a decline citing a relevant
-  partial fact. That is what the amendment below acts on.
+- In the three committed 60-reply reports, every reply that declined in another wording opened "The
+  documents do not specify": one in each, each a decline citing a relevant partial fact. That is
+  what the first amendment below acts on; the 90-reply report's other wording is the second's.
 - The model's rate is unchanged, and the README and the landing page say that: what changes is that a
   marker on a declining reply no longer presents itself as a source.
 - Local mode sends the same system prompt (`buildSystemPrompt`), so the rule reaches it through the
@@ -114,3 +114,29 @@ true answer, as "require" can, never joins, and neither does "The documents do n
   still describes it. The list is the page's reading, not a second instruction.
 - The public copy now says a refusal "worded in a way the page does not recognize" still links, since
   the page recognizes more than the prompt's own form.
+
+## Amendment, 18 October 2026: a third opener
+
+**The detector also reads "The documents do not mention" as declining.** The report committed with
+#463, the first to ask the demo handbook ten adjacent questions, had 2 of its 90 replies open that
+way, both on "What is the warranty on the company laptop?", and both declines citing a relevant
+partial fact: _"The documents do not mention a warranty on company laptops; they state that
+equipment failing within the three-year period is replaced rather than repaired [3]."_ They were the
+only replies in the run the page left as links. Left exact, whether a reader could click such a
+marker depended on which synonym the model picked, and that was true of the laptop reply.
+
+**The rule reads the verb.** Verbs about what the text contains, such as "cover", "specify" and
+"mention", open with an absence, and no passage can back an absence: a marker on the opener never
+backs it, and a later clause a passage does back is the partial answer priced above. Verbs about
+what the rules do, such as "require", state something a passage says, so a reply can open with one
+and still be a true answer. The next candidate is judged by its verb, and by the committed-run
+prong.
+
+**The reason recorded for waiting does not separate it.** The backlog kept "mention" out as less
+plainly a decline: "The documents do not mention any fee for early termination [2]" reads as an
+answer about what the documents say. Put "specify" in its place and it reads the same, and
+"specify" was already on the list.
+
+- The cost: both laptop replies cite a fact the question was reaching for, so by the reading rule
+  above both count as losses, two more of the kind already accepted.
+- The prompt is byte-identical: rule 7 still asks for "cover" only.
