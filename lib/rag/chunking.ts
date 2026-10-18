@@ -14,7 +14,7 @@ import { type PageSpan, pageNumberForOffset } from "./normalize";
 /** Revised down from 1,200/1,500/200: a 1,200-character chunk makes a
  * 1,200-character highlight, so the panel lit up a whole section rather than the
  * "exact passage" claimed. **Precision is bounded by chunk size and nothing
- * else.** Not yet tuned against answer quality. */
+ * else.** Measured against 400 and 800 on answers, and kept (ADR 008). */
 export const CHUNK_TARGET_CHARS = 600;
 export const CHUNK_MAX_CHARS = 800;
 export const CHUNK_OVERLAP_CHARS = 100;
