@@ -64,7 +64,8 @@ const { processDocument } = await import("../lib/rag/ingest.ts");
 const { retrieveChunks } = await import("../lib/rag/retrieve.ts");
 const { buildSources, buildSystemPrompt } = await import("../lib/ai/prompt.ts");
 const { getChatModel } = await import("../lib/ai/provider.ts");
-const { markerVerdict } = await import("../lib/ai/citations.ts");
+const { markerVerdict, unresolvedMarkers } =
+  await import("../lib/ai/citations.ts");
 const { generateText } = await import("ai");
 const { CHAT_STEP_LIMIT, chatTools } = await import("../lib/chats/tools.ts");
 
@@ -203,17 +204,23 @@ try {
     text: string;
     cited: boolean;
     linked: boolean;
+    passages: number;
+    outOfRange: number[];
   }[] = [];
   const rates = new Map(SETS.map(({ name }) => [name, [] as number[]]));
   // What the page does with those markers (ADR 058), read through the same
   // function the page calls, so the two cannot be measured apart.
   const linkedRates = new Map(SETS.map(({ name }) => [name, [] as number[]]));
   const unlinkedRates = new Map(SETS.map(({ name }) => [name, [] as number[]]));
+  const outOfRangeRates = new Map(
+    SETS.map(({ name }) => [name, [] as number[]]),
+  );
 
   for (let run = 1; run <= RUNS; run += 1) {
     const cited = new Map(SETS.map(({ name }) => [name, 0]));
     const linkedCount = new Map(SETS.map(({ name }) => [name, 0]));
     const unlinkedCount = new Map(SETS.map(({ name }) => [name, 0]));
+    const outOfRangeCount = new Map(SETS.map(({ name }) => [name, 0]));
 
     for (const { set, question, workspaceId, sources } of reaching) {
       const { text } = await generateText({
@@ -240,6 +247,13 @@ try {
         unlinkedCount.set(set, (unlinkedCount.get(set) ?? 0) + 1);
       }
 
+      // Not from the verdict, which reports none for a declining reply (one
+      // note per reply), so a refusal's invented `[9]` would go uncounted.
+      const outOfRange = unresolvedMarkers(text, sources);
+      if (outOfRange.length > 0) {
+        outOfRangeCount.set(set, (outOfRangeCount.get(set) ?? 0) + 1);
+      }
+
       answers.push({
         run,
         set,
@@ -247,6 +261,8 @@ try {
         text: text.trim(),
         cited: marked,
         linked,
+        passages: sources.length,
+        outOfRange,
       });
     }
 
@@ -254,6 +270,9 @@ try {
     for (const [set, count] of linkedCount) linkedRates.get(set)?.push(count);
     for (const [set, count] of unlinkedCount) {
       unlinkedRates.get(set)?.push(count);
+    }
+    for (const [set, count] of outOfRangeCount) {
+      outOfRangeRates.get(set)?.push(count);
     }
     console.log(
       `  run ${String(run)}: ${[...cited].map(([set, count]) => `${String(count)} of ${String(clearing(set))} ${set}`).join(", ")} carried a marker`,
@@ -269,13 +288,13 @@ try {
     "on purpose and its rate is not the product's. The adjacent set has the same",
     "shape, asked of the demo handbook alone, as a guest's workspace holds it.",
     "",
-    "| set | clear the shipped floor | carrying a marker | rendered as a link | unlinked by its form |",
-    "| --- | ----------------------- | ----------------- | ------------------ | -------------------- |",
+    "| set | clear the shipped floor | carrying a marker | rendered as a link | unlinked by its form | carrying an out-of-range marker |",
+    "| --- | ----------------------- | ----------------- | ------------------ | -------------------- | ------------------------------- |",
     ...SETS.map(({ name, questions }) => {
       const per = (counts: Map<string, number[]>) =>
         `${(counts.get(name) ?? []).join(", ")} of ${String(clearing(name))}`;
 
-      return `| ${name} | ${String(clearing(name))} of ${String(questions.length)} | ${per(rates)} | ${per(linkedRates)} | ${per(unlinkedRates)} |`;
+      return `| ${name} | ${String(clearing(name))} of ${String(questions.length)} | ${per(rates)} | ${per(linkedRates)} | ${per(unlinkedRates)} | ${per(outOfRangeRates)} |`;
     }),
     "",
     "Per run, every column reading markers as the page does. A reply that opens",
@@ -284,6 +303,11 @@ try {
     "replies that declined in a wording the page does not recognize. Whether an",
     "unlinked marker pointed at something relevant is read from the answers",
     "below, not counted here.",
+    "",
+    "The last column is the one that does not read as the page does: a marker",
+    "naming no passage the reply was given, counted on every reply whatever its",
+    "form. The page folds one in a declining reply into that reply's single",
+    "note, so its own reading would show none.",
     "",
     "Rule 4 of the system prompt forbids attaching a marker to a refusal, so a",
     "marker on a refusal is the prompt broken by its own definition. Answers are",
@@ -296,6 +320,8 @@ try {
       "",
       `Cited: ${String(one.cited)}`,
       `Linked on the page: ${String(one.linked)}`,
+      `Passages: ${String(one.passages)}`,
+      `Out of range: ${one.outOfRange.length === 0 ? "none" : one.outOfRange.map((marker) => `[${String(marker)}]`).join(", ")}`,
       "",
       one.text,
       "",

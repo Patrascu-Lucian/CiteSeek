@@ -97,14 +97,25 @@ describe("the README's refusal-marker counts", () => {
   const report = read("eval", "refusals.md");
   const prose = read("README.md").replace(/\n>? */g, " ");
 
-  /** The per-run counts in the "carrying a marker" column of one set's row. */
-  const carrying = (set: string) => {
-    const row = report
-      .split("\n")
-      .find((line) => line.startsWith(`| ${set} |`));
-    const cell = row?.split("|")[3] ?? "";
+  const SETS = ["golden", "uncovered", "adjacent"];
+  const lines = report.split("\n");
+  const headers = (lines.find((line) => line.startsWith("| set |")) ?? "")
+    .split("|")
+    .map((cell) => cell.trim());
+
+  /** The per-run counts in one column of one set's row, found by its header. */
+  const column = (set: string, header: string) => {
+    const index = headers.indexOf(header);
+    // A missing column would read as zeros, which is the claim being checked.
+    if (index === -1) throw new Error(`No "${header}" column in the report.`);
+    const row = lines.find((line) => line.startsWith(`| ${set} |`));
+    const cell = row?.split("|")[index] ?? "";
     return (cell.split(" of ")[0] ?? "").split(",").map(Number);
   };
+
+  const carrying = (set: string) => column(set, "carrying a marker");
+  const outOfRange = (set: string) =>
+    column(set, "carrying an out-of-range marker");
 
   const range = (counts: number[]) => {
     const [low, high] = [Math.min(...counts), Math.max(...counts)];
@@ -114,9 +125,20 @@ describe("the README's refusal-marker counts", () => {
   };
 
   it("reads three runs from each row", () => {
-    expect(carrying("golden")).toHaveLength(3);
-    expect(carrying("uncovered")).toHaveLength(3);
-    expect(carrying("adjacent")).toHaveLength(3);
+    for (const set of SETS) {
+      expect(carrying(set), set).toHaveLength(3);
+      expect(outOfRange(set), set).toHaveLength(3);
+    }
+  });
+
+  it("claims nothing invented only while every run counted none", () => {
+    const none = SETS.every((set) =>
+      outOfRange(set).every((count) => count === 0),
+    );
+
+    for (const phrase of ["no out-of-range marker", "nothing is invented"]) {
+      expect(prose.includes(phrase), phrase).toBe(none);
+    }
   });
 
   it("quotes the range the latest report measured", () => {
