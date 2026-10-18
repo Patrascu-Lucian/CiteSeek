@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  ADJACENT_SET,
   FOLLOW_UP_SET,
   GOLDEN_SET,
   ANSWER_SET,
@@ -81,32 +82,44 @@ describe("the golden set", () => {
   });
 });
 
-describe("the uncovered set", () => {
-  const STOPWORDS = new Set([
-    "what",
-    "does",
-    "which",
-    "much",
-    "often",
-    "should",
-  ]);
-  /** Four letters or more, so "the" and "for" never count as a shared word. */
-  const contentWords = (question: string) =>
-    (question.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter(
-      (word) => !STOPWORDS.has(word),
-    );
+// Function words too: "Is there a gym nearby?" passed on "there".
+const STOPWORDS = new Set([
+  "what",
+  "does",
+  "which",
+  "much",
+  "often",
+  "should",
+  "there",
+  "when",
+  "many",
+  "from",
+  "have",
+  "with",
+  "that",
+  "this",
+  "your",
+]);
 
+/** Four letters or more, so "the" and "for" never count as a shared word. */
+const contentWords = (question: string) =>
+  (question.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter(
+    (word) => !STOPWORDS.has(word),
+  );
+
+const sharedWords = (question: string, source: string) =>
+  contentWords(question).filter((word) =>
+    new RegExp(`\\b${word}\\b`).test(source),
+  );
+
+describe("the uncovered set", () => {
   it("names something in the document each question is about", () => {
     // The mechanical half of the invariant. A question sharing no word with its
     // document is a far-off one, which the golden set already has; whether the
     // document leaves it unanswered is what `eval:refusals` reads.
     for (const one of UNCOVERED_SET) {
-      const source = text(one.about).toLowerCase();
-
       expect(
-        contentWords(one.question).filter((word) =>
-          new RegExp(`\\b${word}\\b`).test(source),
-        ),
+        sharedWords(one.question, text(one.about).toLowerCase()),
         one.question,
       ).not.toEqual([]);
     }
@@ -122,6 +135,47 @@ describe("the uncovered set", () => {
 
     for (const one of UNCOVERED_SET) {
       expect(golden.has(one.question), one.question).toBe(false);
+    }
+  });
+});
+
+describe("the adjacent set", () => {
+  // The words a reader sees, not the stylesheet or the authoring comment.
+  const handbook = readFileSync(
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "lib",
+      "db",
+      "fixtures",
+      "northwind-remote-work-handbook.html",
+    ),
+    "utf8",
+  )
+    .replace(/<style[\s\S]*?<\/style>|<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .toLowerCase();
+
+  it("names something the handbook covers in every question", () => {
+    for (const one of ADJACENT_SET) {
+      expect(sharedWords(one.question, handbook), one.question).not.toEqual([]);
+    }
+  });
+
+  it("carries the live site's laptop warranty, marked as seen", () => {
+    expect(ADJACENT_SET).toContainEqual({
+      question: "What is the warranty on the company laptop?",
+      seen: true,
+    });
+  });
+
+  it("asks nothing another refusal set already asks", () => {
+    const asked = new Set(
+      [...GOLDEN_SET, ...UNCOVERED_SET].map((one) => one.question),
+    );
+
+    for (const one of ADJACENT_SET) {
+      expect(asked.has(one.question), one.question).toBe(false);
     }
   });
 });

@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 import { loadLocalEnv } from "../lib/env/load-local-env.ts";
 import { namesHost } from "../lib/env/named-host.ts";
-import { GOLDEN_SET, UNCOVERED_SET } from "../eval/golden-set.ts";
+import { ADJACENT_SET, GOLDEN_SET, UNCOVERED_SET } from "../eval/golden-set.ts";
 
 // Read before `loadLocalEnv`: `.env.local` must not be what decides to spend
 // money, or which database to write to.
@@ -58,7 +58,8 @@ console.log(`Evaluating against ${hostname}\n`);
 
 const { db } = await import("../lib/db/index.ts");
 const { workspaces } = await import("../lib/db/schema.ts");
-const { createQueuedDocument } = await import("../lib/documents/queries.ts");
+const { createQueuedDocument, findDocumentInWorkspace } =
+  await import("../lib/documents/queries.ts");
 const { processDocument } = await import("../lib/rag/ingest.ts");
 const { retrieveChunks } = await import("../lib/rag/retrieve.ts");
 const { buildSources, buildSystemPrompt } = await import("../lib/ai/prompt.ts");
@@ -76,18 +77,41 @@ const FILES = [
   "harbourline-equipment-manual.md",
   "larkfield-tenancy-agreement.md",
 ];
+const HANDBOOK = join(
+  EVAL_DIR,
+  "..",
+  "lib",
+  "db",
+  "fixtures",
+  "northwind-remote-work-handbook.pdf",
+);
 
 /** Reported apart: the uncovered set samples the questions the floor finds
- * hardest, so pooling it with the golden set's would describe neither. */
-const SETS = [
+ * hardest, so pooling it with the golden set's would describe neither. The
+ * adjacent set is asked of the handbook alone, as a guest's demo holds it. */
+const SETS: {
+  name: string;
+  corpus: "fixtures" | "handbook";
+  questions: string[];
+}[] = [
   {
     name: "golden",
+    corpus: "fixtures",
     // `expect: []` is the golden set's marker for unanswerable.
     questions: GOLDEN_SET.filter((one) => one.expect.length === 0).map(
       (one) => one.question,
     ),
   },
-  { name: "uncovered", questions: UNCOVERED_SET.map((one) => one.question) },
+  {
+    name: "uncovered",
+    corpus: "fixtures",
+    questions: UNCOVERED_SET.map((one) => one.question),
+  },
+  {
+    name: "adjacent",
+    corpus: "handbook",
+    questions: ADJACENT_SET.map((one) => one.question),
+  },
 ];
 
 /* More than one, because one is not evidence here: the same question drew a
@@ -101,35 +125,66 @@ if (!Number.isInteger(RUNS) || RUNS < 1) {
   );
 }
 
-const [workspace] = await db
-  .insert(workspaces)
-  .values({ name: `refusals ${new Date().toISOString()}`, ownerId: null })
-  .returning({ id: workspaces.id });
+const created: string[] = [];
 
-const workspaceId = workspace!.id;
+async function scratchWorkspace(): Promise<string> {
+  const [workspace] = await db
+    .insert(workspaces)
+    .values({ name: `refusals ${new Date().toISOString()}`, ownerId: null })
+    .returning({ id: workspaces.id });
+  created.push(workspace!.id);
+  return workspace!.id;
+}
+
+async function ingest(workspaceId: string, path: string, mimeType: string) {
+  const bytes = new Uint8Array(await readFile(path));
+  const filename = path.split(/[\\/]/).pop()!;
+  const document = await createQueuedDocument(workspaceId, {
+    filename,
+    mimeType,
+    sizeBytes: bytes.length,
+  });
+  await processDocument(workspaceId, document.id, bytes, mimeType);
+
+  // `processDocument` records a failure on the row rather than throwing, and a
+  // failed document reads as every question refused by the floor.
+  const stored = await findDocumentInWorkspace(workspaceId, document.id);
+  if (stored?.status !== "ready") {
+    throw new Error(`${filename} did not ingest: ${String(stored?.error)}`);
+  }
+  console.log(`  ingested ${filename}`);
+}
 
 try {
+  const workspaceFor = {
+    fixtures: await scratchWorkspace(),
+    handbook: await scratchWorkspace(),
+  };
   for (const file of FILES) {
-    const bytes = new Uint8Array(await readFile(join(FIXTURES, file)));
-    const document = await createQueuedDocument(workspaceId, {
-      filename: file,
-      mimeType: "text/markdown",
-      sizeBytes: bytes.length,
-    });
-    await processDocument(workspaceId, document.id, bytes, "text/markdown");
-    console.log(`  ingested ${file}`);
+    await ingest(workspaceFor.fixtures, join(FIXTURES, file), "text/markdown");
   }
+  await ingest(workspaceFor.handbook, HANDBOOK, "application/pdf");
 
   // Retrieval is deterministic, so the floor is settled once and the runs below
   // differ only in what the model said.
-  const reaching: { set: string; question: string; sources: ChatSource[] }[] =
-    [];
+  const reaching: {
+    set: string;
+    question: string;
+    workspaceId: string;
+    sources: ChatSource[];
+  }[] = [];
 
-  for (const { name, questions } of SETS) {
+  for (const { name, corpus, questions } of SETS) {
+    const workspaceId = workspaceFor[corpus];
     for (const question of questions) {
       const { chunks } = await retrieveChunks(workspaceId, question);
       if (chunks.length > 0) {
-        reaching.push({ set: name, question, sources: buildSources(chunks) });
+        reaching.push({
+          set: name,
+          question,
+          workspaceId,
+          sources: buildSources(chunks),
+        });
       }
     }
   }
@@ -160,7 +215,7 @@ try {
     const linkedCount = new Map(SETS.map(({ name }) => [name, 0]));
     const unlinkedCount = new Map(SETS.map(({ name }) => [name, 0]));
 
-    for (const { set, question, sources } of reaching) {
+    for (const { set, question, workspaceId, sources } of reaching) {
       const { text } = await generateText({
         model: getChatModel(),
         system: buildSystemPrompt(sources),
@@ -208,10 +263,11 @@ try {
   const report = [
     "# What the model does with the questions the floor lets through",
     "",
-    "Two sets of unanswerable questions. The golden set's are the ones its floor",
+    "Three sets of unanswerable questions. The golden set's are the ones its floor",
     "table counts. Each uncovered question names something one document is about",
     "and asks for a detail it does not cover, so that set samples the hard region",
-    "on purpose and its rate is not the product's.",
+    "on purpose and its rate is not the product's. The adjacent set has the same",
+    "shape, asked of the demo handbook alone, as a guest's workspace holds it.",
     "",
     "| set | clear the shipped floor | carrying a marker | rendered as a link | unlinked by its form |",
     "| --- | ----------------------- | ----------------- | ------------------ | -------------------- |",
@@ -250,5 +306,7 @@ try {
   console.log("\nWrote eval/refusals.md");
 } finally {
   const { eq } = await import("drizzle-orm");
-  await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+  for (const id of created) {
+    await db.delete(workspaces).where(eq(workspaces.id, id));
+  }
 }
