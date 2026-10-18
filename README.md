@@ -90,7 +90,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 164 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 165 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -542,10 +542,10 @@ weaker than "says so when nothing relevant is found" sounds, and the observed be
 because the prompt catches what the floor misses.
 
 The leak's real cost is smaller and different: many of those refusals attach a citation marker,
-which the prompt's own rules forbid on a refusal — in the latest report, between 2 and 3 of the
-golden five per run, and between 11 and 12 of the adversarial fifteen, where a question about the
+which the prompt's own rules forbid on a refusal — in the latest report, between 3 and 4 of the
+golden five per run, and between 10 and 12 of the adversarial fifteen, where a question about the
 edge of a topic draws a citation to the topic. Ten more of that shape, asked of the demo handbook
-alone as a guest's workspace holds it, all clear the floor, and between 7 and 9 of the handbook's
+alone as a guest's workspace holds it, all clear the floor, and between 8 and 9 of the handbook's
 ten carry a marker.
 The counts move from run to run, so the file carries the latest rather than a settled number.
 Rewording that rule was tried three ways on the five golden questions and the difference was too
@@ -734,7 +734,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1169  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1170  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 189   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |

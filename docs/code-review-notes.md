@@ -4344,3 +4344,25 @@ four, failing on the code-point version.
 - **Lesson**: **test a reason for excluding something against what you already included.** An argument
   that would also exclude a member of the list is not about the candidate; a rule that names the
   property instead — here, the verb — is the one the next candidate can be judged by.
+
+## A claim measured by reading, from a report that could not show it, 18 October 2026
+
+- **Issue**: the README says the refusal runs had "no out-of-range marker", and links
+  `eval/refusals.md` as the evidence. Lucian traced the claim to the harness's first version (#348),
+  which scored with `cites()`: that counts only in-range markers and skips invented ones silently.
+  Since #444 the harness reads `markerVerdict()`, which reports `invented: []` for every declining
+  reply by design, one note per reply. Either way no column ever counted the claim. In the committed
+  report, 38 of the 60 replies were declines carrying markers, none range-checked, and 12 of them
+  topped out at `[7]` or `[8]` with no record of how many passages each question got.
+
+- **Fix**: `eval:refusals` counts out-of-range markers on every reply, whatever its form, with
+  `unresolvedMarkers`, as the report's last column, and each answer records its passage count and its
+  out-of-range markers, so the claim can be checked from the committed file alone. `README.test.ts`
+  now requires "no out-of-range marker" and "nothing is invented" to appear exactly when every run of
+  every set counts zero, and reads columns by header, so a missing column fails rather than reading
+  as zeros.
+
+- **Lesson**: **a claim linked to evidence should be checked against what the evidence can show.**
+  The report was real, and the claim was probably true; the link between them was never there. The
+  pin that guards the numbers next to it never guarded this sentence, because there was no number to
+  pin.
