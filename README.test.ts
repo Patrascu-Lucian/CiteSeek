@@ -116,12 +116,16 @@ describe("the README's refusal-marker counts", () => {
   it("reads three runs from each row", () => {
     expect(carrying("golden")).toHaveLength(3);
     expect(carrying("uncovered")).toHaveLength(3);
+    expect(carrying("adjacent")).toHaveLength(3);
   });
 
   it("quotes the range the latest report measured", () => {
     expect(prose).toContain(`${range(carrying("golden"))} of the golden five`);
     expect(prose).toContain(
       `${range(carrying("uncovered"))} of the adversarial fifteen`,
+    );
+    expect(prose).toContain(
+      `${range(carrying("adjacent"))} of the handbook's ten`,
     );
   });
 });
