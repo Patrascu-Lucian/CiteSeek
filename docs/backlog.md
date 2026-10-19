@@ -3887,3 +3887,40 @@ the shipped size, chunk 8 begins inside the guest-stay quote and shares only "no
 so citing it alone would score as citing the answering passage. No committed run is affected. The
 oracle now prefers a chunk holding the whole quote; the scorer would need the same rule, with an
 overlap fallback for a quote that spans two chunks.
+
+## A decline about the last question, met on the live site, 19 October 2026
+
+The 1.11.0 exit check asked three `ANSWER_SET` questions in one conversation, in a signed-in
+workspace holding the three eval fixtures, and one on the demo.
+
+| Question                                           | Reply opened                                | Links | Note |
+| -------------------------------------------------- | ------------------------------------------- | ----- | ---- |
+| How much force does the press develop?             | "The press develops 90 kilonewtons" `[1]`   | 1     | no   |
+| What is the cap on credits in a month?             | "The documents do not cover the press, …"   | 0     | yes  |
+| How long does the deposit take to be protected?    | "The deposit is registered … 30 days" `[2]` | 1     | no   |
+| What is the warranty on the company laptop? (demo) | "The documents do not cover a warranty …"   | 0     | yes  |
+
+The second reply in full: _"The documents do not cover the press, but they cover support plans,
+credits, escalation, data handling, and ending a support plan. The cap on credits in any calendar
+month is 25% of the monthly fee [1]."_ The value and the citation are right. The opening declines
+the _previous_ question, about the press, whose manual was not among the passages retrieved for this
+one, so the page reads the reply as a decline, unlinks the right marker and says "This reply
+declines the question".
+
+**A complete answer read as a refusal (medium, a cost of ADR 058 no eval measures).** ADR 058 priced
+partial answers losing their links. This is a full, correct answer losing its link because of an
+earlier turn. Every eval asks each question in a fresh conversation, so no committed report can show
+it, and how often it happens is unknown: once in the two follow-ups here.
+
+**What would settle it:**
+
+- **Measure first.** Ask the answer set in sequence within one conversation, the way a reader moves
+  between topics, and count replies that open by declining an earlier question. That is the
+  single-turn harness with a transcript, and it reads the same `markerVerdict` the page does.
+- **Then choose a remedy by what it costs.** Rule 7 could say to decline only the current question,
+  which is a prompt change and needs the eval to show it moved this and nothing else. Or the
+  detector could look past an opening that declines something other than the question asked, which
+  is no longer an exact match and would need its own rule to stay one.
+
+The demo's laptop warranty opened "do not cover" this time, so it exercised the first opener, not
+the third; it rendered no link, as the committed run predicts.
