@@ -79,8 +79,8 @@ migration.
   warranty clause, the downgrade rule asked about an upgrade, the corrosion-inhibitor instruction, the
   Severity 1 response target. The other 25 cited a list of what the documents cover. The reading's
   rule: a cited clause that states a fact the question was reaching for counts as a loss, and one
-  that names topics does not. The re-run committed with the amendment below reads 38 unlinked and
-  12 in that shape, 14 if two replies citing the pressure sensor's fault code count.
+  that names topics does not. The re-run committed with the first amendment below reads 38 unlinked
+  and 12 in that shape, 14 if two replies citing the pressure sensor's fault code count.
 - In the three committed 60-reply reports, every reply that declined in another wording opened "The
   documents do not specify": one in each, each a decline citing a relevant partial fact. That is
   what the first amendment below acts on; the 90-reply report's other wording is the second's.

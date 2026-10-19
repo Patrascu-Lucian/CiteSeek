@@ -4366,3 +4366,22 @@ four, failing on the code-point version.
   The report was real, and the claim was probably true; the link between them was never there. The
   pin that guards the numbers next to it never guarded this sentence, because there was no number to
   pin.
+
+## A premise read from one report's totals, 19 October 2026
+
+- **Issue**: the backlog entry on repeated runs said that "in both reports the per-run columns never
+  differ: every question scores the same in all three runs", and drew its lesson from that: variance
+  within a session "looks close to none". It was read off one row of one report, the chunk sweep's
+  23, 23, 23, and written about both. The 1.11.0 release review read the other report: its per-run
+  columns differ in every row, 6 of its 72 question-settings split 2–1 within a session, and 2 of 72
+  in the chunk report too, where at 400 characters two questions flipped in opposite directions and
+  left the totals equal. The entry's own example had split 2–1.
+
+- **Fix**: the entry now gives the split counts, read from the verbatim run headers, and keeps the
+  advice, which still holds: within a session the runs mostly agree, while the same question at the
+  same settings went from 0 of 3 to 3 of 3 between sessions. Neither verdict moves, because both
+  rules keep the default on any loss or tie.
+
+- **Lesson**: **equal totals are not equal rows.** A per-run total can match while questions trade
+  places underneath it, so a claim about every question has to be read from the questions. And a
+  sentence about "both reports" needs both reports opened.

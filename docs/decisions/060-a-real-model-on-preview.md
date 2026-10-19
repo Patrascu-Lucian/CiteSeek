@@ -6,7 +6,7 @@
 
 Preview had fake embeddings, no `CHAT_PROVIDER` (which means the real chat model) and no API key. It
 could prove that a build deploys, never that an answer works: a question that cleared retrieval
-failed at the model call. The 1.10.0 smoke test set a real provider and a key for the test and
+failed at the model call. The 1.9.1 smoke test set a real provider and a key for the test and
 removed them afterwards, and the backlog asked for a decision instead of a repeat.
 
 1.11.0 is about what Gemini answers ([ADR 059](059-passages-per-answer-for-gemini.md)), so a release

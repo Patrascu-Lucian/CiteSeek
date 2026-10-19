@@ -210,6 +210,11 @@ async function measure(
         chunkSizes: sizes,
       });
       const stored = await findDocumentInWorkspace(workspaceId, document.id);
+      // `processDocument` records a failure on the row rather than throwing, and
+      // a failed document reads as its questions missed by retrieval.
+      if (stored?.status !== "ready") {
+        throw new Error(`${file} did not ingest: ${String(stored?.error)}`);
+      }
       // Offsets index the stored text, which normalization has already rewritten.
       textByFile.set(file, stored?.contentText ?? "");
       idByFile.set(file, document.id);
@@ -241,7 +246,8 @@ async function measure(
         charEnd: chunks.charEnd,
       })
       .from(chunks)
-      .where(eq(chunks.workspaceId, workspaceId));
+      .where(eq(chunks.workspaceId, workspaceId))
+      .orderBy(chunks.documentId, chunks.chunkIndex);
 
     console.log(
       `  ${sizes ? `${String(sizes.target)} characters: ` : ""}the corpus is ${String(stored.length)} passages.`,
@@ -251,9 +257,19 @@ async function measure(
      * ceiling retrieval cannot beat, so a miss below it is retrieval's or the
      * model's. */
     const oracleFor = (index: number): ChatSource[] => {
-      const passage = stored.find((chunk) =>
-        spans[index]!.some((span) => overlaps(chunk, span)),
-      );
+      // A passage holding the whole quote before one that only overlaps it: a
+      // chunk can begin inside a quote and share none of its answer.
+      const holds = (chunk: Span, span: Span) =>
+        chunk.documentId === span.documentId &&
+        chunk.charStart <= span.charStart &&
+        span.charEnd <= chunk.charEnd;
+      const passage =
+        stored.find((chunk) =>
+          spans[index]!.some((span) => holds(chunk, span)),
+        ) ??
+        stored.find((chunk) =>
+          spans[index]!.some((span) => overlaps(chunk, span)),
+        );
       if (!passage)
         throw new Error(
           `No stored passage holds: ${ANSWER_SET[index]!.question}`,
