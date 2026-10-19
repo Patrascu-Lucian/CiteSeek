@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  citesExpected,
   closeness,
+  comparePaired,
   cutSignal,
+  decideDefault,
   lexicalRank,
+  majority,
   margin,
   mean,
   overlaps,
@@ -283,5 +287,141 @@ describe("cutSignal", () => {
     );
 
     expect(cut).toMatchObject({ allowed: 1, addedRefusals: 0 });
+  });
+});
+
+describe("citesExpected", () => {
+  const sources = [
+    { marker: 1, ...span(0, 100) },
+    { marker: 2, ...span(500, 600) },
+  ];
+
+  it("counts a linked marker whose passage holds the answer", () => {
+    expect(citesExpected([2], sources, [span(550, 560)])).toBe(true);
+  });
+
+  it("does not count a marker that points elsewhere", () => {
+    expect(citesExpected([1], sources, [span(550, 560)])).toBe(false);
+  });
+
+  it("does not count the right passage when the page did not link it", () => {
+    // A marker the page left as text is no citation a reader can follow.
+    expect(citesExpected([], sources, [span(550, 560)])).toBe(false);
+  });
+
+  it("counts a passage that holds one of several acceptable spans", () => {
+    expect(citesExpected([2], sources, [span(10, 20), span(550, 560)])).toBe(
+      true,
+    );
+  });
+
+  it("does not count a passage in another document at the same offsets", () => {
+    expect(citesExpected([2], sources, [span(550, 560, other)])).toBe(false);
+  });
+});
+
+describe("majority", () => {
+  it("takes more than half", () => {
+    expect(majority([true, true, false])).toBe(true);
+    expect(majority([true, false, false])).toBe(false);
+  });
+
+  it("does not pass a tie", () => {
+    expect(majority([true, false])).toBe(false);
+  });
+});
+
+describe("comparePaired", () => {
+  const before = new Map([
+    ["a", true],
+    ["b", false],
+    ["c", true],
+  ]);
+
+  it("names what turned true and what turned false", () => {
+    const after = new Map([
+      ["a", true],
+      ["b", true],
+      ["c", false],
+    ]);
+
+    expect(comparePaired(before, after)).toEqual({
+      gained: ["b"],
+      lost: ["c"],
+    });
+  });
+
+  it("refuses two settings asked different questions", () => {
+    expect(() =>
+      comparePaired(
+        before,
+        new Map([
+          ["a", true],
+          ["b", true],
+          ["d", true],
+        ]),
+      ),
+    ).toThrow(/cannot be paired/);
+    expect(() => comparePaired(before, new Map([["a", true]]))).toThrow(
+      /cannot be paired/,
+    );
+    // Every question present, plus one: only the count can tell.
+    expect(() =>
+      comparePaired(before, new Map([...before, ["d", true]])),
+    ).toThrow(/cannot be paired/);
+  });
+});
+
+describe("decideDefault", () => {
+  const none = { gained: [], lost: [] };
+
+  it("changes when nothing got worse and enough got better", () => {
+    expect(
+      decideDefault({ grounded: { gained: ["a"], lost: [] }, cites: none }, 1),
+    ).toBe("change");
+  });
+
+  it("keeps on a trade, one better and another worse", () => {
+    expect(
+      decideDefault(
+        {
+          grounded: { gained: ["a", "b", "c"], lost: [] },
+          cites: { gained: [], lost: ["d"] },
+        },
+        1,
+      ),
+    ).toBe("keep");
+  });
+
+  it("keeps when too few got better", () => {
+    expect(
+      decideDefault(
+        {
+          grounded: { gained: ["a"], lost: [] },
+          cites: { gained: ["b"], lost: [] },
+        },
+        3,
+      ),
+    ).toBe("keep");
+  });
+
+  it("counts a question once, though it gained on two outcomes", () => {
+    expect(
+      decideDefault(
+        {
+          grounded: { gained: ["a"], lost: [] },
+          cites: { gained: ["a"], lost: [] },
+        },
+        2,
+      ),
+    ).toBe("keep");
+  });
+
+  it("keeps on a tie", () => {
+    expect(decideDefault({ grounded: none, cites: none }, 1)).toBe("keep");
+  });
+
+  it("refuses a rule that asks for no gain at all", () => {
+    expect(() => decideDefault({ grounded: none }, 0)).toThrow(/at least one/);
   });
 });

@@ -216,3 +216,67 @@ export function cutSignal(
     };
   });
 }
+
+/**
+ * Whether an answer cited the passage that holds its answer: some marker the
+ * page linked points at a source overlapping an expected span. Spans, not
+ * chunk ids, so it reads the same at any chunk size.
+ */
+export function citesExpected(
+  linked: readonly number[],
+  sources: readonly (Span & { marker: number })[],
+  expected: readonly Span[],
+): boolean {
+  return sources.some(
+    (source) =>
+      linked.includes(source.marker) &&
+      expected.some((span) => overlaps(source, span)),
+  );
+}
+
+/** More than half: a tie is not a majority, so an even count cannot pass on one. */
+export function majority(results: readonly boolean[]): boolean {
+  return results.filter(Boolean).length * 2 > results.length;
+}
+
+export type Paired = { gained: string[]; lost: string[] };
+
+/** Per question, what turned true and what turned false between two settings. */
+export function comparePaired(
+  before: ReadonlyMap<string, boolean>,
+  after: ReadonlyMap<string, boolean>,
+): Paired {
+  const questions = [...before.keys()];
+  if (
+    questions.length !== after.size ||
+    questions.some((question) => !after.has(question))
+  ) {
+    throw new Error(
+      "The two settings were asked different questions, so they cannot be paired.",
+    );
+  }
+
+  return {
+    gained: questions.filter((q) => !before.get(q) && after.get(q)),
+    lost: questions.filter((q) => before.get(q) && !after.get(q)),
+  };
+}
+
+/**
+ * The rule for changing a shipped default, fixed before the run it judges: no
+ * question may get worse on any outcome, and at least `minGains` must get
+ * better on one. A trade — one better, another worse — keeps the default.
+ */
+export function decideDefault(
+  outcomes: Readonly<Record<string, Paired>>,
+  minGains: number,
+): "change" | "keep" {
+  if (minGains < 1)
+    throw new Error("A change needs at least one question gained.");
+
+  const results = Object.values(outcomes);
+  if (results.some(({ lost }) => lost.length > 0)) return "keep";
+
+  const gained = new Set(results.flatMap(({ gained }) => gained));
+  return gained.size >= minGains ? "change" : "keep";
+}

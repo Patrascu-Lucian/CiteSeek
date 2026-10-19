@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -7,6 +10,7 @@ import {
   MAX_CHUNKS_PER_DOCUMENT,
   chunkText,
 } from "./chunking";
+import { extractText } from "./extract";
 import { joinPages } from "./normalize";
 
 /** Prose that splits on paragraph boundaries, sized to force multiple chunks. */
@@ -280,4 +284,106 @@ describe("chunkText — limits", () => {
 
     expect(chunks).toHaveLength(MAX_CHUNKS_PER_DOCUMENT);
   });
+});
+
+describe("chunkText — other sizes, for measuring them", () => {
+  const small = { target: 200, max: 300, overlap: 30 };
+
+  it("keeps the slice invariant and its own maximum", () => {
+    // Paragraphs longer than 300, and an unbroken run, so the maximum binds.
+    const text = `${paragraphs(4)}\n\n${"x".repeat(700)}`;
+    const chunks = chunkText(text, null, small);
+
+    expectSliceInvariant(text, chunks);
+    expect(Math.max(...chunks.map((chunk) => chunk.content.length))).toBe(300);
+  });
+
+  describe("each size is inclusive", () => {
+    const tiny = { target: 20, max: 30, overlap: 5 };
+    const cuts = (text: string) =>
+      chunkText(text, null, tiny).map((chunk) => [
+        chunk.charStart,
+        chunk.charEnd,
+      ]);
+
+    it("keeps a paragraph exactly the maximum long whole", () => {
+      expect(cuts(`${"a ".repeat(14)}aa`)).toEqual([[0, 30]]);
+    });
+
+    it("joins paragraphs that reach the target exactly", () => {
+      expect(cuts(`${"a".repeat(9)}\n\n${"b".repeat(9)}`)).toEqual([[0, 20]]);
+    });
+
+    it("keeps the overlap when it brings a chunk exactly to the maximum", () => {
+      expect(cuts(`${"a".repeat(13)} bb\n\n${"c".repeat(26)}`)).toEqual([
+        [0, 16],
+        [14, 44],
+      ]);
+    });
+  });
+
+  it("cuts differently from the shipped sizes", () => {
+    const text = paragraphs(4);
+
+    expect(chunkText(text, null, small).length).toBeGreaterThan(
+      chunkText(text).length,
+    );
+  });
+});
+
+describe("chunkText — the shipped sizes, pinned", () => {
+  // Every measured number — the floor, recall, the answer report — was taken on
+  // these cuts. A change to them is a re-measurement, not a refactor.
+  const SHIPPED: Record<string, [number, number][]> = {
+    "meridian-support-policy.md": [
+      [0, 462],
+      [366, 962],
+      [870, 1453],
+      [1363, 1704],
+      [1609, 2011],
+      [1919, 2428],
+      [2333, 2908],
+      [2811, 3307],
+    ],
+    "harbourline-equipment-manual.md": [
+      [0, 597],
+      [503, 890],
+      [797, 1283],
+      [1190, 1743],
+      [1649, 2186],
+      [2094, 2666],
+      [2574, 3080],
+      [2984, 3281],
+    ],
+    "larkfield-tenancy-agreement.md": [
+      [0, 410],
+      [317, 844],
+      [755, 1178],
+      [1081, 1468],
+      [1377, 1890],
+      [1797, 2290],
+      [2197, 2630],
+      [2533, 2920],
+      [2826, 3176],
+    ],
+  };
+
+  for (const [file, boundaries] of Object.entries(SHIPPED)) {
+    it(`cuts ${file} where every measurement was taken`, async () => {
+      const bytes = readFileSync(
+        join(import.meta.dirname, "..", "..", "eval", "fixtures", file),
+      );
+      const { text, pageSpans } = await extractText(
+        new Uint8Array(bytes),
+        "text/markdown",
+      );
+
+      expect(
+        chunkText(text, pageSpans).map((chunk) => [
+          chunk.charStart,
+          chunk.charEnd,
+        ]),
+      ).toEqual(boundaries);
+    });
+  }
 });

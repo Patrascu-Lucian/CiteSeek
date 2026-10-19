@@ -9,7 +9,11 @@ import {
 import { storageExceededMessage } from "@/lib/limits/caps";
 import { resolvePlanLimits } from "@/lib/limits/config";
 
-import { MAX_CHUNKS_PER_DOCUMENT, chunkText } from "./chunking";
+import {
+  MAX_CHUNKS_PER_DOCUMENT,
+  chunkText,
+  type ChunkSizes,
+} from "./chunking";
 import { type Embedder, embedPassages, getEmbedder } from "./embeddings";
 import { UnreadableDocumentError, extractText } from "./extract";
 
@@ -36,6 +40,8 @@ export type IngestOptions = {
   signal?: AbortSignal;
   /** Injectable so a test can cross it without a megabyte of fixture. */
   characterCeiling?: number;
+  /** For `pnpm eval:answers --chunk=`; the product never passes it. */
+  chunkSizes?: ChunkSizes;
 };
 
 /** No `cause` chains or stack traces: a parser error can quote the bytes it choked
@@ -152,7 +158,11 @@ export async function processDocument(
       throw new Error(storageExceededMessage(ceiling));
     }
 
-    const chunks = chunkText(extracted.text, extracted.pageSpans);
+    const chunks = chunkText(
+      extracted.text,
+      extracted.pageSpans,
+      options.chunkSizes,
+    );
 
     if (chunks.length === 0) {
       throw new UnreadableDocumentError(

@@ -348,6 +348,47 @@ export const UNCOVERED_SET: readonly UncoveredCase[] = [
   },
 ];
 
+/**
+ * The uncovered set's shape, asked of the demo handbook alone, as a guest's
+ * workspace holds it. `seen` marks the two met on the live site before this
+ * set was written; the rest are blind.
+ */
+export type AdjacentCase = { question: string; seen: boolean };
+
+export const ADJACENT_SET: readonly AdjacentCase[] = [
+  { question: "What is the warranty on the company laptop?", seen: true },
+  {
+    question: "How much notice do I need to give for unpaid leave?",
+    seen: true,
+  },
+  {
+    question: "Does the company pay toward home internet costs?",
+    seen: false,
+  },
+  {
+    question: "What is the mileage rate for driving to a company office?",
+    seen: false,
+  },
+  {
+    question: "How many days of paternity leave do employees get?",
+    seen: false,
+  },
+  {
+    question: "Which laptop brand is issued to remote employees?",
+    seen: false,
+  },
+  {
+    question: "What is the daily meal allowance when travelling?",
+    seen: false,
+  },
+  {
+    question: "Is unused annual leave paid out when I leave the company?",
+    seen: false,
+  },
+  { question: "How many sick days can I take in a year?", seen: false },
+  { question: "Can I open company documents on public Wi-Fi?", seen: false },
+];
+
 /** Separate from `GOLDEN_SET`, or every previously recorded number moves. */
 export type FollowUpCase = {
   /** The turns before it: read by a rewriting step, and the last one is
@@ -434,9 +475,10 @@ export const FOLLOW_UP_SET: readonly FollowUpCase[] = [
 
 /** Separate again: these expect something of the *answer*, which nothing else
  * here does. */
-export type LocalAnswerCase = {
+export type AnswerCase = {
   question: string;
-  /** The passage the model is handed. Retrieval is not what this measures. */
+  /** The passage that holds the answer: handed over whole as the oracle, and
+   * looked for in what retrieval returned. */
   expect: readonly Expectation[];
   /** Acceptable spellings of the fact. A floor, not a grade — it cannot tell a
    * value from a negated one, so yes/no questions do not belong here. */
@@ -445,7 +487,7 @@ export type LocalAnswerCase = {
 
 /** Answers that are one specific value — where the local model was seen failing:
  * a marker where a number belongs, or the wrong number (`docs/backlog.md`). */
-export const LOCAL_ANSWER_SET: readonly LocalAnswerCase[] = [
+export const ANSWER_SET: readonly AnswerCase[] = [
   {
     question: "How quickly does someone get back to me if everything is down?",
     expect: [

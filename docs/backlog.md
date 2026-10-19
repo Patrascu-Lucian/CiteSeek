@@ -1625,7 +1625,8 @@ read better than more.~~ **Shipped 30 August 2026 as
 [ADR 047](decisions/047-fewer-passages-for-a-smaller-model.md): `LOCAL_RETRIEVAL_LIMIT = 3`,
 local mode only.** Three grounds 15/24 where eight grounds 13/24, with the answering passage still
 retrieved 24/24 — two rows, not the four the unfiltered sweep showed, because the floor was already
-doing half the work. Gemini keeps eight and is unmeasured at three. And
+doing half the work. Gemini keeps eight, ~~unmeasured at three~~ measured there on 16 October 2026
+and kept ([ADR 059](decisions/059-passages-per-answer-for-gemini.md)). And
 ~~`markerExample` demonstrates a sentence, not a quantity — "1 days" is exactly the failure a
 numeric exemplar targets.~~ **Tried and rejected, 31 August 2026
 ([ADR 050](decisions/050-a-rule-obeyed-as-the-thing-it-forbids.md)).** A line naming where the
@@ -3747,6 +3748,10 @@ options:
   after the tag.
 - Not the configuration it had, which was neither: a fake half and a real half that cannot agree.
 
+↳ **Done in 1.11.0.** Preview carries the dev key with real providers, behind Vercel's Standard
+Protection and the app's unchanged caps ([ADR 060](decisions/060-a-real-model-on-preview.md)). Not a
+key of its own: that needs a project of its own, entry below.
+
 **A copied source list cannot tell same-page passages apart (low, for 1.10.0).** A five-marker answer
 copied as `[1]`, `[2]` and `[3]` all reading "northwind-remote-work-handbook.pdf, page 1". They are
 different passages; on screen a marker opens the one it means, and on paper nothing distinguishes them.
@@ -3789,6 +3794,12 @@ documents say.
   naming the wanted form once moved the opener to 15 of 15. Naming "mention" too is a prompt change,
   so it needs the eval to show it moved something and changed nothing else.
 
+↳ **Done in 1.11.0.** The first branch ran: the handbook's ten adjacent questions went into the
+refusal eval, and "do not mention" opened 2 of the 90 replies in the committed run (#463), both on
+the laptop warranty. It now unlinks like "cover" and "specify" (ADR 058's second amendment). The
+"less plainly a decline" reasoning above applied equally to "specify", which was already on the list.
+Rule 7 is unchanged.
+
 ## The seed waits out the shared pool, and two at once now clash, 16 October 2026
 
 Found by the 1.10.1 release review, both in `lib/db/seed.mts`, neither from that release's fix.
@@ -3805,3 +3816,74 @@ that is not `ready` is replaced, so a second seed started while the first is sti
 deletes the first one's document: the first then logs an empty status and exits 1, and the second
 finishes with one ready fixture. Before, the second run was a no-op. Only a second seed against the
 same database can cause it, and the demo workspace is read-only to every actor.
+
+## An answer the set expects wrongly, and hedged answers at low counts, 16 October 2026
+
+Found reading the verbatim answers of the first `pnpm eval:answers` run (ADR 059).
+
+**One `ANSWER_SET` expectation is wrong (low, the eval's own defect).** "How much notice do I give to
+move out?" expects "two months", the landlord's notice. The fixture reads "The tenant gives one
+month's notice ending on a rent payment date; the landlord gives two months'", and the question asks
+what _I_ give, so every answer — one month — was right and scored ungrounded. It missed identically
+at every count, so ADR 059's comparison stands. Fixing it means the expected value becomes "one
+month", which also changes the local answer report's baseline (ADR 047 scored the same question);
+re-run both when it changes, so neither compares across the fix. The golden set's retrieval entry
+for the same question is unaffected: its quote sits in the sentence that holds both answers.
+
+**A hedge on an answerable question reads as a decline (low, a cost of ADR 058).** With fewer
+passages — three, or the oracle's one — Gemini sometimes opens a correct, cited answer in the
+declining form: "The documents do not cover the total amount to be handed over at the start, though
+they state that the deposit is five weeks' rent [1]." The page then unlinks the right marker and
+shows the decline note. At eight passages this did not occur in the set, which is part of why eight
+stays; at a lower count it would be a false refusal the reader sees. Worth watching whenever the
+count or the prompt changes.
+
+## Repeats in one session are not independent, 18 October 2026
+
+Found comparing the chunk-size run (`eval/answers-chunks.md`) with the passage-count run two days
+earlier (`eval/answers.md`), which share one setting: 600 characters at eight passages.
+
+**Three runs in a session agree more than two sessions do (low, the instrument).** Within a session
+the runs mostly agree: 6 of 72 question-settings split 2–1 in the first report and 2 of 72 in the
+second, read from the verbatim run headers. Yet "How fast is a non-emergency repair attended?", at
+eight passages, was uncited in all three runs on 16 October and cited in all three on 18 October,
+with the same code and settings. So `ANSWER_RUNS` measures variance within a session and not the
+drift between sessions, which moved a verdict's only gain (ADR 059's amendment). When a comparison
+turns on one or two questions, run the session again before reading it as an effect; two sessions of
+one run each would say more than one session of three.
+
+**The low-context hedges fall on the two vaguest questions.** The same two lose their citation at
+three passages and at 400-character chunks. "How much warning do I need to give before it renews?"
+names no "it", and the model reads it as the tenancy, which the fixtures never say renews, before
+giving the support plan's 30 days. "How much do I have to hand over at the start?" can mean the
+deposit alone or the deposit and the first month, since rent is paid in advance. With less text in
+view the model names the gap before answering, which ADR 058 reads as a decline.
+
+## Dev, Preview and production share one project's limits, 19 October 2026
+
+Found deciding Preview's key (ADR 060). The dev and prod keys are both in one Google project, and
+Gemini counts rate limits and usage per project, not per key. So the two keys separate only what can
+be revoked: every paid eval run on the dev key (over 600 answers in 1.11.0), and now Preview, draws on
+the limits production answers from. Nothing has failed at Tier 1.
+
+**What would fix it (low, until a limit bites):** a second project, with billing, holding the dev key,
+so local runs and Preview have limits and usage of their own and production's are its alone. The
+trigger is a 429 in production, or an eval run large enough to be worth keeping off production's
+limits.
+
+## Two weak checks left as they are, from the 1.11.0 release review, 19 October 2026
+
+**One adjacent question names the handbook only by "company" (low, the eval's own check).** "Does the
+company pay toward home internet costs?" passes the test that each adjacent question names something
+the handbook covers on that word alone, and "company" appears eight times in the handbook, so the
+check would pass almost any question about the employer. The question stays as it was asked in both
+committed runs: rewording it now would make the set no longer the one written blind, and the runs
+show it is adjacent, since every reply named the covered topics beside it (equipment, software
+licenses, co-working space). Reword it, and add "company" to the stopwords, when the set next changes
+for another reason.
+
+**`citesExpected` counts a citation of any chunk that overlaps the expected quote (low, latent).** At
+the shipped size, chunk 8 begins inside the guest-stay quote and shares only "notification" with it,
+so citing it alone would score as citing the answering passage. No committed run is affected. The
+oracle now prefers a chunk holding the whole quote; the scorer would need the same rule, with an
+overlap fallback for a quote that spans two chunks.

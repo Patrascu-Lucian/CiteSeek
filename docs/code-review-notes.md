@@ -4325,3 +4325,63 @@ four, failing on the code-point version.
 - **Lesson**: **a guard should fail on exactly what it guards.** Every extra fact pinned — a version, a
   count — is a way to go red on a change that is fine, and a guard that cries wolf on routine bumps
   teaches people to delete it.
+
+## A reason for waiting that fit what was already shipped, 18 October 2026
+
+- **Issue**: when the live site first met "The documents do not mention…", the backlog kept it out of
+  the declining openers as "less plainly a decline" than "specify", on the strength of one
+  counterexample: "The documents do not mention any fee for early termination [2]" reads as an answer
+  about what the documents say. Lucian put "specify" in its place, and it read exactly the same. The
+  counterexample did not separate the new phrase from one already on the list, so it was never a
+  reason, only a hesitation written as one.
+
+- **Fix**: the phrase was measured first, as the entry offered: the handbook's adjacent questions went
+  into the refusal eval, and "do not mention" opened 2 of the 90 replies in the committed run. It now
+  unlinks like the other two, and ADR 058's amendment records what does separate the cases: the verb.
+  "Cover", "specify" and "mention" are about what the text contains, so they open with an absence no
+  passage can back; "require" is about what the rules do, so it can open a true answer.
+
+- **Lesson**: **test a reason for excluding something against what you already included.** An argument
+  that would also exclude a member of the list is not about the candidate; a rule that names the
+  property instead — here, the verb — is the one the next candidate can be judged by.
+
+## A claim measured by reading, from a report that could not show it, 18 October 2026
+
+- **Issue**: the README says the refusal runs had "no out-of-range marker", and links
+  `eval/refusals.md` as the evidence. Lucian traced the claim to the harness's first version (#348),
+  which scored with `cites()`: that counts only in-range markers and skips invented ones silently.
+  Since #444 the harness reads `markerVerdict()`, which reports `invented: []` for every declining
+  reply by design, one note per reply. Either way no column ever counted the claim. In the committed
+  report, 38 of the 60 replies were declines carrying markers, none range-checked, and 12 of them
+  topped out at `[7]` or `[8]` with no record of how many passages each question got.
+
+- **Fix**: `eval:refusals` counts out-of-range markers on every reply, whatever its form, with
+  `unresolvedMarkers`, as the report's last column, and each answer records its passage count and its
+  out-of-range markers, so the claim can be checked from the committed file alone. `README.test.ts`
+  now requires "no out-of-range marker" and "nothing is invented" to appear exactly when every run of
+  every set counts zero, and reads columns by header, so a missing column fails rather than reading
+  as zeros.
+
+- **Lesson**: **a claim linked to evidence should be checked against what the evidence can show.**
+  The report was real, and the claim was probably true; the link between them was never there. The
+  pin that guards the numbers next to it never guarded this sentence, because there was no number to
+  pin.
+
+## A premise read from one report's totals, 19 October 2026
+
+- **Issue**: the backlog entry on repeated runs said that "in both reports the per-run columns never
+  differ: every question scores the same in all three runs", and drew its lesson from that: variance
+  within a session "looks close to none". It was read off one row of one report, the chunk sweep's
+  23, 23, 23, and written about both. The 1.11.0 release review read the other report: its per-run
+  columns differ in every row, 6 of its 72 question-settings split 2–1 within a session, and 2 of 72
+  in the chunk report too, where at 400 characters two questions flipped in opposite directions and
+  left the totals equal. The entry's own example had split 2–1.
+
+- **Fix**: the entry now gives the split counts, read from the verbatim run headers, and keeps the
+  advice, which still holds: within a session the runs mostly agree, while the same question at the
+  same settings went from 0 of 3 to 3 of 3 between sessions. Neither verdict moves, because both
+  rules keep the default on any loss or tie.
+
+- **Lesson**: **equal totals are not equal rows.** A per-run total can match while questions trade
+  places underneath it, so a claim about every question has to be read from the questions. And a
+  sentence about "both reports" needs both reports opened.

@@ -77,6 +77,26 @@ pages of dense text.
 Still not tuned against measured answer quality — that needs a before/after on real questions
 and belongs with Milestone 3's performance work.
 
+↳ **Amended, 18 October 2026.** Measured. `pnpm eval:answers --chunk=400,600,800 --counts=8` asks
+Gemini the 24 value questions with each size ingested on its own, maximum and overlap scaled with
+the target, three runs each (`eval/answers-chunks.md`). The rule was fixed before the run: a size
+replaces 600 only if no question gets worse and at least three get better, a higher bar than a
+passage count's because a new size also re-takes the floor (ADR 020), the refusal eval and every
+stored document.
+
+| Target | Passages in the corpus | Grounded | Cites the answering passage | Declined | Input tokens (mean) |
+| ------ | ---------------------- | -------- | --------------------------- | -------- | ------------------- |
+| 400    | 41                     | 23/24    | 22/24                       | 2/24     | 1,092               |
+| 600    | 25                     | 23/24    | 24/24                       | 0/24     | 1,213               |
+| 800    | 18                     | 23/24    | 24/24                       | 0/24     | 1,264               |
+
+**600 stays.** 800 ties on every question, so it would buy nothing for a highlight a third longer,
+the cost this section was revised for. 400 loses two citations in the shape
+[ADR 059](059-passages-per-answer-for-gemini.md) found at three passages, on the same two
+questions: with less text in view, the model opens a correct, cited answer by saying the documents
+do not cover it, and [ADR 058](058-a-reply-that-declines-links-nothing.md) unlinks the marker. The
+one ungrounded question is the answer set's own defect, the same at every size.
+
 Overlap begins at a word boundary — a passage starting mid-word reads as corruption. It is
 also **treated as context rather than an entitlement**: when carrying it forward would push
 the next chunk past the maximum, it is dropped. That only happens with unbroken runs where
@@ -87,7 +107,8 @@ to preserve anyway.
 
 - The sizes were **defaults, not findings**, and have now been revised once — on citation
   precision, which is directly observable, rather than on answer quality, which still is not
-  measured. A before/after on real questions remains owed.
+  measured. A before/after on real questions remains owed. ↳ **Amended, 18 October 2026:** paid,
+  and 600 kept (see Sizes).
 - **Changing these numbers invalidates existing chunks.** Chunk boundaries move, so stored
   offsets describe passages the new chunker would never produce. Nothing breaks — old chunks
   remain valid slices of their own document and stay retrievable — but a corpus ends up mixing

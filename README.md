@@ -90,7 +90,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 163 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 166 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -534,16 +534,18 @@ answerable question. That set samples the hard region on purpose, so its rate is
 than the product's.
 
 What they meet there is now measured too, rather than assumed
-([`eval/refusals.md`](eval/refusals.md)): across three runs of the twenty that get through — five
-from the golden set, fifteen from the adversarial one — the model refused every one and invented
-nothing, with no fabricated content and no out-of-range marker. So the structural guarantee is
-weaker than "says so when nothing relevant is found" sounds, and the observed behavior holds anyway,
-because the prompt catches what the floor misses.
+([`eval/refusals.md`](eval/refusals.md)): across three runs of the thirty that get through — five
+from the golden set, fifteen from the adversarial one, ten from the handbook — the model refused
+every one and invented nothing, with no fabricated content and no out-of-range marker. So the
+structural guarantee is weaker than "says so when nothing relevant is found" sounds, and the
+observed behavior holds anyway, because the prompt catches what the floor misses.
 
 The leak's real cost is smaller and different: many of those refusals attach a citation marker,
-which the prompt's own rules forbid on a refusal — in the latest report, between 1 and 2 of the
+which the prompt's own rules forbid on a refusal — in the latest report, between 3 and 4 of the
 golden five per run, and between 10 and 12 of the adversarial fifteen, where a question about the
-edge of a topic draws a citation to the topic.
+edge of a topic draws a citation to the topic. Ten more of that shape, asked of the demo handbook
+alone as a guest's workspace holds it, all clear the floor, and between 8 and 9 of the handbook's
+ten carry a marker.
 The counts move from run to run, so the file carries the latest rather than a settled number.
 Rewording that rule was tried three ways on the five golden questions and the difference was too
 small to measure, so it stays as shipped, and the page enforces what the wording could not: a reply
@@ -646,6 +648,7 @@ Run by hand, never in CI, output committed:
 
 ```bash
 pnpm eval:retrieval    # retrieval quality against eval/golden-set.ts (needs a real key)
+pnpm eval:answers      # Gemini's answers by passage count, or by size with --chunk= (--fake is free)
 pnpm eval:local        # the local embedder's recall, in Node, no provider
 pnpm eval:local-answers # what the local model answers, in Node on the CPU
 pnpm eval:local-markers # the same questions in a browser on WebGPU
@@ -703,9 +706,9 @@ let one file supply both the wrong answer and the confirmation of it.
 prints the `export SEED_HOST=…` line for the host it actually reached. In Neon's console it is
 the first segment of the connection hostname (`ep-…`), shown per branch under Connect.
 
-Three other commands guard themselves the same way, under their own names and from the shell only:
-`pnpm eval:retrieval` and `pnpm eval:refusals` use `EVAL_HOST` (they ingest documents and spend
-quota) and `pnpm db:usage` uses `USAGE_HOST` (it reads, but reading the wrong branch gives a
+Four other commands guard themselves the same way, under their own names and from the shell only:
+`pnpm eval:retrieval`, `pnpm eval:refusals` and `pnpm eval:answers` use `EVAL_HOST` (they ingest
+documents and spend quota) and `pnpm db:usage` uses `USAGE_HOST` (it reads, but reading the wrong branch gives a
 confident wrong answer). The
 schema commands above need neither — `db:check` changes nothing and prints the host it reached,
 and `db:migrate` carries no data and spends no quota.
@@ -730,7 +733,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1141  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1170  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 189   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
@@ -744,7 +747,7 @@ fixed and the missing tests added, it was 86.5%
 ([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)). Re-measuring every release paid
 for itself on the next one: the only module added since, the clipboard form of an answer, scored
 **73.68%**, and three of its five survivors were one gap — a sort every test reached with a single
-element, which sorts the same however the comparator behaves. It is **87.65% of 939 mutants** now,
+element, which sorts the same however the comparator behaves. It is **88.83% of 1003 mutants** now,
 and that module is at 100%.
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)
