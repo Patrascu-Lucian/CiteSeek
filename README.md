@@ -90,7 +90,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 165 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 166 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -536,10 +536,9 @@ than the product's.
 What they meet there is now measured too, rather than assumed
 ([`eval/refusals.md`](eval/refusals.md)): across three runs of the thirty that get through — five
 from the golden set, fifteen from the adversarial one, ten from the handbook — the model refused
-every one and invented
-nothing, with no fabricated content and no out-of-range marker. So the structural guarantee is
-weaker than "says so when nothing relevant is found" sounds, and the observed behavior holds anyway,
-because the prompt catches what the floor misses.
+every one and invented nothing, with no fabricated content and no out-of-range marker. So the
+structural guarantee is weaker than "says so when nothing relevant is found" sounds, and the
+observed behavior holds anyway, because the prompt catches what the floor misses.
 
 The leak's real cost is smaller and different: many of those refusals attach a citation marker,
 which the prompt's own rules forbid on a refusal — in the latest report, between 3 and 4 of the

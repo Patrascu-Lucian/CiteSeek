@@ -3796,7 +3796,7 @@ documents say.
 
 ↳ **Done in 1.11.0.** The first branch ran: the handbook's ten adjacent questions went into the
 refusal eval, and "do not mention" opened 2 of the 90 replies in the committed run (#463), both on
-the laptop warranty. It now unlinks like "cover" and "specify" (ADR 058's third amendment). The
+the laptop warranty. It now unlinks like "cover" and "specify" (ADR 058's second amendment). The
 "less plainly a decline" reasoning above applied equally to "specify", which was already on the list.
 Rule 7 is unchanged.
 
@@ -3843,13 +3843,14 @@ count or the prompt changes.
 Found comparing the chunk-size run (`eval/answers-chunks.md`) with the passage-count run two days
 earlier (`eval/answers.md`), which share one setting: 600 characters at eight passages.
 
-**Three runs in a session agree more than two sessions do (low, the instrument).** In both reports
-the per-run columns never differ: every question scores the same in all three runs. Yet "How fast is
-a non-emergency repair attended?" was uncited in all three runs on 16 October and cited in all three
-on 18 October, with the same code and settings. So `ANSWER_RUNS` measures variance within a session,
-which looks close to none, and not the drift between sessions, which moved a verdict's only gain
-(ADR 059's amendment). When a comparison turns on one or two questions, run the session again before
-reading it as an effect; two sessions of one run each would say more than one session of three.
+**Three runs in a session agree more than two sessions do (low, the instrument).** Within a session
+the runs mostly agree: 6 of 72 question-settings split 2–1 in the first report and 2 of 72 in the
+second, read from the verbatim run headers. Yet "How fast is a non-emergency repair attended?", at
+eight passages, was uncited in all three runs on 16 October and cited in all three on 18 October,
+with the same code and settings. So `ANSWER_RUNS` measures variance within a session and not the
+drift between sessions, which moved a verdict's only gain (ADR 059's amendment). When a comparison
+turns on one or two questions, run the session again before reading it as an effect; two sessions of
+one run each would say more than one session of three.
 
 **The low-context hedges fall on the two vaguest questions.** The same two lose their citation at
 three passages and at 400-character chunks. "How much warning do I need to give before it renews?"
@@ -3869,3 +3870,20 @@ the limits production answers from. Nothing has failed at Tier 1.
 so local runs and Preview have limits and usage of their own and production's are its alone. The
 trigger is a 429 in production, or an eval run large enough to be worth keeping off production's
 limits.
+
+## Two weak checks left as they are, from the 1.11.0 release review, 19 October 2026
+
+**One adjacent question names the handbook only by "company" (low, the eval's own check).** "Does the
+company pay toward home internet costs?" passes the test that each adjacent question names something
+the handbook covers on that word alone, and "company" appears eight times in the handbook, so the
+check would pass almost any question about the employer. The question stays as it was asked in both
+committed runs: rewording it now would make the set no longer the one written blind, and the runs
+show it is adjacent, since every reply named the covered topics beside it (equipment, software
+licenses, co-working space). Reword it, and add "company" to the stopwords, when the set next changes
+for another reason.
+
+**`citesExpected` counts a citation of any chunk that overlaps the expected quote (low, latent).** At
+the shipped size, chunk 8 begins inside the guest-stay quote and shares only "notification" with it,
+so citing it alone would score as citing the answering passage. No committed run is affected. The
+oracle now prefers a chunk holding the whole quote; the scorer would need the same rule, with an
+overlap fallback for a quote that spans two chunks.

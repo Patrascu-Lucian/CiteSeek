@@ -139,6 +139,13 @@ describe("the README's refusal-marker counts", () => {
     for (const phrase of ["no out-of-range marker", "nothing is invented"]) {
       expect(prose.includes(phrase), phrase).toBe(none);
     }
+
+    // The About page makes the same claim to a reader who never sees the README.
+    const about = read("app", "(marketing)", "about", "page.tsx").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(about.includes("invented nothing"), "about page").toBe(none);
   });
 
   it("quotes the range the latest report measured", () => {
