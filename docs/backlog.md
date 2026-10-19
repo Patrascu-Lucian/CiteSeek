@@ -3748,6 +3748,10 @@ options:
   after the tag.
 - Not the configuration it had, which was neither: a fake half and a real half that cannot agree.
 
+↳ **Done in 1.11.0.** Preview carries the dev key with real providers, behind Vercel's Standard
+Protection and the app's unchanged caps ([ADR 060](decisions/060-a-real-model-on-preview.md)). Not a
+key of its own: that needs a project of its own, entry below.
+
 **A copied source list cannot tell same-page passages apart (low, for 1.10.0).** A five-marker answer
 copied as `[1]`, `[2]` and `[3]` all reading "northwind-remote-work-handbook.pdf, page 1". They are
 different passages; on screen a marker opens the one it means, and on paper nothing distinguishes them.
@@ -3853,3 +3857,15 @@ names no "it", and the model reads it as the tenancy, which the fixtures never s
 giving the support plan's 30 days. "How much do I have to hand over at the start?" can mean the
 deposit alone or the deposit and the first month, since rent is paid in advance. With less text in
 view the model names the gap before answering, which ADR 058 reads as a decline.
+
+## Dev, Preview and production share one project's limits, 19 October 2026
+
+Found deciding Preview's key (ADR 060). The dev and prod keys are both in one Google project, and
+Gemini counts rate limits and usage per project, not per key. So the two keys separate only what can
+be revoked: every paid eval run on the dev key (over 600 answers in 1.11.0), and now Preview, draws on
+the limits production answers from. Nothing has failed at Tier 1.
+
+**What would fix it (low, until a limit bites):** a second project, with billing, holding the dev key,
+so local runs and Preview have limits and usage of their own and production's are its alone. The
+trigger is a 429 in production, or an eval run large enough to be worth keeping off production's
+limits.
