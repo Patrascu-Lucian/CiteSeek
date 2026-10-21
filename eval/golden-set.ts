@@ -2,6 +2,8 @@
  * edit, so a quote that stops matching fails the run rather than scoring zero.
  * `expect: []` is a question the corpus cannot answer — the floor's job. */
 
+import { DEMO_EXAMPLE_QUESTIONS } from "../lib/demo/example-questions.ts";
+
 export type Expectation = { file: string; quote: string };
 
 export type GoldenCase = {
@@ -638,5 +640,168 @@ export const ANSWER_SET: readonly AnswerCase[] = [
     question: "What is the cap on credits in a month?",
     expect: [{ file: SUPPORT, quote: "capped at 25% in any calendar month" }],
     answerContains: ["25%", "25 %"],
+  },
+];
+
+export type ConversationCase = {
+  ask: string;
+  /** From the next fixture: support, manual, tenancy, then support again. */
+  afterTopicChange: string;
+  /** The next question from the same fixture, cyclically. */
+  afterSameTopic: string;
+};
+
+/* Rotated once and written out, so reordering `ANSWER_SET` cannot re-pair a
+   committed run. "The next question from another fixture" put nine
+   conversations behind one first turn. */
+export const CONVERSATION_SET: readonly ConversationCase[] = [
+  {
+    ask: "How quickly does someone get back to me if everything is down?",
+    afterTopicChange: "What oil temperature is too hot?",
+    afterSameTopic: "How long do you keep whatever I attach to a ticket?",
+  },
+  {
+    ask: "How long do you keep whatever I attach to a ticket?",
+    afterTopicChange: "What torque do the die bolts take?",
+    afterSameTopic: "How much warning do I need to give before it renews?",
+  },
+  {
+    ask: "How much warning do I need to give before it renews?",
+    afterTopicChange: "How thin can a die be reground before it is scrap?",
+    afterSameTopic: "What do I get back if you miss a target?",
+  },
+  {
+    ask: "What do I get back if you miss a target?",
+    afterTopicChange:
+      "How far apart can the pressure sensors read before it stops?",
+    afterSameTopic: "What hours is the standard plan covered?",
+  },
+  {
+    ask: "The boiler died in January. How fast should someone come?",
+    afterTopicChange:
+      "How quickly does someone get back to me if everything is down?",
+    afterSameTopic: "How much notice do I give to move out?",
+  },
+  {
+    ask: "How much notice do I give to move out?",
+    afterTopicChange: "How long do you keep whatever I attach to a ticket?",
+    afterSameTopic: "How much do I have to hand over at the start?",
+  },
+  {
+    ask: "How much do I have to hand over at the start?",
+    afterTopicChange: "How much warning do I need to give before it renews?",
+    afterSameTopic: "How much can the rent go up by?",
+  },
+  {
+    ask: "What hours is the standard plan covered?",
+    afterTopicChange: "What humidity needs a desiccant in storage?",
+    afterSameTopic: "What is the cap on credits in a month?",
+  },
+  {
+    ask: "How much force does the press develop?",
+    afterTopicChange:
+      "The boiler died in January. How fast should someone come?",
+    afterSameTopic: "How loud is it at a metre?",
+  },
+  {
+    ask: "How loud is it at a metre?",
+    afterTopicChange: "How much notice do I give to move out?",
+    afterSameTopic: "Which oil grade goes in it?",
+  },
+  {
+    ask: "Which oil grade goes in it?",
+    afterTopicChange: "How much do I have to hand over at the start?",
+    afterSameTopic: "How often does the oil need changing?",
+  },
+  {
+    ask: "How often does the oil need changing?",
+    afterTopicChange: "How much can the rent go up by?",
+    afterSameTopic: "What oil temperature is too hot?",
+  },
+  {
+    ask: "What oil temperature is too hot?",
+    afterTopicChange: "How long does the deposit take to be protected?",
+    afterSameTopic: "What torque do the die bolts take?",
+  },
+  {
+    ask: "What torque do the die bolts take?",
+    afterTopicChange: "How fast is a non-emergency repair attended?",
+    afterSameTopic: "How thin can a die be reground before it is scrap?",
+  },
+  {
+    ask: "How thin can a die be reground before it is scrap?",
+    afterTopicChange: "How long can a guest stay before I have to tell anyone?",
+    afterSameTopic:
+      "How far apart can the pressure sensors read before it stops?",
+  },
+  {
+    ask: "How far apart can the pressure sensors read before it stops?",
+    afterTopicChange: "How much is the extra deposit for a pet?",
+    afterSameTopic: "What humidity needs a desiccant in storage?",
+  },
+  {
+    ask: "What humidity needs a desiccant in storage?",
+    afterTopicChange: "How much notice do I give if I am leaving?",
+    afterSameTopic: "How much force does the press develop?",
+  },
+  {
+    ask: "How much can the rent go up by?",
+    afterTopicChange: "What do I get back if you miss a target?",
+    afterSameTopic: "How long does the deposit take to be protected?",
+  },
+  {
+    ask: "How long does the deposit take to be protected?",
+    afterTopicChange: "What hours is the standard plan covered?",
+    afterSameTopic: "How fast is a non-emergency repair attended?",
+  },
+  {
+    ask: "How fast is a non-emergency repair attended?",
+    afterTopicChange: "What is the cap on credits in a month?",
+    afterSameTopic: "How long can a guest stay before I have to tell anyone?",
+  },
+  {
+    ask: "How long can a guest stay before I have to tell anyone?",
+    afterTopicChange:
+      "How quickly does someone get back to me if everything is down?",
+    afterSameTopic: "How much is the extra deposit for a pet?",
+  },
+  {
+    ask: "How much is the extra deposit for a pet?",
+    afterTopicChange: "How long do you keep whatever I attach to a ticket?",
+    afterSameTopic: "How much notice do I give if I am leaving?",
+  },
+  {
+    ask: "How much notice do I give if I am leaving?",
+    afterTopicChange: "How much warning do I need to give before it renews?",
+    afterSameTopic: "The boiler died in January. How fast should someone come?",
+  },
+  {
+    ask: "What is the cap on credits in a month?",
+    afterTopicChange: "How much force does the press develop?",
+    afterSameTopic:
+      "How quickly does someone get back to me if everything is down?",
+  },
+];
+
+export type ConversationSequence = {
+  name: string;
+  corpus: "fixtures" | "handbook";
+  turns: readonly string[];
+};
+
+export const CONVERSATION_SEQUENCES: readonly ConversationSequence[] = [
+  {
+    name: "the 1.11.0 exit check",
+    corpus: "fixtures",
+    turns: [
+      "How much force does the press develop?",
+      "What is the cap on credits in a month?",
+      "How long does the deposit take to be protected?",
+    ],
+  },
+  {
+    name: "the demo's starter questions",
+    corpus: "handbook",
+    turns: DEMO_EXAMPLE_QUESTIONS,
   },
 ];

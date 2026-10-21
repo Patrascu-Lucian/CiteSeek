@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   ADJACENT_SET,
+  CONVERSATION_SEQUENCES,
+  CONVERSATION_SET,
   FOLLOW_UP_SET,
   GOLDEN_SET,
   ANSWER_SET,
@@ -241,6 +243,83 @@ describe("the follow-up set", () => {
       expect(one.followUp.length, one.followUp).toBeLessThan(
         one.standalone.length,
       );
+    }
+  });
+});
+
+describe("the conversation set", () => {
+  const byQuestion = new Map(ANSWER_SET.map((one) => [one.question, one]));
+  const answer = (question: string) => {
+    const found = byQuestion.get(question);
+    if (!found) throw new Error(`Not an ANSWER_SET question: "${question}"`);
+    return found.expect[0]!;
+  };
+  const conditions = ["afterTopicChange", "afterSameTopic"] as const;
+
+  it("asks every answer-set question second, exactly once", () => {
+    expect(CONVERSATION_SET.map((one) => one.ask).sort()).toEqual(
+      ANSWER_SET.map((one) => one.question).sort(),
+    );
+  });
+
+  it("opens every conversation with an answer-set question", () => {
+    for (const one of CONVERSATION_SET) {
+      for (const condition of conditions) {
+        expect(byQuestion.has(one[condition]), one[condition]).toBe(true);
+      }
+    }
+  });
+
+  it("changes the topic to another fixture", () => {
+    for (const one of CONVERSATION_SET) {
+      expect(answer(one.afterTopicChange).file, one.ask).not.toBe(
+        answer(one.ask).file,
+      );
+    }
+  });
+
+  it("keeps the topic in the same fixture, never on the same answer", () => {
+    // "If I am leaving" and "to move out" share one quote, so either would
+    // carry the other's answer into its history.
+    for (const one of CONVERSATION_SET) {
+      expect(answer(one.afterSameTopic).file, one.ask).toBe(
+        answer(one.ask).file,
+      );
+      expect(answer(one.afterSameTopic).quote, one.ask).not.toBe(
+        answer(one.ask).quote,
+      );
+    }
+  });
+
+  it("opens no more than two conversations with one question", () => {
+    for (const condition of conditions) {
+      const uses = new Map<string, number>();
+      for (const one of CONVERSATION_SET) {
+        uses.set(one[condition], (uses.get(one[condition]) ?? 0) + 1);
+      }
+
+      expect(Math.max(...uses.values()), condition).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("asks the credit cap after the press, as the 1.11.0 exit check did", () => {
+    expect(
+      CONVERSATION_SET.find(
+        (one) => one.ask === "What is the cap on credits in a month?",
+      )?.afterTopicChange,
+    ).toBe("How much force does the press develop?");
+  });
+
+  it("asks the exit check's sequence from the answer set", () => {
+    // Its later turns are read as a refusal or not, which needs the spellings
+    // only `ANSWER_SET` carries.
+    const exitCheck = CONVERSATION_SEQUENCES.find(
+      (one) => one.corpus === "fixtures",
+    );
+
+    expect(exitCheck?.turns.length).toBeGreaterThan(1);
+    for (const turn of exitCheck?.turns ?? []) {
+      expect(byQuestion.has(turn), turn).toBe(true);
     }
   });
 });
