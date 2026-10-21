@@ -6,6 +6,8 @@ import {
   comparePaired,
   cutSignal,
   decideDefault,
+  holds,
+  isAnswering,
   lexicalRank,
   majority,
   margin,
@@ -297,26 +299,92 @@ describe("citesExpected", () => {
   ];
 
   it("counts a linked marker whose passage holds the answer", () => {
-    expect(citesExpected([2], sources, [span(550, 560)])).toBe(true);
+    expect(citesExpected([2], sources, [span(550, 560)], sources)).toBe(true);
   });
 
   it("does not count a marker that points elsewhere", () => {
-    expect(citesExpected([1], sources, [span(550, 560)])).toBe(false);
+    expect(citesExpected([1], sources, [span(550, 560)], sources)).toBe(false);
   });
 
   it("does not count the right passage when the page did not link it", () => {
     // A marker the page left as text is no citation a reader can follow.
-    expect(citesExpected([], sources, [span(550, 560)])).toBe(false);
+    expect(citesExpected([], sources, [span(550, 560)], sources)).toBe(false);
   });
 
   it("counts a passage that holds one of several acceptable spans", () => {
-    expect(citesExpected([2], sources, [span(10, 20), span(550, 560)])).toBe(
-      true,
-    );
+    expect(
+      citesExpected([2], sources, [span(10, 20), span(550, 560)], sources),
+    ).toBe(true);
   });
 
   it("does not count a passage in another document at the same offsets", () => {
-    expect(citesExpected([2], sources, [span(550, 560, other)])).toBe(false);
+    expect(citesExpected([2], sources, [span(550, 560, other)], sources)).toBe(
+      false,
+    );
+  });
+
+  // The guest-stay shape: chunk 8 starts within the quote chunk 7 holds.
+  const chunk7 = span(0, 400);
+  const chunk8 = span(380, 700);
+
+  it("does not count a passage that only begins inside the quote", () => {
+    const both = [
+      { marker: 1, ...chunk7 },
+      { marker: 2, ...chunk8 },
+    ];
+
+    expect(citesExpected([2], both, [span(350, 390)], both)).toBe(false);
+    expect(citesExpected([1], both, [span(350, 390)], both)).toBe(true);
+  });
+
+  it("does not count it when it was retrieved without the passage holding the quote", () => {
+    const alone = [{ marker: 1, ...chunk8 }];
+
+    expect(citesExpected([1], alone, [span(350, 390)], [chunk7, chunk8])).toBe(
+      false,
+    );
+  });
+
+  it("falls back to overlap when no stored passage holds the whole quote", () => {
+    // A quote across a chunk boundary: either side is the answering passage.
+    const split = [
+      { marker: 1, ...span(0, 400) },
+      { marker: 2, ...span(400, 700) },
+    ];
+
+    expect(citesExpected([2], split, [span(390, 410)], split)).toBe(true);
+    expect(citesExpected([1], split, [span(390, 410)], split)).toBe(true);
+  });
+});
+
+describe("isAnswering", () => {
+  it("decides holding or overlapping for each span on its own", () => {
+    // One span is held whole; the other crosses a boundary in another document.
+    const corpus = [
+      span(0, 400),
+      span(380, 700),
+      span(0, 300, other),
+      span(300, 600, other),
+    ];
+    const expected = [span(350, 390), span(290, 310, other)];
+
+    expect(isAnswering(span(0, 300, other), expected, corpus)).toBe(true);
+    expect(isAnswering(span(380, 700), expected, corpus)).toBe(false);
+  });
+});
+
+describe("holds", () => {
+  it("takes a span that ends exactly where the passage does", () => {
+    expect(holds(span(0, 100), span(0, 100))).toBe(true);
+  });
+
+  it("does not take a span that runs one past either end", () => {
+    expect(holds(span(10, 100), span(9, 50))).toBe(false);
+    expect(holds(span(0, 100), span(50, 101))).toBe(false);
+  });
+
+  it("does not take a span in another document", () => {
+    expect(holds(span(0, 100), span(10, 20, other))).toBe(false);
   });
 });
 

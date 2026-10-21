@@ -4385,3 +4385,27 @@ four, failing on the code-point version.
 - **Lesson**: **equal totals are not equal rows.** A per-run total can match while questions trade
   places underneath it, so a claim about every question has to be read from the questions. And a
   sentence about "both reports" needs both reports opened.
+
+## A fallback decided over the passages in hand, not the corpus, 21 October 2026
+
+- **Issue**: `citesExpected` was changed to prefer a passage holding the whole expected quote, and to
+  fall back to any overlapping one when no passage holds it, as when a quote crosses a chunk
+  boundary. It decided "no passage holds it" over the passages retrieved for the question. So the
+  case the change was written for, chunk 8 beginning inside the guest-stay quote and sharing one
+  word, still counted whenever chunk 7, which holds the quote, was not retrieved with it. Its test
+  always supplied both chunks, the one arrangement where the fallback never runs. Review also found
+  the report's "answer retrieved" column still overlap-only, so it could mark the model as having had
+  the answer when retrieval had missed it, and the choice made once across every expected span rather
+  than per span.
+
+- **Fix**: one rule, `isAnswering`, decided per span against every stored chunk, used by the scorer,
+  the retrieved column and the oracle. One test retrieves chunk 8 alone; another mixes a span held
+  whole with one crossing a boundary. Each fails against the version it replaces.
+
+- **Also caught**: the ADR amendment beside it counted seven questions flipped where the table shows
+  six, and quoted the model's "two months" from the oracle transcript as the three-passage answer,
+  which the report does not keep.
+
+- **Lesson**: **a fallback is only as right as the set it is decided over.** "When no passage holds
+  it" read naturally against the list in hand, and the question was about the corpus. A test that
+  supplies every chunk cannot reach the case where one is missing.

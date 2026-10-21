@@ -524,8 +524,8 @@ export const ANSWER_SET: readonly AnswerCase[] = [
   },
   {
     question: "How much notice do I give to move out?",
-    expect: [{ file: TENANCY, quote: "the landlord gives two months'" }],
-    answerContains: ["two months", "2 months"],
+    expect: [{ file: TENANCY, quote: "The tenant gives one month's" }],
+    answerContains: ["one month", "1 month"],
   },
   {
     question: "How much do I have to hand over at the start?",
