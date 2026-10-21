@@ -167,6 +167,15 @@ type Scored = {
   inputTokens: number;
 };
 
+/** What the route sends when the floor refuses: no model call. */
+const REFUSED: Scored = {
+  text: "(refused by the floor)",
+  grounded: false,
+  cites: false,
+  declined: true,
+  inputTokens: 0,
+};
+
 type Row = {
   question: string;
   given: number;
@@ -284,6 +293,27 @@ async function withCorpus<T>(
   }
 }
 
+function scoreReply(
+  text: string,
+  sources: ChatSource[],
+  index: number,
+  { spans, stored }: Corpus,
+  inputTokens: number,
+): Scored {
+  return {
+    text: text.trim(),
+    grounded: grounds(text, ANSWER_SET[index]!.answerContains),
+    cites: citesExpected(
+      markerVerdict(text, sources).linked,
+      sources,
+      spans[index]!,
+      stored,
+    ),
+    declined: opensWithRefusal(text),
+    inputTokens,
+  };
+}
+
 /** Answers every question at each count, and with the oracle, on a corpus
  * ingested at `sizes`. */
 async function measure(
@@ -330,18 +360,7 @@ async function measure(
         tools: chatTools(workspaceId),
         stopWhen: CHAT_STEP_LIMIT,
       });
-      return {
-        text: text.trim(),
-        grounded: grounds(text, ANSWER_SET[index]!.answerContains),
-        cites: citesExpected(
-          markerVerdict(text, sources).linked,
-          sources,
-          spans[index]!,
-          stored,
-        ),
-        declined: opensWithRefusal(text),
-        inputTokens: usage.inputTokens ?? 0,
-      };
+      return scoreReply(text, sources, index, corpus, usage.inputTokens ?? 0);
     };
 
     const settings: Setting[] = [];
@@ -373,13 +392,7 @@ async function measure(
         for (let run = 0; run < RUNS; run += 1) {
           runs.push(
             sources.length === 0
-              ? {
-                  text: "(refused by the floor)",
-                  grounded: false,
-                  cites: false,
-                  declined: true,
-                  inputTokens: 0,
-                }
+              ? REFUSED
               : await answer(one.question, sources, index),
           );
         }
