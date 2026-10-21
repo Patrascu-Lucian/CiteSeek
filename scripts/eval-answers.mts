@@ -3,7 +3,7 @@
  * own, so a change this decides is a change to what ships (ADR 059).
  *
  * Usage: pnpm eval:answers [--fake] [--counts=3,8] [--chunk=400,600,800]
- *        pnpm eval:answers --conversation [--fake]
+ *        pnpm eval:answers --conversation [--rule7=candidate] [--fake]
  */
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
@@ -25,9 +25,9 @@ import {
   type ChatUIMessage,
 } from "../lib/ai/types.ts";
 import type { ChunkSizes } from "../lib/rag/chunking.ts";
-import type { Span } from "../lib/rag/eval-metrics.ts";
+import type { Paired, Span } from "../lib/rag/eval-metrics.ts";
 
-const FLAGS = ["--fake", "--counts=", "--chunk=", "--conversation"];
+const FLAGS = ["--fake", "--counts=", "--chunk=", "--conversation", "--rule7="];
 
 /* A misspelled flag is silently the default, and the default writes the
    committed report. */
@@ -53,12 +53,22 @@ const listFlag = (name: string) =>
     .map(Number);
 
 const conversation = process.argv.includes("--conversation");
+const rule7 = process.argv
+  .find((one) => one.startsWith("--rule7="))
+  ?.slice("--rule7=".length);
+if (rule7 !== undefined && rule7 !== "candidate") {
+  throw new Error(`--rule7 takes only "candidate", got "${rule7}".`);
+}
+if (rule7 && !conversation) {
+  throw new Error("--rule7=candidate is measured with --conversation.");
+}
 if (conversation && (listFlag("--counts=") || listFlag("--chunk="))) {
   throw new Error(
     "--conversation runs at the shipped count and size: drop --counts= and --chunk=.",
   );
 }
-const ARMS: readonly Rule7[] = ["shipped"];
+// The shipped wording alone is a measurement with no verdict.
+const ARMS: readonly Rule7[] = rule7 ? ["shipped", "candidate"] : ["shipped"];
 
 // Read before `loadLocalEnv`: `.env.local` must not be what decides to spend
 // money, or which database to write to.
@@ -594,6 +604,12 @@ async function converse(): Promise<Conversed> {
   });
 }
 
+const OUTCOMES = [
+  ["grounded", (one: Scored) => one.grounded],
+  ["cites", (one: Scored) => one.cites],
+  ["not read as a refusal", (one: Scored) => !one.readAsRefusal],
+] as const;
+
 const byQuestion = (
   result: Conversed,
   condition: Condition,
@@ -614,6 +630,21 @@ const countHeld = (
   test: (one: Scored) => boolean,
 ) =>
   [...byQuestion(result, condition, arm, test).values()].filter(Boolean).length;
+
+/** ADR 061's rule: no question worse on any outcome in any condition, and at
+ * least one better. */
+function conversationVerdict(result: Conversed) {
+  const outcomes: Record<string, Paired> = {};
+  for (const condition of CONDITIONS) {
+    for (const [name, test] of OUTCOMES) {
+      outcomes[`${condition}: ${name}`] = comparePaired(
+        byQuestion(result, condition, "shipped", test),
+        byQuestion(result, condition, "candidate", test),
+      );
+    }
+  }
+  return { outcomes, verdict: decideDefault(outcomes, 1) };
+}
 
 const outcome = (rows: Row[], key: "grounded" | "cites") =>
   new Map(
@@ -651,6 +682,7 @@ let verdicts: ReturnType<typeof compare> = [];
 
 if (conversation) {
   const result = await converse();
+  const decided = rule7 ? conversationVerdict(result) : null;
 
   for (const condition of CONDITIONS) {
     for (const arm of ARMS) {
@@ -661,8 +693,10 @@ if (conversation) {
       );
     }
   }
+  if (decided) console.log(`  candidate: ${decided.verdict}`);
+
   file = "answers-conversation.md";
-  rendered = conversationReport(result);
+  rendered = conversationReport(result, decided);
 } else if (chunkTargets) {
   const sized = [];
   for (const target of chunkTargets) {
@@ -864,7 +898,10 @@ function list(questions: string[]): string {
     : questions.map((q) => `"${q}"`).join(", ");
 }
 
-function conversationReport(result: Conversed): string {
+function conversationReport(
+  result: Conversed,
+  decided: ReturnType<typeof conversationVerdict> | null,
+): string {
   const total = CONVERSATION_SET.length;
   const tableRow = (cells: string[]) => `| ${cells.join(" | ")} |`;
   const columns = CONDITIONS.flatMap((condition) =>
@@ -950,5 +987,21 @@ function conversationReport(result: Conversed): string {
     `${ARM_LABELS.shipped}, read as a refusal after a topic change or a same-topic`,
     `turn: ${gate.join(", ")} of ${String(2 * total)} per run.`,
     "",
+    ...(decided
+      ? [
+          "## The comparison, by the rule committed before this run (ADR 061)",
+          "",
+          "The earlier-turns sentence replaces the shipped wording only if no question",
+          "gets worse on any outcome in any condition, and at least one gets better.",
+          "",
+          `**${decided.verdict}.**`,
+          "",
+          ...Object.entries(decided.outcomes).map(
+            ([name, paired]) =>
+              `- ${name}: gained ${list(paired.gained)}; lost ${list(paired.lost)}`,
+          ),
+          "",
+        ]
+      : []),
   ].join("\n");
 }
