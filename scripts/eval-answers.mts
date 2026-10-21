@@ -935,6 +935,17 @@ function conversationReport(
     ),
   );
 
+  const cell = (condition: Condition, arm: Rule7, position: number) => {
+    const replies = result[condition][position]!.runs.map(
+      (run) => run.replies[arm]!,
+    );
+    const most = (test: (one: Scored) => boolean) =>
+      majority(replies.map(test));
+    if (most(read)) return "**read as a refusal**";
+    if (!most(grounded)) return "ungrounded";
+    return most(cites) ? "yes" : "uncited";
+  };
+
   return [
     "# What Gemini answers mid-conversation",
     "",
@@ -1003,5 +1014,47 @@ function conversationReport(
           "",
         ]
       : []),
+    "## Per question",
+    "",
+    tableRow([
+      "question",
+      ...columns.map(({ condition, arm }) => `${condition}, ${arm}`),
+    ]),
+    tableRow(["---", ...columns.map(() => "---")]),
+    ...CONVERSATION_SET.map(({ ask }, position) =>
+      tableRow([
+        ask,
+        ...columns.map(({ condition, arm }) => cell(condition, arm, position)),
+      ]),
+    ),
+    "",
+    ...Array.from({ length: RUNS }).flatMap((_, run) =>
+      CONVERSATION_SET.flatMap(({ ask }, position) =>
+        CONDITIONS.flatMap((condition) => {
+          const asked = result[condition][position]!.runs[run]!;
+          return [
+            `## Run ${String(run + 1)} — ${condition} — ${ask}`,
+            "",
+            ...(asked.first
+              ? [
+                  `Earlier: ${asked.first.question}`,
+                  "",
+                  `> ${asked.first.text.replaceAll("\n", "\n> ")}`,
+                  "",
+                ]
+              : []),
+            ...ARMS.flatMap((arm) => {
+              const one = asked.replies[arm]!;
+              return [
+                `**${ARM_LABELS[arm]}** · grounded: ${String(one.grounded)} · cites: ${String(one.cites)} · declined: ${String(one.declined)} · read as a refusal: ${String(one.readAsRefusal)}`,
+                "",
+                one.text,
+                "",
+              ];
+            }),
+          ];
+        }),
+      ),
+    ),
   ].join("\n");
 }
