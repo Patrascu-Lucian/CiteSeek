@@ -62,3 +62,25 @@ the smaller figure is the honest one.
 with the answer in front of the model, and citations remain at zero
 ([ADR 046](046-the-pin-survives-the-search.md)). This is the cheapest available
 improvement, not a solution — the model is still the constraint.
+
+↳ **Amended, 19 October 2026: re-run on the corrected answer set.** "How much notice do I give to
+move out?" had expected the landlord's two months; it now expects the tenant's one month, which is
+what the question asks. Re-run with `pnpm eval:local-answers --counts=3,8` (`eval/local-answers.md`):
+
+| passages | grounded, 31 August | grounded, 19 October |
+| -------- | ------------------- | -------------------- |
+| 3        | 15/24               | **15/24**            |
+| 8        | 13/24               | 12/24                |
+| oracle   | 16/24               | 14/24                |
+
+**Three still beats eight**, by three rows instead of two. Question by question, three is better
+on four and worse on one, the non-emergency repair. The totals hide more movement than that: six
+questions changed at three passages since August, three each way, and the corrected expectation
+accounts for at most one of them, the move-out question. Handed its passage alone, the model now
+answers "two months", the wrong figure, which the old expectation would have scored as grounded; the
+report keeps no answers at three passages, so whether the flip there is the correction is not shown.
+The rest come from what changed under it since, rule 7's rewording (#350) and a runtime upgrade
+(transformers 4.2.0 → 4.3.1, onnxruntime-node 1.24.3 → 1.30.0), and these runs cannot separate the
+two. Three passages now also ground one more than the oracle, 15 against 14, so for this model the
+oracle is no longer a ceiling. The browser's report, `eval/local-markers.md`, was scored against the
+old expectation and is re-run by hand.

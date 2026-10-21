@@ -178,7 +178,7 @@ describe("retrieveLocally", () => {
   });
 
   it("sends fewer passages than cloud mode, because the model is smaller", async () => {
-    /* Measured: three grounds 15/24 where eight grounds 13/24, with the
+    /* Measured: three grounds 15/24 where eight grounds 12/24, with the
        answering passage still retrieved every time (ADR 047). A shared
        `RETRIEVAL_LIMIT` here would quietly undo that. */
     await seed(aDocument(), [

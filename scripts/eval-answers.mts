@@ -110,7 +110,7 @@ const { getChatModel } = await import("../lib/ai/provider.ts");
 const { markerVerdict, opensWithRefusal } =
   await import("../lib/ai/citations.ts");
 const { CHAT_STEP_LIMIT, chatTools } = await import("../lib/chats/tools.ts");
-const { citesExpected, comparePaired, decideDefault, majority, overlaps } =
+const { citesExpected, comparePaired, decideDefault, isAnswering, majority } =
   await import("../lib/rag/eval-metrics.ts");
 const { generateText } = await import("ai");
 
@@ -257,19 +257,9 @@ async function measure(
      * ceiling retrieval cannot beat, so a miss below it is retrieval's or the
      * model's. */
     const oracleFor = (index: number): ChatSource[] => {
-      // A passage holding the whole quote before one that only overlaps it: a
-      // chunk can begin inside a quote and share none of its answer.
-      const holds = (chunk: Span, span: Span) =>
-        chunk.documentId === span.documentId &&
-        chunk.charStart <= span.charStart &&
-        span.charEnd <= chunk.charEnd;
-      const passage =
-        stored.find((chunk) =>
-          spans[index]!.some((span) => holds(chunk, span)),
-        ) ??
-        stored.find((chunk) =>
-          spans[index]!.some((span) => overlaps(chunk, span)),
-        );
+      const passage = stored.find((chunk) =>
+        isAnswering(chunk, spans[index]!, stored),
+      );
       if (!passage)
         throw new Error(
           `No stored passage holds: ${ANSWER_SET[index]!.question}`,
@@ -310,6 +300,7 @@ async function measure(
           markerVerdict(text, sources).linked,
           sources,
           spans[index]!,
+          stored,
         ),
         declined: opensWithRefusal(text),
         inputTokens: usage.inputTokens ?? 0,
@@ -336,7 +327,7 @@ async function measure(
                 ).chunks,
               );
         const retrieved = sources.some((source) =>
-          spans[index]!.some((span) => overlaps(source, span)),
+          isAnswering(source, spans[index]!, stored),
         );
 
         const runs: Scored[] = [];
