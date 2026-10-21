@@ -15,6 +15,7 @@ import { namesHost } from "../lib/env/named-host.ts";
 import {
   ANSWER_SET,
   CONVERSATION_SET,
+  FOLLOW_UP_SET,
   type Expectation,
 } from "../eval/golden-set.ts";
 import { grounds } from "../eval/scoring.ts";
@@ -472,7 +473,20 @@ type Asked = {
   replies: Partial<Record<Rule7, Scored>>;
 };
 
-type Conversed = Record<Condition, { ask: string; runs: Asked[] }[]>;
+/** No expected value to ground against, so citing and declining only. */
+type FollowReply = { text: string; cites: boolean; declined: boolean };
+
+type FollowedUp = {
+  /** The context turns, answered once with the shipped wording. */
+  earlier: { question: string; text: string }[];
+  /** The route's rewrite, when the follow-up alone retrieved nothing. */
+  searchedFor: string | null;
+  replies: Partial<Record<Rule7, FollowReply>>;
+};
+
+type Conversed = Record<Condition, { ask: string; runs: Asked[] }[]> & {
+  followUps: { ask: string; runs: FollowedUp[] }[];
+};
 
 // By text, not status: once the candidate ships, "shipped" names the other one.
 const ARM_LABELS: Record<Rule7, string> = {
@@ -507,16 +521,24 @@ async function converse(): Promise<Conversed> {
 
     // The chat route's order (`route.ts`): retrieve, and only when nothing clears
     // the floor, rewrite from the history and retrieve once more.
-    const sourcesFor = async (ui: ChatUIMessage[], question: string) => {
+    const sourcesFor = async (
+      ui: ChatUIMessage[],
+      question: string,
+    ): Promise<{ sources: ChatSource[]; searchedFor: string | null }> => {
       const found = await retrieveChunks(corpus.workspaceId, question);
-      if (found.chunks.length > 0) return buildSources(found.chunks);
+      if (found.chunks.length > 0) {
+        return { sources: buildSources(found.chunks), searchedFor: null };
+      }
       const rewritten = await rewriteQuestion(ui, question);
-      if (!rewritten) return [];
+      if (!rewritten) return { sources: [], searchedFor: null };
       const again = await retrieveChunks(
         corpus.workspaceId,
         rewritten.question,
       );
-      return buildSources(again.chunks);
+      return {
+        sources: buildSources(again.chunks),
+        searchedFor: again.chunks.length > 0 ? rewritten.question : null,
+      };
     };
 
     const generate = async (
@@ -534,12 +556,36 @@ async function converse(): Promise<Conversed> {
       return { text, inputTokens: usage.inputTokens ?? 0 };
     };
 
-    const result = Object.fromEntries(
-      CONDITIONS.map((condition) => [
-        condition,
-        CONVERSATION_SET.map(({ ask }) => ({ ask, runs: [] as Asked[] })),
-      ]),
-    ) as Conversed;
+    /** Answers `question` once, with the shipped wording, as the next turn of
+     * `history`, and appends both turns to it. */
+    const earlierTurn = async (history: ChatUIMessage[], question: string) => {
+      const ui = [...history, user(question)];
+      const { sources } = await sourcesFor(ui, question);
+      const text =
+        sources.length === 0
+          ? NO_RELEVANT_PASSAGES_REPLY
+          : (await generate(ui, sources, "shipped")).text;
+      history.push(ui.at(-1)!, assistant(sources, text));
+      return { question, text: text.trim() };
+    };
+
+    // Before the first paid call, like `ANSWER_SET`'s.
+    const followUpSpans = FOLLOW_UP_SET.map((one) =>
+      corpus.spansFor(one.expect),
+    );
+
+    const result = {
+      ...Object.fromEntries(
+        CONDITIONS.map((condition) => [
+          condition,
+          CONVERSATION_SET.map(({ ask }) => ({ ask, runs: [] as Asked[] })),
+        ]),
+      ),
+      followUps: FOLLOW_UP_SET.map(({ followUp }) => ({
+        ask: followUp,
+        runs: [] as FollowedUp[],
+      })),
+    } as Conversed;
 
     // Run, then question, then condition, then arm: drift during the session
     // lands on both arms alike.
@@ -553,21 +599,12 @@ async function converse(): Promise<Conversed> {
                 ? one.afterTopicChange
                 : one.afterSameTopic;
           const history: ChatUIMessage[] = [];
-          let first: Asked["first"];
-
-          if (earlier) {
-            const opening = [user(earlier)];
-            const found = await sourcesFor(opening, earlier);
-            const text =
-              found.length === 0
-                ? NO_RELEVANT_PASSAGES_REPLY
-                : (await generate(opening, found, "shipped")).text;
-            history.push(...opening, assistant(found, text));
-            first = { question: earlier, text: text.trim() };
-          }
+          const first = earlier
+            ? await earlierTurn(history, earlier)
+            : undefined;
 
           const ui = [...history, user(one.ask)];
-          const sources = await sourcesFor(ui, one.ask);
+          const { sources } = await sourcesFor(ui, one.ask);
           const replies: Asked["replies"] = {};
           for (const arm of ARMS) {
             if (sources.length === 0) {
@@ -597,6 +634,41 @@ async function converse(): Promise<Conversed> {
           });
         }
       }
+
+      for (const [position, one] of FOLLOW_UP_SET.entries()) {
+        const history: ChatUIMessage[] = [];
+        const earlier = [];
+        for (const turn of one.context) {
+          earlier.push(await earlierTurn(history, turn));
+        }
+
+        const ui = [...history, user(one.followUp)];
+        const { sources, searchedFor } = await sourcesFor(ui, one.followUp);
+        const replies: FollowedUp["replies"] = {};
+        for (const arm of ARMS) {
+          if (sources.length === 0) {
+            replies[arm] = { text: REFUSED.text, cites: false, declined: true };
+            continue;
+          }
+          const { text } = await generate(ui, sources, arm);
+          replies[arm] = {
+            text: text.trim(),
+            cites: citesExpected(
+              markerVerdict(text, sources).linked,
+              sources,
+              followUpSpans[position]!,
+              corpus.stored,
+            ),
+            declined: opensWithRefusal(text),
+          };
+        }
+        result.followUps[position]!.runs.push({
+          earlier,
+          searchedFor,
+          replies,
+        });
+      }
+
       console.log(`  run ${String(run + 1)} of ${String(RUNS)} asked`);
     }
 
@@ -610,38 +682,44 @@ const OUTCOMES = [
   ["not read as a refusal", (one: Scored) => !one.readAsRefusal],
 ] as const;
 
-const byQuestion = (
-  result: Conversed,
-  condition: Condition,
-  arm: Rule7,
-  test: (one: Scored) => boolean,
-) =>
+const FOLLOW_UP_OUTCOMES = [
+  ["cites", (one: FollowReply) => one.cites],
+  ["not declined", (one: FollowReply) => !one.declined],
+] as const;
+
+type Rows<T> = {
+  ask: string;
+  runs: { replies: Partial<Record<Rule7, T>> }[];
+}[];
+
+const byQuestion = <T,>(rows: Rows<T>, arm: Rule7, test: (one: T) => boolean) =>
   new Map(
-    result[condition].map(({ ask, runs }) => [
+    rows.map(({ ask, runs }) => [
       ask,
       majority(runs.map((run) => test(run.replies[arm]!))),
     ]),
   );
 
-const countHeld = (
-  result: Conversed,
-  condition: Condition,
-  arm: Rule7,
-  test: (one: Scored) => boolean,
-) =>
-  [...byQuestion(result, condition, arm, test).values()].filter(Boolean).length;
+const countHeld = <T,>(rows: Rows<T>, arm: Rule7, test: (one: T) => boolean) =>
+  [...byQuestion(rows, arm, test).values()].filter(Boolean).length;
 
 /** ADR 061's rule: no question worse on any outcome in any condition, and at
  * least one better. */
 function conversationVerdict(result: Conversed) {
   const outcomes: Record<string, Paired> = {};
+  const pair = <T,>(name: string, rows: Rows<T>, test: (one: T) => boolean) => {
+    outcomes[name] = comparePaired(
+      byQuestion(rows, "shipped", test),
+      byQuestion(rows, "candidate", test),
+    );
+  };
   for (const condition of CONDITIONS) {
     for (const [name, test] of OUTCOMES) {
-      outcomes[`${condition}: ${name}`] = comparePaired(
-        byQuestion(result, condition, "shipped", test),
-        byQuestion(result, condition, "candidate", test),
-      );
+      pair(`${condition}: ${name}`, result[condition], test);
     }
+  }
+  for (const [name, test] of FOLLOW_UP_OUTCOMES) {
+    pair(`follow-up: ${name}`, result.followUps, test);
   }
   return { outcomes, verdict: decideDefault(outcomes, 1) };
 }
@@ -687,11 +765,18 @@ if (conversation) {
   for (const condition of CONDITIONS) {
     for (const arm of ARMS) {
       const count = (test: (one: Scored) => boolean) =>
-        String(countHeld(result, condition, arm, test));
+        String(countHeld(result[condition], arm, test));
       console.log(
         `  ${condition}, ${arm}: grounded ${count((one) => one.grounded)}/${String(CONVERSATION_SET.length)}, cites ${count((one) => one.cites)}, read as a refusal ${count((one) => one.readAsRefusal)}`,
       );
     }
+  }
+  for (const arm of ARMS) {
+    const count = (test: (one: FollowReply) => boolean) =>
+      String(countHeld(result.followUps, arm, test));
+    console.log(
+      `  follow-up, ${arm}: cites ${count((one) => one.cites)}/${String(FOLLOW_UP_SET.length)}, declined ${count((one) => one.declined)}`,
+    );
   }
   if (decided) console.log(`  candidate: ${decided.verdict}`);
 
@@ -917,7 +1002,7 @@ function conversationReport(
     condition: Condition,
     arm: Rule7,
     test: (one: Scored) => boolean,
-  ) => `${String(countHeld(result, condition, arm, test))}/${String(total)}`;
+  ) => `${String(countHeld(result[condition], arm, test))}/${String(total)}`;
   const of = (arm: Rule7, test: (one: Scored) => boolean) => (asked: Asked) =>
     test(asked.replies[arm]!);
   const grounded = (one: Scored) => one.grounded;
@@ -934,6 +1019,22 @@ function conversationReport(
       0,
     ),
   );
+
+  const followMajority = (arm: Rule7, test: (one: FollowReply) => boolean) =>
+    `${String(countHeld(result.followUps, arm, test))}/${String(result.followUps.length)}`;
+  const followPerRun = (arm: Rule7, test: (one: FollowReply) => boolean) =>
+    Array.from(
+      { length: RUNS },
+      (_, run) =>
+        result.followUps.filter(({ runs }) => test(runs[run]!.replies[arm]!))
+          .length,
+    ).join(", ");
+  const quoted = ({ question, text }: { question: string; text: string }) => [
+    `Earlier: ${question}`,
+    "",
+    `> ${text.replaceAll("\n", "\n> ")}`,
+    "",
+  ];
 
   const cell = (condition: Condition, arm: Rule7, position: number) => {
     const replies = result[condition][position]!.runs.map(
@@ -1028,6 +1129,45 @@ function conversationReport(
       ]),
     ),
     "",
+    "## Follow-ups",
+    "",
+    "Each `FOLLOW_UP_SET` case asked after its context turn, which is answered once",
+    "with the shipped wording. A follow-up names no value to ground against, so it",
+    "is scored on citing the passage it needs and on declining. One that retrieves",
+    "nothing alone is rewritten from the history first, as the route does.",
+    "",
+    tableRow([
+      "wording",
+      "cites",
+      "cites per run",
+      "declined",
+      "declined per run",
+    ]),
+    tableRow(Array<string>(5).fill("---")),
+    ...ARMS.map((arm) =>
+      tableRow([
+        ARM_LABELS[arm],
+        followMajority(arm, (one) => one.cites),
+        followPerRun(arm, (one) => one.cites),
+        followMajority(arm, (one) => one.declined),
+        followPerRun(arm, (one) => one.declined),
+      ]),
+    ),
+    "",
+    tableRow(["follow-up", ...ARMS]),
+    tableRow(["---", ...ARMS.map(() => "---")]),
+    ...result.followUps.map(({ ask, runs }) =>
+      tableRow([
+        ask,
+        ...ARMS.map((arm) => {
+          const most = (test: (one: FollowReply) => boolean) =>
+            majority(runs.map((run) => test(run.replies[arm]!)));
+          if (most((one) => one.declined)) return "**declined**";
+          return most((one) => one.cites) ? "yes" : "uncited";
+        }),
+      ]),
+    ),
+    "",
     ...Array.from({ length: RUNS }).flatMap((_, run) =>
       CONVERSATION_SET.flatMap(({ ask }, position) =>
         CONDITIONS.flatMap((condition) => {
@@ -1035,14 +1175,7 @@ function conversationReport(
           return [
             `## Run ${String(run + 1)} — ${condition} — ${ask}`,
             "",
-            ...(asked.first
-              ? [
-                  `Earlier: ${asked.first.question}`,
-                  "",
-                  `> ${asked.first.text.replaceAll("\n", "\n> ")}`,
-                  "",
-                ]
-              : []),
+            ...(asked.first ? quoted(asked.first) : []),
             ...ARMS.flatMap((arm) => {
               const one = asked.replies[arm]!;
               return [
@@ -1055,6 +1188,28 @@ function conversationReport(
           ];
         }),
       ),
+    ),
+    ...Array.from({ length: RUNS }).flatMap((_, run) =>
+      result.followUps.flatMap(({ ask, runs }) => {
+        const asked = runs[run]!;
+        return [
+          `## Run ${String(run + 1)} — follow-up — ${ask}`,
+          "",
+          ...asked.earlier.flatMap(quoted),
+          ...(asked.searchedFor
+            ? [`Searched for: ${asked.searchedFor}`, ""]
+            : []),
+          ...ARMS.flatMap((arm) => {
+            const one = asked.replies[arm]!;
+            return [
+              `**${ARM_LABELS[arm]}** · cites: ${String(one.cites)} · declined: ${String(one.declined)}`,
+              "",
+              one.text,
+              "",
+            ];
+          }),
+        ];
+      }),
     ),
   ].join("\n");
 }
