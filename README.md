@@ -649,6 +649,7 @@ Run by hand, never in CI, output committed:
 ```bash
 pnpm eval:retrieval    # retrieval quality against eval/golden-set.ts (needs a real key)
 pnpm eval:answers      # Gemini's answers by passage count, or by size with --chunk= (--fake is free)
+pnpm eval:answers --conversation # the same questions asked mid-conversation
 pnpm eval:local        # the local embedder's recall, in Node, no provider
 pnpm eval:local-answers # what the local model answers, in Node on the CPU
 pnpm eval:local-markers # the same questions in a browser on WebGPU

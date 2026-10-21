@@ -3,19 +3,31 @@
  * own, so a change this decides is a change to what ships (ADR 059).
  *
  * Usage: pnpm eval:answers [--fake] [--counts=3,8] [--chunk=400,600,800]
+ *        pnpm eval:answers --conversation [--fake]
  */
+import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadLocalEnv } from "../lib/env/load-local-env.ts";
 import { namesHost } from "../lib/env/named-host.ts";
-import { ANSWER_SET, type Expectation } from "../eval/golden-set.ts";
+import {
+  ANSWER_SET,
+  CONVERSATION_SET,
+  type Expectation,
+} from "../eval/golden-set.ts";
 import { grounds } from "../eval/scoring.ts";
+import type { Rule7 } from "../lib/ai/prompt.ts";
+import {
+  REFUSAL_PART_ID,
+  SOURCES_PART_ID,
+  type ChatUIMessage,
+} from "../lib/ai/types.ts";
 import type { ChunkSizes } from "../lib/rag/chunking.ts";
 import type { Span } from "../lib/rag/eval-metrics.ts";
 
-const FLAGS = ["--fake", "--counts=", "--chunk="];
+const FLAGS = ["--fake", "--counts=", "--chunk=", "--conversation"];
 
 /* A misspelled flag is silently the default, and the default writes the
    committed report. */
@@ -39,6 +51,14 @@ const listFlag = (name: string) =>
     ?.slice(name.length)
     .split(",")
     .map(Number);
+
+const conversation = process.argv.includes("--conversation");
+if (conversation && (listFlag("--counts=") || listFlag("--chunk="))) {
+  throw new Error(
+    "--conversation runs at the shipped count and size: drop --counts= and --chunk=.",
+  );
+}
+const ARMS: readonly Rule7[] = ["shipped"];
 
 // Read before `loadLocalEnv`: `.env.local` must not be what decides to spend
 // money, or which database to write to.
@@ -105,14 +125,16 @@ const { retrieveChunks } = await import("../lib/rag/retrieve.ts");
 const { RETRIEVAL_LIMIT } = await import("../lib/rag/retrieval-config.ts");
 const { CHUNK_MAX_CHARS, CHUNK_OVERLAP_CHARS, CHUNK_TARGET_CHARS } =
   await import("../lib/rag/chunking.ts");
-const { buildSources, buildSystemPrompt } = await import("../lib/ai/prompt.ts");
+const { NO_RELEVANT_PASSAGES_REPLY, buildSources, buildSystemPrompt } =
+  await import("../lib/ai/prompt.ts");
 const { getChatModel } = await import("../lib/ai/provider.ts");
+const { rewriteQuestion } = await import("../lib/ai/rewrite.ts");
 const { markerVerdict, opensWithRefusal } =
   await import("../lib/ai/citations.ts");
 const { CHAT_STEP_LIMIT, chatTools } = await import("../lib/chats/tools.ts");
 const { citesExpected, comparePaired, decideDefault, isAnswering, majority } =
   await import("../lib/rag/eval-metrics.ts");
-const { generateText } = await import("ai");
+const { convertToModelMessages, generateText } = await import("ai");
 
 type ChatSource = ReturnType<typeof buildSources>[number];
 
@@ -164,6 +186,9 @@ type Scored = {
   grounded: boolean;
   cites: boolean;
   declined: boolean;
+  /** A right answer the page unlinks: grounded, opening in a declining form,
+   * and carrying markers. */
+  readAsRefusal: boolean;
   inputTokens: number;
 };
 
@@ -173,6 +198,7 @@ const REFUSED: Scored = {
   grounded: false,
   cites: false,
   declined: true,
+  readAsRefusal: false,
   inputTokens: 0,
 };
 
@@ -293,6 +319,8 @@ async function withCorpus<T>(
   }
 }
 
+/** One scorer for both modes, so the alone and conversation reports cannot
+ * disagree about what a reply did. */
 function scoreReply(
   text: string,
   sources: ChatSource[],
@@ -300,16 +328,14 @@ function scoreReply(
   { spans, stored }: Corpus,
   inputTokens: number,
 ): Scored {
+  const verdict = markerVerdict(text, sources);
+  const grounded = grounds(text, ANSWER_SET[index]!.answerContains);
   return {
     text: text.trim(),
-    grounded: grounds(text, ANSWER_SET[index]!.answerContains),
-    cites: citesExpected(
-      markerVerdict(text, sources).linked,
-      sources,
-      spans[index]!,
-      stored,
-    ),
+    grounded,
+    cites: citesExpected(verdict.linked, sources, spans[index]!, stored),
     declined: opensWithRefusal(text),
+    readAsRefusal: grounded && verdict.declined,
     inputTokens,
   };
 }
@@ -424,6 +450,171 @@ async function measure(
   });
 }
 
+const CONDITIONS = ["alone", "topic change", "same topic"] as const;
+type Condition = (typeof CONDITIONS)[number];
+
+type Asked = {
+  /** Answered once, with the shipped wording, and the history both arms share.
+   * Absent when asked alone. */
+  first?: { question: string; text: string };
+  /** Topic change only: a passage from the earlier turn's document came back. */
+  earlierInView: boolean;
+  replies: Partial<Record<Rule7, Scored>>;
+};
+
+type Conversed = Record<Condition, { ask: string; runs: Asked[] }[]>;
+
+// By text, not status: once the candidate ships, "shipped" names the other one.
+const ARM_LABELS: Record<Rule7, string> = {
+  shipped: "rule 7 as of v1.11.0",
+  candidate: "rule 7 + the earlier-turns sentence (ADR 061)",
+};
+
+async function converse(): Promise<Conversed> {
+  return withCorpus(undefined, async (corpus) => {
+    const index = new Map(ANSWER_SET.map((one, at) => [one.question, at]));
+    const at = (question: string) => index.get(question)!;
+
+    const user = (text: string): ChatUIMessage => ({
+      id: randomUUID(),
+      role: "user",
+      parts: [{ type: "text", text }],
+    });
+    const assistant = (sources: ChatSource[], text: string): ChatUIMessage => ({
+      id: randomUUID(),
+      role: "assistant",
+      parts: [
+        sources.length === 0
+          ? {
+              type: "data-refusal",
+              id: REFUSAL_PART_ID,
+              data: { reason: "no_relevant_passages" },
+            }
+          : { type: "data-sources", id: SOURCES_PART_ID, data: sources },
+        { type: "text", text },
+      ],
+    });
+
+    // The chat route's order (`route.ts`): retrieve, and only when nothing clears
+    // the floor, rewrite from the history and retrieve once more.
+    const sourcesFor = async (ui: ChatUIMessage[], question: string) => {
+      const found = await retrieveChunks(corpus.workspaceId, question);
+      if (found.chunks.length > 0) return buildSources(found.chunks);
+      const rewritten = await rewriteQuestion(ui, question);
+      if (!rewritten) return [];
+      const again = await retrieveChunks(
+        corpus.workspaceId,
+        rewritten.question,
+      );
+      return buildSources(again.chunks);
+    };
+
+    const generate = async (
+      ui: ChatUIMessage[],
+      sources: ChatSource[],
+      arm: Rule7,
+    ) => {
+      const { text, usage } = await generateText({
+        model: getChatModel(),
+        system: buildSystemPrompt(sources, true, arm),
+        messages: await convertToModelMessages(ui),
+        tools: chatTools(corpus.workspaceId),
+        stopWhen: CHAT_STEP_LIMIT,
+      });
+      return { text, inputTokens: usage.inputTokens ?? 0 };
+    };
+
+    const result = Object.fromEntries(
+      CONDITIONS.map((condition) => [
+        condition,
+        CONVERSATION_SET.map(({ ask }) => ({ ask, runs: [] as Asked[] })),
+      ]),
+    ) as Conversed;
+
+    // Run, then question, then condition, then arm: drift during the session
+    // lands on both arms alike.
+    for (let run = 0; run < RUNS; run += 1) {
+      for (const [position, one] of CONVERSATION_SET.entries()) {
+        for (const condition of CONDITIONS) {
+          const earlier =
+            condition === "alone"
+              ? null
+              : condition === "topic change"
+                ? one.afterTopicChange
+                : one.afterSameTopic;
+          const history: ChatUIMessage[] = [];
+          let first: Asked["first"];
+
+          if (earlier) {
+            const opening = [user(earlier)];
+            const found = await sourcesFor(opening, earlier);
+            const text =
+              found.length === 0
+                ? NO_RELEVANT_PASSAGES_REPLY
+                : (await generate(opening, found, "shipped")).text;
+            history.push(...opening, assistant(found, text));
+            first = { question: earlier, text: text.trim() };
+          }
+
+          const ui = [...history, user(one.ask)];
+          const sources = await sourcesFor(ui, one.ask);
+          const replies: Asked["replies"] = {};
+          for (const arm of ARMS) {
+            if (sources.length === 0) {
+              replies[arm] = REFUSED;
+              continue;
+            }
+            const { text, inputTokens } = await generate(ui, sources, arm);
+            replies[arm] = scoreReply(
+              text,
+              sources,
+              at(one.ask),
+              corpus,
+              inputTokens,
+            );
+          }
+
+          const earlierDocument =
+            condition === "topic change" && earlier
+              ? corpus.spans[at(earlier)]![0]!.documentId
+              : null;
+          result[condition][position]!.runs.push({
+            first,
+            earlierInView: sources.some(
+              (source) => source.documentId === earlierDocument,
+            ),
+            replies,
+          });
+        }
+      }
+      console.log(`  run ${String(run + 1)} of ${String(RUNS)} asked`);
+    }
+
+    return result;
+  });
+}
+
+const byQuestion = (
+  result: Conversed,
+  condition: Condition,
+  arm: Rule7,
+  test: (one: Scored) => boolean,
+) =>
+  new Map(
+    result[condition].map(({ ask, runs }) => [
+      ask,
+      majority(runs.map((run) => test(run.replies[arm]!))),
+    ]),
+  );
+
+const countHeld = (
+  result: Conversed,
+  condition: Condition,
+  arm: Rule7,
+  test: (one: Scored) => boolean,
+) =>
+  [...byQuestion(result, condition, arm, test).values()].filter(Boolean).length;
+
 const outcome = (rows: Row[], key: "grounded" | "cites") =>
   new Map(
     rows.map((row) => [
@@ -458,7 +649,21 @@ let file: string;
 let rendered: string;
 let verdicts: ReturnType<typeof compare> = [];
 
-if (chunkTargets) {
+if (conversation) {
+  const result = await converse();
+
+  for (const condition of CONDITIONS) {
+    for (const arm of ARMS) {
+      const count = (test: (one: Scored) => boolean) =>
+        String(countHeld(result, condition, arm, test));
+      console.log(
+        `  ${condition}, ${arm}: grounded ${count((one) => one.grounded)}/${String(CONVERSATION_SET.length)}, cites ${count((one) => one.cites)}, read as a refusal ${count((one) => one.readAsRefusal)}`,
+      );
+    }
+  }
+  file = "answers-conversation.md";
+  rendered = conversationReport(result);
+} else if (chunkTargets) {
   const sized = [];
   for (const target of chunkTargets) {
     sized.push({ target, ...(await measure(sizesFor(target), false)) });
@@ -657,4 +862,93 @@ function list(questions: string[]): string {
   return questions.length === 0
     ? "none"
     : questions.map((q) => `"${q}"`).join(", ");
+}
+
+function conversationReport(result: Conversed): string {
+  const total = CONVERSATION_SET.length;
+  const tableRow = (cells: string[]) => `| ${cells.join(" | ")} |`;
+  const columns = CONDITIONS.flatMap((condition) =>
+    ARMS.map((arm) => ({ condition, arm })),
+  );
+  const perRun = (condition: Condition, test: (one: Asked) => boolean) =>
+    Array.from(
+      { length: RUNS },
+      (_, run) =>
+        result[condition].filter(({ runs }) => test(runs[run]!)).length,
+    ).join(", ");
+  const majorityOf = (
+    condition: Condition,
+    arm: Rule7,
+    test: (one: Scored) => boolean,
+  ) => `${String(countHeld(result, condition, arm, test))}/${String(total)}`;
+  const of = (arm: Rule7, test: (one: Scored) => boolean) => (asked: Asked) =>
+    test(asked.replies[arm]!);
+  const grounded = (one: Scored) => one.grounded;
+  const cites = (one: Scored) => one.cites;
+  const read = (one: Scored) => one.readAsRefusal;
+
+  const gate = Array.from({ length: RUNS }, (_, run) =>
+    (["topic change", "same topic"] as const).reduce(
+      (sum, condition) =>
+        sum +
+        result[condition].filter(({ runs }) =>
+          read(runs[run]!.replies.shipped!),
+        ).length,
+      0,
+    ),
+  );
+
+  return [
+    "# What Gemini answers mid-conversation",
+    "",
+    `Run ${new Date().toISOString().slice(0, 10)} by \`pnpm eval:answers --conversation\`: each of the ${String(total)}`,
+    "questions in `ANSWER_SET` asked second, after a turn about another document",
+    "(topic change) and after one about the same document (same topic), and asked",
+    "alone, all in one session. The earlier turn is answered once, with the shipped",
+    "wording, and each wording answers the second turn on that same history. History",
+    "goes through the chat route's `convertToModelMessages`, and retrieval follows",
+    `its order, the rewrite included. ${String(RUNS)} runs; a question's result is the majority`,
+    "of them.",
+    "",
+    "`read as a refusal` is a right answer the page unlinks: grounded, opening in a",
+    "declining form, and carrying markers (ADR 058). The 1.11.0 exit check met one,",
+    "the credit cap asked after the press. `earlier document in view` counts second",
+    "turns that retrieved a passage from the earlier turn's document.",
+    "",
+    tableRow([
+      "condition",
+      "wording",
+      "grounded",
+      "grounded per run",
+      "cites",
+      "cites per run",
+      "declined",
+      "read as a refusal",
+      "read as a refusal per run",
+      "earlier document in view per run",
+    ]),
+    tableRow(Array<string>(10).fill("---")),
+    ...columns.map(({ condition, arm }) =>
+      tableRow([
+        condition,
+        ARM_LABELS[arm],
+        majorityOf(condition, arm, grounded),
+        perRun(condition, of(arm, grounded)),
+        majorityOf(condition, arm, cites),
+        perRun(condition, of(arm, cites)),
+        majorityOf(condition, arm, (one) => one.declined),
+        majorityOf(condition, arm, read),
+        perRun(condition, of(arm, read)),
+        condition === "topic change"
+          ? perRun(condition, (asked) => asked.earlierInView)
+          : "—",
+      ]),
+    ),
+    "",
+    "## The gate, by the rule committed before this run (ADR 061)",
+    "",
+    `${ARM_LABELS.shipped}, read as a refusal after a topic change or a same-topic`,
+    `turn: ${gate.join(", ")} of ${String(2 * total)} per run.`,
+    "",
+  ].join("\n");
 }
