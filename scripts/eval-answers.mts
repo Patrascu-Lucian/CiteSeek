@@ -183,12 +183,28 @@ type Measured = {
   passageLength: number;
 };
 
-/** Ingests the fixtures at `sizes` into a workspace of its own, answers every
- * question at each count and with the oracle, and deletes the workspace. */
-async function measure(
+type Corpus = {
+  workspaceId: string;
+  stored: {
+    id: string;
+    documentId: string;
+    content: string;
+    pageNumber: number | null;
+    charStart: number;
+    charEnd: number;
+  }[];
+  spansFor: (expect: readonly Expectation[]) => Span[];
+  /** `ANSWER_SET`'s, by index. */
+  spans: Span[][];
+  filenameOf: (documentId: string) => string;
+};
+
+/** Ingests the fixtures at `sizes` into a workspace of its own, hands it to
+ * `run`, and deletes it whatever `run` does. */
+async function withCorpus<T>(
   sizes: ChunkSizes | undefined,
-  withOracle: boolean,
-): Promise<Measured> {
+  run: (corpus: Corpus) => Promise<T>,
+): Promise<T> {
   const [workspace] = await db
     .insert(workspaces)
     .values({ name: `answers ${new Date().toISOString()}`, ownerId: null })
@@ -253,6 +269,30 @@ async function measure(
       `  ${sizes ? `${String(sizes.target)} characters: ` : ""}the corpus is ${String(stored.length)} passages.`,
     );
 
+    // Awaited: without it `finally` empties the workspace mid-run, and every
+    // question then scores as refused by the floor, with no error.
+    return await run({
+      workspaceId,
+      stored,
+      spansFor,
+      spans,
+      filenameOf: (documentId) =>
+        [...idByFile].find(([, id]) => id === documentId)![0],
+    });
+  } finally {
+    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
+  }
+}
+
+/** Answers every question at each count, and with the oracle, on a corpus
+ * ingested at `sizes`. */
+async function measure(
+  sizes: ChunkSizes | undefined,
+  withOracle: boolean,
+): Promise<Measured> {
+  return withCorpus(sizes, async (corpus) => {
+    const { workspaceId, stored, spans, filenameOf } = corpus;
+
     /** The stored passage holding the answer, handed over on its own: the
      * ceiling retrieval cannot beat, so a miss below it is retrieval's or the
      * model's. */
@@ -264,15 +304,12 @@ async function measure(
         throw new Error(
           `No stored passage holds: ${ANSWER_SET[index]!.question}`,
         );
-      const filename = [...idByFile].find(
-        ([, id]) => id === passage.documentId,
-      )![0];
       return [
         {
           marker: 1,
           chunkId: passage.id,
           documentId: passage.documentId,
-          filename,
+          filename: filenameOf(passage.documentId),
           pageNumber: passage.pageNumber,
           charStart: passage.charStart,
           charEnd: passage.charEnd,
@@ -371,9 +408,7 @@ async function measure(
       corpus: stored.length,
       passageLength: lengths.reduce((a, b) => a + b, 0) / lengths.length,
     };
-  } finally {
-    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
-  }
+  });
 }
 
 const outcome = (rows: Row[], key: "grounded" | "cites") =>
