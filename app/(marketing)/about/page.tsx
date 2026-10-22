@@ -117,6 +117,13 @@ export default function AboutPage() {
           they no longer present themselves as sources. A refusal worded in a
           way the page does not recognize still links them.
         </p>
+        <p className="mt-3">
+          Mid-conversation the page can err the other way: a right answer that
+          opens by declining an earlier question is read as a refusal, and its
+          markers are not links either. A change to the model&rsquo;s
+          instructions meant to stop it made it more common, so the instructions
+          are unchanged.
+        </p>
       </Section>
 
       <Section title="How it is built">
