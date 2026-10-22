@@ -7,13 +7,14 @@
  */
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadLocalEnv } from "../lib/env/load-local-env.ts";
 import { namesHost } from "../lib/env/named-host.ts";
 import {
   ANSWER_SET,
+  CONVERSATION_SEQUENCES,
   CONVERSATION_SET,
   FOLLOW_UP_SET,
   type Expectation,
@@ -191,6 +192,15 @@ const FILES = [
   "harbourline-equipment-manual.md",
   "larkfield-tenancy-agreement.md",
 ];
+/** The demo's own document, asked alone as a guest's workspace holds it. */
+const HANDBOOK = join(
+  EVAL_DIR,
+  "..",
+  "lib",
+  "db",
+  "fixtures",
+  "northwind-remote-work-handbook.pdf",
+);
 
 type Scored = {
   text: string;
@@ -245,40 +255,70 @@ type Corpus = {
   filenameOf: (documentId: string) => string;
 };
 
-/** Ingests the fixtures at `sizes` into a workspace of its own, hands it to
- * `run`, and deletes it whatever `run` does. */
+/** A workspace of its own for `run`, deleted whatever `run` does. */
+async function withWorkspace<T>(
+  name: string,
+  run: (workspaceId: string) => Promise<T>,
+): Promise<T> {
+  const [workspace] = await db
+    .insert(workspaces)
+    .values({ name: `${name} ${new Date().toISOString()}`, ownerId: null })
+    .returning({ id: workspaces.id });
+
+  try {
+    // Awaited: without it `finally` empties the workspace mid-run, and every
+    // question then scores as refused by the floor, with no error.
+    return await run(workspace!.id);
+  } finally {
+    await db.delete(workspaces).where(eq(workspaces.id, workspace!.id));
+  }
+}
+
+/** Through the shipped pipeline, and only a `ready` document comes back. */
+async function ingestDocument(
+  workspaceId: string,
+  path: string,
+  mimeType: string,
+  chunkSizes?: ChunkSizes,
+) {
+  const bytes = new Uint8Array(await readFile(path));
+  const filename = basename(path);
+  const document = await createQueuedDocument(workspaceId, {
+    filename,
+    mimeType,
+    sizeBytes: bytes.length,
+  });
+  await processDocument(workspaceId, document.id, bytes, mimeType, {
+    chunkSizes,
+  });
+  const stored = await findDocumentInWorkspace(workspaceId, document.id);
+  // `processDocument` records a failure on the row rather than throwing, and
+  // a failed document reads as its questions missed by retrieval.
+  if (stored?.status !== "ready") {
+    throw new Error(`${filename} did not ingest: ${String(stored?.error)}`);
+  }
+  return { id: document.id, contentText: stored.contentText ?? "" };
+}
+
+/** Ingests the fixtures at `sizes` into a workspace of its own and hands it to
+ * `run`. */
 async function withCorpus<T>(
   sizes: ChunkSizes | undefined,
   run: (corpus: Corpus) => Promise<T>,
 ): Promise<T> {
-  const [workspace] = await db
-    .insert(workspaces)
-    .values({ name: `answers ${new Date().toISOString()}`, ownerId: null })
-    .returning({ id: workspaces.id });
-  const workspaceId = workspace!.id;
-
-  try {
+  return withWorkspace("answers", async (workspaceId) => {
     const textByFile = new Map<string, string>();
     const idByFile = new Map<string, string>();
 
     for (const file of FILES) {
-      const bytes = new Uint8Array(await readFile(join(FIXTURES, file)));
-      const document = await createQueuedDocument(workspaceId, {
-        filename: file,
-        mimeType: "text/markdown",
-        sizeBytes: bytes.length,
-      });
-      await processDocument(workspaceId, document.id, bytes, "text/markdown", {
-        chunkSizes: sizes,
-      });
-      const stored = await findDocumentInWorkspace(workspaceId, document.id);
-      // `processDocument` records a failure on the row rather than throwing, and
-      // a failed document reads as its questions missed by retrieval.
-      if (stored?.status !== "ready") {
-        throw new Error(`${file} did not ingest: ${String(stored?.error)}`);
-      }
+      const document = await ingestDocument(
+        workspaceId,
+        join(FIXTURES, file),
+        "text/markdown",
+        sizes,
+      );
       // Offsets index the stored text, which normalization has already rewritten.
-      textByFile.set(file, stored?.contentText ?? "");
+      textByFile.set(file, document.contentText);
       idByFile.set(file, document.id);
     }
 
@@ -315,9 +355,7 @@ async function withCorpus<T>(
       `  ${sizes ? `${String(sizes.target)} characters: ` : ""}the corpus is ${String(stored.length)} passages.`,
     );
 
-    // Awaited: without it `finally` empties the workspace mid-run, and every
-    // question then scores as refused by the floor, with no error.
-    return await run({
+    return run({
       workspaceId,
       stored,
       spansFor,
@@ -325,9 +363,7 @@ async function withCorpus<T>(
       filenameOf: (documentId) =>
         [...idByFile].find(([, id]) => id === documentId)![0],
     });
-  } finally {
-    await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
-  }
+  });
 }
 
 /** One scorer for both modes, so the alone and conversation reports cannot
@@ -484,8 +520,30 @@ type FollowedUp = {
   replies: Partial<Record<Rule7, FollowReply>>;
 };
 
+type SequenceReply = {
+  text: string;
+  /** Opens declining with markers, so the page links none of them. */
+  unlinked: boolean;
+  /** Null on the handbook, where nothing says what the right answer is. */
+  readAsRefusal: boolean | null;
+};
+
+type Sequenced = {
+  /** Answered once, with the shipped wording; each wording goes on from it. */
+  first: { question: string; text: string };
+  turns: {
+    question: string;
+    replies: Partial<Record<Rule7, SequenceReply>>;
+  }[];
+};
+
 type Conversed = Record<Condition, { ask: string; runs: Asked[] }[]> & {
   followUps: { ask: string; runs: FollowedUp[] }[];
+  sequences: {
+    name: string;
+    corpus: "fixtures" | "handbook";
+    runs: Sequenced[];
+  }[];
 };
 
 // By text, not status: once the candidate ships, "shipped" names the other one.
@@ -494,7 +552,7 @@ const ARM_LABELS: Record<Rule7, string> = {
   candidate: "rule 7 + the earlier-turns sentence (ADR 061)",
 };
 
-async function converse(): Promise<Conversed> {
+async function converse(handbookId: string): Promise<Conversed> {
   return withCorpus(undefined, async (corpus) => {
     const index = new Map(ANSWER_SET.map((one, at) => [one.question, at]));
     const at = (question: string) => index.get(question)!;
@@ -524,17 +582,15 @@ async function converse(): Promise<Conversed> {
     const sourcesFor = async (
       ui: ChatUIMessage[],
       question: string,
+      workspaceId = corpus.workspaceId,
     ): Promise<{ sources: ChatSource[]; searchedFor: string | null }> => {
-      const found = await retrieveChunks(corpus.workspaceId, question);
+      const found = await retrieveChunks(workspaceId, question);
       if (found.chunks.length > 0) {
         return { sources: buildSources(found.chunks), searchedFor: null };
       }
       const rewritten = await rewriteQuestion(ui, question);
       if (!rewritten) return { sources: [], searchedFor: null };
-      const again = await retrieveChunks(
-        corpus.workspaceId,
-        rewritten.question,
-      );
+      const again = await retrieveChunks(workspaceId, rewritten.question);
       return {
         sources: buildSources(again.chunks),
         searchedFor: again.chunks.length > 0 ? rewritten.question : null,
@@ -545,12 +601,13 @@ async function converse(): Promise<Conversed> {
       ui: ChatUIMessage[],
       sources: ChatSource[],
       arm: Rule7,
+      workspaceId = corpus.workspaceId,
     ) => {
       const { text, usage } = await generateText({
         model: getChatModel(),
         system: buildSystemPrompt(sources, true, arm),
         messages: await convertToModelMessages(ui),
-        tools: chatTools(corpus.workspaceId),
+        tools: chatTools(workspaceId),
         stopWhen: CHAT_STEP_LIMIT,
       });
       return { text, inputTokens: usage.inputTokens ?? 0 };
@@ -558,13 +615,17 @@ async function converse(): Promise<Conversed> {
 
     /** Answers `question` once, with the shipped wording, as the next turn of
      * `history`, and appends both turns to it. */
-    const earlierTurn = async (history: ChatUIMessage[], question: string) => {
+    const earlierTurn = async (
+      history: ChatUIMessage[],
+      question: string,
+      workspaceId = corpus.workspaceId,
+    ) => {
       const ui = [...history, user(question)];
-      const { sources } = await sourcesFor(ui, question);
+      const { sources } = await sourcesFor(ui, question, workspaceId);
       const text =
         sources.length === 0
           ? NO_RELEVANT_PASSAGES_REPLY
-          : (await generate(ui, sources, "shipped")).text;
+          : (await generate(ui, sources, "shipped", workspaceId)).text;
       history.push(ui.at(-1)!, assistant(sources, text));
       return { question, text: text.trim() };
     };
@@ -584,6 +645,11 @@ async function converse(): Promise<Conversed> {
       followUps: FOLLOW_UP_SET.map(({ followUp }) => ({
         ask: followUp,
         runs: [] as FollowedUp[],
+      })),
+      sequences: CONVERSATION_SEQUENCES.map(({ name, corpus }) => ({
+        name,
+        corpus,
+        runs: [] as Sequenced[],
       })),
     } as Conversed;
 
@@ -667,6 +733,44 @@ async function converse(): Promise<Conversed> {
           searchedFor,
           replies,
         });
+      }
+
+      for (const [position, sequence] of CONVERSATION_SEQUENCES.entries()) {
+        const onFixtures = sequence.corpus === "fixtures";
+        const workspaceId = onFixtures ? corpus.workspaceId : handbookId;
+        const shared: ChatUIMessage[] = [];
+        const first = await earlierTurn(
+          shared,
+          sequence.turns[0]!,
+          workspaceId,
+        );
+        const histories = new Map(ARMS.map((arm) => [arm, [...shared]]));
+        const turns: Sequenced["turns"] = [];
+
+        for (const question of sequence.turns.slice(1)) {
+          const replies: Sequenced["turns"][number]["replies"] = {};
+          for (const arm of ARMS) {
+            const history = histories.get(arm)!;
+            const ui = [...history, user(question)];
+            const { sources } = await sourcesFor(ui, question, workspaceId);
+            const refused = sources.length === 0;
+            const text = refused
+              ? NO_RELEVANT_PASSAGES_REPLY
+              : (await generate(ui, sources, arm, workspaceId)).text;
+            history.push(ui.at(-1)!, assistant(sources, text));
+            replies[arm] = {
+              text: refused ? REFUSED.text : text.trim(),
+              unlinked: markerVerdict(text, sources).declined,
+              readAsRefusal: onFixtures
+                ? !refused &&
+                  scoreReply(text, sources, at(question), corpus, 0)
+                    .readAsRefusal
+                : null,
+            };
+          }
+          turns.push({ question, replies });
+        }
+        result.sequences[position]!.runs.push({ first, turns });
       }
 
       console.log(`  run ${String(run + 1)} of ${String(RUNS)} asked`);
@@ -759,7 +863,10 @@ let rendered: string;
 let verdicts: ReturnType<typeof compare> = [];
 
 if (conversation) {
-  const result = await converse();
+  const result = await withWorkspace("answers handbook", async (handbookId) => {
+    await ingestDocument(handbookId, HANDBOOK, "application/pdf");
+    return converse(handbookId);
+  });
   const decided = rule7 ? conversationVerdict(result) : null;
 
   for (const condition of CONDITIONS) {
@@ -777,6 +884,16 @@ if (conversation) {
     console.log(
       `  follow-up, ${arm}: cites ${count((one) => one.cites)}/${String(FOLLOW_UP_SET.length)}, declined ${count((one) => one.declined)}`,
     );
+  }
+  for (const { name, runs } of result.sequences) {
+    for (const arm of ARMS) {
+      const replies = runs.flatMap(({ turns }) =>
+        turns.map(({ replies }) => replies[arm]!),
+      );
+      console.log(
+        `  ${name}, ${arm}: unlinked ${String(replies.filter((one) => one.unlinked).length)} of ${String(replies.length)} later turns`,
+      );
+    }
   }
   if (decided) console.log(`  candidate: ${decided.verdict}`);
 
@@ -1009,16 +1126,33 @@ function conversationReport(
   const cites = (one: Scored) => one.cites;
   const read = (one: Scored) => one.readAsRefusal;
 
-  const gate = Array.from({ length: RUNS }, (_, run) =>
-    (["topic change", "same topic"] as const).reduce(
-      (sum, condition) =>
-        sum +
-        result[condition].filter(({ runs }) =>
-          read(runs[run]!.replies.shipped!),
-        ).length,
-      0,
-    ),
+  // Only replies with a value to check can be read as a refusal (ADR 061).
+  const onFixtures = result.sequences.filter(
+    (one) => one.corpus === "fixtures",
   );
+  const gate = Array.from(
+    { length: RUNS },
+    (_, run) =>
+      (["topic change", "same topic"] as const).reduce(
+        (sum, condition) =>
+          sum +
+          result[condition].filter(({ runs }) =>
+            read(runs[run]!.replies.shipped!),
+          ).length,
+        0,
+      ) +
+      onFixtures.reduce(
+        (sum, { runs }) =>
+          sum +
+          runs[run]!.turns.filter(
+            ({ replies }) => replies.shipped!.readAsRefusal,
+          ).length,
+        0,
+      ),
+  );
+  const gateTotal =
+    2 * total +
+    onFixtures.reduce((sum, { runs }) => sum + runs[0]!.turns.length, 0);
 
   const followMajority = (arm: Rule7, test: (one: FollowReply) => boolean) =>
     `${String(countHeld(result.followUps, arm, test))}/${String(result.followUps.length)}`;
@@ -1097,7 +1231,7 @@ function conversationReport(
     "## The gate, by the rule committed before this run (ADR 061)",
     "",
     `${ARM_LABELS.shipped}, read as a refusal after a topic change or a same-topic`,
-    `turn: ${gate.join(", ")} of ${String(2 * total)} per run.`,
+    `turn, or later in the exit check's sequence: ${gate.join(", ")} of ${String(gateTotal)} per run.`,
     "",
     ...(decided
       ? [
@@ -1168,6 +1302,38 @@ function conversationReport(
       ]),
     ),
     "",
+    "## Sequences",
+    "",
+    "Asked in order in one conversation. The first turn is answered once with the",
+    "shipped wording, and each wording goes on from it with its own replies. The",
+    "exit check's is the 1.11.0 sequence on the fixtures; the demo's starters are",
+    "asked of the handbook alone, where nothing says what the right answer is, so",
+    "they show only whether the page unlinked a reply.",
+    "",
+    ...result.sequences.flatMap(({ name, runs }) => [
+      `### ${name}`,
+      "",
+      tableRow([
+        "turn",
+        "wording",
+        ...runs.map((_, run) => `run ${String(run + 1)}`),
+      ]),
+      tableRow(["---", "---", ...runs.map(() => "---")]),
+      ...runs[0]!.turns.flatMap(({ question }, turn) =>
+        ARMS.map((arm) =>
+          tableRow([
+            question,
+            arm,
+            ...runs.map(({ turns }) => {
+              const one = turns[turn]!.replies[arm]!;
+              if (one.readAsRefusal) return "**read as a refusal**";
+              return one.unlinked ? "**unlinked**" : "answered";
+            }),
+          ]),
+        ),
+      ),
+      "",
+    ]),
     ...Array.from({ length: RUNS }).flatMap((_, run) =>
       CONVERSATION_SET.flatMap(({ ask }, position) =>
         CONDITIONS.flatMap((condition) => {
@@ -1208,6 +1374,29 @@ function conversationReport(
               "",
             ];
           }),
+        ];
+      }),
+    ),
+    ...Array.from({ length: RUNS }).flatMap((_, run) =>
+      result.sequences.flatMap(({ name, runs }) => {
+        const asked = runs[run]!;
+        return [
+          `## Run ${String(run + 1)} — sequence — ${name}`,
+          "",
+          ...quoted(asked.first),
+          ...asked.turns.flatMap(({ question, replies }) => [
+            `### ${question}`,
+            "",
+            ...ARMS.flatMap((arm) => {
+              const one = replies[arm]!;
+              return [
+                `**${ARM_LABELS[arm]}** · unlinked: ${String(one.unlinked)} · read as a refusal: ${String(one.readAsRefusal ?? "n/a")}`,
+                "",
+                one.text,
+                "",
+              ];
+            }),
+          ]),
         ];
       }),
     ),
