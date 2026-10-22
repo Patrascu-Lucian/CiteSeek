@@ -3830,6 +3830,11 @@ month", which also changes the local answer report's baseline (ADR 047 scored th
 re-run both when it changes, so neither compares across the fix. The golden set's retrieval entry
 for the same question is unaffected: its quote sits in the sentence that holds both answers.
 
+↳ **Fixed in 1.12.0** (#473). The question expects the tenant's month, and both answer reports were
+re-run on it: `eval/answers.md` grounds 24 of 24 at every count, and `eval/local-answers.md` reads
+15, 12 and 14 (ADR 047's amendment). The browser's report, `eval/local-markers.md`, is re-run by
+hand.
+
 **A hedge on an answerable question reads as a decline (low, a cost of ADR 058).** With fewer
 passages — three, or the oracle's one — Gemini sometimes opens a correct, cited answer in the
 declining form: "The documents do not cover the total amount to be handed over at the start, though
@@ -3837,6 +3842,10 @@ they state that the deposit is five weeks' rent [1]." The page then unlinks the 
 shows the decline note. At eight passages this did not occur in the set, which is part of why eight
 stays; at a lower count it would be a false refusal the reader sees. Worth watching whenever the
 count or the prompt changes.
+
+↳ **It happens at eight too, mid-conversation** (ADR 061). Half of the 18 replies the conversation
+run read as a refusal hedge on the question asked rather than on an earlier one, the renewal
+question among them three times.
 
 ## Repeats in one session are not independent, 18 October 2026
 
@@ -3888,6 +3897,12 @@ so citing it alone would score as citing the answering passage. No committed run
 oracle now prefers a chunk holding the whole quote; the scorer would need the same rule, with an
 overlap fallback for a quote that spans two chunks.
 
+↳ **Fixed in 1.12.0** (#473). One rule, `isAnswering`, decides for each expected span against every
+stored chunk: a chunk holding the whole quote, or one overlapping it when none does. The scorer, the
+"answer retrieved" column and the oracle all read it. Its first version decided the fallback over
+the retrieved chunks only, so chunk 8 retrieved alone still counted; that is in
+`docs/code-review-notes.md`.
+
 ## A decline about the last question, met on the live site, 19 October 2026
 
 The 1.11.0 exit check asked three `ANSWER_SET` questions in one conversation, in a signed-in
@@ -3924,3 +3939,25 @@ it, and how often it happens is unknown: once in the two follow-ups here.
 
 The demo's laptop warranty opened "do not cover" this time, so it exercised the first opener, not
 the third; it rendered no link, as the committed run predicts.
+
+↳ **Measured in 1.12.0, and the remedy tried did not hold** (ADR 061, `eval/answers-conversation.md`).
+The shipped prompt read a right answer as a refusal 19 times in 150 checkable replies, about one in
+eight. The sentence added to rule 7 lost on six questions and gained on four, so rule 7 is
+unchanged. Read reply by reply, the 18 shipped cases split evenly: nine decline the earlier question,
+nine hedge on the question asked. The sentence left the first count at nine and raised the second
+to nineteen.
+
+**The demo meets it on its own starter questions (now high).** Asked in order, the third starter
+opened by declining the first two in all three runs, so a stranger who clicks through the suggested
+questions sees a correct answer labeled as declining it.
+
+**What would settle it next**, each measured with `pnpm eval:answers --conversation` against a rule
+committed first:
+
+- **Strip the stale markers from the history** before it reaches the model. It tests the second
+  reading in ADR 061, and changes no wording the detector depends on.
+- **A detector that compares the opening with the question asked.** An opening naming something the
+  latest question does not ask about is a decline of something else. That is no longer an exact
+  match, so ADR 058's rule for adding to the detector would need rewriting first.
+- **For the demo alone:** starter questions that do not set up the decline, or one asked per
+  conversation. That is cheaper than either remedy, but it fixes the path rather than the product.

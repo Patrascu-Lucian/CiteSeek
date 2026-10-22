@@ -1,7 +1,7 @@
 # 061 — A decline about an earlier question
 
-**Status**: proposed, 22 October 2026. The method and the rule below are committed before the run
-they judge; the result is added after it.
+**Status**: decided, 22 October 2026: rule 7 stays as shipped. The method and the rule below were
+merged before the run they judge (#484, 13:55); the run started at 14:04, by the shell's own history.
 
 ## Context
 
@@ -124,4 +124,56 @@ Each reply is scored on what it can be checked against:
 
 ## Result
 
-Added after the run.
+`eval/answers-conversation.md`, three runs in one session.
+
+**The gate opened.** The shipped wording turned a right answer into a reply read as a refusal 8, 4
+and 7 times in 50 replies per run: 19 of 150. Of those, 11 came after a topic change, 7 after a
+same-topic turn and 1 in the exit check's sequence. The live failure is not rare: about one reply
+in eight that can be checked.
+
+**The candidate fails the first condition, so rule 7 stays.** Compared question by question it gains
+on four questions and loses on six, so the verdict is `keep`. Six is well past the one or two that
+would call for a second session, and conditions (b) and (c) were not run.
+
+**What the replies show.** Read rather than counted: an opening declines the earlier question when
+it names that question's subject. Across the topic-change and same-topic turns of all three runs:
+
+| a reply read as a refusal, opening by… | rule 7 as shipped | with the candidate |
+| -------------------------------------- | ----------------- | ------------------ |
+| declining the earlier question         | 9                 | 9                  |
+| hedging on the question asked          | 9                 | 19                 |
+
+So the sentence did not reduce the failure it was written for, and it doubled the other one. It
+also did what it forbids: asked how often the oil needs changing after a question about rent, the
+candidate wrote _"The documents do not cover how often the rent can go up. They cover hydraulic
+equipment maintenance, including instructions that the oil must be changed every 2,000 operating
+hours or annually, whichever comes first [2]."_ That is
+[ADR 050](050-a-rule-obeyed-as-the-thing-it-forbids.md)'s finding again, on a far larger model: a
+rule that names the failure it forbids can be obeyed as that failure. Its new losses are mostly the
+second kind, such as _"The documents do not cover refunds or compensation for missed targets other
+than service credits"_, where the shipped wording simply answered.
+
+**There are two failures, not one.** Half of the shipped wording's declines name the earlier
+question: the credit cap after the press opened "The documents do not cover how much force a press
+develops" in all three topic-change runs. The other half hedge on the question itself, and the
+history only shapes the reading. The renewal question names no "it", as the backlog already
+recorded, and "How much notice do I give if I am leaving?", asked after the renewal question, was
+read as leaving the support plan in all three runs. A sentence about earlier turns could only ever
+reach the first kind.
+
+**The demo meets it on the path a stranger takes.** The handbook's three starter questions, asked
+in order: the third, "Can I put company documents in my personal cloud storage?", opened _"The
+documents do not cover annual leave or daily team overlap hours"_ in all three runs, declining the
+two questions it had just answered, and then answered correctly with citations the page unlinked.
+The candidate's replies opened by declining the earlier questions in all three runs too.
+
+**Consequences.**
+
+- Rule 7 is unchanged, so [ADR 058](058-a-reply-that-declines-links-nothing.md)'s statements that the
+  prompt is byte-identical still hold.
+- ADR 058's note no longer says "This reply declines the question", which was false under these
+  replies; it says the reply opens by declining.
+- The README and the About page disclose the case and its rate.
+- What is left is structural, and it is measured the same way, by a rule committed first:
+  stripping the stale markers from the history, or a detector that compares the opening with the
+  question asked. Both are in `docs/backlog.md`.
