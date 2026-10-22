@@ -153,7 +153,7 @@ export function markerVerdict(
 }
 
 export const DECLINED_MARKERS_NOTE =
-  "This reply declines the question, so its markers are not links.";
+  "This reply opens by declining, so its markers are not links.";
 
 /** Split so the page can set the list in bold; the clipboard joins them. */
 export function inventedMarkersNote(markers: readonly number[]): {

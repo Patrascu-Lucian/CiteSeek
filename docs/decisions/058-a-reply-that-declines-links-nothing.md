@@ -140,3 +140,12 @@ answer about what the documents say. Put "specify" in its place and it reads the
 - The cost: both laptop replies cite a fact the question was reaching for, so by the reading rule
   above both count as losses, two more of the kind already accepted.
 - The prompt is byte-identical: rule 7 still asks for "cover" only.
+
+## Amendment, 22 October 2026: the note says what the page checks
+
+**The note now reads "This reply opens by declining, so its markers are not links."** It said "This
+reply declines the question", and asked mid-conversation a reply can open by declining an _earlier_
+question and then answer this one correctly, with the right marker
+([ADR 061](061-a-decline-about-an-earlier-question.md)). The old note was false under such a reply;
+the new one states what the detector checks, the opening, and stays true whatever follows it. The
+rule itself is unchanged: the reply's markers are still not links.

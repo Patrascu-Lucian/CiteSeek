@@ -191,7 +191,7 @@ describe("Answer — a reply that declines", () => {
 
     expect(screen.queryAllByRole("button", { name: /citation/i })).toEqual([]);
     expect(
-      screen.getByText(/declines the question, so its markers are not links/i),
+      screen.getByText(/opens by declining, so its markers are not links/i),
     ).toBeVisible();
     expect(screen.queryByText(/not one of the passages/i)).toBeNull();
     expect(screen.queryByText(/nothing here is cited/i)).toBeNull();
@@ -202,7 +202,7 @@ describe("Answer — a reply that declines", () => {
     renderAnswer({ text: "The documents do not cover parking.", sources: two });
 
     expect(screen.getByText(/nothing here is cited/i)).toBeVisible();
-    expect(screen.queryByText(/declines the question/i)).toBeNull();
+    expect(screen.queryByText(/opens by declining/i)).toBeNull();
   });
 });
 
