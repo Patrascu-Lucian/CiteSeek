@@ -71,3 +71,9 @@ One question scores ungrounded at every count for a reason that is the set's, no
 "How much notice do I give to move out?" expects the landlord's two months, and every answer gives
 the tenant's one month, correctly. It misses identically everywhere, so it cannot move the
 comparison; it is recorded in `docs/backlog.md`.
+
+↳ **Amended, 22 October 2026: re-run on the corrected set.** The move-out question now expects the
+tenant's month, and a citation counts only toward the passage that holds the whole expected quote.
+`eval/answers.md`, re-run: every count grounds 24 of 24, and the rest matches the run above.
+Citations are 22, 23 and 21 of 24 at three, eight and the oracle, declines 2, 0 and 3, and three
+gains and loses the same questions. Eight stays.
