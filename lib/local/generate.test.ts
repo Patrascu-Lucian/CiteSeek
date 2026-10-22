@@ -312,6 +312,22 @@ describe("generateLocally", () => {
     expect(system).not.toContain("28 days");
   });
 
+  it("sends the candidate rule 7 only when asked for it", async () => {
+    const model = generatingModel(["ok"]);
+    pipeline.mockResolvedValue(model);
+    const { generateLocally } = await import("./generate");
+    const system = (call: number) =>
+      (model.mock.calls[call]![0] as { content: string }[])[0]!.content;
+
+    for await (const _ of generateLocally("when?", [source]));
+    for await (const _ of generateLocally("when?", [source], undefined, {
+      rule7: "candidate",
+    }));
+
+    expect(system(0)).not.toContain("Decline only the latest question.");
+    expect(system(1)).toContain("Decline only the latest question.");
+  });
+
   it("quotes a specimen only under the specimen variant", async () => {
     const model = generatingModel(["ok"]);
     pipeline.mockResolvedValue(model);
