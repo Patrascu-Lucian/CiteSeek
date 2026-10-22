@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { DEMO_EXAMPLE_QUESTIONS } from "./lib/demo/example-questions";
+
 /*
   `eval/local-markers.md` says why this exists: a number copied into two
   generated files goes stale. The README is the third copy, and the `/local`
@@ -88,6 +90,50 @@ describe("the README's count of review notes", () => {
 
   it("counts the entries the notes file actually holds", () => {
     expect(Number(claimed![1])).toBe(entries);
+  });
+});
+
+describe("the README's conversation numbers", () => {
+  const raw = read("eval", "answers-conversation.md");
+  const report = raw.replace(/\s+/g, " ");
+  const prose = read("README.md").replace(/\n>? */g, " ");
+  const gate = /exit check's sequence: ([\d, ]+) of (\d+) per run\./.exec(
+    report,
+  );
+  const perRun = (gate?.[1] ?? "").split(",").map(Number);
+  const readAsRefusal = perRun.reduce((sum, count) => sum + count, 0);
+
+  it("has a gate to check against", () => {
+    expect(gate, "no gate line in eval/answers-conversation.md").not.toBe(null);
+  });
+
+  it("quotes the gate's total over every run", () => {
+    const checkable = Number(gate![2]) * perRun.length;
+    expect(prose).toContain(
+      `${String(readAsRefusal)} of ${String(checkable)} replies that can be checked`,
+    );
+  });
+
+  it("says the demo's starters meet it only while every run shows it", () => {
+    const last = DEMO_EXAMPLE_QUESTIONS.at(-1)!;
+    const row = raw
+      .split("\n")
+      .find((line) => line.startsWith(`| ${last} | shipped |`));
+    const runs = row?.split("|").slice(3, -1) ?? [];
+    const always =
+      runs.length > 0 && runs.every((cell) => cell.trim() === "**unlinked**");
+
+    expect(prose.includes("meet it on the third"), "README").toBe(always);
+  });
+
+  it("discloses it on the About page while any run counts one", () => {
+    const about = read("app", "(marketing)", "about", "page.tsx").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(about.includes("opens by declining an earlier question")).toBe(
+      readAsRefusal > 0,
+    );
   });
 });
 
