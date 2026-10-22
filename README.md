@@ -650,6 +650,7 @@ Run by hand, never in CI, output committed:
 pnpm eval:retrieval    # retrieval quality against eval/golden-set.ts (needs a real key)
 pnpm eval:answers      # Gemini's answers by passage count, or by size with --chunk= (--fake is free)
 pnpm eval:answers --conversation # the same questions asked mid-conversation (--rule7=candidate for a verdict)
+pnpm eval:refusals     # what the model writes for questions the floor lets through (--rule7=candidate beside it)
 pnpm eval:local        # the local embedder's recall, in Node, no provider
 pnpm eval:local-answers # what the local model answers, in Node on the CPU
 pnpm eval:local-markers # the same questions in a browser on WebGPU
@@ -734,7 +735,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1189  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1190  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 189   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |

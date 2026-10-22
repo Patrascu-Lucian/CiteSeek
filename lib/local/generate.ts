@@ -1,6 +1,6 @@
 import type { PreTrainedTokenizer } from "@huggingface/transformers";
 
-import { buildSystemPrompt } from "@/lib/ai/prompt";
+import { buildSystemPrompt, type Rule7 } from "@/lib/ai/prompt";
 import type { ChatSource } from "@/lib/ai/types";
 
 import { useNodeModelCache } from "./model-cache";
@@ -204,6 +204,7 @@ export type PromptParts = {
   placement?: boolean;
   /** Whether that line quotes a specimen — the variable ADR 050 isolates. */
   placementSpecimen?: boolean;
+  rule7?: Rule7;
 };
 
 /**
@@ -223,6 +224,7 @@ export async function* generateLocally(
     example = true,
     placement = false,
     placementSpecimen = false,
+    rule7 = "shipped",
   }: PromptParts = {},
 ): AsyncIterable<string> {
   const generate = await loadChatModel();
@@ -266,7 +268,7 @@ export async function* generateLocally(
       {
         role: "system",
         content:
-          buildSystemPrompt(sources, cite) +
+          buildSystemPrompt(sources, cite, rule7) +
           (example ? `\n\n${markerExample(sources)}` : "") +
           (placement ? placementRule(placementSpecimen) : ""),
       },

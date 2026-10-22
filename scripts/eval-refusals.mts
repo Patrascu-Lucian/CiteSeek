@@ -2,7 +2,9 @@
  * unanswerable questions clear the floor is measured and what happens to them is
  * not. Scored on rule 4 of the prompt — never attach a marker to a refusal —
  * rather than a regex over refusal wording, which would measure the regex. The
- * model gets the chat route's tools and step limit, from the same module. */
+ * model gets the chat route's tools and step limit, from the same module.
+ *
+ * Usage: pnpm eval:refusals [--rule7=candidate] */
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +12,25 @@ import { fileURLToPath } from "node:url";
 import { loadLocalEnv } from "../lib/env/load-local-env.ts";
 import { namesHost } from "../lib/env/named-host.ts";
 import { ADJACENT_SET, GOLDEN_SET, UNCOVERED_SET } from "../eval/golden-set.ts";
+
+const FLAGS = ["--rule7="];
+
+/* A misspelled flag is silently the default, and the default writes the
+   committed report. */
+const unknown = process.argv
+  .slice(2)
+  .filter((one) => one.startsWith("--"))
+  .find((one) => !FLAGS.some((flag) => one.startsWith(flag)));
+if (unknown) {
+  throw new Error(`Unknown flag ${unknown}. Known: ${FLAGS.join(" ")}`);
+}
+
+const rule7 = process.argv
+  .find((one) => one.startsWith("--rule7="))
+  ?.slice("--rule7=".length);
+if (rule7 !== undefined && rule7 !== "candidate") {
+  throw new Error(`--rule7 takes only "candidate", got "${rule7}".`);
+}
 
 // Read before `loadLocalEnv`: `.env.local` must not be what decides to spend
 // money, or which database to write to.
@@ -64,7 +85,7 @@ const { processDocument } = await import("../lib/rag/ingest.ts");
 const { retrieveChunks } = await import("../lib/rag/retrieve.ts");
 const { buildSources, buildSystemPrompt } = await import("../lib/ai/prompt.ts");
 const { getChatModel } = await import("../lib/ai/provider.ts");
-const { markerVerdict, unresolvedMarkers } =
+const { markerVerdict, opensWithRefusal, unresolvedMarkers } =
   await import("../lib/ai/citations.ts");
 const { generateText } = await import("ai");
 const { CHAT_STEP_LIMIT, chatTools } = await import("../lib/chats/tools.ts");
@@ -206,6 +227,7 @@ try {
     linked: boolean;
     passages: number;
     outOfRange: number[];
+    opensDeclining: boolean;
   }[] = [];
   const rates = new Map(SETS.map(({ name }) => [name, [] as number[]]));
   // What the page does with those markers (ADR 058), read through the same
@@ -215,17 +237,21 @@ try {
   const outOfRangeRates = new Map(
     SETS.map(({ name }) => [name, [] as number[]]),
   );
+  // What a wording change has to keep: every reply here is a refusal, so one
+  // that stops opening in a form the page reads is read for what it did.
+  const openingRates = new Map(SETS.map(({ name }) => [name, [] as number[]]));
 
   for (let run = 1; run <= RUNS; run += 1) {
     const cited = new Map(SETS.map(({ name }) => [name, 0]));
     const linkedCount = new Map(SETS.map(({ name }) => [name, 0]));
     const unlinkedCount = new Map(SETS.map(({ name }) => [name, 0]));
     const outOfRangeCount = new Map(SETS.map(({ name }) => [name, 0]));
+    const openingCount = new Map(SETS.map(({ name }) => [name, 0]));
 
     for (const { set, question, workspaceId, sources } of reaching) {
       const { text } = await generateText({
         model: getChatModel(),
-        system: buildSystemPrompt(sources),
+        system: buildSystemPrompt(sources, true, rule7 ?? "shipped"),
         prompt: question,
         tools: chatTools(workspaceId),
         stopWhen: CHAT_STEP_LIMIT,
@@ -254,6 +280,11 @@ try {
         outOfRangeCount.set(set, (outOfRangeCount.get(set) ?? 0) + 1);
       }
 
+      const opensDeclining = opensWithRefusal(text);
+      if (opensDeclining) {
+        openingCount.set(set, (openingCount.get(set) ?? 0) + 1);
+      }
+
       answers.push({
         run,
         set,
@@ -263,6 +294,7 @@ try {
         linked,
         passages: sources.length,
         outOfRange,
+        opensDeclining,
       });
     }
 
@@ -273,6 +305,9 @@ try {
     }
     for (const [set, count] of outOfRangeCount) {
       outOfRangeRates.get(set)?.push(count);
+    }
+    for (const [set, count] of openingCount) {
+      openingRates.get(set)?.push(count);
     }
     console.log(
       `  run ${String(run)}: ${[...cited].map(([set, count]) => `${String(count)} of ${String(clearing(set))} ${set}`).join(", ")} carried a marker`,
@@ -287,14 +322,21 @@ try {
     "and asks for a detail it does not cover, so that set samples the hard region",
     "on purpose and its rate is not the product's. The adjacent set has the same",
     "shape, asked of the demo handbook alone, as a guest's workspace holds it.",
+    ...(rule7
+      ? [
+          "",
+          "Asked with rule 7 + the earlier-turns sentence (ADR 061), the wording",
+          "measured against the shipped one before it may replace it.",
+        ]
+      : []),
     "",
-    "| set | clear the shipped floor | carrying a marker | rendered as a link | unlinked by its form | carrying an out-of-range marker |",
-    "| --- | ----------------------- | ----------------- | ------------------ | -------------------- | ------------------------------- |",
+    "| set | clear the shipped floor | carrying a marker | rendered as a link | unlinked by its form | carrying an out-of-range marker | opens in a declining form the page recognizes |",
+    "| --- | ----------------------- | ----------------- | ------------------ | -------------------- | ------------------------------- | --------------------------------------------- |",
     ...SETS.map(({ name, questions }) => {
       const per = (counts: Map<string, number[]>) =>
         `${(counts.get(name) ?? []).join(", ")} of ${String(clearing(name))}`;
 
-      return `| ${name} | ${String(clearing(name))} of ${String(questions.length)} | ${per(rates)} | ${per(linkedRates)} | ${per(unlinkedRates)} | ${per(outOfRangeRates)} |`;
+      return `| ${name} | ${String(clearing(name))} of ${String(questions.length)} | ${per(rates)} | ${per(linkedRates)} | ${per(unlinkedRates)} | ${per(outOfRangeRates)} | ${per(openingRates)} |`;
     }),
     "",
     "Per run, every column reading markers as the page does. A reply that opens",
@@ -309,6 +351,10 @@ try {
     "form. The page folds one in a declining reply into that reply's single",
     "note, so its own reading would show none.",
     "",
+    "The opening column counts replies the page reads as declining whether or",
+    "not they carry a marker. Every question here is unanswerable, so a reply",
+    "outside it is read below for whether it declined in other words.",
+    "",
     "Rule 4 of the system prompt forbids attaching a marker to a refusal, so a",
     "marker on a refusal is the prompt broken by its own definition. Answers are",
     "verbatim, because whether a reply refused at all is read rather than",
@@ -322,14 +368,17 @@ try {
       `Linked on the page: ${String(one.linked)}`,
       `Passages: ${String(one.passages)}`,
       `Out of range: ${one.outOfRange.length === 0 ? "none" : one.outOfRange.map((marker) => `[${String(marker)}]`).join(", ")}`,
+      `Opens in a declining form the page recognizes: ${String(one.opensDeclining)}`,
       "",
       one.text,
       "",
     ]),
   ].join("\n");
 
-  await writeFile(join(EVAL_DIR, "refusals.md"), report);
-  console.log("\nWrote eval/refusals.md");
+  // Never over the committed report: that one is the shipped wording's.
+  const file = rule7 ? "refusals-rule7-candidate.md" : "refusals.md";
+  await writeFile(join(EVAL_DIR, file), report);
+  console.log(`\nWrote eval/${file}`);
 } finally {
   const { eq } = await import("drizzle-orm");
   for (const id of created) {
