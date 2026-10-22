@@ -84,3 +84,8 @@ The rest come from what changed under it since, rule 7's rewording (#350) and a 
 two. Three passages now also ground one more than the oracle, 15 against 14, so for this model the
 oracle is no longer a ceiling. The browser's report, `eval/local-markers.md`, was scored against the
 old expectation and is re-run by hand.
+
+↳ **Re-run in the browser, 22 October 2026.** `eval/local-markers.md` on WebGPU reads 15 of 24
+grounded and none cited, and all 24 questions score as they do in the CPU run at three passages,
+including the same six flips since August. The browser's move-out answer is "two months'", as on
+the CPU. What changed under the model changed it the same way on both devices.
