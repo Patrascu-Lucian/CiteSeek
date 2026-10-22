@@ -135,7 +135,7 @@ describe("answerAsText", () => {
         ),
       ).toBe(
         "The documents do not cover the warranty; they mention the guard [1][2].\n\n" +
-          "This reply declines the question, so its markers are not links.",
+          "This reply opens by declining, so its markers are not links.",
       );
     });
 
