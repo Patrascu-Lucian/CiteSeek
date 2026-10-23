@@ -3835,6 +3835,9 @@ re-run on it: `eval/answers.md` grounds 24 of 24 at every count, and `eval/local
 15, 12 and 14 (ADR 047's amendment). The browser's report, `eval/local-markers.md`, is re-run by
 hand.
 
+↳ **Re-run on WebGPU, 22 October 2026:** 15 of 24 grounded, none cited, and every question as on the
+CPU at three passages.
+
 **A hedge on an answerable question reads as a decline (low, a cost of ADR 058).** With fewer
 passages — three, or the oracle's one — Gemini sometimes opens a correct, cited answer in the
 declining form: "The documents do not cover the total amount to be handed over at the start, though
