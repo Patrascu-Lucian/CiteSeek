@@ -119,10 +119,10 @@ export default function AboutPage() {
         </p>
         <p className="mt-3">
           Mid-conversation the page can err the other way: a right answer that
-          opens by declining an earlier question is read as a refusal, and its
-          markers are not links either. A change to the model&rsquo;s
-          instructions meant to stop it made it more common, so the instructions
-          are unchanged.
+          opens by declining an earlier question, or by hedging on this one, is
+          read as a refusal, and its markers are not links either. A change to
+          the model&rsquo;s instructions meant to stop it did not, and made such
+          replies more common overall, so the instructions are unchanged.
         </p>
       </Section>
 

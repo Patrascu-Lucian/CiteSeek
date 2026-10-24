@@ -161,11 +161,16 @@ recorded, and "How much notice do I give if I am leaving?", asked after the rene
 read as leaving the support plan in all three runs. A sentence about earlier turns could only ever
 reach the first kind.
 
-**The demo meets it on the path a stranger takes.** The handbook's three starter questions, asked
-in order: the third, "Can I put company documents in my personal cloud storage?", opened _"The
+**The demo meets it too, though not by clicking.** The page offers its three starter questions as
+buttons only in an empty conversation, so after the first, the other two have to be typed. Asked in
+that order, the third, "Can I put company documents in my personal cloud storage?", opened _"The
 documents do not cover annual leave or daily team overlap hours"_ in all three runs, declining the
-two questions it had just answered, and then answered correctly with citations the page unlinked.
-The candidate's replies opened by declining the earlier questions in all three runs too.
+two questions it had just answered. In two runs it then answered correctly, with citations the page
+unlinked; in the third it only declined, which is a false refusal rather than the case this record
+is about. The candidate's replies opened by declining the earlier questions in all three runs too.
+
+↳ **Corrected 24 October 2026, by the release review.** This paragraph first called the sequence the
+path a stranger clicks through, and said the third starter answered correctly in all three runs.
 
 **Consequences.**
 
@@ -173,7 +178,8 @@ The candidate's replies opened by declining the earlier questions in all three r
   prompt is byte-identical still hold.
 - ADR 058's note no longer says "This reply declines the question", which was false under these
   replies; it says the reply opens by declining.
-- The README and the About page disclose the case and its rate.
+- The README discloses the case and its rate; the About page discloses the case.
 - What is left is structural, and it is measured the same way, by a rule committed first:
   stripping the stale markers from the history, or a detector that compares the opening with the
-  question asked. Both are in `docs/backlog.md`.
+  question asked. Both reach only the first kind, the replies that decline an earlier question. The
+  hedges stay with the older entry on hedged answers, and both are in `docs/backlog.md`.

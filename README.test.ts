@@ -114,7 +114,8 @@ describe("the README's conversation numbers", () => {
     );
   });
 
-  it("says the demo's starters meet it only while every run shows it", () => {
+  it("says the third starter opens by declining only while every run shows it", () => {
+    // Not whether it then answered: a yes-or-no question has no value to check.
     const last = DEMO_EXAMPLE_QUESTIONS.at(-1)!;
     const row = raw
       .split("\n")
@@ -123,7 +124,10 @@ describe("the README's conversation numbers", () => {
     const always =
       runs.length > 0 && runs.every((cell) => cell.trim() === "**unlinked**");
 
-    expect(prose.includes("meet it on the third"), "README").toBe(always);
+    expect(
+      prose.includes("open the third by declining the first two in every run"),
+      "README",
+    ).toBe(always);
   });
 
   it("discloses it on the About page while any run counts one", () => {

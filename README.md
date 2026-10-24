@@ -90,7 +90,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 167 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 168 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -559,12 +559,12 @@ already writes ([ADR 055](docs/decisions/055-a-second-signal-measured-and-not-sh
 
 Mid-conversation the page also errs the other way. A reply can answer correctly and cite the right
 passage yet open by declining something else, often the question asked before it, and the page,
-reading only the opening, unlinks its markers as it would a refusal's. Asked as the second turn of a
-conversation, the answer set meets this in 19 of 150 replies that can be checked
-([`eval/answers-conversation.md`](eval/answers-conversation.md)), and the demo's own starter
-questions, asked in order, meet it on the third. A sentence added to the prompt to prevent it
-measured worse, so the prompt is unchanged
-([ADR 061](docs/decisions/061-a-decline-about-an-earlier-question.md)).
+reading only the opening, unlinks its markers as it would a refusal's. Asked mid-conversation, the
+answer set meets this in 19 of 150 replies that can be checked
+([`eval/answers-conversation.md`](eval/answers-conversation.md)). The demo's own starter questions,
+asked in order, open the third by declining the first two in every run, and in two of three it
+then answers correctly. A sentence added to the prompt to prevent it measured worse, so the prompt
+is unchanged ([ADR 061](docs/decisions/061-a-decline-about-an-earlier-question.md)).
 
 Usage limits are enforced but their thresholds are provisional — they need real traffic to
 calibrate against, and are deliberately generous because shared addresses
@@ -609,11 +609,13 @@ rather than an invented answer, so the floor stays a filter, and the pages say s
 attach markers the prompt forbids, and since v1.10.0 the page unlinks them rather than letting them
 pass for sources.
 
-**What is open is the reverse: a right answer read as a refusal mid-conversation.** A wording change
-measured worse, so the remedies left are structural: removing the markers earlier answers carry
-before the history reaches the model, or a detector that compares a reply's opening with the
-question it answers. Each is measured with `pnpm eval:answers --conversation` against a rule
-committed before the run
+**What is open is the reverse: a right answer read as a refusal mid-conversation.** It comes in two
+halves. Half the cases decline the question asked before, and the remedies left for those are
+structural: removing the markers earlier answers carry before the history reaches the model, or a
+detector that compares a reply's opening with the question it answers. The other half hedge on the
+question asked, which neither reaches. A wording change left the first half as it was and doubled
+the second. Each remedy is
+measured with `pnpm eval:answers --conversation` against a rule committed before the run
 ([ADR 061](docs/decisions/061-a-decline-about-an-earlier-question.md)).
 
 The usage thresholds are still starting values. They need real traffic rather than another

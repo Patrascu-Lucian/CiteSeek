@@ -522,6 +522,8 @@ type FollowedUp = {
 
 type SequenceReply = {
   text: string;
+  /** Nothing cleared the floor, so no model call: not an answer. */
+  refused: boolean;
   /** Opens declining with markers, so the page links none of them. */
   unlinked: boolean;
   /** Null on the handbook, where nothing says what the right answer is. */
@@ -760,6 +762,7 @@ async function converse(handbookId: string): Promise<Conversed> {
             history.push(ui.at(-1)!, assistant(sources, text));
             replies[arm] = {
               text: refused ? REFUSED.text : text.trim(),
+              refused,
               unlinked: markerVerdict(text, sources).declined,
               readAsRefusal: onFixtures
                 ? !refused &&
@@ -1326,6 +1329,7 @@ function conversationReport(
             arm,
             ...runs.map(({ turns }) => {
               const one = turns[turn]!.replies[arm]!;
+              if (one.refused) return "refused by the floor";
               if (one.readAsRefusal) return "**read as a refusal**";
               return one.unlinked ? "**unlinked**" : "answered";
             }),
