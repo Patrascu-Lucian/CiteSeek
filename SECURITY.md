@@ -50,13 +50,9 @@ link here:
 - **Advisories in packages this app never executes, or never feeds untrusted input,** are pinned
   forward anyway, in `pnpm-workspace.yaml`. `adm-zip` comes via `onnxruntime-node`, while the
   browser loads `onnxruntime-web`. `sharp` is invoked by `next/image`, on two screenshots committed
-  to this repository and nothing a reader supplies. Pinned rather than argued away, because "we do
-  not call it" is a claim that quietly expires — this one did, when the screenshots arrived.
-- **Two advisories with no fixed release to pin to.** `braces` ≤ 3.0.3 (GHSA-vfj7-8cjw-p6xm) is
-  reached only through dev tooling. `sprintf-js` ≤ 1.1.3 (GHSA-hp3w-g68c-fv3c) arrives through
-  `mammoth > argparse`, which only mammoth's command-line entry loads; `lib/rag/extract.ts`
-  imports the library. `pnpm-workspace.test.ts` checks that path and fails when it changes.
-  `pnpm audit` reports both until a fix is published.
+  to this repository and nothing a reader supplies. `vite` comes with the test runner, which starts
+  no dev server here. Pinned rather than argued away, because "we do not call it" is a claim that
+  quietly expires — this one did, when the screenshots arrived.
 
 ## Handling of your report
 

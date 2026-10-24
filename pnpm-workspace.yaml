@@ -51,8 +51,8 @@ overrides:
   # Dependabot reported it unfixable: an override is the only way past an exact
   # pin. 6.15.2 is where the null guard lands in the comma + encodeValuesOnly
   # path, read from the published tarballs rather than the advisory, which names
-  # both 6.15.2 and 6.16.0. Express already brings 6.16.0, so this collapses two
-  # copies into one, as postcss and esbuild do above.
+  # both 6.15.2 and 6.16.0. Express already brings a newer copy, so this
+  # collapses two copies into one, as postcss and esbuild do above.
   qs: ^6.15.2
   # 0.6.1 clears both advisories at once, each affected up to 0.6.0:
   # GHSA-vwc7-r8mq-g2x9 (symlink-following on extract) and the declared
@@ -61,3 +61,8 @@ overrides:
   # postinstall, denied in allowBuilds above — so this is one copy and a floor,
   # not a fix for anything we run.
   adm-zip: ^0.6.1
+  # Dev only, through vitest and @vitejs/plugin-react. 8.1.6 clears five
+  # advisories: three in launch-editor's Windows command line, a file outside
+  # `server.fs.allow` served, and a cross-origin script. Vitest starts no dev
+  # server outside UI or browser mode, so the floor is hygiene, not exposure.
+  vite: ^8.1.6
