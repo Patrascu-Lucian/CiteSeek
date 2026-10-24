@@ -3950,17 +3950,21 @@ unchanged. Read reply by reply, the 18 shipped cases split evenly: nine decline 
 nine hedge on the question asked. The sentence left the first count at nine and raised the second
 to nineteen.
 
-**The demo meets it on its own starter questions (now high).** Asked in order, the third starter
-opened by declining the first two in all three runs, so a stranger who clicks through the suggested
-questions sees a correct answer labeled as declining it.
+**The demo meets it on its own starter questions (still medium).** The page shows the starters as
+buttons only in an empty conversation, so a reader who types the second and third after clicking the
+first is the one who meets it. Asked in that order, the third opened by declining the first two in
+all three runs; in two of them it then answered correctly, and in the third it only declined.
+
+↳ **Corrected by the 1.12.0 release review.** This was first rated high, as the path a stranger
+clicks through, and said the third starter answered correctly in every run. One starter per
+conversation is already what the page offers, so it is not a remedy.
 
 **What would settle it next**, each measured with `pnpm eval:answers --conversation` against a rule
-committed first:
+committed first. Both reach only the replies that decline an earlier question, half of what was
+measured; the other half, hedging on the question asked, is the hedged-answers entry above.
 
 - **Strip the stale markers from the history** before it reaches the model. It tests the second
   reading in ADR 061, and changes no wording the detector depends on.
 - **A detector that compares the opening with the question asked.** An opening naming something the
   latest question does not ask about is a decline of something else. That is no longer an exact
   match, so ADR 058's rule for adding to the detector would need rewriting first.
-- **For the demo alone:** starter questions that do not set up the decline, or one asked per
-  conversation. That is cheaper than either remedy, but it fixes the path rather than the product.

@@ -4409,3 +4409,23 @@ four, failing on the code-point version.
 - **Lesson**: **a fallback is only as right as the set it is decided over.** "When no passage holds
   it" read naturally against the list in hand, and the question was about the corpus. A test that
   supplies every chunk cannot reach the case where one is missing.
+
+## A claim about the page made from the report, 24 October 2026
+
+- **Issue**: ADR 061 and the backlog said the demo's starter questions, asked in order, are the path
+  a stranger clicks through, and the backlog rated the case high on that strength. The page shows the
+  starters as buttons only in an empty conversation, so after the first the other two have to be
+  typed. The same paragraph said the third starter then answered correctly in all three runs; run 3
+  only declined. The README's guard for that sentence checked that every run's reply was unlinked,
+  which a plain decline also satisfies, so it would have kept the sentence through exactly that drift.
+  The About page's "made it more common" was also wrong for the kind of reply it named, whose count
+  did not move. The 1.12.0 release review found all four.
+
+- **Fix**: the ADR and the backlog say the second and third starters are typed, rate the case
+  medium, and say two of three runs answered. The README states what the table can show, that the
+  third opens by declining the first two in every run, and the guard checks that phrase alone. The
+  About page names both kinds and says the change made such replies more common overall.
+
+- **Lesson**: **a claim about what a reader sees needs the page, not the report.** The harness asks
+  questions in an order the interface does not offer, and the sentence described the harness. And a
+  guard that reads a column checks only what that column distinguishes.

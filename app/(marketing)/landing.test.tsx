@@ -95,7 +95,7 @@ describe("Landing", () => {
     // Scoped to the form, as ADR 058 is: a wording the page does not recognize
     // still links.
     expect(section).toHaveTextContent(
-      /declines the question in the form the model is told to use/i,
+      /opens in the form the model is told to use for declining/i,
     );
     expect(section).toHaveTextContent(/written by CiteSeek, not by the model/i);
     expect(section).not.toHaveTextContent(/never runs/i);

@@ -292,9 +292,10 @@ export function Landing({
             <p>
               A marker that resolves to nothing stays plain text rather than
               becoming a link, so a number the model invented cannot present
-              itself as a source. Neither can a marker in a reply that declines
-              the question in the form the model is told to use: none of them
-              becomes a link, and the reply says why.
+              itself as a source. Neither can a marker in a reply that opens in
+              the form the model is told to use for declining: none of them
+              becomes a link, and the reply says why, even when it then answers
+              correctly, as can happen mid-conversation.
             </p>
             <p>
               And when nothing retrieved is relevant enough, no answer is
