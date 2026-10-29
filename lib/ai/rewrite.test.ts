@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { acceptRewrite, rewriteQuestion } from "./rewrite";
 import type { ChatUIMessage } from "./types";
 
-type Finish = "stop" | "length";
+type Finish = "stop" | "length" | "interrupted";
 
 const reply: {
   text: string;
@@ -98,24 +98,28 @@ describe("rewriteQuestion", () => {
     reply.finish = "stop";
   });
 
-  it("refuses a rewrite the model ran out of room to finish", async () => {
-    // A truncated question is still under `MAX_CHARS` and still reads as a
-    // question, so nothing downstream rejects it — and it would be shown to the
-    // reader as what we searched for.
-    reply.finish = "length";
-    reply.text = "How much is the tenancy deposit for a property with";
+  // "interrupted": a stream that ended without completing, as of ai 7.0.149.
+  it.each(["length", "interrupted"] as const)(
+    "refuses a rewrite cut short (%s)",
+    async (finish) => {
+      // A truncated question is still under `MAX_CHARS` and still reads as a
+      // question, so nothing downstream rejects it — and it would be shown to the
+      // reader as what we searched for.
+      reply.finish = finish;
+      reply.text = "How much is the tenancy deposit for a property with";
 
-    await expect(
-      rewriteQuestion(
-        [
-          user("Is the deposit protected?"),
-          assistant("Yes."),
-          user("how much?"),
-        ],
-        "how much?",
-      ),
-    ).resolves.toBeNull();
-  });
+      await expect(
+        rewriteQuestion(
+          [
+            user("Is the deposit protected?"),
+            assistant("Yes."),
+            user("how much?"),
+          ],
+          "how much?",
+        ),
+      ).resolves.toBeNull();
+    },
+  );
 
   // No model call at all: a first message has no earlier turn to recover a
   // subject from, so any rewrite would be inventing one.
