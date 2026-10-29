@@ -53,6 +53,10 @@ link here:
   to this repository and nothing a reader supplies. `vite` comes with the test runner, which starts
   no dev server here. Pinned rather than argued away, because "we do not call it" is a claim that
   quietly expires — this one did, when the screenshots arrived.
+- **One advisory with no fixed release to pin to.** `deepmerge` ≤ 4.3.1 (GHSA-gcqx-w48m-w2h4,
+  prototype poisoning of merged objects) comes only with the `shadcn` command-line tool, a dev
+  dependency that copies components into the repository and is never part of the app. The advisory
+  names 4.3.2 as the fix, and no 4.3.2 has been published. `pnpm audit` reports it until one is.
 
 ## Handling of your report
 
