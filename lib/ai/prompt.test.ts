@@ -215,6 +215,52 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toMatch(/answer only from the passages/i);
   });
 
+  describe("rule 7, shipped and candidate", () => {
+    const SHIPPED =
+      'When you decline under rule 1, write it for the person asking, not about the passages. Open with the documents as the subject and "cover" as the verb — "The documents do not cover X" — then name what they do cover if that is nearby. Do not open by describing what you were handed: "the provided…" and "…do not contain information about…" are that failure whatever noun follows, and so is any opening naming passages, context, or what you were given.';
+    const CANDIDATE = `${SHIPPED} Decline only the latest question. The passages below were retrieved for it alone: earlier turns were answered from passages no longer shown, and their markers do not refer to these. Use earlier turns only to understand what the latest question refers to, and never open by declining something asked earlier.`;
+
+    const lines = (prompt: string) => prompt.split("\n");
+    const rule = (prompt: string, number: number) =>
+      lines(prompt).find((line) => line.startsWith(`${String(number)}. `));
+    const sources = buildSources([chunk()]);
+
+    // The measurement compares against this exact text, and ADR 058's detector
+    // is written from its opener.
+    it("ships the rule word for word", () => {
+      expect(rule(buildSystemPrompt(sources), 7)).toBe(`7. ${SHIPPED}`);
+    });
+
+    it("ships it when nothing is asked for", () => {
+      expect(buildSystemPrompt(sources)).toBe(
+        buildSystemPrompt(sources, true, "shipped"),
+      );
+    });
+
+    it("appends the candidate sentence to the shipped rule", () => {
+      expect(rule(buildSystemPrompt(sources, true, "candidate"), 7)).toBe(
+        `7. ${CANDIDATE}`,
+      );
+    });
+
+    it("changes no other line", () => {
+      const shipped = lines(buildSystemPrompt(sources));
+      const candidate = lines(buildSystemPrompt(sources, true, "candidate"));
+      const others = (all: string[]) =>
+        all.filter((line) => !line.startsWith("7. "));
+
+      expect(candidate).toHaveLength(shipped.length);
+      expect(others(candidate)).toEqual(others(shipped));
+    });
+
+    it("keeps the candidate last when the citation rules go", () => {
+      const prompt = buildSystemPrompt(sources, false, "candidate");
+
+      expect(rule(prompt, 4)).toBe(`4. ${CANDIDATE}`);
+      expect(rule(prompt, 5)).toBeUndefined();
+    });
+  });
+
   it("throws when called with no passages", () => {
     // Reaching the model with an empty context is the bug that produces confident
     // answers from general knowledge. Fail loudly instead.

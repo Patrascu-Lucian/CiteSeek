@@ -7,7 +7,7 @@
  * Usage: pnpm eval:local-answers [--fake] [--sweep|--counts=3,8]
  *        [--model=onnx-community/…] [--dtype=int8]
  *        [--no-citations] [--no-example]
- *        [--placement] [--placement-specimen]
+ *        [--placement] [--placement-specimen] [--rule7=candidate]
  */
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -21,6 +21,7 @@ import {
   LOCAL_CHAT_MODEL,
   loadChatModel,
   resolveLocalGenerator,
+  type PromptParts,
 } from "../lib/local/generate.ts";
 import { chunkText, type Chunk } from "../lib/rag/chunking.ts";
 import { extractText } from "../lib/rag/extract.ts";
@@ -76,6 +77,7 @@ const FLAGS = [
   "--counts=",
   "--model=",
   "--dtype=",
+  "--rule7=",
 ];
 
 /* A misspelled flag is silently the default, and the default overwrites the
@@ -97,6 +99,13 @@ if (unknown) {
   throw new Error(`Unknown flag ${unknown}. Known: ${FLAGS.join(" ")}`);
 }
 
+const rule7 = process.argv
+  .find((one) => one.startsWith("--rule7="))
+  ?.slice("--rule7=".length);
+if (rule7 !== undefined && rule7 !== "candidate") {
+  throw new Error(`--rule7 takes only "candidate", got "${rule7}".`);
+}
+
 /* The experiment behind ADR 049: a 0.5B is told to cite and does not, so the
    question is whether the instruction is costing it answers. */
 const parts = {
@@ -108,16 +117,21 @@ const parts = {
     process.argv.includes("--placement") ||
     process.argv.includes("--placement-specimen"),
   placementSpecimen: process.argv.includes("--placement-specimen"),
-};
+  rule7: rule7 ?? "shipped",
+} satisfies PromptParts;
 
 const shippedPrompt =
-  parts.cite && parts.example && !parts.placement && !parts.placementSpecimen;
+  parts.cite &&
+  parts.example &&
+  !parts.placement &&
+  !parts.placementSpecimen &&
+  parts.rule7 === "shipped";
 
 // Every knob, so a new one inherits the write guard instead of quietly
 // overwriting the pinned record — which has happened twice.
 const asShipped = model === LOCAL_CHAT_MODEL && dtype === "q4" && shippedPrompt;
 
-const variant = `${parts.cite ? "" : "-nocite"}${parts.example ? "" : "-noexample"}${parts.placement ? "-placement" : ""}${parts.placementSpecimen ? "-specimen" : ""}`;
+const variant = `${parts.cite ? "" : "-nocite"}${parts.example ? "" : "-noexample"}${parts.placement ? "-placement" : ""}${parts.placementSpecimen ? "-specimen" : ""}${parts.rule7 === "shipped" ? "" : "-rule7candidate"}`;
 
 const EVAL = join(import.meta.dirname, "..", "eval");
 const generate = resolveLocalGenerator();

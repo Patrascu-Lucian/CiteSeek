@@ -90,7 +90,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 166 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 168 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -557,6 +557,15 @@ part that matters: nothing is invented. It is also why no second signal ships in
 ones measured lost to simply tightening the floor, and a gate would replace refusals the model
 already writes ([ADR 055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)).
 
+Mid-conversation the page also errs the other way. A reply can answer correctly and cite the right
+passage yet open by declining something else, often the question asked before it, and the page,
+reading only the opening, unlinks its markers as it would a refusal's. Asked mid-conversation, the
+answer set meets this in 19 of 150 replies that can be checked
+([`eval/answers-conversation.md`](eval/answers-conversation.md)). The demo's own starter questions,
+asked in order, open the third by declining the first two in every run, and in two of three it
+then answers correctly. A sentence added to the prompt to prevent it measured worse, so the prompt
+is unchanged ([ADR 061](docs/decisions/061-a-decline-about-an-earlier-question.md)).
+
 Usage limits are enforced but their thresholds are provisional — they need real traffic to
 calibrate against, and are deliberately generous because shared addresses
 (office networks, mobile carriers) put many visitors in one bucket
@@ -596,10 +605,18 @@ been measured against it: hybrid search
 rank and the distance margin to the eighth passage, each of which lost to simply tightening the
 floor ([`eval/report.md`](eval/report.md)). Every question that cleared the floor drew a refusal
 rather than an invented answer, so the floor stays a filter, and the pages say so
-([ADR 055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)). What is left is
-smaller: refusals that attach a citation marker the prompt forbids, which a parser could strip
-structurally. The harness is now close to large enough to measure a change in that rate, and the
-idea is in [`docs/backlog.md`](docs/backlog.md).
+([ADR 055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)). Refusals still
+attach markers the prompt forbids, and since v1.10.0 the page unlinks them rather than letting them
+pass for sources.
+
+**What is open is the reverse: a right answer read as a refusal mid-conversation.** It comes in two
+halves. Half the cases decline the question asked before, and the remedies left for those are
+structural: removing the markers earlier answers carry before the history reaches the model, or a
+detector that compares a reply's opening with the question it answers. The other half hedge on the
+question asked, which neither reaches. A wording change left the first half as it was and doubled
+the second. Each remedy is
+measured with `pnpm eval:answers --conversation` against a rule committed before the run
+([ADR 061](docs/decisions/061-a-decline-about-an-earlier-question.md)).
 
 The usage thresholds are still starting values. They need real traffic rather than another
 round of reasoning.
@@ -649,6 +666,8 @@ Run by hand, never in CI, output committed:
 ```bash
 pnpm eval:retrieval    # retrieval quality against eval/golden-set.ts (needs a real key)
 pnpm eval:answers      # Gemini's answers by passage count, or by size with --chunk= (--fake is free)
+pnpm eval:answers --conversation # the same questions asked mid-conversation (--rule7=candidate for a verdict)
+pnpm eval:refusals     # what the model writes for questions the floor lets through (--rule7=candidate beside it)
 pnpm eval:local        # the local embedder's recall, in Node, no provider
 pnpm eval:local-answers # what the local model answers, in Node on the CPU
 pnpm eval:local-markers # the same questions in a browser on WebGPU
@@ -733,7 +752,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1170  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1194  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 189   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
@@ -747,7 +766,7 @@ fixed and the missing tests added, it was 86.5%
 ([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)). Re-measuring every release paid
 for itself on the next one: the only module added since, the clipboard form of an answer, scored
 **73.68%**, and three of its five survivors were one gap — a sort every test reached with a single
-element, which sorts the same however the comparator behaves. It is **88.83% of 1003 mutants** now,
+element, which sorts the same however the comparator behaves. It is **89.09% of 1027 mutants** now,
 and that module is at 100%.
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)

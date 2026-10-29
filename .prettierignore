@@ -8,7 +8,7 @@ eval/report.md
 eval/local-answers*.md
 eval/local-markers.md
 # Same, from `pnpm eval:refusals` — verbatim model output, several runs of it.
-eval/refusals.md
+eval/refusals*.md
 # Same, from `pnpm eval:answers`.
 eval/answers*.md
 # Same, from `pnpm test:mutation` — a score the landing page is checked against.

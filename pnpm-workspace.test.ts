@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
-import { join, sep } from "node:path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -123,69 +123,47 @@ describe("the qs override", () => {
   });
 });
 
-/* Keeps `SECURITY.md`'s "unreachable" true for sprintf-js ≤ 1.1.3. If the first
-   test fails, it left the tree: delete this block and that sentence. If another
-   fails, the path changed: check it before deleting anything. */
-const snapshots = lockfile.slice(lockfile.indexOf("\nsnapshots:\n"));
-
-/** Snapshot entries whose dependencies include `name` at `version`. */
-const dependentsOf = (name: string, version: string) =>
-  snapshots
-    .split(/\n(?= {2}\S)/)
-    .filter((entry) => entry.includes(`\n      ${name}: ${version}`))
-    .map((entry) => entry.trim().split(":")[0]!);
-
-// Each version appears under `packages:` and again under `snapshots:`.
-const sprintfVersions = [
-  ...new Set(
-    [...lockfile.matchAll(/^ {2}sprintf-js@(\d+\.\d+\.\d+):/gm)].map(
-      (match) => match[1]!,
-    ),
+/* An advisory floor and a dedupe at once: a second copy above the floor passes
+   every floor check, which is how #472 brought back two of each unnoticed. So
+   every package `overrides` names has to resolve to one version, read from the
+   override list itself so a new entry is checked without editing this file. */
+const overridden = [
+  ...(/^overrides:\n((?:(?: {2}.*)?\n)+)/m.exec(workspace)?.[1] ?? "").matchAll(
+    /^ {2}([a-z0-9@/._-]+): /gm,
   ),
-];
+].map((match) => match[1]!);
 
-/** Every file in mammoth's installed package that loads argparse. */
-const loadsArgparse = () => {
-  const root = realpathSync(
-    join(import.meta.dirname, "node_modules", "mammoth"),
+const lockedVersions = new Map<string, Set<string>>();
+for (const [, name, version] of lockfile.matchAll(
+  /^ {2}'?(@?[^@\s']+)@(\d+\.\d+\.\d+)/gm,
+)) {
+  lockedVersions.set(
+    name!,
+    (lockedVersions.get(name!) ?? new Set<string>()).add(version!),
   );
+}
 
-  return readdirSync(root, { recursive: true, encoding: "utf8" })
-    .filter((file) => !file.includes("node_modules"))
-    .filter((file) => statSync(join(root, file)).isFile())
-    .filter((file) =>
-      /require\(\s*["']argparse["']\s*\)/.test(
-        readFileSync(join(root, file), "utf8"),
-      ),
-    )
-    .map((file) => file.split(sep).join("/"));
-};
+const versionsOf = (name: string) => [...(lockedVersions.get(name) ?? [])];
 
-describe("the sprintf-js advisory nothing reaches", () => {
-  it("is still in the lockfile, at a version the advisory affects", () => {
-    expect(sprintfVersions.length).toBeGreaterThan(0);
-    expect(
-      sprintfVersions.every(
-        (version) =>
-          version.localeCompare("1.1.3", undefined, { numeric: true }) <= 0,
-      ),
-    ).toBe(true);
+describe("the overrides", () => {
+  it("finds the list, rather than passing on a pattern that no longer matches", () => {
+    expect(overridden).toEqual(
+      expect.arrayContaining(["postcss", "qs", "vite"]),
+    );
   });
 
-  it("arrives only through argparse 1, and that only through mammoth", () => {
+  it("leave one copy of each package they name", () => {
     expect(
-      sprintfVersions.flatMap((v) => dependentsOf("sprintf-js", v)),
-    ).toEqual(["argparse@1.0.10"]);
-    // By name: mammoth is a caret dependency, and its version is not the path.
-    expect(
-      dependentsOf("argparse", "1.0.10").map((entry) =>
-        entry.slice(0, entry.lastIndexOf("@")),
-      ),
-    ).toEqual(["mammoth"]);
+      overridden
+        .map((name) => [name, versionsOf(name)] as const)
+        .filter(([, versions]) => versions.length !== 1),
+    ).toEqual([]);
   });
 
-  it("is loaded by mammoth's command-line tool and nothing the app imports", () => {
-    // `bin/mammoth` matching shows the pattern can match at all.
-    expect(loadsArgparse()).toEqual(["bin/mammoth"]);
+  it("keep vite above the five advisories fixed in 8.1.6", () => {
+    const below = (version: string) =>
+      version.localeCompare("8.1.6", undefined, { numeric: true }) < 0;
+
+    expect(versionsOf("vite").filter(below)).toEqual([]);
   });
 });

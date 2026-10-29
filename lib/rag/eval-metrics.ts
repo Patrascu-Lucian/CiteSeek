@@ -26,6 +26,14 @@ export function overlaps(a: Span, b: Span): boolean {
   );
 }
 
+export function holds(passage: Span, span: Span): boolean {
+  return (
+    passage.documentId === span.documentId &&
+    passage.charStart <= span.charStart &&
+    span.charEnd <= passage.charEnd
+  );
+}
+
 export type QueryScore = {
   /** Expected passages that some retrieved chunk covers. */
   recall: number;
@@ -217,20 +225,34 @@ export function cutSignal(
   });
 }
 
+/** Against every stored chunk, not the retrieved ones: otherwise a chunk that
+ * begins inside the quote counts whenever the one holding it is missing. */
+export function isAnswering(
+  passage: Span,
+  expected: readonly Span[],
+  corpus: readonly Span[],
+): boolean {
+  return expected.some((span) =>
+    corpus.some((stored) => holds(stored, span))
+      ? holds(passage, span)
+      : overlaps(passage, span),
+  );
+}
+
 /**
  * Whether an answer cited the passage that holds its answer: some marker the
- * page linked points at a source overlapping an expected span. Spans, not
- * chunk ids, so it reads the same at any chunk size.
+ * page linked points at an answering passage. Spans, not chunk ids, so it reads
+ * the same at any chunk size.
  */
 export function citesExpected(
   linked: readonly number[],
   sources: readonly (Span & { marker: number })[],
   expected: readonly Span[],
+  corpus: readonly Span[],
 ): boolean {
   return sources.some(
     (source) =>
-      linked.includes(source.marker) &&
-      expected.some((span) => overlaps(source, span)),
+      linked.includes(source.marker) && isAnswering(source, expected, corpus),
   );
 }
 

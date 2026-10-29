@@ -1,6 +1,6 @@
 # Local answers, in a browser
 
-Run 2026-08-30 against `http://localhost:3000`, on WebGPU.
+Run 2026-10-22 against `http://localhost:3000`, on WebGPU.
 
 The questions and the scorer come from `eval:local-answers`, and retrieval is
 the page's own — so this is that harness's 3-passage row, measured
@@ -24,29 +24,29 @@ in one of them.
 
 | question | grounded | chips |
 | -------- | -------- | ----- |
-| How quickly does someone get back to me if everything is down? | **no** | 0 |
+| How quickly does someone get back to me if everything is down? | yes | 0 |
 | How long do you keep whatever I attach to a ticket? | yes | 0 |
 | How much warning do I need to give before it renews? | **no** | 0 |
 | What do I get back if you miss a target? | **no** | 0 |
 | The boiler died in January. How fast should someone come? | **no** | 0 |
-| How much notice do I give to move out? | yes | 0 |
+| How much notice do I give to move out? | **no** | 0 |
 | How much do I have to hand over at the start? | **no** | 0 |
-| What hours is the standard plan covered? | **no** | 0 |
+| What hours is the standard plan covered? | yes | 0 |
 | How much force does the press develop? | yes | 0 |
 | How loud is it at a metre? | yes | 0 |
 | Which oil grade goes in it? | yes | 0 |
 | How often does the oil need changing? | yes | 0 |
 | What oil temperature is too hot? | yes | 0 |
-| What torque do the die bolts take? | yes | 0 |
+| What torque do the die bolts take? | **no** | 0 |
 | How thin can a die be reground before it is scrap? | yes | 0 |
 | How far apart can the pressure sensors read before it stops? | yes | 0 |
 | What humidity needs a desiccant in storage? | yes | 0 |
 | How much can the rent go up by? | yes | 0 |
-| How long does the deposit take to be protected? | yes | 0 |
+| How long does the deposit take to be protected? | **no** | 0 |
 | How fast is a non-emergency repair attended? | **no** | 0 |
 | How long can a guest stay before I have to tell anyone? | **no** | 0 |
 | How much is the extra deposit for a pet? | yes | 0 |
-| How much notice do I give if I am leaving? | **no** | 0 |
+| How much notice do I give if I am leaving? | yes | 0 |
 | What is the cap on credits in a month? | yes | 0 |
 
 ## Answers
@@ -56,10 +56,7 @@ Correcting those edits the evidence.
 
 **How quickly does someone get back to me if everything is down?**
 
-> It depends on the severity level of the defect. For defects with a work-around (Severity 4), the defect resolution time is calculated based on the severity level and the specific circumstances of the defect. The defect resolution time is determined by the following factors:
-> 
-> Severity Level: The defect resolution time is calculated based on the severity level. Severity 1 corresponds to immediate action, while Severity 4 corresponds to delayed action.
-> Specific Circumstances: The specific circumstances of the defect determine how long it takes to resolve it. For example, if the defect causes damage to property, it may take longer to resolve it compared to a defect that affects software code. Therefore, the defect resolution time can vary depending on the severity level and the specific circumstances of the defect.
+> It depends on the severity level of the defect. For defects with a work-around, it takes 30 minutes to resolve. For defects without a workaround, it takes 24 hours.
 
 **How long do you keep whatever I attach to a ticket?**
 
@@ -71,33 +68,35 @@ Correcting those edits the evidence.
 
 **What do I get back if you miss a target?**
 
-> If you miss a target, you lose up to 25% of the monthly fee per missed target.
+> If you miss a target, you receive a credit towards your next invoice and cannot be exchanged for one.
 
 **The boiler died in January. How fast should someone come?**
 
-> At the same interval and not cleanable — a filter that looks clean has usually failed open.
+> The boiler died in January. Someone should come immediately to inspect and fix the issue.
 
 **How much notice do I give to move out?**
 
-> Two months'.
+> two months'.
 
 **How much do I have to hand over at the start?**
 
-> To determine how much you need to hand over at the start, we need to refer to the relevant clause in the property agreement. According to the information provided, the standard term specifies that rent is payable monthly in advance on the first day of each month. Therefore, the amount you should hand over at the start depends on whether you are renting under a fixed-rate lease or a variable-rate option.
+> To determine how much you need to hand over at the start, we need to refer to the relevant clause in your property agreement. According to the information provided, the standard term specifies that rent is payable monthly in advance on the first day of each month. Therefore, the amount you should hand over at the start depends on whether you are renting under a fixed-rate lease or a variable-rate lease.
 > 
 > If you are renting under a fixed-rate lease:
 > 
-> The amount you should hand over at the start would be the full monthly rent amount specified in the contract.
+> The amount you should hand over at the start would be the full monthly rent amount.
+> For example, if your monthly rent is $1000, you would hand over $1000 at the start.
 > 
-> If you are renting under a variable-rate option:
+> If you are renting under a variable-rate lease:
 > 
-> The amount you should hand over at the start would be the sum of the current month's rent and any additional amounts agreed upon by both parties (e.g., interest charges).
+> The amount you should hand over at the start would depend on the rate used.
+> For example, if your rental rate is $1200 per month, you would hand over $1200 at the start.
 > 
-> Please consult the specific clauses related to your rental arrangement to ensure accurate information based on your actual situation.
+> Please consult your property agreement for the specific details regarding the starting amount.
 
 **What hours is the standard plan covered?**
 
-> The standard plan is covered continuously, including weekends and holidays.
+> 09:00 to 18:00 in the customer's registered timezone, Monday to Friday, excluding public holidays in that country.
 
 **How much force does the press develop?**
 
@@ -121,11 +120,15 @@ Correcting those edits the evidence.
 
 **What torque do the die bolts take?**
 
-> The torque the die bolts take is 210 Nm.
+> To determine the torque required for the die bolts, we need to refer to the relevant section of the manual. According to the passage, the torque requirement for the die bolts is specified as follows:
+> 
+> "The torque required for the die bolts is specified as follows."
+> 
+> So, based on the instruction provided in the manual, the torque required for the die bolts should be determined according to that specific instruction.
 
 **How thin can a die be reground before it is scrap?**
 
-> The passage mentions that a die that has been regground below 38 mm thickness must not be refitted. Therefore, the correct answer is that a die that has been regground below 38 mm thickness must not be refitted.
+> 38 mm
 
 **How far apart can the pressure sensors read before it stops?**
 
@@ -141,11 +144,11 @@ Correcting those edits the evidence.
 
 **How long does the deposit take to be protected?**
 
-> The deposit is five weeks' rent and is registered with an approved protection scheme within 30 days of receipt.
+> Three weeks.
 
 **How fast is a non-emergency repair attended?**
 
-> An emergency repair must be attended within 24 hours.
+> 24 hours
 
 **How long can a guest stay before I have to tell anyone?**
 
@@ -157,7 +160,18 @@ Correcting those edits the evidence.
 
 **How much notice do I give if I am leaving?**
 
-> Notice must be in writing.
+> To determine how much notice you should give if you are leaving, follow these steps based on the relevant sections of your tenancy agreement:
+> 
+> Understand the Tenancy Agreement: Refer to the section specifically addressing your situation (e.g., "Notice must be in writing").
+> Identify Key Terms: Look for terms related to notice periods and duration. Typically, notice periods are specified in the agreement.
+> Determine Duration: Based on the notice period mentioned in the agreement, calculate the total duration of notice required.
+> Example Calculation:
+> Notice Period: 2 months
+> Total Duration of Notice Required: 2 months + 1 month = 3 months
+> 
+> So, if you are leaving after 3 months, you should provide 3 months of notice.
+> 
+> Final Answer: To determine how much notice you should give if you are leaving, refer to the section specifically addressing your situation (e.g., "Notice must be in
 
 **What is the cap on credits in a month?**
 

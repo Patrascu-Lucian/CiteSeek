@@ -3830,6 +3830,14 @@ month", which also changes the local answer report's baseline (ADR 047 scored th
 re-run both when it changes, so neither compares across the fix. The golden set's retrieval entry
 for the same question is unaffected: its quote sits in the sentence that holds both answers.
 
+↳ **Fixed in 1.12.0** (#473). The question expects the tenant's month, and both answer reports were
+re-run on it: `eval/answers.md` grounds 24 of 24 at every count, and `eval/local-answers.md` reads
+15, 12 and 14 (ADR 047's amendment). The browser's report, `eval/local-markers.md`, is re-run by
+hand.
+
+↳ **Re-run on WebGPU, 22 October 2026:** 15 of 24 grounded, none cited, and every question as on the
+CPU at three passages.
+
 **A hedge on an answerable question reads as a decline (low, a cost of ADR 058).** With fewer
 passages — three, or the oracle's one — Gemini sometimes opens a correct, cited answer in the
 declining form: "The documents do not cover the total amount to be handed over at the start, though
@@ -3837,6 +3845,10 @@ they state that the deposit is five weeks' rent [1]." The page then unlinks the 
 shows the decline note. At eight passages this did not occur in the set, which is part of why eight
 stays; at a lower count it would be a false refusal the reader sees. Worth watching whenever the
 count or the prompt changes.
+
+↳ **It happens at eight too, mid-conversation** (ADR 061). Half of the 18 replies the conversation
+run read as a refusal hedge on the question asked rather than on an earlier one, the renewal
+question among them three times.
 
 ## Repeats in one session are not independent, 18 October 2026
 
@@ -3887,3 +3899,72 @@ the shipped size, chunk 8 begins inside the guest-stay quote and shares only "no
 so citing it alone would score as citing the answering passage. No committed run is affected. The
 oracle now prefers a chunk holding the whole quote; the scorer would need the same rule, with an
 overlap fallback for a quote that spans two chunks.
+
+↳ **Fixed in 1.12.0** (#473). One rule, `isAnswering`, decides for each expected span against every
+stored chunk: a chunk holding the whole quote, or one overlapping it when none does. The scorer, the
+"answer retrieved" column and the oracle all read it. Its first version decided the fallback over
+the retrieved chunks only, so chunk 8 retrieved alone still counted; that is in
+`docs/code-review-notes.md`.
+
+## A decline about the last question, met on the live site, 19 October 2026
+
+The 1.11.0 exit check asked three `ANSWER_SET` questions in one conversation, in a signed-in
+workspace holding the three eval fixtures, and one on the demo.
+
+| Question                                           | Reply opened                                | Links | Note |
+| -------------------------------------------------- | ------------------------------------------- | ----- | ---- |
+| How much force does the press develop?             | "The press develops 90 kilonewtons" `[1]`   | 1     | no   |
+| What is the cap on credits in a month?             | "The documents do not cover the press, …"   | 0     | yes  |
+| How long does the deposit take to be protected?    | "The deposit is registered … 30 days" `[2]` | 1     | no   |
+| What is the warranty on the company laptop? (demo) | "The documents do not cover a warranty …"   | 0     | yes  |
+
+The second reply in full: _"The documents do not cover the press, but they cover support plans,
+credits, escalation, data handling, and ending a support plan. The cap on credits in any calendar
+month is 25% of the monthly fee [1]."_ The value and the citation are right. The opening declines
+the _previous_ question, about the press, whose manual was not among the passages retrieved for this
+one, so the page reads the reply as a decline, unlinks the right marker and says "This reply
+declines the question".
+
+**A complete answer read as a refusal (medium, a cost of ADR 058 no eval measures).** ADR 058 priced
+partial answers losing their links. This is a full, correct answer losing its link because of an
+earlier turn. Every eval asks each question in a fresh conversation, so no committed report can show
+it, and how often it happens is unknown: once in the two follow-ups here.
+
+**What would settle it:**
+
+- **Measure first.** Ask the answer set in sequence within one conversation, the way a reader moves
+  between topics, and count replies that open by declining an earlier question. That is the
+  single-turn harness with a transcript, and it reads the same `markerVerdict` the page does.
+- **Then choose a remedy by what it costs.** Rule 7 could say to decline only the current question,
+  which is a prompt change and needs the eval to show it moved this and nothing else. Or the
+  detector could look past an opening that declines something other than the question asked, which
+  is no longer an exact match and would need its own rule to stay one.
+
+The demo's laptop warranty opened "do not cover" this time, so it exercised the first opener, not
+the third; it rendered no link, as the committed run predicts.
+
+↳ **Measured in 1.12.0, and the remedy tried did not hold** (ADR 061, `eval/answers-conversation.md`).
+The shipped prompt read a right answer as a refusal 19 times in 150 checkable replies, about one in
+eight. The sentence added to rule 7 lost on six questions and gained on four, so rule 7 is
+unchanged. Read reply by reply, the 18 shipped cases split evenly: nine decline the earlier question,
+nine hedge on the question asked. The sentence left the first count at nine and raised the second
+to nineteen.
+
+**The demo meets it on its own starter questions (still medium).** The page shows the starters as
+buttons only in an empty conversation, so a reader who types the second and third after clicking the
+first is the one who meets it. Asked in that order, the third opened by declining the first two in
+all three runs; in two of them it then answered correctly, and in the third it only declined.
+
+↳ **Corrected by the 1.12.0 release review.** This was first rated high, as the path a stranger
+clicks through, and said the third starter answered correctly in every run. One starter per
+conversation is already what the page offers, so it is not a remedy.
+
+**What would settle it next**, each measured with `pnpm eval:answers --conversation` against a rule
+committed first. Both reach only the replies that decline an earlier question, half of what was
+measured; the other half, hedging on the question asked, is the hedged-answers entry above.
+
+- **Strip the stale markers from the history** before it reaches the model. It tests the second
+  reading in ADR 061, and changes no wording the detector depends on.
+- **A detector that compares the opening with the question asked.** An opening naming something the
+  latest question does not ask about is a decline of something else. That is no longer an exact
+  match, so ADR 058's rule for adding to the detector would need rewriting first.

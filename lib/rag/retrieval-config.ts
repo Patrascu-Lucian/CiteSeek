@@ -49,6 +49,6 @@ export function maxDistanceFor(provider: EmbeddingsProviderName): number {
 export const RETRIEVAL_LIMIT = 8;
 
 /** Local mode only, and lower because the model is smaller: measured at 15/24
- * grounded against 13/24 at eight, with the answering passage still retrieved
+ * grounded against 12/24 at eight, with the answering passage still retrieved
  * every time (ADR 047). Gemini measured at three and kept eight (ADR 059). */
 export const LOCAL_RETRIEVAL_LIMIT = 3;
