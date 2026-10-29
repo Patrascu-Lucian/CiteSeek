@@ -3968,3 +3968,33 @@ measured; the other half, hedging on the question asked, is the hedged-answers e
 - **A detector that compares the opening with the question asked.** An opening naming something the
   latest question does not ask about is a decline of something else. That is no longer an exact
   match, so ADR 058's rule for adding to the detector would need rewriting first.
+
+## The 1.12.0 exit check, on the live site, 29 October 2026
+
+Asked on citeseek.app after the release: the demo's starters as a guest, the second and third typed
+after the first, then the 1.11.0 sequence and "why?" in a signed-in workspace holding the three eval
+fixtures. Every reply behaved as `eval/answers-conversation.md` predicts, and the note showed the
+release's new wording.
+
+| Question                                                         | Reply opened                                                            | Links | Note |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------- | ----- | ---- |
+| How many days of annual leave do employees get? (demo)           | "Employees receive 28 days of annual leave plus public holidays" `[1]`  | 1     | no   |
+| How many hours a day do I have to overlap with my team? (demo)   | "Employees are asked to overlap with their team…" `[3]`                 | 1     | no   |
+| Can I put company documents in my personal cloud storage? (demo) | "The documents do not cover annual leave or daily overlap hours…" `[1]` | 0     | yes  |
+| How much force does the press develop?                           | "The press develops 90 kilonewtons" `[1]`                               | 1     | no   |
+| What is the cap on credits in a month?                           | "The cap on credits in any calendar month is 25%" `[1]`                 | 1     | no   |
+| How long does the deposit take to be protected?                  | "The deposit is registered … within 30 days of receipt" `[1][2]`        | 2     | no   |
+| why?                                                             | "The documents do not cover why the deposit is protected…" `[2]`        | 0     | yes  |
+
+**The demo's third starter is the disclosed case.** It opened by declining the two questions it had
+just answered, then answered correctly ("personal accounts may not be used for company work,
+including cloud storage"), and the page unlinked the right marker. That is what the report shows in
+every run, and in two of three runs it answers.
+
+**The credit cap answered cleanly this time.** It is the reply that opened by declining the press in
+the 1.11.0 exit check; the report's three runs of this sequence gave a decline that answered, a
+plain decline and a clean answer, so this is the third of those.
+
+**Both "why?" follow-ups were rewritten and shown, and both declined correctly**: the documents give
+the 28 days and the 30 days but not the reasons. Those are refusals the page should unlink, and it
+did.
