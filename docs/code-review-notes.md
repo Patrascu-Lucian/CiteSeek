@@ -4429,3 +4429,26 @@ four, failing on the code-point version.
 - **Lesson**: **a claim about what a reader sees needs the page, not the report.** The harness asks
   questions in an order the interface does not offer, and the sentence described the harness. And a
   guard that reads a column checks only what that column distinguishes.
+
+## A validation the route never did, found in a dependency's changelog, 9 November 2026
+
+- **Issue**: Dependabot moved `ai` to 7.0.158, and the changelog for 7.0.155 said `streamText` no
+  longer validates messages against the `ModelMessage` schema. Checking what the chat route validated
+  itself found almost nothing: `parseMessages` asked for a `role` and a `parts` array, plus the size
+  bounds. `convertToModelMessages` passes on whatever arrives — a `system` turn as a second system
+  prompt, a `file` part as model input that `MAX_TOTAL_CHARS`, which counts text, never counted (a
+  URL part is downloaded server-side; the SDK blocks private addresses). The removed check would not
+  have stopped either, since both are valid `ModelMessage`s. The page sends neither, so no test did.
+
+- **Fix**: `parseMessages` moved to `lib/ai/request-bounds.ts` and returns the turns reduced to text.
+  A turn that is neither `user` nor `assistant`, or a question with any other part, gets a 400; an
+  assistant turn's tool, reasoning and data parts are dropped, because a live conversation sends them
+  back. The route keeps no other copy of the messages, so the model, the rewrite and the bounds read
+  the same text. The two new route tests fail against the old route, and the module scores 100% under
+  mutation.
+
+- **Lesson**: **a check inherited from a dependency is not one you own**, and this one was not even
+  the check it seemed: the layer that went away validated shape, not trust. What to ask of a request
+  body is what reaches the model, not whether it parses. And a suite written from the client's side
+  sends only what the client sends; at a trust boundary the inputs worth testing are the ones the page
+  never produces.
