@@ -212,6 +212,18 @@ for (const theme of THEMES) {
         expect(await violationsFromTop(page)).toEqual([]);
       });
 
+      // Muted text on the muted bubble: 4.34:1 in light until the token moved.
+      test("a refusal, naming what it can answer from", async ({ page }) => {
+        await gotoDemo(page);
+        await page
+          .getByRole("textbox", { name: /ask a question/i })
+          .fill("How do I upload a file?");
+        await page.getByRole("button", { name: /send/i }).click();
+        await expect(page.locator("[data-refusal]")).toBeVisible();
+
+        expect(await violationsFromTop(page)).toEqual([]);
+      });
+
       test("the source panel, open", async ({ page }) => {
         await gotoDemo(page);
         await page

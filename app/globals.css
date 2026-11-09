@@ -67,7 +67,10 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  /* Darkened from shadcn's 0.556, which gives 4.34:1 on `--muted`: the refusal
+     panel and the "Searched for" line sit on the assistant bubble, which is
+     `bg-muted`. 0.53 gives 4.84 there and 5.28 on white. */
+  --muted-foreground: oklch(0.53 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   /* Darkened from shadcn's 0.577, which failed AA where it is actually used:
