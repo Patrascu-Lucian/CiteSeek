@@ -13,7 +13,11 @@ import {
   buildSources,
   buildSystemPrompt,
 } from "@/lib/ai/prompt";
-import { getChatModel } from "@/lib/ai/provider";
+import {
+  embeddingModelFor,
+  getChatModel,
+  resolveEmbeddingsProvider,
+} from "@/lib/ai/provider";
 import { CHAT_STEP_LIMIT, chatTools } from "@/lib/chats/tools";
 import { questionFrom, questionIdFrom } from "@/lib/ai/question";
 import { rewriteQuestion } from "@/lib/ai/rewrite";
@@ -34,7 +38,11 @@ import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
 import { refusalBody } from "@/lib/usage/limits";
 import { recordUsage } from "@/lib/usage/queries";
-import { countSearchableChunks } from "@/lib/documents/queries";
+import { countEmbeddedChunksByModel } from "@/lib/documents/queries";
+import {
+  decideRefusalReason,
+  unreadableEmbeddingsNotice,
+} from "@/lib/rag/refusal-reason";
 import { retrieveChunks } from "@/lib/rag/retrieve";
 
 /** Node runtime: retrieval reaches the database and the fake model uses node APIs. */
@@ -200,13 +208,17 @@ export async function POST(
   // nothing to cite — as opposed to instructing a model to refuse, which mostly
   // works. A rewrite below may call a model; its output is a query, never prose.
   if (retrieved.length === 0) {
-    // One extra query, only on this branch: "nothing matched" and "nothing to
-    // match against" need different copy, or we tell someone to upload a document
-    // they already uploaded.
-    const reason: RefusalReason =
-      (await countSearchableChunks(scope)) === 0
-        ? "no_documents"
-        : "no_relevant_passages";
+    // One extra query, only on this branch: "nothing matched", "nothing to match
+    // against" and "nothing this model can read" need different copy, or we tell
+    // someone to upload a document they already uploaded.
+    const counts = await countEmbeddedChunksByModel(scope);
+    const configured = embeddingModelFor(resolveEmbeddingsProvider());
+    const reason = decideRefusalReason(counts, configured);
+
+    // Without it a mismatch reads as polite refusals, which is how 1.9.1 went
+    // unnoticed (ADR 062).
+    const notice = unreadableEmbeddingsNotice(scope, counts, configured);
+    if (notice) console[notice.level](notice.line);
 
     // Only on this branch, so an answered question never waits on a second model
     // call (ADR 044). An empty workspace has nothing to search either way.
