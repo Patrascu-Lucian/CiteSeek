@@ -2,6 +2,7 @@ import { embedMany } from "ai";
 
 import { fakeEmbeddings } from "@/lib/ai/fake-embedder";
 import {
+  type ServerEmbeddingsProvider,
   getGoogleEmbeddingModel,
   resolveEmbeddingsProvider,
 } from "@/lib/ai/provider";
@@ -68,8 +69,10 @@ const googleEmbedder: Embedder = async (texts, taskType, signal) => {
 const fakeEmbedder: Embedder = (texts) =>
   Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: 0 });
 
-export function getEmbedder(): Embedder {
-  return resolveEmbeddingsProvider() === "fake" ? fakeEmbedder : googleEmbedder;
+export function getEmbedder(
+  provider: ServerEmbeddingsProvider = resolveEmbeddingsProvider(),
+): Embedder {
+  return provider === "fake" ? fakeEmbedder : googleEmbedder;
 }
 
 /** The single normalization point: `l2Normalize` is idempotent mathematically but

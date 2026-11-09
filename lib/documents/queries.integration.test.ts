@@ -120,9 +120,12 @@ describe("document lifecycle", () => {
     expect(before[0]!.embeddedChunkCount).toBe(0);
 
     const pending = await listUnembeddedChunks(workspace.id, document.id);
-    await setChunkEmbeddings(workspace.id, document.id, [
-      { id: pending[0]!.id, embedding: unitVector(0) },
-    ]);
+    await setChunkEmbeddings(
+      workspace.id,
+      document.id,
+      [{ id: pending[0]!.id, embedding: unitVector(0) }],
+      "fake",
+    );
 
     const after = await listDocuments(workspace.id);
     expect(after[0]!.embeddedChunkCount).toBe(1);
@@ -149,15 +152,23 @@ describe("document lifecycle", () => {
 
     // Embed one chunk of the first document, two of the second.
     const firstPending = await listUnembeddedChunks(workspace.id, first.id);
-    await setChunkEmbeddings(workspace.id, first.id, [
-      { id: firstPending[0]!.id, embedding: unitVector(0) },
-    ]);
+    await setChunkEmbeddings(
+      workspace.id,
+      first.id,
+      [{ id: firstPending[0]!.id, embedding: unitVector(0) }],
+      "fake",
+    );
 
     const secondPending = await listUnembeddedChunks(workspace.id, second.id);
-    await setChunkEmbeddings(workspace.id, second.id, [
-      { id: secondPending[0]!.id, embedding: unitVector(1) },
-      { id: secondPending[1]!.id, embedding: unitVector(2) },
-    ]);
+    await setChunkEmbeddings(
+      workspace.id,
+      second.id,
+      [
+        { id: secondPending[0]!.id, embedding: unitVector(1) },
+        { id: secondPending[1]!.id, embedding: unitVector(2) },
+      ],
+      "fake",
+    );
 
     const listed = await listDocuments(workspace.id);
     const byName = new Map(listed.map((d) => [d.filename, d]));
@@ -190,13 +201,36 @@ describe("document lifecycle", () => {
     const all = await listUnembeddedChunks(workspace.id, document.id);
     expect(all).toHaveLength(3);
 
-    await setChunkEmbeddings(workspace.id, document.id, [
-      { id: all[0]!.id, embedding: unitVector(1) },
-    ]);
+    await setChunkEmbeddings(
+      workspace.id,
+      document.id,
+      [{ id: all[0]!.id, embedding: unitVector(1) }],
+      "fake",
+    );
 
     const remaining = await listUnembeddedChunks(workspace.id, document.id);
     expect(remaining).toHaveLength(2);
     expect(remaining.map((c) => c.chunkIndex)).toEqual([1, 2]);
+  });
+
+  it("records the model in the same write as the vector", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await seedDocument(workspace.id);
+    await insertChunks(workspace.id, document.id, [CHUNK]);
+    const [chunk] = await listUnembeddedChunks(workspace.id, document.id);
+
+    await setChunkEmbeddings(
+      workspace.id,
+      document.id,
+      [{ id: chunk!.id, embedding: unitVector(0) }],
+      "gemini-embedding-001",
+    );
+
+    const [stored] = await db
+      .select({ model: chunks.embeddingModel })
+      .from(chunks)
+      .where(eq(chunks.id, chunk!.id));
+    expect(stored!.model).toBe("gemini-embedding-001");
   });
 
   it("deletes a document and its chunks together", async () => {
@@ -317,9 +351,12 @@ describe("tenant isolation", () => {
     await insertChunks(theirs.id, theirDocument.id, [CHUNK]);
     const [chunk] = await listUnembeddedChunks(theirs.id, theirDocument.id);
 
-    const written = await setChunkEmbeddings(mine.id, theirDocument.id, [
-      { id: chunk!.id, embedding: unitVector(3) },
-    ]);
+    const written = await setChunkEmbeddings(
+      mine.id,
+      theirDocument.id,
+      [{ id: chunk!.id, embedding: unitVector(3) }],
+      "fake",
+    );
 
     expect(written).toBe(0);
     expect(
@@ -341,10 +378,15 @@ describe("tenant isolation", () => {
     const [ours] = await listUnembeddedChunks(workspace.id, mine.id);
     const [theirs] = await listUnembeddedChunks(workspace.id, other.id);
 
-    const written = await setChunkEmbeddings(workspace.id, mine.id, [
-      { id: ours!.id, embedding: unitVector(0) },
-      { id: theirs!.id, embedding: unitVector(1) },
-    ]);
+    const written = await setChunkEmbeddings(
+      workspace.id,
+      mine.id,
+      [
+        { id: ours!.id, embedding: unitVector(0) },
+        { id: theirs!.id, embedding: unitVector(1) },
+      ],
+      "fake",
+    );
 
     expect(written).toBe(1);
     expect(await listUnembeddedChunks(workspace.id, mine.id)).toHaveLength(0);

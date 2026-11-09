@@ -80,9 +80,12 @@ async function seedChunk(
   ]);
 
   if (options.embedding) {
-    await setChunkEmbeddings(workspaceId, documentId, [
-      { id: inserted!.id, embedding: options.embedding },
-    ]);
+    await setChunkEmbeddings(
+      workspaceId,
+      documentId,
+      [{ id: inserted!.id, embedding: options.embedding }],
+      "fake",
+    );
   }
 
   return { documentId, chunkId: inserted!.id };

@@ -108,9 +108,12 @@ async function seedPassage(workspaceId: string, content: string) {
     },
   ]);
 
-  await setChunkEmbeddings(workspaceId, document.id, [
-    { id: inserted!.id, embedding: l2Normalize(fakeEmbedding(content)) },
-  ]);
+  await setChunkEmbeddings(
+    workspaceId,
+    document.id,
+    [{ id: inserted!.id, embedding: l2Normalize(fakeEmbedding(content)) }],
+    "fake",
+  );
 
   return { documentId: document.id, chunkId: inserted!.id };
 }
