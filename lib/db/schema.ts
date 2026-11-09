@@ -177,6 +177,9 @@ export const chunks = pgTable(
     /** 768, not the model default 3072: pgvector's HNSW/IVFFlat cap `vector` at
      * 2000. See ADR 002. */
     embedding: vector("embedding", { dimensions: 768 }),
+    /** Never `NOT NULL`: chunks are inserted before they are embedded, and a
+     * missing vector has no model (ADR 062). */
+    embeddingModel: text("embedding_model").$type<EmbeddingModelId>(),
     /** Citation anchors, stored at ingestion. Without the page and span there is
      * no way to open a source at the passage an answer came from. */
     pageNumber: integer("page_number"),
@@ -244,6 +247,10 @@ export const chats = pgTable(
     ),
   ],
 );
+
+/** The model a stored vector came from. A vector is comparable only with a query
+ * from the same model, and pgvector cannot tell two 768-wide spaces apart. */
+export type EmbeddingModelId = "gemini-embedding-001" | "fake";
 
 /** Only the two cases the route can distinguish without a model — a refusal is a
  * fact about retrieval, not an interpretation of the question. ADR 017. */
