@@ -17,11 +17,7 @@ import { getChatModel } from "@/lib/ai/provider";
 import { CHAT_STEP_LIMIT, chatTools } from "@/lib/chats/tools";
 import { questionFrom, questionIdFrom } from "@/lib/ai/question";
 import { rewriteQuestion } from "@/lib/ai/rewrite";
-import {
-  MAX_QUESTION_CHARS,
-  MAX_REQUEST_MESSAGES,
-  MAX_TOTAL_CHARS,
-} from "@/lib/ai/request-bounds";
+import { parseMessages } from "@/lib/ai/request-bounds";
 import type { ChatSource, ChatUIMessage, RefusalReason } from "@/lib/ai/types";
 import { REFUSAL_PART_ID, SOURCES_PART_ID } from "@/lib/ai/types";
 import {
@@ -53,45 +49,6 @@ const REQUIRED_ACCESS = "read" as const;
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
-}
-
-function textOf(message: ChatUIMessage): string {
-  return message.parts
-    .filter((part) => part.type === "text")
-    .map((part) => ("text" in part ? part.text : ""))
-    .join("");
-}
-
-function parseMessages(body: unknown): ChatUIMessage[] | null {
-  if (typeof body !== "object" || body === null) return null;
-
-  const { messages } = body as { messages?: unknown };
-  if (!Array.isArray(messages)) return null;
-  if (messages.length === 0 || messages.length > MAX_REQUEST_MESSAGES)
-    return null;
-
-  const valid = messages.every(
-    (message: unknown) =>
-      typeof message === "object" &&
-      message !== null &&
-      "role" in message &&
-      "parts" in message &&
-      Array.isArray((message as { parts: unknown }).parts),
-  );
-
-  if (!valid) return null;
-
-  const parsed = messages as ChatUIMessage[];
-  const total = parsed.reduce(
-    (sum, message) => sum + textOf(message).length,
-    0,
-  );
-  if (total > MAX_TOTAL_CHARS) return null;
-
-  const last = parsed[parsed.length - 1];
-  if (last && textOf(last).length > MAX_QUESTION_CHARS) return null;
-
-  return parsed;
 }
 
 /**
