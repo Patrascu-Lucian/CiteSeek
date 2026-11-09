@@ -4452,3 +4452,21 @@ four, failing on the code-point version.
   body is what reaches the model, not whether it parses. And a suite written from the client's side
   sends only what the client sends; at a trust boundary the inputs worth testing are the ones the page
   never produces.
+
+## A contrast claim nobody measured, 9 November 2026
+
+- **Issue**: two entries above say `text-muted-foreground` on `bg-muted` is "a designed pair that
+  passes", one of them after six axe scans stayed green. None of those scans held muted text on the
+  bubble, and the pair is 4.34:1 in the light theme, under AA's 4.5:1: shadcn's `oklch(0.556 0 0)`
+  on `oklch(0.97 0 0)`. The refusal panel's paragraphs and the "Searched for" line sit exactly there.
+  The first axe scan of a refusal panel, in the new end-to-end test for the mismatch panel, failed on
+  it, and the existing panel failed the same way.
+
+- **Fix**: `--muted-foreground` darkened to `oklch(0.53 0 0)`: 4.84:1 on the bubble and 5.28:1 on
+  white, the move `--destructive` had already made. A scan of the demo's refusal panel joins the axe
+  suite in both themes; with the old token it fails in light.
+
+- **Lesson**: **a contrast claim is a number, and for a neutral grey in OKLCH it takes one line to
+  compute**: luminance is L³. Both entries reasoned from what axe would say rather than from what it
+  had scanned. "axe clean" covers the pages scanned, and no scanned page held this pair — so the note
+  warning that axe is a lower bar than it sounds fell under that same bar.
