@@ -1,7 +1,8 @@
 # 062 — A vector records the model that made it
 
-**Status**: proposed, 29 October 2026. Accepted once retrieval enforces it, with the planner
-measurement and the backfill counts this record promises below.
+**Status**: accepted, 9 November 2026, once retrieval read only the configured model's vectors
+and the route refused a mismatch by name. Proposed 29 October 2026; what it promised to measure
+is under **Measured**, below.
 
 ## Context
 
@@ -92,7 +93,26 @@ chunks.**
 - **After the `CHECK` ships, rolling back below this release** means dropping the constraint first.
 - **Local mode is unaffected.** Its store holds one model and already checks each vector's width
   against its document's.
-- **What this record still owes**, filled in when retrieval enforces it: whether the per-document
-  filter on the joined `documents.workspace_id` finds the target with iterative scan on, which would
-  withdraw the planner argument above and leave the same-row argument standing alone; and the
-  backfill's counts on production and Preview.
+
+## Measured
+
+**The per-document option's planner argument is withdrawn.** In ADR 026's forced-plan harness, the
+filter on the joined `documents.workspace_id` with iterative scan on found the target in 3 of 3
+runs; with the scan off it found 0 of 1, as ADR 026 recorded. The scan keeps walking until enough
+rows survive the join, so the planner never ruled that option out at this scale. The decision rests
+on the same-row argument alone: a record in the vector's own row can be written in the same
+statement and required by a `CHECK` on that row. The model filter does need the scan, exactly as the
+workspace filter does: 60 nearer rows from another model in the same workspace leave the target
+unfound without it, and the forced-plan test now covers both.
+
+**The backfill was counted read-only before it ran, then rehearsed on a Neon branch of each
+database:**
+
+| Database   | Gemini | Fake | Disagreeing | Fewest negatives in a Gemini vector | Rehearsal                           |
+| ---------- | ------ | ---- | ----------- | ----------------------------------- | ----------------------------------- |
+| Production | 500    | 0    | 0           | 350 of 768                          | 2.7 s end to end; every row labeled |
+| Preview    | 24     | 0    | 0           | 356 of 768                          | 2.1 s end to end; every row labeled |
+
+No row fell between the two shapes, and the closest Gemini vector still had 350 negative
+components. Preview held no fake rows at all: the 1.9.1 smoke test only queried with fake vectors
+and wrote none.
