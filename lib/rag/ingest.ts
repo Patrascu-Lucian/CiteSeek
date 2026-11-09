@@ -1,4 +1,8 @@
 import {
+  embeddingModelFor,
+  resolveEmbeddingsProvider,
+} from "@/lib/ai/provider";
+import {
   countChunks,
   insertChunks,
   listUnembeddedChunks,
@@ -79,7 +83,11 @@ async function embedPendingChunks(
   documentId: string,
   options: IngestOptions,
 ): Promise<{ embedded: number; tokens: number }> {
-  const embedder = options.embedder ?? getEmbedder();
+  // An injected embedder is a test seam: its vectors take the configured label,
+  // whose floor those tests already assume.
+  const provider = resolveEmbeddingsProvider();
+  const embedder = options.embedder ?? getEmbedder(provider);
+  const model = embeddingModelFor(provider);
   let embedded = 0;
   let tokens = 0;
 
@@ -108,6 +116,7 @@ async function embedPendingChunks(
         id: chunk.id,
         embedding: batch.vectors[index]!,
       })),
+      model,
     );
 
     if (written === 0) {

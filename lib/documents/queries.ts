@@ -15,6 +15,7 @@ import { isUuid } from "@/lib/db/uuid";
 import {
   type DocumentPageSpan,
   type DocumentStatus,
+  type EmbeddingModelId,
   chunks,
   documents,
   workspaces,
@@ -321,6 +322,7 @@ export async function setChunkEmbeddings(
   workspaceId: string,
   documentId: string,
   updates: readonly { id: string; embedding: number[] }[],
+  model: EmbeddingModelId,
 ): Promise<number> {
   if (updates.length === 0) return 0;
 
@@ -341,7 +343,8 @@ export async function setChunkEmbeddings(
   // drift, so the workspace check above stays on `documents`.
   const written = await db.execute(sql`
     UPDATE ${chunks}
-    SET ${sql.identifier("embedding")} = v.embedding
+    SET ${sql.identifier("embedding")} = v.embedding,
+      ${sql.identifier("embedding_model")} = ${model}
     FROM (VALUES ${sql.join(rows, sql`, `)}) AS v(id, embedding)
     WHERE ${chunks.id} = v.id AND ${chunks.documentId} = ${documentId}
     RETURNING ${chunks.id}

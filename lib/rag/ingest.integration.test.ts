@@ -56,6 +56,15 @@ async function queueDocument(workspaceId: string, filename: string) {
   });
 }
 
+/** Distinct across a document's chunks; an unlabeled vector reads as null. */
+async function modelsOf(documentId: string) {
+  const rows = await db
+    .selectDistinct({ model: chunks.embeddingModel })
+    .from(chunks)
+    .where(eq(chunks.documentId, documentId));
+  return rows.map((row) => row.model);
+}
+
 describe("processDocument — happy path", () => {
   it("takes a PDF from queued to ready", async () => {
     const workspace = await createTestWorkspace(db);
@@ -74,6 +83,22 @@ describe("processDocument — happy path", () => {
     expect(after!.error).toBeNull();
     expect(after!.pageCount).toBe(2);
     expect(after!.chunkCount).toBeGreaterThan(0);
+  });
+
+  it("labels every vector with the configured model", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "sample.pdf");
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      fixture("sample.pdf"),
+      "application/pdf",
+      { embedder: workingEmbedder },
+    );
+
+    // `vitest.integration.config.ts` configures the fake.
+    expect(await modelsOf(document.id)).toEqual(["fake"]);
   });
 
   it("stores chunk offsets that index into the stored text", async () => {
@@ -320,6 +345,7 @@ describe("resumeEmbedding", () => {
 
     const [summary] = await listDocuments(workspace.id);
     expect(summary!.embeddedChunkCount).toBe(summary!.chunkCount);
+    expect(await modelsOf(document.id)).toEqual(["fake"]);
   });
 
   it("reports that there is nothing to resume when parsing never succeeded", async () => {
