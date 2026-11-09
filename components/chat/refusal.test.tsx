@@ -61,6 +61,64 @@ describe("Refusal — when nothing is searchable", () => {
   });
 });
 
+describe("Refusal — when the documents were indexed by another model", () => {
+  const mismatch = { reason: "embedding_model_mismatch" as const };
+
+  it("says the documents are stored and cannot be searched until indexed again", () => {
+    renderRefusal(mismatch);
+
+    expect(
+      screen.getByText(/documents here cannot be searched right now/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/stored, but they were indexed by a different search/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/until they are indexed again/i),
+    ).toBeInTheDocument();
+  });
+
+  it("says the fix is ours, with nothing to upload again", () => {
+    renderRefusal(mismatch);
+
+    expect(
+      screen.getByText(/fix on our side — there is nothing to upload again/i),
+    ).toBeInTheDocument();
+  });
+
+  it("lists no documents, since none of them could be compared", () => {
+    // "What I can answer from" would be false: nothing here can answer yet.
+    renderRefusal(mismatch);
+
+    expect(screen.queryByRole("list")).toBeNull();
+    expect(screen.queryByText("handbook.pdf")).toBeNull();
+    expect(screen.queryByText(/what i can answer from/i)).toBeNull();
+  });
+
+  it.each([
+    { canUpload: true, signedIn: true },
+    { canUpload: false, signedIn: true },
+    { canUpload: false, signedIn: false },
+  ])("offers no upload and no link to %o", (reader) => {
+    renderRefusal({ ...mismatch, ...reader });
+
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.queryByText(/upload area/i)).toBeNull();
+  });
+
+  it("names no model, provider or count", () => {
+    renderRefusal(mismatch);
+
+    expect(screen.queryByText(/gemini|google|fake|\d/i)).toBeNull();
+  });
+
+  it("gives way to an empty document list, as the other reasons do", () => {
+    renderRefusal({ ...mismatch, documents: [] });
+
+    expect(screen.getByText(/nothing to search yet/i)).toBeInTheDocument();
+  });
+});
+
 describe("Refusal — what it offers depends on who is reading", () => {
   it("points a writer at the upload area they already have", () => {
     renderRefusal({ canUpload: true });

@@ -47,6 +47,10 @@ search and none of it matched) or `no_documents` (nothing is indexed at all). Te
 costs one extra query, on the refusal branch only, because the alternative is telling someone to
 upload a document they have already uploaded.
 
+↳ **Amended, 9 November 2026.** A third value, `embedding_model_mismatch`: passages are embedded,
+but none by the configured model, so nothing could be compared ([ADR 062](062-a-vector-records-the-model-that-made-it.md)).
+Its panel lists no documents and offers no upload, since the documents are already here.
+
 Everything the reader then sees is **written by us and rendered by the client** — what the
 assistant can answer from, listed by filename; that its knowledge does not extend past those files,
 including to this app; a suggestion to rephrase using the document's own wording; and one
