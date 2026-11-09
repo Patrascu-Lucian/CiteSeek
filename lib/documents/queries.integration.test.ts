@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/test-helpers";
 import {
   countChunks,
+  countEmbeddedChunksByModel,
   createQueuedDocument,
   createQueuedDocumentUnless,
   deleteDocumentInWorkspace,
@@ -247,6 +248,75 @@ describe("document lifecycle", () => {
       .from(chunks)
       .where(eq(chunks.documentId, document.id));
     expect(orphans).toHaveLength(0);
+  });
+});
+
+describe("embedded chunks by model", () => {
+  /** Four chunks of one document in a fresh workspace, none embedded yet. */
+  async function fourChunks() {
+    const workspace = await createTestWorkspace(db);
+    const document = await seedDocument(workspace.id);
+    await insertChunks(
+      workspace.id,
+      document.id,
+      [0, 1, 2, 3].map((chunkIndex) => ({ ...CHUNK, chunkIndex })),
+    );
+    const pending = await listUnembeddedChunks(workspace.id, document.id);
+
+    return { workspace, document, pending };
+  }
+
+  const byModel = (rows: { model: string | null; chunks: number }[]) =>
+    [...rows].sort((a, b) => (a.model ?? "").localeCompare(b.model ?? ""));
+
+  it("groups embedded chunks by the model that wrote them", async () => {
+    const { workspace, document, pending } = await fourChunks();
+    await setChunkEmbeddings(
+      workspace.id,
+      document.id,
+      [
+        { id: pending[0]!.id, embedding: unitVector(0) },
+        { id: pending[1]!.id, embedding: unitVector(1) },
+      ],
+      "fake",
+    );
+    await setChunkEmbeddings(
+      workspace.id,
+      document.id,
+      [{ id: pending[2]!.id, embedding: unitVector(2) }],
+      "gemini-embedding-001",
+    );
+
+    // The fourth stays unembedded: retrieval cannot reach it, so it is not counted.
+    expect(byModel(await countEmbeddedChunksByModel(workspace.id))).toEqual([
+      { model: "fake", chunks: 2 },
+      { model: "gemini-embedding-001", chunks: 1 },
+    ]);
+  });
+
+  it("counts a vector stored without its model as null", async () => {
+    const { workspace, pending } = await fourChunks();
+    await db
+      .update(chunks)
+      .set({ embedding: unitVector(0) })
+      .where(eq(chunks.id, pending[0]!.id));
+
+    expect(await countEmbeddedChunksByModel(workspace.id)).toEqual([
+      { model: null, chunks: 1 },
+    ]);
+  });
+
+  it("counts only the workspace it is asked about", async () => {
+    const mine = await fourChunks();
+    const theirs = await fourChunks();
+    await setChunkEmbeddings(
+      theirs.workspace.id,
+      theirs.document.id,
+      [{ id: theirs.pending[0]!.id, embedding: unitVector(0) }],
+      "gemini-embedding-001",
+    );
+
+    expect(await countEmbeddedChunksByModel(mine.workspace.id)).toEqual([]);
   });
 });
 

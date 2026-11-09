@@ -368,6 +368,21 @@ export async function countSearchableChunks(workspaceId: string) {
   return row?.total ?? 0;
 }
 
+/** Embedded chunks per model, `null` for a vector stored before its model was. A
+ * chunk with no embedding cannot be retrieved, so a document still processing is
+ * not counted. For the empty branch only, to tell "nothing indexed", "nothing
+ * from this model" and "nothing matched" apart. */
+export async function countEmbeddedChunksByModel(workspaceId: string) {
+  return db
+    .select({ model: chunks.embeddingModel, chunks: count() })
+    .from(chunks)
+    .innerJoin(documents, eq(chunks.documentId, documents.id))
+    .where(
+      and(eq(documents.workspaceId, workspaceId), isNotNull(chunks.embedding)),
+    )
+    .groupBy(chunks.embeddingModel);
+}
+
 export async function countChunks(workspaceId: string, documentId: string) {
   const [row] = await db
     .select({ total: count() })
