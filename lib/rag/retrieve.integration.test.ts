@@ -8,7 +8,7 @@ import {
   createTestWorkspace,
   unitVector,
 } from "@/lib/db/test-helpers";
-import { chunks } from "@/lib/db/schema";
+import { type EmbeddingModelId, chunks } from "@/lib/db/schema";
 import {
   createQueuedDocument,
   insertChunks,
@@ -57,6 +57,8 @@ async function seedChunk(
     embedding: number[] | null;
     chunkIndex?: number;
     documentId?: string;
+    /** The test env configures the fake, so anything else is another model. */
+    model?: EmbeddingModelId;
   },
 ) {
   const documentId =
@@ -84,7 +86,7 @@ async function seedChunk(
       workspaceId,
       documentId,
       [{ id: inserted!.id, embedding: options.embedding }],
-      "fake",
+      options.model ?? "fake",
     );
   }
 
@@ -174,6 +176,31 @@ describe("retrieveChunks", () => {
     // An exact-match embedding in a workspace the caller does not own. The only
     // thing keeping it out is the workspace filter in SQL.
     expect(results).toEqual([]);
+  });
+
+  it("reads only the configured model's vectors", async () => {
+    const workspace = await createTestWorkspace(db);
+    const { documentId } = await seedChunk(workspace.id, {
+      content: "From the configured model.",
+      embedding: diagonalVector(),
+    });
+    await seedChunk(workspace.id, {
+      documentId,
+      chunkIndex: 1,
+      content: "From another model.",
+      embedding: unitVector(0),
+      model: "gemini-embedding-001",
+    });
+
+    const { chunks: results } = await retrieveChunks(workspace.id, "anything", {
+      embedder: fixedEmbedder(unitVector(0)),
+    });
+
+    // At distance 0 the other model's chunk would rank first: only the model
+    // filter in SQL keeps it out.
+    expect(results.map((r) => r.content)).toEqual([
+      "From the configured model.",
+    ]);
   });
 
   it("ignores chunks that have not been embedded yet", async () => {
@@ -278,7 +305,7 @@ describe("retrieveChunks under an HNSW-first plan", () => {
   // Measured in ADR 026: 60 crowding rows at `ef_search = 10` starves the target.
   const FORCED_PLAN =
     "-c enable_sort=off -c enable_seqscan=off -c hnsw.ef_search=10";
-  const FOREIGN_CHUNKS = 60;
+  const CROWD_CHUNKS = 60;
 
   /** Nearer to the query than the target's `diagonalVector`, which is the point. */
   function crowdVector(seed: number): number[] {
@@ -334,23 +361,31 @@ describe("retrieveChunks under an HNSW-first plan", () => {
     }
   }
 
-  it("still finds a small tenant's passage in a table crowded by another", async () => {
-    const foreign = await createTestWorkspace(db);
-    const { documentId: foreignDocument } = await seedChunk(foreign.id, {
-      content: "foreign 0",
+  /** Rows nearer to the query than the target. Labeled explicitly: an unlabeled
+   * row would be excluded by the model filter, not the predicate under test. */
+  async function crowd(workspaceId: string, model: EmbeddingModelId) {
+    const { documentId } = await seedChunk(workspaceId, {
+      content: "crowd 0",
       embedding: crowdVector(0),
+      model,
     });
     await db.insert(chunks).values(
-      Array.from({ length: FOREIGN_CHUNKS - 1 }, (_, i) => ({
-        workspaceId: foreign.id,
-        documentId: foreignDocument,
+      Array.from({ length: CROWD_CHUNKS - 1 }, (_, i) => ({
+        workspaceId,
+        documentId,
         chunkIndex: i + 1,
-        content: `foreign ${i + 1}`,
+        content: `crowd ${i + 1}`,
         embedding: crowdVector(i + 1),
+        embeddingModel: model,
         charStart: 0,
         charEnd: 10,
       })),
     );
+  }
+
+  it("still finds a small tenant's passage in a table crowded by another", async () => {
+    const foreign = await createTestWorkspace(db);
+    await crowd(foreign.id, "fake");
 
     const target = await createTestWorkspace(db);
     await seedChunk(target.id, {
@@ -362,6 +397,21 @@ describe("retrieveChunks under an HNSW-first plan", () => {
 
     // Without the scope filter on `chunks` and an iterative scan, this is empty:
     // the index returns the 10 nearest rows, all foreign, and the join drops them.
+    expect(results.map((r) => r.content)).toEqual(["The target passage."]);
+  });
+
+  it("still finds the configured model's passage past nearer rows from another", async () => {
+    const target = await createTestWorkspace(db);
+    await crowd(target.id, "gemini-embedding-001");
+    await seedChunk(target.id, {
+      content: "The target passage.",
+      embedding: diagonalVector(),
+    });
+
+    const { chunks: results } = await retrieveUnderForcedPlan(target.id);
+
+    // The same starvation inside one workspace: the model filter needs the
+    // iterative scan exactly as the workspace filter does.
     expect(results.map((r) => r.content)).toEqual(["The target passage."]);
   });
 });

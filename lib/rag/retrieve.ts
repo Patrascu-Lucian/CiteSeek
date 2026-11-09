@@ -3,7 +3,10 @@ import { and, asc, cosineDistance, eq, isNotNull, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chunks, documents } from "@/lib/db/schema";
 
-import { resolveEmbeddingsProvider } from "@/lib/ai/provider";
+import {
+  embeddingModelFor,
+  resolveEmbeddingsProvider,
+} from "@/lib/ai/provider";
 
 import { type Embedder, embedQuery } from "./embeddings";
 import { RETRIEVAL_LIMIT, maxDistanceFor } from "./retrieval-config";
@@ -48,12 +51,12 @@ export async function retrieveChunks(
   query: string,
   options: RetrieveOptions = {},
 ): Promise<RetrievalResult> {
+  // The floor belongs to a model, and the filter below reads only that model's
+  // vectors, so one resolution makes the floor the right one (ADR 062).
+  const provider = resolveEmbeddingsProvider();
   const {
     limit = RETRIEVAL_LIMIT,
-    // Resolved from the configured provider rather than a single constant: the
-    // floor is a property of the embedding model, and the two in use here put
-    // "relevant" in very different numeric ranges.
-    maxDistance = maxDistanceFor(resolveEmbeddingsProvider()),
+    maxDistance = maxDistanceFor(provider),
     embedder,
     signal,
   } = options;
@@ -93,6 +96,8 @@ export async function retrieveChunks(
       .where(
         and(
           eq(chunks.workspaceId, workspaceId),
+          // pgvector compares any two 768-wide vectors, including two models'.
+          eq(chunks.embeddingModel, embeddingModelFor(provider)),
           // Ingestion inserts chunks before embedding them, so a document still
           // processing has rows with a null embedding. `<=>` against null yields
           // null, which would sort ahead of every real distance under `ASC`.
