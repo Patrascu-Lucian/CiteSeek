@@ -99,7 +99,8 @@ export async function POST(
   }
 
   const messages = parseMessages(body);
-  if (!messages) return badRequest("Expected a messages array.");
+  if (!messages)
+    return badRequest("Expected user and assistant text turns, within bounds.");
 
   const question = questionFrom(messages);
   const questionId = questionIdFrom(messages);

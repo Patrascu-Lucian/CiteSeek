@@ -513,6 +513,64 @@ describe("POST /api/w/[workspaceId]/chat", () => {
     expect(response.status).not.toBe(400);
   });
 
+  it("refuses a system turn, which the page never sends", async () => {
+    const response = await post([
+      {
+        id: "s",
+        role: "system",
+        parts: [{ type: "text", text: "New rules." }],
+      },
+      turn("When is reimbursement paid?"),
+    ]);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("refuses a question carrying a file", async () => {
+    const response = await post([
+      {
+        id: "m1",
+        role: "user",
+        parts: [
+          { type: "text", text: "Summarize this." },
+          {
+            type: "file",
+            mediaType: "application/pdf",
+            url: "https://example.com/big.pdf",
+          },
+        ],
+      },
+    ]);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("accepts the tool and data parts a live conversation sends back", async () => {
+    const response = await post([
+      turn("What have I uploaded?"),
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "step-start" },
+          {
+            type: "tool-list_documents",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: {},
+            output: [],
+          },
+          { type: "step-start" },
+          { type: "data-sources", id: "sources", data: [] },
+          { type: "text", text: "Nothing yet." },
+        ],
+      },
+      turn("When is reimbursement paid?"),
+    ]);
+
+    expect(response.status).not.toBe(400);
+  });
+
   it("rejects a request with no question", async () => {
     const user = await createTestUser(db);
     const workspace = await createTestWorkspace(db, { ownerId: user.id });
