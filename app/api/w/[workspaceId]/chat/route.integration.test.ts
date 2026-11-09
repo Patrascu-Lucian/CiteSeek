@@ -20,7 +20,7 @@ import {
 } from "@/lib/chats/queries";
 import { DEFAULT_PLAN_LIMITS } from "@/lib/limits/config";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
-import { documents, usageEvents } from "@/lib/db/schema";
+import { type EmbeddingModelId, documents, usageEvents } from "@/lib/db/schema";
 import { PRODUCTION_USAGE_LIMITS } from "@/lib/usage/config";
 import { FAKE_ANSWER } from "@/lib/ai/fake-chat-model";
 import { NO_RELEVANT_PASSAGES_REPLY } from "@/lib/ai/prompt";
@@ -88,10 +88,19 @@ afterAll(async () => {
   await client.end();
 });
 
+/** Mixed signs and no zeros: what Gemini's vectors look like, as 1.9.1 stored them. */
+const GEMINI_SHAPED = l2Normalize(
+  Array.from({ length: 768 }, (_, i) => (((i * 7919) % 13) - 6.5) / 100),
+);
+
 /** The fake embedder hashes words, so identical text yields a cosine distance of
  * exactly 0 and unrelated text lands near 1 — which is what gives deterministic
  * control over both the answering and the refusing branch. */
-async function seedPassage(workspaceId: string, content: string) {
+async function seedPassage(
+  workspaceId: string,
+  content: string,
+  model: EmbeddingModelId = "fake",
+) {
   const document = await createQueuedDocument(workspaceId, {
     filename: "handbook.pdf",
     mimeType: "application/pdf",
@@ -108,11 +117,13 @@ async function seedPassage(workspaceId: string, content: string) {
     },
   ]);
 
+  const embedding =
+    model === "fake" ? l2Normalize(fakeEmbedding(content)) : GEMINI_SHAPED;
   await setChunkEmbeddings(
     workspaceId,
     document.id,
-    [{ id: inserted!.id, embedding: l2Normalize(fakeEmbedding(content)) }],
-    "fake",
+    [{ id: inserted!.id, embedding }],
+    model,
   );
 
   return { documentId: document.id, chunkId: inserted!.id };
@@ -402,6 +413,72 @@ describe("POST /api/w/[workspaceId]/chat", () => {
     expect(refusalOf(chunks)).toEqual({ reason: "no_relevant_passages" });
     expect(textOf(chunks)).toBe(NO_RELEVANT_PASSAGES_REPLY);
     expect(searchedForOf(chunks)).toBeNull();
+  });
+
+  /* The 1.9.1 failure: Gemini's vectors stored, the fake configured. A follow-up
+     reaches the rewrite under `no_relevant_passages`, so no `chat` usage row is
+     what shows the rewrite never ran. */
+  it("refuses by name when every vector came from another model", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const user = await createTestUser(db);
+      const workspace = await createTestWorkspace(db, { ownerId: user.id });
+      await seedPassage(workspace.id, PASSAGE, "gemini-embedding-001");
+      currentActor.value = asUser(user.id);
+
+      const chunks = await readStream(
+        await postConversation(workspace.id, [
+          { role: "user", text: "What is the expenses policy?" },
+          { role: "assistant", text: "Nothing relevant." },
+          { role: "user", text: "why?" },
+        ]),
+      );
+
+      expect(refusalOf(chunks)).toEqual({ reason: "embedding_model_mismatch" });
+
+      const [chat] = await listChats(workspace.id, user.id);
+      const stored = await listChatMessages(workspace.id, user.id, chat!.id);
+      expect(stored[1]?.refusalReason).toBe("embedding_model_mismatch");
+
+      expect(error).toHaveBeenCalledWith(
+        `Unreadable embeddings: workspace ${workspace.id}, configured fake 0, other gemini-embedding-001 1.`,
+      );
+
+      const rewrites = await db
+        .select()
+        .from(usageEvents)
+        .where(
+          and(
+            eq(usageEvents.workspaceId, workspace.id),
+            eq(usageEvents.kind, "chat"),
+          ),
+        );
+      expect(rewrites).toEqual([]);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it("still says nothing matched when part is searchable, and warns", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const user = await createTestUser(db);
+      const workspace = await createTestWorkspace(db, { ownerId: user.id });
+      await seedPassage(workspace.id, PASSAGE);
+      await seedPassage(workspace.id, PASSAGE, "gemini-embedding-001");
+      currentActor.value = asUser(user.id);
+
+      const chunks = await readStream(
+        await postChat(workspace.id, "What is the capital of France?"),
+      );
+
+      expect(refusalOf(chunks)).toEqual({ reason: "no_relevant_passages" });
+      expect(warn).toHaveBeenCalledWith(
+        `Unreadable embeddings: workspace ${workspace.id}, configured fake 1, other gemini-embedding-001 1.`,
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   /* The fake model answers a `generateText` call with `FAKE_ANSWER`, and the fake

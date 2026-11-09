@@ -353,21 +353,6 @@ export async function setChunkEmbeddings(
   return written.length;
 }
 
-/** A chunk with no embedding cannot be retrieved, so "has documents" and "has
- * something to search" differ while one is processing. Called only on the empty
- * branch, to tell "nothing indexed" from "nothing matched". */
-export async function countSearchableChunks(workspaceId: string) {
-  const [row] = await db
-    .select({ total: count() })
-    .from(chunks)
-    .innerJoin(documents, eq(chunks.documentId, documents.id))
-    .where(
-      and(eq(documents.workspaceId, workspaceId), isNotNull(chunks.embedding)),
-    );
-
-  return row?.total ?? 0;
-}
-
 /** Embedded chunks per model, `null` for a vector stored before its model was. A
  * chunk with no embedding cannot be retrieved, so a document still processing is
  * not counted. For the empty branch only, to tell "nothing indexed", "nothing
