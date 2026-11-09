@@ -252,13 +252,16 @@ export const chats = pgTable(
  * from the same model, and pgvector cannot tell two 768-wide spaces apart. */
 export type EmbeddingModelId = "gemini-embedding-001" | "fake";
 
-/** Only the two cases the route can distinguish without a model — a refusal is a
- * fact about retrieval, not an interpretation of the question. ADR 017. */
+/** Only cases the route can distinguish without a model — a refusal is a fact
+ * about retrieval, not an interpretation of the question. ADR 017. */
 export type RefusalReason =
   /** Passages exist in this workspace; none of them cleared the relevance floor. */
   | "no_relevant_passages"
   /** Nothing has finished processing, so there was nothing to search at all. */
-  | "no_documents";
+  | "no_documents"
+  /** Passages are embedded, but none by the configured model, so none could be
+   * compared with the question. ADR 062. */
+  | "embedding_model_mismatch";
 
 /** Chunk id plus a snapshot of the anchor, so a dangling citation degrades
  * rather than crashing the transcript when its document is deleted. */
