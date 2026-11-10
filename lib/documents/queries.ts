@@ -7,6 +7,8 @@ import {
   isNotNull,
   isNull,
   lt,
+  ne,
+  or,
   sql,
 } from "drizzle-orm";
 
@@ -366,6 +368,32 @@ export async function countEmbeddedChunksByModel(workspaceId: string) {
       and(eq(documents.workspaceId, workspaceId), isNotNull(chunks.embedding)),
     )
     .groupBy(chunks.embeddingModel);
+}
+
+/** Clears every vector in one document that `model` did not write, vector and
+ * label in one statement, so `resumeEmbedding` re-embeds exactly those. Scoped
+ * like `setChunkEmbeddings`, through the document. */
+export async function discardEmbeddingsFromOtherModels(
+  workspaceId: string,
+  documentId: string,
+  model: EmbeddingModelId,
+): Promise<number> {
+  const document = await findDocumentInWorkspace(workspaceId, documentId);
+  if (!document) return 0;
+
+  const discarded = await db
+    .update(chunks)
+    .set({ embedding: null, embeddingModel: null })
+    .where(
+      and(
+        eq(chunks.documentId, documentId),
+        isNotNull(chunks.embedding),
+        or(isNull(chunks.embeddingModel), ne(chunks.embeddingModel, model)),
+      ),
+    )
+    .returning({ id: chunks.id });
+
+  return discarded.length;
 }
 
 export async function countChunks(workspaceId: string, documentId: string) {

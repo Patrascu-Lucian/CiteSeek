@@ -13,6 +13,7 @@ import {
   countChunks,
   countEmbeddedChunksByModel,
   createQueuedDocument,
+  discardEmbeddingsFromOtherModels,
   createQueuedDocumentUnless,
   deleteDocumentInWorkspace,
   failStaleProcessing,
@@ -303,6 +304,66 @@ describe("embedded chunks by model", () => {
 
     expect(await countEmbeddedChunksByModel(workspace.id)).toEqual([
       { model: null, chunks: 1 },
+    ]);
+  });
+
+  it("discards what another model wrote, vector and label together", async () => {
+    const { workspace, document, pending } = await fourChunks();
+    await setChunkEmbeddings(
+      workspace.id,
+      document.id,
+      [{ id: pending[0]!.id, embedding: unitVector(0) }],
+      "fake",
+    );
+    await setChunkEmbeddings(
+      workspace.id,
+      document.id,
+      [{ id: pending[1]!.id, embedding: unitVector(1) }],
+      "gemini-embedding-001",
+    );
+    await db
+      .update(chunks)
+      .set({ embedding: unitVector(2) })
+      .where(eq(chunks.id, pending[2]!.id));
+
+    const discarded = await discardEmbeddingsFromOtherModels(
+      workspace.id,
+      document.id,
+      "fake",
+    );
+
+    // The labeled foreigner and the unlabeled one; the fake's own stays, and the
+    // fourth was never embedded.
+    expect(discarded).toBe(2);
+    expect(await countEmbeddedChunksByModel(workspace.id)).toEqual([
+      { model: "fake", chunks: 1 },
+    ]);
+    const cleared = await db
+      .select({ model: chunks.embeddingModel })
+      .from(chunks)
+      .where(eq(chunks.documentId, document.id));
+    expect(cleared.filter((row) => row.model !== null)).toHaveLength(1);
+  });
+
+  it("discards nothing in another workspace's document", async () => {
+    const mine = await fourChunks();
+    const theirs = await fourChunks();
+    await setChunkEmbeddings(
+      theirs.workspace.id,
+      theirs.document.id,
+      [{ id: theirs.pending[0]!.id, embedding: unitVector(0) }],
+      "gemini-embedding-001",
+    );
+
+    expect(
+      await discardEmbeddingsFromOtherModels(
+        mine.workspace.id,
+        theirs.document.id,
+        "fake",
+      ),
+    ).toBe(0);
+    expect(await countEmbeddedChunksByModel(theirs.workspace.id)).toEqual([
+      { model: "gemini-embedding-001", chunks: 1 },
     ]);
   });
 

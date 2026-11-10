@@ -13,6 +13,7 @@ import {
 import {
   countChunks,
   createQueuedDocument,
+  discardEmbeddingsFromOtherModels,
   findDocumentInWorkspace,
   listDocuments,
   sumExtractedCharacters,
@@ -344,6 +345,39 @@ describe("resumeEmbedding", () => {
     expect(recovered!.error).toBeNull();
 
     const [summary] = await listDocuments(workspace.id);
+    expect(summary!.embeddedChunkCount).toBe(summary!.chunkCount);
+    expect(await modelsOf(document.id)).toEqual(["fake"]);
+  });
+
+  /* The way back from a change of model (ADR 062): discard what the old model
+     wrote, then resume, which embeds exactly what is left without a vector. */
+  it("re-embeds what another model wrote, once its vectors are discarded", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "sample.pdf");
+    await processDocument(
+      workspace.id,
+      document.id,
+      fixture("sample.pdf"),
+      "application/pdf",
+      { embedder: workingEmbedder },
+    );
+    await db
+      .update(chunks)
+      .set({ embeddingModel: "gemini-embedding-001" })
+      .where(eq(chunks.documentId, document.id));
+
+    const discarded = await discardEmbeddingsFromOtherModels(
+      workspace.id,
+      document.id,
+      "fake",
+    );
+    await resumeEmbedding(workspace.id, document.id, {
+      embedder: workingEmbedder,
+    });
+
+    const [summary] = await listDocuments(workspace.id);
+    expect(discarded).toBe(summary!.chunkCount);
+    expect(summary!.status).toBe("ready");
     expect(summary!.embeddedChunkCount).toBe(summary!.chunkCount);
     expect(await modelsOf(document.id)).toEqual(["fake"]);
   });
