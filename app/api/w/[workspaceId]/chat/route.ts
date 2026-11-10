@@ -9,7 +9,7 @@ import {
 import { NextResponse } from "next/server";
 
 import {
-  NO_RELEVANT_PASSAGES_REPLY,
+  REFUSAL_REPLIES,
   buildSources,
   buildSystemPrompt,
 } from "@/lib/ai/prompt";
@@ -76,7 +76,7 @@ function refusalStream(reason: RefusalReason) {
       writer.write({
         type: "text-delta",
         id: "0",
-        delta: NO_RELEVANT_PASSAGES_REPLY,
+        delta: REFUSAL_REPLIES[reason],
       });
       writer.write({ type: "text-end", id: "0" });
     },
@@ -241,7 +241,7 @@ export async function POST(
       // Persisted like any other turn — dropping it on reload would make the
       // transcript a lie. The reason rides along so the panel is rebuilt rather
       // than inferred from text that could be reworded.
-      await persist(NO_RELEVANT_PASSAGES_REPLY, [], reason);
+      await persist(REFUSAL_REPLIES[reason], [], reason);
       return createUIMessageStreamResponse({ stream: refusalStream(reason) });
     }
   }

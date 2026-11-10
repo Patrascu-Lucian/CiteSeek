@@ -23,7 +23,7 @@ import { toUIMessages } from "@/lib/chats/to-ui-messages";
 import { type EmbeddingModelId, documents, usageEvents } from "@/lib/db/schema";
 import { PRODUCTION_USAGE_LIMITS } from "@/lib/usage/config";
 import { FAKE_ANSWER } from "@/lib/ai/fake-chat-model";
-import { NO_RELEVANT_PASSAGES_REPLY } from "@/lib/ai/prompt";
+import { NO_RELEVANT_PASSAGES_REPLY, REFUSAL_REPLIES } from "@/lib/ai/prompt";
 import type { ChatSource } from "@/lib/ai/types";
 import {
   cleanupTestRows,
@@ -435,10 +435,12 @@ describe("POST /api/w/[workspaceId]/chat", () => {
       );
 
       expect(refusalOf(chunks)).toEqual({ reason: "embedding_model_mismatch" });
+      expect(textOf(chunks)).toBe(REFUSAL_REPLIES.embedding_model_mismatch);
 
       const [chat] = await listChats(workspace.id, user.id);
       const stored = await listChatMessages(workspace.id, user.id, chat!.id);
       expect(stored[1]?.refusalReason).toBe("embedding_model_mismatch");
+      expect(stored[1]?.content).toBe(REFUSAL_REPLIES.embedding_model_mismatch);
 
       expect(error).toHaveBeenCalledWith(
         `Unreadable embeddings: workspace ${workspace.id}, configured fake 0, other gemini-embedding-001 1.`,

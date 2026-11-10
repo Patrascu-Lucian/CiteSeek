@@ -4470,3 +4470,25 @@ four, failing on the code-point version.
   compute**: luminance is L³. Both entries reasoned from what axe would say rather than from what it
   had scanned. "axe clean" covers the pages scanned, and no scanned page held this pair — so the note
   warning that axe is a lower bar than it sounds fell under that same bar.
+
+## A refusal that named its cause in the panel and not in the sentence, 10 November 2026
+
+- **Issue**: the 1.13.0 release review found that a mismatch still opened with "I couldn't find
+  anything relevant to that in the documents I can search", the claim ADR 062 rejects because nothing
+  was compared, and then showed a panel saying nothing could be searched. The release made the
+  panel's copy exhaustive over the reasons; the sentence above it stayed one constant for all three.
+  Copy puts that sentence alone on the clipboard, and `messages.content` stored it against a
+  `refusal_reason` that said otherwise. The route test checked the streamed and stored reason, never
+  the text.
+
+- **Fix**: `REFUSAL_REPLIES`, a `Record<RefusalReason, string>` beside the constant, read by the
+  route's stream and its `persist` and by local mode's transport. A mismatch says "I couldn't search
+  the documents here for that."; the other two reasons keep the sentence they had. A fourth reason
+  now fails to compile in the sentence as it already did in the panel. The route test asserts the
+  streamed and stored text, and fails against the old route; the end-to-end test asserts the old
+  sentence is gone.
+
+- **Lesson**: **a new member of a union is a question for every reader of the old value, not only
+  the one being designed.** The panel was made exhaustive because it was the thing being built; the
+  sentence was a constant, and a constant cannot fail to be exhaustive, so nothing asked. A test that
+  asserts the reason and not what the reader sees has tested the page's model, not the page.

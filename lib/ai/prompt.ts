@@ -1,7 +1,7 @@
 import type { RetrievedChunk } from "@/lib/rag/retrieve";
 
 import { DECLINING_OPENER } from "./citations";
-import type { ChatSource } from "./types";
+import type { ChatSource, RefusalReason } from "./types";
 
 /** Passages are **numbered**, so a citation can be mis-selected but not invented
  * — the mapping never leaves the server — and **delimited as data**, so one
@@ -41,6 +41,14 @@ export function buildSources(
  * carries the diagnosis, per reason. */
 export const NO_RELEVANT_PASSAGES_REPLY =
   "I couldn't find anything relevant to that in the documents I can search.";
+
+/** Per reason, not one sentence: a mismatch compared nothing, so "nothing
+ * relevant" was false there (ADR 062). */
+export const REFUSAL_REPLIES = {
+  no_relevant_passages: NO_RELEVANT_PASSAGES_REPLY,
+  no_documents: NO_RELEVANT_PASSAGES_REPLY,
+  embedding_model_mismatch: "I couldn't search the documents here for that.",
+} as const satisfies Record<RefusalReason, string>;
 
 const ANSWER_ONLY_FROM_PASSAGES =
   "Answer only from the passages provided below. If they do not contain the answer, say so plainly and stop — do not fall back on general knowledge, and do not guess.";
