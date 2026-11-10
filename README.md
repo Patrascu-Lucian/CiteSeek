@@ -63,6 +63,12 @@ Workspace scoping is enforced in the SQL of that vector search, not by filtering
 in JavaScript. Every query helper takes a workspace id; unscoped ones do not exist, and a
 cross-tenant integration test keeps it that way.
 
+The same query reads only vectors the configured embedding model wrote. Two models' vectors have
+the same width, so pgvector would compare them without complaint and every distance would be
+noise. A workspace whose vectors all came from another model is refused by name instead, and the
+server logs the counts
+([ADR 062](docs/decisions/062-a-vector-records-the-model-that-made-it.md)).
+
 ## Decisions worth defending
 
 Full reasoning for each is in [`docs/decisions/`](docs/decisions/); these are the ones that
@@ -86,6 +92,7 @@ shaped the product rather than the toolchain.
 | [039](docs/decisions/039-the-default-plan-s-ceiling.md)                      | Stock limits are not the rate limiter         | A limit that never heals has to name what to delete; one that heals only has to wait      |
 | [055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)        | Measure a second signal, then keep the floor  | Both signals lost to a tighter floor, and every question past it drew a refusal anyway    |
 | [058](docs/decisions/058-a-reply-that-declines-links-nothing.md)             | A declining reply links no marker             | A relevant marker in a partial answer goes with the rest: a rule, not a heuristic         |
+| [062](docs/decisions/062-a-vector-records-the-model-that-made-it.md)         | A vector records the model that made it       | A wrong provider once refused every question politely; the label now names the mismatch   |
 
 ## Mistakes worth reading
 
@@ -617,6 +624,11 @@ question asked, which neither reaches. A wording change left the first half as i
 the second. Each remedy is
 measured with `pnpm eval:answers --conversation` against a rule committed before the run
 ([ADR 061](docs/decisions/061-a-decline-about-an-earlier-question.md)).
+
+**The model label becomes a rule in SQL in the next patch.** Each vector records the model that
+wrote it, in the same statement as the vector. The `CHECK` that a vector and its label are both
+present or both absent comes in v1.13.1, once no deployed version still writes a vector without
+one.
 
 The usage thresholds are still starting values. They need real traffic rather than another
 round of reasoning.

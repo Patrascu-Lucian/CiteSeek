@@ -107,8 +107,8 @@ export function capRefusalMessage(
 }
 
 /** One wire shape, so the client parses a cap refusal the same way whichever cap
- * produced it. `current` and `limit` ride along so Milestone 9's paywall can
- * render the same decision rather than re-derive it. */
+ * produced it. `current` and `limit` ride along so a future paywall can render
+ * the same decision rather than re-derive it. */
 export type CapRefusalBody = CapCopy & {
   /** `title` and `detail` joined. Kept for consumers that show one line —
    * `UploadDropzone` renders a single string per rejected file. */
