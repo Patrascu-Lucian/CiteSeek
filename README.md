@@ -683,6 +683,7 @@ Database:
 docker compose up -d   # local Postgres 18 + pgvector
 pnpm db:migrate        # apply migrations (creates the vector extension too)
 pnpm db:seed           # demo workspace; idempotent
+pnpm db:reembed        # which vectors the configured model did not write; --apply repairs one scope
 pnpm db:generate       # emit a new migration after editing lib/db/schema.ts
 pnpm db:studio         # browse the database
 ```
@@ -725,12 +726,27 @@ let one file supply both the wrong answer and the confirmation of it.
 prints the `export SEED_HOST=…` line for the host it actually reached. In Neon's console it is
 the first segment of the connection hostname (`ep-…`), shown per branch under Connect.
 
-Four other commands guard themselves the same way, under their own names and from the shell only:
+Five other commands guard themselves the same way, under their own names and from the shell only:
 `pnpm eval:retrieval`, `pnpm eval:refusals` and `pnpm eval:answers` use `EVAL_HOST` (they ingest
-documents and spend quota) and `pnpm db:usage` uses `USAGE_HOST` (it reads, but reading the wrong branch gives a
-confident wrong answer). The
-schema commands above need neither — `db:check` changes nothing and prints the host it reached,
-and `db:migrate` carries no data and spends no quota.
+documents and spend quota), `pnpm db:reembed` uses `REEMBED_HOST` (it rewrites vectors), and
+`pnpm db:usage` uses `USAGE_HOST` (it reads, but reading the wrong branch gives a confident wrong
+answer). The schema commands above need none of them — `db:check` changes nothing and prints the
+host it reached, and `db:migrate` carries no data and spends no quota.
+
+**Changing the embedding provider or model is "switch, then re-embed"**
+([ADR 062](docs/decisions/062-a-vector-records-the-model-that-made-it.md)). Every stored vector
+records the model that wrote it and retrieval reads only the configured model's, so after the
+switch an old document is refused by name rather than searched wrongly. Read the report, then
+repair one scope at a time:
+
+```bash
+REEMBED_HOST='<endpoint>' DATABASE_URL_UNPOOLED='<url>' pnpm db:reembed
+REEMBED_HOST='<endpoint>' DATABASE_URL_UNPOOLED='<url>' pnpm db:reembed --apply --workspace=<id>
+```
+
+The same refusal appears when the _configuration_ changed by mistake, as when Preview ran the fake
+against real vectors. Then the fix is the variable, not the data: re-embedding would overwrite good
+vectors. The server logs `Unreadable embeddings:` with the counts either way.
 
 `pnpm test:integration` guards itself differently, because it is the one command with no correct
 answer on a remote host: it truncates `usage_events` outright, so no naming ceremony makes that
@@ -753,7 +769,7 @@ Playwright smoke suite all gate every pull request.
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
 | Unit        | 1273  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
-| Integration | 238   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
+| Integration | 241   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 193   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
