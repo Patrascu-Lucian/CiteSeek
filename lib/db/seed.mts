@@ -15,105 +15,24 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 // Explicit .ts extensions: type stripping does not rewrite specifiers.
-import { loadLocalEnv } from "../env/load-local-env.ts";
-import { namesHost } from "../env/named-host.ts";
 import * as schema from "./schema.ts";
+import {
+  assertEmbedderWasChosen,
+  assertHostWasChosen,
+  targetDatabase,
+} from "./script-target.ts";
 import { planFixtureSeed, seedExitCode } from "./seed-plan.ts";
 import { workspaces } from "./schema.ts";
 
-// Captured before `.env.local` applies, so the guards can tell a deliberate
-// export from one the file supplied.
-const exportedProvider = process.env.EMBEDDINGS_PROVIDER;
-const confirmedHost = process.env.SEED_HOST;
-
-loadLocalEnv();
-
-// Unpooled, like migrations. Falls back where no pooler exists (Docker, CI).
-const connectionString =
-  process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.",
-  );
-}
-
-/**
- * One connection target for the whole script. Two paths reach the database — this
- * client, and `lib/` helpers whose singleton reads `DATABASE_URL` only — so
- * `DATABASE_URL_UNPOOLED=<production>` used to split them and exit 0 having
- * seeded nothing. Must precede the imports below, hence dynamic.
- */
-process.env.DATABASE_URL = connectionString;
+const target = targetDatabase("SEED_HOST");
 
 // Dynamic because `lib/db/index.ts` throws at module load on a missing
 // DATABASE_URL, and ESM evaluates static imports before this file's first
-// statement — before `loadLocalEnv()` has run.
+// statement — before `targetDatabase` has set it.
 const { createQueuedDocument, deleteDocumentInWorkspace, listDocuments } =
   await import("../documents/queries.ts");
 const { processDocument } = await import("../rag/ingest.ts");
 const { resolveEmbeddingsProvider } = await import("../ai/provider.ts");
-
-/** The host, for a guard or a log line. Never the credentials. */
-function hostOf(url: string): string | null {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return null;
-  }
-}
-
-const LOCAL_HOSTS = new Set([
-  "localhost",
-  "127.0.0.1",
-  "::1",
-  "host.docker.internal",
-]);
-
-/** Which *database* — the mistake the embedder guard does not cover. From the
- * shell for the same reason: `.env.local` is what supplied the wrong one. */
-function assertHostWasChosen(url: string): void {
-  const hostname = hostOf(url);
-  if (hostname === null || LOCAL_HOSTS.has(hostname)) return;
-
-  if (namesHost(confirmedHost, hostname)) return;
-
-  throw new Error(
-    [
-      confirmedHost
-        ? `SEED_HOST is "${confirmedHost}" but this resolves to ${hostname}.`
-        : `Refusing to seed ${hostname} without naming it first.`,
-      "",
-      "Neon branches are clones: every id in the output is right against either",
-      "one, so the host is the only thing that can be wrong. Name it:",
-      "",
-      `  export SEED_HOST=${hostname.split(".")[0]}`,
-    ].join("\n"),
-  );
-}
-
-/** **Provenance, not value**: an exported fake is a decision, one `.env.local`
- * supplied is an accident — so the escape hatch cannot live there. */
-function assertEmbedderWasChosen(url: string): void {
-  if (resolveEmbeddingsProvider() !== "fake") return;
-  if (exportedProvider?.trim().toLowerCase() === "fake") return;
-
-  const hostname = hostOf(url);
-  // An unparseable URL is the connection's problem to report, not this guard's.
-  if (hostname === null || LOCAL_HOSTS.has(hostname)) return;
-
-  throw new Error(
-    [
-      `Refusing to seed ${hostname} with the fake embedder.`,
-      "",
-      "EMBEDDINGS_PROVIDER resolves to 'fake' from .env.local rather than your",
-      "shell, and fake vectors are unretrievable by the real model. Say which:",
-      "",
-      "  export EMBEDDINGS_PROVIDER=google   # real embeddings (production)",
-      "  export EMBEDDINGS_PROVIDER=fake     # deliberately fake (a scratch branch)",
-    ].join("\n"),
-  );
-}
 
 export const DEMO_WORKSPACE_NAME = "Demo workspace";
 
@@ -185,16 +104,24 @@ async function seedFixtureDocument(workspaceId: string) {
 
 async function main() {
   // Named before anything else, since it is the only field that can be wrong.
-  console.log(
-    `Seeding ${hostOf(connectionString!) ?? "an unparseable DATABASE_URL"}`,
-  );
+  console.log(`Seeding ${target.hostname ?? "an unparseable DATABASE_URL"}`);
 
   // Before anything is written, and before a connection is opened.
-  assertHostWasChosen(connectionString!);
-  assertEmbedderWasChosen(connectionString!);
+  assertHostWasChosen({
+    hostname: target.hostname,
+    named: target.exported.host,
+    variable: "SEED_HOST",
+    verb: "seed",
+  });
+  assertEmbedderWasChosen({
+    resolved: resolveEmbeddingsProvider(),
+    exported: target.exported.provider,
+    hostname: target.hostname,
+    verb: "seed",
+  });
 
   // A single connection, not the pooled singleton: this must exit.
-  const client = postgres(connectionString!, { max: 1 });
+  const client = postgres(target.connectionString, { max: 1 });
   const db = drizzle(client, { schema });
 
   try {
