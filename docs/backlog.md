@@ -3998,3 +3998,27 @@ plain decline and a clean answer, so this is the third of those.
 **Both "why?" follow-ups were rewritten and shown, and both declined correctly**: the documents give
 the 28 days and the 30 days but not the reasons. Those are refusals the page should unlink, and it
 did.
+
+## Three findings from planning 1.13.0, 10 November 2026
+
+Found while planning the release that records each vector's model (ADR 062), and kept out of it.
+
+**`.env.example` sets `DATABASE_URL_UNPOOLED=""` (low, it fails loudly).** Every `db:*` command, the
+evals and the forced-plan test resolve the connection with `DATABASE_URL_UNPOOLED ?? DATABASE_URL`,
+in ten places. `??` falls back only on `null` or `undefined`, so a verbatim copy of the file with
+`DATABASE_URL` filled in throws "DATABASE_URL is not set" while it is set. The README's "leave the
+first one unset" is right and the example contradicts it. The fix is one line, commenting it out in
+`.env.example`, against ten call sites for `||`.
+
+**Three comments give the wrong reason for the local store's width check (low, comments only).**
+`lib/local/store.ts` (twice) and `store.test.ts` say cosine similarity over mismatched widths "returns
+a number rather than an error". Local retrieval ranks with `cosineSimilarity` from
+`lib/rag/vector.ts`, which throws on a length mismatch. The check still earns its place, since a
+refusal when a vector is stored beats a crash on every later question, but the reason it states is
+not what happens.
+
+**A build-time check against stored data (parked, ADR 062's rejected option).** `db:check` could
+count vectors the configured model did not write and fail the deploy, which would have stopped 1.9.1
+at the build. Not taken, because it lets a data condition fail unrelated deploys, and a mismatch is
+now refused by name and logged the first time anyone asks a question. The trigger is a mismatch that
+reached readers despite the panel.
