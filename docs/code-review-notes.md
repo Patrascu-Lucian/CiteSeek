@@ -4535,3 +4535,22 @@ four, failing on the code-point version.
   that most needed checking against "never logged" was the one a check would skip. And before adding
   an identifier to a log line, look at what the platform writes beside it: here the URL said it
   first.
+
+## A window reasoned about for the constraint and not for the backfill, 11 November 2026
+
+- **Issue**: ADR 062 deferred its `CHECK` to 1.13.1 because a migration is applied before its deploy
+  and 1.12.0 keeps writing unlabeled vectors until 1.13.0 is serving. The same window applies to the
+  backfill in `0011`, and nothing covered it: an upload processed by 1.12.0 after the migration is
+  stored with no label, so 1.13.0 cannot retrieve it, while the document reads `ready` and the
+  refusal panel lists it as answerable. The 1.13.0 release review reproduced it on a database built
+  by 1.12.0's code. An instant rollback opens the same window.
+
+- **Fix**: the release closes it once the deploy is serving: `pnpm db:reembed` against production
+  and Preview, and if anything is listed `unlabeled`, `0011`'s `UPDATE` again, which reads only
+  unlabeled rows and re-embeds nothing. ADR 062 records the window, the rollback case, and that the
+  `CHECK` cannot be added while an unlabeled row remains.
+
+- **Lesson**: **a window found while reasoning about one statement of a migration applies to every
+  statement in it.** The constraint was deferred precisely because the old code keeps writing; the
+  backfill was treated as a one-time event, when it is a snapshot of the rows that existed when it
+  ran. Expand/contract has a gap on both sides, and the old release's writes land in it.

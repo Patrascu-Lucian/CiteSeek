@@ -98,6 +98,24 @@ vectors only, could not see. Now a failure loses nothing and the same command co
 - **Retry keeps its meaning.** It fills null vectors with the configured model; a document whose
   chunks span two models is safe, because each chunk is compared only within its own.
 - **After the `CHECK` ships, rolling back below this release** means dropping the constraint first.
+- **Between migrating and deploying, the previous release writes unlabeled vectors.** `0011` has to
+  be applied before this release can deploy, and 1.12.0, which writes a vector and no label, serves
+  until then; an instant rollback to it does the same until the roll-forward. Those rows are
+  unsearchable here until labeled, while their documents read `ready`. The release closes the gap
+  once the deploy is serving: `db:reembed`'s report lists them as `unlabeled`, and running `0011`'s
+  `UPDATE` again labels them without re-embedding, since it reads only unlabeled rows. While any
+  remain, the `CHECK` cannot be added.
+- **A partly unreadable workspace is refused as `no_relevant_passages`, and its panel overstates
+  what can be searched.** One readable chunk is enough for retrieval to run, so the reason cannot be
+  a mismatch, and the panel lists every `ready` document from status alone, including one whose
+  vectors are all another model's. The server's warning is logged only when a question is refused.
+  Accepted for the state between switching and re-embedding; a searchable count per document would
+  close it.
+- **The floor stays keyed by provider.** Each server provider maps to one model, so a floor per
+  provider is a floor per model today. A successor model pinned under `google` would read as a
+  mismatch until re-embedded, but would inherit 0.40, measured for `gemini-embedding-001` (ADR 020).
+  Keying the floors by `EmbeddingModelId` would make a model with no measured floor a compile error;
+  it waits for the change that pins a second model, which needs its own `eval:retrieval` run anyway.
 - **Local mode is unaffected.** Its store holds one model and already checks each vector's width
   against its document's.
 
@@ -123,3 +141,8 @@ database:**
 No row fell between the two shapes, and the closest Gemini vector still had 350 negative
 components. Preview held no fake rows at all: the 1.9.1 smoke test only queried with fake vectors
 and wrote none.
+
+**The window between migrating and deploying was reproduced** on a database built by 1.12.0's own
+code: an upload processed by 1.12.0 after `0011` finished `ready` with an unlabeled vector, and this
+release could not retrieve it with its own text as the question. Running `0011`'s `UPDATE` again
+labeled it (`UPDATE 1`), and the same question then retrieved it at distance 0.
