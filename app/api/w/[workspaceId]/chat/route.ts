@@ -217,8 +217,11 @@ export async function POST(
 
     // Without it a mismatch reads as polite refusals, which is how 1.9.1 went
     // unnoticed (ADR 062).
-    const notice = unreadableEmbeddingsNotice(scope, counts, configured);
-    if (notice) console[notice.level](notice.line);
+    const notice = unreadableEmbeddingsNotice(counts, configured);
+    // Two calls, not `console[notice.level]`: a search for what the server logs
+    // has to find this line.
+    if (notice?.level === "error") console.error(notice.line);
+    else if (notice) console.warn(notice.line);
 
     // Only on this branch, so an answered question never waits on a second model
     // call (ADR 044). An empty workspace has nothing to search either way.

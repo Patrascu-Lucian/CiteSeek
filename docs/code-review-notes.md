@@ -4515,3 +4515,23 @@ four, failing on the code-point version.
   to pass through a state the next run cannot see.** Discard-then-rebuild had one; writing the new
   value over the old has none. The false line had the same root: printed after the action rather
   than from its result, it was the plan formatted as an outcome.
+
+## A log line a search for logging could not find, 11 November 2026
+
+- **Issue**: the 1.13.0 release review found that the mismatch notice was logged as
+  `console[notice.level](notice.line)`, which a search for `console.warn` or `console.error` across
+  `app` and `lib` does not match; the review's own search missed it. The privacy page promises that
+  document contents and message bodies are never written to logs, and the next audit of that promise
+  will be such a search. The same line named the workspace by id, which the request path the
+  platform logs beside it already carries. And ADR 062 called it the first line the server logs,
+  when `auth.ts` already logs one on the `createUser` path.
+
+- **Fix**: the route calls `console.error` or `console.warn` by name. `unreadableEmbeddingsNotice`
+  takes no workspace, and its line carries models and counts only; `db:reembed`'s report names the
+  workspaces. ADR 062's sentence now says what the line holds instead of claiming a first.
+
+- **Lesson**: **code that a promise depends on should be findable by the search that would audit
+  the promise.** A computed member call is ordinary JavaScript and invisible to grep, so the one line
+  that most needed checking against "never logged" was the one a check would skip. And before adding
+  an identifier to a log line, look at what the platform writes beside it: here the URL said it
+  first.

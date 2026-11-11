@@ -443,7 +443,7 @@ describe("POST /api/w/[workspaceId]/chat", () => {
       expect(stored[1]?.content).toBe(REFUSAL_REPLIES.embedding_model_mismatch);
 
       expect(error).toHaveBeenCalledWith(
-        `Unreadable embeddings: workspace ${workspace.id}, configured fake 0, other gemini-embedding-001 1.`,
+        "Unreadable embeddings: configured fake 0, other gemini-embedding-001 1.",
       );
 
       const rewrites = await db
@@ -476,7 +476,7 @@ describe("POST /api/w/[workspaceId]/chat", () => {
 
       expect(refusalOf(chunks)).toEqual({ reason: "no_relevant_passages" });
       expect(warn).toHaveBeenCalledWith(
-        `Unreadable embeddings: workspace ${workspace.id}, configured fake 1, other gemini-embedding-001 1.`,
+        "Unreadable embeddings: configured fake 1, other gemini-embedding-001 1.",
       );
     } finally {
       warn.mockRestore();
