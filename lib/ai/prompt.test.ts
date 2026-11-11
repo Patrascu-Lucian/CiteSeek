@@ -4,6 +4,7 @@ import type { RetrievedChunk } from "@/lib/rag/retrieve";
 
 import {
   NO_RELEVANT_PASSAGES_REPLY,
+  REFUSAL_REPLIES,
   buildSources,
   buildSystemPrompt,
   formatPassages,
@@ -280,5 +281,22 @@ describe("NO_RELEVANT_PASSAGES_REPLY", () => {
      to inspect the wrong thing. The panel diagnoses, per reason. */
   it("does not blame the document", () => {
     expect(NO_RELEVANT_PASSAGES_REPLY).not.toMatch(/processing/i);
+  });
+});
+
+describe("REFUSAL_REPLIES", () => {
+  it("keeps that sentence where a search ran, or there was nothing to search", () => {
+    expect(REFUSAL_REPLIES.no_relevant_passages).toBe(
+      NO_RELEVANT_PASSAGES_REPLY,
+    );
+    expect(REFUSAL_REPLIES.no_documents).toBe(NO_RELEVANT_PASSAGES_REPLY);
+  });
+
+  it("says a mismatch could not search, without naming the model", () => {
+    const reply = REFUSAL_REPLIES.embedding_model_mismatch;
+
+    expect(reply).toMatch(/couldn't search the documents/i);
+    expect(reply).not.toMatch(/relevant/i);
+    expect(reply).not.toMatch(/model|gemini|embedding|fake/i);
   });
 });

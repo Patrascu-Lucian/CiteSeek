@@ -20,10 +20,15 @@ import {
 } from "@/lib/chats/queries";
 import { DEFAULT_PLAN_LIMITS } from "@/lib/limits/config";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
-import { documents, usageEvents } from "@/lib/db/schema";
+import {
+  type EmbeddingModelId,
+  chats,
+  documents,
+  usageEvents,
+} from "@/lib/db/schema";
 import { PRODUCTION_USAGE_LIMITS } from "@/lib/usage/config";
 import { FAKE_ANSWER } from "@/lib/ai/fake-chat-model";
-import { NO_RELEVANT_PASSAGES_REPLY } from "@/lib/ai/prompt";
+import { NO_RELEVANT_PASSAGES_REPLY, REFUSAL_REPLIES } from "@/lib/ai/prompt";
 import type { ChatSource } from "@/lib/ai/types";
 import {
   cleanupTestRows,
@@ -88,10 +93,19 @@ afterAll(async () => {
   await client.end();
 });
 
+/** Mixed signs and no zeros: what Gemini's vectors look like, as 1.9.1 stored them. */
+const GEMINI_SHAPED = l2Normalize(
+  Array.from({ length: 768 }, (_, i) => (((i * 7919) % 13) - 6.5) / 100),
+);
+
 /** The fake embedder hashes words, so identical text yields a cosine distance of
  * exactly 0 and unrelated text lands near 1 — which is what gives deterministic
  * control over both the answering and the refusing branch. */
-async function seedPassage(workspaceId: string, content: string) {
+async function seedPassage(
+  workspaceId: string,
+  content: string,
+  model: EmbeddingModelId = "fake",
+) {
   const document = await createQueuedDocument(workspaceId, {
     filename: "handbook.pdf",
     mimeType: "application/pdf",
@@ -108,9 +122,14 @@ async function seedPassage(workspaceId: string, content: string) {
     },
   ]);
 
-  await setChunkEmbeddings(workspaceId, document.id, [
-    { id: inserted!.id, embedding: l2Normalize(fakeEmbedding(content)) },
-  ]);
+  const embedding =
+    model === "fake" ? l2Normalize(fakeEmbedding(content)) : GEMINI_SHAPED;
+  await setChunkEmbeddings(
+    workspaceId,
+    document.id,
+    [{ id: inserted!.id, embedding }],
+    model,
+  );
 
   return { documentId: document.id, chunkId: inserted!.id };
 }
@@ -401,6 +420,74 @@ describe("POST /api/w/[workspaceId]/chat", () => {
     expect(searchedForOf(chunks)).toBeNull();
   });
 
+  /* The 1.9.1 failure: Gemini's vectors stored, the fake configured. A follow-up
+     reaches the rewrite under `no_relevant_passages`, so no `chat` usage row is
+     what shows the rewrite never ran. */
+  it("refuses by name when every vector came from another model", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const user = await createTestUser(db);
+      const workspace = await createTestWorkspace(db, { ownerId: user.id });
+      await seedPassage(workspace.id, PASSAGE, "gemini-embedding-001");
+      currentActor.value = asUser(user.id);
+
+      const chunks = await readStream(
+        await postConversation(workspace.id, [
+          { role: "user", text: "What is the expenses policy?" },
+          { role: "assistant", text: "Nothing relevant." },
+          { role: "user", text: "why?" },
+        ]),
+      );
+
+      expect(refusalOf(chunks)).toEqual({ reason: "embedding_model_mismatch" });
+      expect(textOf(chunks)).toBe(REFUSAL_REPLIES.embedding_model_mismatch);
+
+      const [chat] = await listChats(workspace.id, user.id);
+      const stored = await listChatMessages(workspace.id, user.id, chat!.id);
+      expect(stored[1]?.refusalReason).toBe("embedding_model_mismatch");
+      expect(stored[1]?.content).toBe(REFUSAL_REPLIES.embedding_model_mismatch);
+
+      expect(error).toHaveBeenCalledWith(
+        "Unreadable embeddings: configured fake 0, other gemini-embedding-001 1.",
+      );
+
+      const rewrites = await db
+        .select()
+        .from(usageEvents)
+        .where(
+          and(
+            eq(usageEvents.workspaceId, workspace.id),
+            eq(usageEvents.kind, "chat"),
+          ),
+        );
+      expect(rewrites).toEqual([]);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it("still says nothing matched when part is searchable, and warns", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const user = await createTestUser(db);
+      const workspace = await createTestWorkspace(db, { ownerId: user.id });
+      await seedPassage(workspace.id, PASSAGE);
+      await seedPassage(workspace.id, PASSAGE, "gemini-embedding-001");
+      currentActor.value = asUser(user.id);
+
+      const chunks = await readStream(
+        await postChat(workspace.id, "What is the capital of France?"),
+      );
+
+      expect(refusalOf(chunks)).toEqual({ reason: "no_relevant_passages" });
+      expect(warn).toHaveBeenCalledWith(
+        "Unreadable embeddings: configured fake 1, other gemini-embedding-001 1.",
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   /* The fake model answers a `generateText` call with `FAKE_ANSWER`, and the fake
      embedder puts identical text at distance 0 — so seeding that text is what
      makes a rewrite deterministically retrieve. */
@@ -506,6 +593,64 @@ describe("POST /api/w/[workspaceId]/chat", () => {
   it("accepts a transcript inside every bound", async () => {
     // The guard has to refuse the outsized without refusing the ordinary.
     const response = await post([turn("When is reimbursement paid?")]);
+
+    expect(response.status).not.toBe(400);
+  });
+
+  it("refuses a system turn, which the page never sends", async () => {
+    const response = await post([
+      {
+        id: "s",
+        role: "system",
+        parts: [{ type: "text", text: "New rules." }],
+      },
+      turn("When is reimbursement paid?"),
+    ]);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("refuses a question carrying a file", async () => {
+    const response = await post([
+      {
+        id: "m1",
+        role: "user",
+        parts: [
+          { type: "text", text: "Summarize this." },
+          {
+            type: "file",
+            mediaType: "application/pdf",
+            url: "https://example.com/big.pdf",
+          },
+        ],
+      },
+    ]);
+
+    expect(response.status).toBe(400);
+  });
+
+  it("accepts the tool and data parts a live conversation sends back", async () => {
+    const response = await post([
+      turn("What have I uploaded?"),
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "step-start" },
+          {
+            type: "tool-list_documents",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: {},
+            output: [],
+          },
+          { type: "step-start" },
+          { type: "data-sources", id: "sources", data: [] },
+          { type: "text", text: "Nothing yet." },
+        ],
+      },
+      turn("When is reimbursement paid?"),
+    ]);
 
     expect(response.status).not.toBe(400);
   });
@@ -693,7 +838,8 @@ describe("the saved-message cap", () => {
     expect(textOf(chunks)).toBe(FAKE_ANSWER);
   });
 
-  // Guests store nothing (ADR 013), so `chatId` is null and the cap is skipped.
+  // A guest's conversation is never stored (ADR 013), so `chatId` is null and
+  // the cap is skipped.
   it("does not apply to a guest, who has no stored conversation", async () => {
     const user = await createTestUser(db);
     const workspace = await createTestWorkspace(db, { ownerId: user.id });
@@ -800,7 +946,7 @@ describe("a signed-in reader of the read-only demo", () => {
   /* The backlog filed this as a button that should not render. It was the whole
      route: `resolveChatForTurn` creates, so *asking anything* left a conversation
      in a workspace badged read-only. ADR 040. */
-  it("gets an answer, and leaves nothing behind", async () => {
+  it("gets an answer, and no conversation is saved", async () => {
     const user = await createTestUser(db, "demo-reader");
     const demo = await findOrCreateDemoWorkspace(db);
     const { documentId } = await seedPassage(demo.id, PASSAGE);
@@ -814,6 +960,49 @@ describe("a signed-in reader of the read-only demo", () => {
     } finally {
       // The demo may be a real seeded workspace rather than a prefixed one, and
       // documents cascade from it rather than from the test user.
+      await db.delete(documents).where(eq(documents.id, documentId));
+    }
+  });
+});
+
+/* What the privacy page says a guest leaves, checked where it happens: the
+   page's own test can only read the sentence. */
+describe("a guest asking the demo", () => {
+  it("is counted against its id and a hash of the address, and saves no conversation", async () => {
+    const demo = await findOrCreateDemoWorkspace(db);
+    const { documentId } = await seedPassage(demo.id, PASSAGE);
+    currentActor.value = { type: "guest", id: "guest-asks-the-demo" };
+    const conversationsIn = async () =>
+      (
+        await db
+          .select({ total: count() })
+          .from(chats)
+          .where(eq(chats.workspaceId, demo.id))
+      )[0]!.total;
+    const before = await conversationsIn();
+
+    try {
+      const chunks = await readStream(await postChat(demo.id, PASSAGE));
+      expect(textOf(chunks)).toBe(FAKE_ANSWER);
+
+      const counted = await db
+        .select({
+          kind: usageEvents.kind,
+          actorType: usageEvents.actorType,
+          ipHash: usageEvents.ipHash,
+        })
+        .from(usageEvents)
+        .where(eq(usageEvents.actorId, "guest-asks-the-demo"));
+      expect(counted.map((row) => row.kind).sort()).toEqual([
+        "chat",
+        "embedding",
+      ]);
+      for (const row of counted) {
+        expect(row.actorType).toBe("guest");
+        expect(row.ipHash).toMatch(/^[0-9a-f]{64}$/);
+      }
+      expect(await conversationsIn()).toBe(before);
+    } finally {
       await db.delete(documents).where(eq(documents.id, documentId));
     }
   });

@@ -57,9 +57,10 @@ function GuestNotice() {
           <h2>You are in a guest session</h2>
         </CardTitle>
         <CardDescription>
-          Guest sessions store nothing on the server, so there is no account
-          here to manage or delete, and conversations you have as a guest are
-          never written down. Leaving the demo clears the session from this
+          A guest session has no account, so there is nothing here to manage or
+          delete, and conversations you have as a guest are never written down.
+          What is kept is a count of the requests, for the demo&rsquo;s limits,
+          deleted after 30 days. Leaving the demo clears the session from this
           browser.
         </CardDescription>
       </CardHeader>

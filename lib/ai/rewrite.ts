@@ -87,7 +87,8 @@ export async function rewriteQuestion(
 
     // A cut-off question is still under `MAX_CHARS`, so nothing else rejects it —
     // and it would be shown to the reader as what we searched for.
-    if (finishReason === "length") return null;
+    if (finishReason === "length" || finishReason === "interrupted")
+      return null;
 
     const question = acceptRewrite(text, asked);
     if (question === null) return null;

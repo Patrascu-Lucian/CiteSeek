@@ -53,6 +53,15 @@ link here:
   to this repository and nothing a reader supplies. `vite` comes with the test runner, which starts
   no dev server here. Pinned rather than argued away, because "we do not call it" is a claim that
   quietly expires — this one did, when the screenshots arrived.
+- **One advisory with no fixed release to pin to.** `deepmerge` ≤ 4.3.1 (GHSA-gcqx-w48m-w2h4,
+  prototype poisoning of merged objects) comes only with the `shadcn` command-line tool, a dev
+  dependency that copies components into the repository and is never part of the app. The advisory
+  names 4.3.2 as the fix, and no 4.3.2 has been published. `pnpm audit` reports it until one is.
+- **One whose fix its only consumers do not accept yet.** `minimatch` 10.2.6 (GHSA-g3hv-75wg-m249,
+  denial of service through crafted glob patterns) comes only with Stryker and the ESLint
+  TypeScript parser, which read globs from this repository's own configuration. The fix is 11.0.1,
+  a major outside both of their declared ranges (`~10.2.4` and `^10.2.2`), so pinning it would run
+  each against a version it does not support. `pnpm audit` reports it until they move to 11.
 
 ## Handling of your report
 

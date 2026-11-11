@@ -4,6 +4,22 @@ import { FileQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { RefusalReason } from "@/lib/ai/types";
 
+type Panel = "nothing_indexed" | "nothing_matched" | "model_mismatch";
+
+// A record rather than a boolean: a new reason fails to compile here instead of
+// rendering one of the others' copy.
+const PANEL_FOR: Record<RefusalReason, Panel> = {
+  no_documents: "nothing_indexed",
+  no_relevant_passages: "nothing_matched",
+  embedding_model_mismatch: "model_mismatch",
+};
+
+const HEADING: Record<Panel, string> = {
+  nothing_indexed: "There is nothing to search yet",
+  nothing_matched: "What I can answer from",
+  model_mismatch: "The documents here cannot be searched right now",
+};
+
 /** What a reader is offered when their question could not be grounded; two
  * alternatives rejected in ADR 017. **Every word here is ours, none a model's**
  * — an ungrounded turn must not read as if it had been grounded. */
@@ -24,7 +40,7 @@ export function Refusal({
    * is local mode: a link to where the reader already is helps nobody. */
   uploadHref: string | null;
 }) {
-  const nothingIndexed = reason === "no_documents" || documents.length === 0;
+  const panel = documents.length === 0 ? "nothing_indexed" : PANEL_FOR[reason];
 
   return (
     <div
@@ -33,19 +49,28 @@ export function Refusal({
     >
       <p className="flex items-center gap-2 text-sm font-medium">
         <FileQuestion aria-hidden="true" className="size-4 shrink-0" />
-        {nothingIndexed
-          ? "There is nothing to search yet"
-          : "What I can answer from"}
+        {HEADING[panel]}
       </p>
 
       {/* Not "in this workspace": local mode has none, and this is the first
           sentence a reader sees there before anything is indexed. */}
-      {nothingIndexed ? (
+      {panel === "nothing_indexed" && (
         <p className="text-muted-foreground text-sm">
           Answers come only from the documents available here, and none have
           finished processing.
         </p>
-      ) : (
+      )}
+
+      {panel === "model_mismatch" && (
+        <p className="text-muted-foreground text-sm">
+          They are stored, but they were indexed by a different search model
+          than the one running now, so none of them can be matched to a question
+          until they are indexed again. That is a fix on our side — there is
+          nothing to upload again.
+        </p>
+      )}
+
+      {panel === "nothing_matched" && (
         <>
           <p className="text-muted-foreground text-sm">
             Only these documents — I have no knowledge outside them, including
@@ -75,11 +100,15 @@ export function Refusal({
         </>
       )}
 
-      <Affordance
-        canUpload={canUpload}
-        signedIn={signedIn}
-        uploadHref={uploadHref}
-      />
+      {/* None after a mismatch: the answer is most likely in a document already
+          here, and uploading it again would count it twice against the cap. */}
+      {panel !== "model_mismatch" && (
+        <Affordance
+          canUpload={canUpload}
+          signedIn={signedIn}
+          uploadHref={uploadHref}
+        />
+      )}
     </div>
   );
 }

@@ -9,19 +9,19 @@ import {
 import { NextResponse } from "next/server";
 
 import {
-  NO_RELEVANT_PASSAGES_REPLY,
+  REFUSAL_REPLIES,
   buildSources,
   buildSystemPrompt,
 } from "@/lib/ai/prompt";
-import { getChatModel } from "@/lib/ai/provider";
+import {
+  embeddingModelFor,
+  getChatModel,
+  resolveEmbeddingsProvider,
+} from "@/lib/ai/provider";
 import { CHAT_STEP_LIMIT, chatTools } from "@/lib/chats/tools";
 import { questionFrom, questionIdFrom } from "@/lib/ai/question";
 import { rewriteQuestion } from "@/lib/ai/rewrite";
-import {
-  MAX_QUESTION_CHARS,
-  MAX_REQUEST_MESSAGES,
-  MAX_TOTAL_CHARS,
-} from "@/lib/ai/request-bounds";
+import { parseMessages } from "@/lib/ai/request-bounds";
 import type { ChatSource, ChatUIMessage, RefusalReason } from "@/lib/ai/types";
 import { REFUSAL_PART_ID, SOURCES_PART_ID } from "@/lib/ai/types";
 import {
@@ -38,7 +38,11 @@ import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
 import { refusalBody } from "@/lib/usage/limits";
 import { recordUsage } from "@/lib/usage/queries";
-import { countSearchableChunks } from "@/lib/documents/queries";
+import { countEmbeddedChunksByModel } from "@/lib/documents/queries";
+import {
+  decideRefusalReason,
+  unreadableEmbeddingsNotice,
+} from "@/lib/rag/refusal-reason";
 import { retrieveChunks } from "@/lib/rag/retrieve";
 
 /** Node runtime: retrieval reaches the database and the fake model uses node APIs. */
@@ -53,45 +57,6 @@ const REQUIRED_ACCESS = "read" as const;
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
-}
-
-function textOf(message: ChatUIMessage): string {
-  return message.parts
-    .filter((part) => part.type === "text")
-    .map((part) => ("text" in part ? part.text : ""))
-    .join("");
-}
-
-function parseMessages(body: unknown): ChatUIMessage[] | null {
-  if (typeof body !== "object" || body === null) return null;
-
-  const { messages } = body as { messages?: unknown };
-  if (!Array.isArray(messages)) return null;
-  if (messages.length === 0 || messages.length > MAX_REQUEST_MESSAGES)
-    return null;
-
-  const valid = messages.every(
-    (message: unknown) =>
-      typeof message === "object" &&
-      message !== null &&
-      "role" in message &&
-      "parts" in message &&
-      Array.isArray((message as { parts: unknown }).parts),
-  );
-
-  if (!valid) return null;
-
-  const parsed = messages as ChatUIMessage[];
-  const total = parsed.reduce(
-    (sum, message) => sum + textOf(message).length,
-    0,
-  );
-  if (total > MAX_TOTAL_CHARS) return null;
-
-  const last = parsed[parsed.length - 1];
-  if (last && textOf(last).length > MAX_QUESTION_CHARS) return null;
-
-  return parsed;
 }
 
 /**
@@ -111,7 +76,7 @@ function refusalStream(reason: RefusalReason) {
       writer.write({
         type: "text-delta",
         id: "0",
-        delta: NO_RELEVANT_PASSAGES_REPLY,
+        delta: REFUSAL_REPLIES[reason],
       });
       writer.write({ type: "text-end", id: "0" });
     },
@@ -142,7 +107,8 @@ export async function POST(
   }
 
   const messages = parseMessages(body);
-  if (!messages) return badRequest("Expected a messages array.");
+  if (!messages)
+    return badRequest("Expected user and assistant text turns, within bounds.");
 
   const question = questionFrom(messages);
   const questionId = questionIdFrom(messages);
@@ -242,13 +208,20 @@ export async function POST(
   // nothing to cite — as opposed to instructing a model to refuse, which mostly
   // works. A rewrite below may call a model; its output is a query, never prose.
   if (retrieved.length === 0) {
-    // One extra query, only on this branch: "nothing matched" and "nothing to
-    // match against" need different copy, or we tell someone to upload a document
-    // they already uploaded.
-    const reason: RefusalReason =
-      (await countSearchableChunks(scope)) === 0
-        ? "no_documents"
-        : "no_relevant_passages";
+    // One extra query, only on this branch: "nothing matched", "nothing to match
+    // against" and "nothing this model can read" need different copy, or we tell
+    // someone to upload a document they already uploaded.
+    const counts = await countEmbeddedChunksByModel(scope);
+    const configured = embeddingModelFor(resolveEmbeddingsProvider());
+    const reason = decideRefusalReason(counts, configured);
+
+    // Without it a mismatch reads as polite refusals, which is how 1.9.1 went
+    // unnoticed (ADR 062).
+    const notice = unreadableEmbeddingsNotice(counts, configured);
+    // Two calls, not `console[notice.level]`: a search for what the server logs
+    // has to find this line.
+    if (notice?.level === "error") console.error(notice.line);
+    else if (notice) console.warn(notice.line);
 
     // Only on this branch, so an answered question never waits on a second model
     // call (ADR 044). An empty workspace has nothing to search either way.
@@ -271,7 +244,7 @@ export async function POST(
       // Persisted like any other turn — dropping it on reload would make the
       // transcript a lie. The reason rides along so the panel is rebuilt rather
       // than inferred from text that could be reworded.
-      await persist(NO_RELEVANT_PASSAGES_REPLY, [], reason);
+      await persist(REFUSAL_REPLIES[reason], [], reason);
       return createUIMessageStreamResponse({ stream: refusalStream(reason) });
     }
   }

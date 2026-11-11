@@ -1,6 +1,8 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { EmbeddingModel, LanguageModel } from "ai";
 
+import type { EmbeddingModelId } from "@/lib/db/schema";
+
 import { fakeChatModel } from "./fake-chat-model";
 
 /** The one place a provider is chosen — nothing else imports a provider SDK, so
@@ -9,6 +11,12 @@ import { fakeChatModel } from "./fake-chat-model";
 
 /** Set `EMBEDDINGS_PROVIDER=fake` to run the full pipeline with no API key. */
 export type EmbeddingsProviderName = "google" | "fake" | "local" | "local-fake";
+
+/** The two the server resolves; `local` and `local-fake` are the browser's. */
+export type ServerEmbeddingsProvider = Extract<
+  EmbeddingsProviderName,
+  "google" | "fake"
+>;
 
 /** Only the variables read: `NodeJS.ProcessEnv` demands `NODE_ENV`, forcing every
  * test to supply an irrelevant value. */
@@ -27,9 +35,23 @@ export type ProviderEnv = {
  * system that cannot retrieve. ADR 002. */
 export const EMBEDDING_MODEL_ID = "gemini-embedding-001";
 
+// Pinning another model fails to compile until the schema's `EmbeddingModelId`
+// names it: its vectors are a different space (ADR 062).
+const EMBEDDING_MODELS = {
+  google: EMBEDDING_MODEL_ID,
+  fake: "fake",
+} as const satisfies Record<ServerEmbeddingsProvider, EmbeddingModelId>;
+
+/** The id stored beside each vector this provider writes. */
+export function embeddingModelFor(
+  provider: ServerEmbeddingsProvider,
+): EmbeddingModelId {
+  return EMBEDDING_MODELS[provider];
+}
+
 export function resolveEmbeddingsProvider(
   env: ProviderEnv = process.env,
-): EmbeddingsProviderName {
+): ServerEmbeddingsProvider {
   const configured = env.EMBEDDINGS_PROVIDER?.trim().toLowerCase();
 
   if (configured === "fake") return "fake";

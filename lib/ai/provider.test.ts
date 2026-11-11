@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CHAT_MODEL_ID,
   EMBEDDING_MODEL_ID,
+  embeddingModelFor,
   getChatModel,
   getGoogleEmbeddingModel,
   resolveChatProvider,
@@ -69,6 +70,16 @@ describe("getGoogleEmbeddingModel", () => {
     // gemini-embedding-2 returns one aggregated vector for multiple inputs and
     // drops taskType, which would silently break per-chunk retrieval. ADR 002.
     expect(EMBEDDING_MODEL_ID).toBe("gemini-embedding-001");
+  });
+});
+
+describe("embeddingModelFor", () => {
+  it("labels google's vectors with the pinned model", () => {
+    expect(embeddingModelFor("google")).toBe(EMBEDDING_MODEL_ID);
+  });
+
+  it("labels the fake's vectors as the fake's", () => {
+    expect(embeddingModelFor("fake")).toBe("fake");
   });
 });
 

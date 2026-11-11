@@ -97,8 +97,8 @@ export default function TermsPage() {
       <Section title="The demo workspace">
         <p>
           The demo is shared, read-only, and seeded with a fictional company
-          handbook. Ask as a guest and nothing is stored — a reload starts the
-          conversation over. Ask while signed in and it is saved to your own
+          handbook. Questions asked there are not saved, signed in or not — a
+          reload starts the conversation over. Your own workspace keeps your
           history, where only you can see it. The handbook is shared; the
           conversations are not.
         </p>

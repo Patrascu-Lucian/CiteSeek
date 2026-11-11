@@ -4,7 +4,7 @@ import {
   type UIMessageChunk,
 } from "ai";
 
-import { NO_RELEVANT_PASSAGES_REPLY } from "@/lib/ai/prompt";
+import { REFUSAL_REPLIES } from "@/lib/ai/prompt";
 import { questionFrom } from "@/lib/ai/question";
 import {
   REFUSAL_PART_ID,
@@ -72,7 +72,7 @@ export function localAnswerStream(
         writer.write({
           type: "text-delta",
           id: "0",
-          delta: NO_RELEVANT_PASSAGES_REPLY,
+          delta: REFUSAL_REPLIES[refusal],
         });
         writer.write({ type: "text-end", id: "0" });
 

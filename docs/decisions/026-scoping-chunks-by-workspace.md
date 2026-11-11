@@ -49,6 +49,13 @@ the query point and returns what it finds. Iterative scan makes it keep walking 
 `limit` rows pass the filter, and that requires the filter to be on the indexed table.
 The column is what makes the mechanism available; the GUC is what uses it.
 
+↳ **Amended, 9 November 2026.** The cell the table lacked, measured for
+[ADR 062](062-a-vector-records-the-model-that-made-it.md) in this test's forced plan: the filter
+on `documents` _with_ iterative scan finds the target in 3 of 3 runs. The scan does not need the
+predicate on the indexed table, because the `LIMIT` above the join keeps asking for rows, so the
+sentence above overstates it. The column still earns its place, rejecting a foreign row inside the
+scan rather than after a join. A correctness result at test scale, not a cost comparison.
+
 `relaxed_order` rather than `strict_order`: it can return rows slightly out of
 distance order, and the outer query already re-sorts, so the approximation costs
 nothing here. That outer sort was written for an unrelated reason and paid for itself.

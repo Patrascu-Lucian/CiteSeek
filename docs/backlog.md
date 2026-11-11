@@ -3968,3 +3968,136 @@ measured; the other half, hedging on the question asked, is the hedged-answers e
 - **A detector that compares the opening with the question asked.** An opening naming something the
   latest question does not ask about is a decline of something else. That is no longer an exact
   match, so ADR 058's rule for adding to the detector would need rewriting first.
+
+## The 1.12.0 exit check, on the live site, 29 October 2026
+
+Asked on citeseek.app after the release: the demo's starters as a guest, the second and third typed
+after the first, then the 1.11.0 sequence and "why?" in a signed-in workspace holding the three eval
+fixtures. Every reply behaved as `eval/answers-conversation.md` predicts, and the note showed the
+release's new wording.
+
+| Question                                                         | Reply opened                                                            | Links | Note |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------- | ----- | ---- |
+| How many days of annual leave do employees get? (demo)           | "Employees receive 28 days of annual leave plus public holidays" `[1]`  | 1     | no   |
+| How many hours a day do I have to overlap with my team? (demo)   | "Employees are asked to overlap with their team…" `[3]`                 | 1     | no   |
+| Can I put company documents in my personal cloud storage? (demo) | "The documents do not cover annual leave or daily overlap hours…" `[1]` | 0     | yes  |
+| How much force does the press develop?                           | "The press develops 90 kilonewtons" `[1]`                               | 1     | no   |
+| What is the cap on credits in a month?                           | "The cap on credits in any calendar month is 25%" `[1]`                 | 1     | no   |
+| How long does the deposit take to be protected?                  | "The deposit is registered … within 30 days of receipt" `[1][2]`        | 2     | no   |
+| why?                                                             | "The documents do not cover why the deposit is protected…" `[2]`        | 0     | yes  |
+
+**The demo's third starter is the disclosed case.** It opened by declining the two questions it had
+just answered, then answered correctly ("personal accounts may not be used for company work,
+including cloud storage"), and the page unlinked the right marker. That is what the report shows in
+every run, and in two of three runs it answers.
+
+**The credit cap answered cleanly this time.** It is the reply that opened by declining the press in
+the 1.11.0 exit check; the report's three runs of this sequence gave a decline that answered, a
+plain decline and a clean answer, so this is the third of those.
+
+**Both "why?" follow-ups were rewritten and shown, and both declined correctly**: the documents give
+the 28 days and the 30 days but not the reasons. Those are refusals the page should unlink, and it
+did.
+
+## Three findings from planning 1.13.0, 10 November 2026
+
+Found while planning the release that records each vector's model (ADR 062), and kept out of it.
+
+**`.env.example` sets `DATABASE_URL_UNPOOLED=""` (low, it fails loudly).** Every `db:*` command, the
+evals and the forced-plan test resolve the connection with `DATABASE_URL_UNPOOLED ?? DATABASE_URL`,
+in ten places. `??` falls back only on `null` or `undefined`, so a verbatim copy of the file with
+`DATABASE_URL` filled in throws "DATABASE_URL is not set" while it is set. The README's "leave the
+first one unset" is right and the example contradicts it. The fix is one line, commenting it out in
+`.env.example`, against ten call sites for `||`.
+
+**Three comments give the wrong reason for the local store's width check (low, comments only).**
+`lib/local/store.ts` (twice) and `store.test.ts` say cosine similarity over mismatched widths "returns
+a number rather than an error". Local retrieval ranks with `cosineSimilarity` from
+`lib/rag/vector.ts`, which throws on a length mismatch. The check still earns its place, since a
+refusal when a vector is stored beats a crash on every later question, but the reason it states is
+not what happens.
+
+**A build-time check against stored data (parked, ADR 062's rejected option).** `db:check` could
+count vectors the configured model did not write and fail the deploy, which would have stopped 1.9.1
+at the build. Not taken, because it lets a data condition fail unrelated deploys, and a mismatch is
+now refused by name and logged the first time anyone asks a question. The trigger is a mismatch that
+reached readers despite the panel.
+
+## What the 1.13.0 reviews parked, 11 November 2026
+
+Two reviews ran before the 1.13.0 tag, one of the release and one of the application as shipped.
+What they found in the release's own work was fixed before the tag (#520 to #526). These were not,
+and each says why. First the release review's:
+
+**CI does not run on pushes to `develop` (medium, process).** `ci.yml` runs on pull requests and on
+`main`, so a merged combination is tested only as the base of the next pull request. #500, #501 and
+#512 merged within 19 seconds and were first tested together by the PR that followed. Either
+`push: branches: [develop]`, one run per merge, or "require branches to be up to date", a rebase per
+PR, which would have serialized those three. The trigger is the next batch of Dependabot merges.
+
+**The conversation harness does not go through `parseMessages` (low, holds today).**
+`scripts/eval-answers.mts` builds its history from text and data parts and calls
+`convertToModelMessages` itself. That matches what the route sends since #506 by coincidence, not
+construction, against the 1.7.1 rule that a harness imports what ships. Before the next
+conversation run.
+
+**Floors keyed by model id (low, has a trigger).** ADR 062 records why `MAX_DISTANCE_BY_PROVIDER`
+stays: a successor model under `google` would inherit 0.40, but the change that pins one needs its
+own `eval:retrieval` run anyway. Keyed by `EmbeddingModelId`, a model with no floor would not
+compile. The trigger is that change.
+
+**`db:reembed --check` and `--relabel` (low, release ergonomics).** Closing the window between
+migrating and deploying means reading the report and, if it lists unlabeled rows, running `0011`'s
+`UPDATE` by hand. `--check` would exit 1 when the report finds anything, and `--relabel` would run
+the classifier again for unlabeled rows only, so the release step becomes one command. Worth it
+when a backfill next reopens the window.
+
+**A searchable count per document (low, ADR 062 accepts the gap).** A partly unreadable workspace
+lists every `ready` document in its refusal panel. `listDocuments` could count chunks holding the
+configured model's vectors beside the embedded count, so a row can say it is not searchable yet and
+the panel can leave it out. The trigger is a change of model while readers are present.
+
+**The operator line, rate-gated and checked (low).** A mismatched deployment logs `Unreadable
+embeddings:` once per refused question. A named helper could gate it with `atMostEvery`, and a
+repository test asserting no other server-side `console` call under `app/` and `lib/` would turn
+"never written to logs" from a habit into a check.
+
+**`.env.example`, three more lines (low, comments only).** Beside the `DATABASE_URL_UNPOOLED` entry
+above: the `AUTH_URL` note says `trustHost` is off in production, which `auth.ts` has not done since
+the 6 August outage; the embeddings heading still says "free tier", which ADR 025 ended; and
+`USAGE_LIMITS` and `PLAN_LIMITS` appear neither in the list nor under "Deliberately absent". One pass,
+with the entry above.
+
+Then the application review's, of code this release did not touch:
+
+**A failed document shows the raw error (medium, reader-facing).** `markFailed` stores the
+exception's message, so a reader can meet an environment variable's name or a provider's quota text
+under a filename, beside a Retry that cannot help. Ingestion needs what the chat route already has:
+a few reasons written for readers, chosen by error class, with Retry offered only where it can work.
+
+**A failed delete or retry says nothing (medium, an unhappy path).** `remove` in
+`workspace-shell.tsx` never reads the response, and a rejected `fetch` there or in `retry` goes
+unhandled. Every other async surface on the page has an error state.
+
+**Guest limits key on a whole IPv6 address (low, the global cap bounds it).** A residential /64 lets
+a script rotate addresses past the per-address minute and day caps, and past the sign-in link
+throttle, which spends money per send. Truncating IPv6 to its /64 before hashing closes it.
+
+**Usage is recorded after the turn is stored (low).** In `onFinish`, `recordUsage` runs after
+`persist`, so a failed write skips the meter, which is written never to throw for exactly that
+reason. One way `appendMessages` fails is its own race: two turns finishing together on one
+conversation compute the same position. Record usage first, and take the position inside the insert.
+
+**Copy (low).** "1 passages · 1 pages" has no singular; the per-caller limit says "the demo" inside a
+reader's own workspace; the usage page writes "211 of 500k", one figure exact and one rounded.
+
+**Comments that stopped being true (low, comments only).** `proxy.ts`, `lib/auth/cookies.ts` and
+`lib/usage/enforce.ts` say the proxy runs on the Edge runtime, which Next 16's `proxy` does not; the
+decisions stand on their other reasons. `lib/limits/config.ts` says `PLAN_LIMITS=off` is how
+Playwright opts out, and nothing sets it. `lib/rag/chunking.ts` puts 600 passages between 266,609 and
+300,102 characters; two Markdown-to-PDF shapes reach 600 at about 248,000.
+
+**What the mutation score covers (low, a decision to write down).** `lib/ai/fake-embedder.ts` holds
+42 of the 107 survivors, mostly stopwords. `fake-chat-model.ts` is excluded as a test double, and
+excluding this one too would make the score describe the product. Separately, `lib/ai/rewrite.ts`,
+on the answer path, scores 80.52%.

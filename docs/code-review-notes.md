@@ -4429,3 +4429,150 @@ four, failing on the code-point version.
 - **Lesson**: **a claim about what a reader sees needs the page, not the report.** The harness asks
   questions in an order the interface does not offer, and the sentence described the harness. And a
   guard that reads a column checks only what that column distinguishes.
+
+## A validation the route never did, found in a dependency's changelog, 9 November 2026
+
+- **Issue**: Dependabot moved `ai` to 7.0.158, and the changelog for 7.0.155 said `streamText` no
+  longer validates messages against the `ModelMessage` schema. Checking what the chat route validated
+  itself found almost nothing: `parseMessages` asked for a `role` and a `parts` array, plus the size
+  bounds. `convertToModelMessages` passes on whatever arrives — a `system` turn as a second system
+  prompt, a `file` part as model input that `MAX_TOTAL_CHARS`, which counts text, never counted (a
+  URL part is downloaded server-side; the SDK blocks private addresses). The removed check would not
+  have stopped either, since both are valid `ModelMessage`s. The page sends neither, so no test did.
+
+- **Fix**: `parseMessages` moved to `lib/ai/request-bounds.ts` and returns the turns reduced to text.
+  A turn that is neither `user` nor `assistant`, or a question with any other part, gets a 400; an
+  assistant turn's tool, reasoning and data parts are dropped, because a live conversation sends them
+  back. The route keeps no other copy of the messages, so the model, the rewrite and the bounds read
+  the same text. The two new route tests fail against the old route, and the module scores 100% under
+  mutation.
+
+- **Lesson**: **a check inherited from a dependency is not one you own**, and this one was not even
+  the check it seemed: the layer that went away validated shape, not trust. What to ask of a request
+  body is what reaches the model, not whether it parses. And a suite written from the client's side
+  sends only what the client sends; at a trust boundary the inputs worth testing are the ones the page
+  never produces.
+
+## A contrast claim nobody measured, 9 November 2026
+
+- **Issue**: two entries above say `text-muted-foreground` on `bg-muted` is "a designed pair that
+  passes", one of them after six axe scans stayed green. None of those scans held muted text on the
+  bubble, and the pair is 4.34:1 in the light theme, under AA's 4.5:1: shadcn's `oklch(0.556 0 0)`
+  on `oklch(0.97 0 0)`. The refusal panel's paragraphs and the "Searched for" line sit exactly there.
+  The first axe scan of a refusal panel, in the new end-to-end test for the mismatch panel, failed on
+  it, and the existing panel failed the same way.
+
+- **Fix**: `--muted-foreground` darkened to `oklch(0.53 0 0)`: 4.84:1 on the bubble and 5.28:1 on
+  white, the move `--destructive` had already made. A scan of the demo's refusal panel joins the axe
+  suite in both themes; with the old token it fails in light.
+
+- **Lesson**: **a contrast claim is a number, and for a neutral grey in OKLCH it takes one line to
+  compute**: luminance is L³. Both entries reasoned from what axe would say rather than from what it
+  had scanned. "axe clean" covers the pages scanned, and no scanned page held this pair — so the note
+  warning that axe is a lower bar than it sounds fell under that same bar.
+
+## A refusal that named its cause in the panel and not in the sentence, 10 November 2026
+
+- **Issue**: the 1.13.0 release review found that a mismatch still opened with "I couldn't find
+  anything relevant to that in the documents I can search", the claim ADR 062 rejects because nothing
+  was compared, and then showed a panel saying nothing could be searched. The release made the
+  panel's copy exhaustive over the reasons; the sentence above it stayed one constant for all three.
+  Copy puts that sentence alone on the clipboard, and `messages.content` stored it against a
+  `refusal_reason` that said otherwise. The route test checked the streamed and stored reason, never
+  the text.
+
+- **Fix**: `REFUSAL_REPLIES`, a `Record<RefusalReason, string>` beside the constant, read by the
+  route's stream and its `persist` and by local mode's transport. A mismatch says "I couldn't search
+  the documents here for that."; the other two reasons keep the sentence they had. A fourth reason
+  now fails to compile in the sentence as it already did in the panel. The route test asserts the
+  streamed and stored text, and fails against the old route; the end-to-end test asserts the old
+  sentence is gone.
+
+- **Lesson**: **a new member of a union is a question for every reader of the old value, not only
+  the one being designed.** The panel was made exhaustive because it was the thing being built; the
+  sentence was a constant, and a constant cannot fail to be exhaustive, so nothing asked. A test that
+  asserts the reason and not what the reader sees has tested the page's model, not the page.
+
+## A repair that could not repair its own failure, 11 November 2026
+
+- **Issue**: the 1.13.0 release review ran `pnpm db:reembed --apply` with the configured embedder
+  failing. It printed "10 discarded and re-embedded." when nothing had been: the exit code was right
+  and the sentence above it untrue. The document ended `failed`, with no vectors and the raw provider
+  error on the reader's page. With the configuration fixed, a second run re-embedded 0 documents and
+  exited 0, because the plan reads stored vectors and a discarded one is not stored. A rate limit
+  halfway did the same to the rest of a document: everything still stored was the configured
+  model's, so the plan counted nothing foreign.
+
+- **Fix**: `--apply` re-embeds in place. `reembedFromOtherModels` selects the vectors the configured
+  model did not write, embeds them, and writes each over the old one with its label, a batch at a
+  time, leaving status alone, with nothing discarded first. A failure leaves the rest
+  as they were, so the plan still lists them and the same command continues. Each document's line is
+  built from the result and the exit code from what is left. The integration test fails the
+  provider on the second batch: no chunk is left without a vector, the document stays `ready`, and a
+  second run finishes.
+
+- **Lesson**: **a repair should be safe to run again after it fails, and the way to get that is never
+  to pass through a state the next run cannot see.** Discard-then-rebuild had one; writing the new
+  value over the old has none. The false line had the same root: printed after the action rather
+  than from its result, it was the plan formatted as an outcome.
+
+## A log line a search for logging could not find, 11 November 2026
+
+- **Issue**: the 1.13.0 release review found that the mismatch notice was logged as
+  `console[notice.level](notice.line)`, which a search for `console.warn` or `console.error` across
+  `app` and `lib` does not match; the review's own search missed it. The privacy page promises that
+  document contents and message bodies are never written to logs, and the next audit of that promise
+  will be such a search. The same line named the workspace by id, which the request path the
+  platform logs beside it already carries. And ADR 062 called it the first line the server logs,
+  when `auth.ts` already logs one on the `createUser` path.
+
+- **Fix**: the route calls `console.error` or `console.warn` by name. `unreadableEmbeddingsNotice`
+  takes no workspace, and its line carries models and counts only; `db:reembed`'s report names the
+  workspaces. ADR 062's sentence now says what the line holds instead of claiming a first.
+
+- **Lesson**: **code that a promise depends on should be findable by the search that would audit
+  the promise.** A computed member call is ordinary JavaScript and invisible to grep, so the one line
+  that most needed checking against "never logged" was the one a check would skip. And before adding
+  an identifier to a log line, look at what the platform writes beside it: here the URL said it
+  first.
+
+## A window reasoned about for the constraint and not for the backfill, 11 November 2026
+
+- **Issue**: ADR 062 deferred its `CHECK` to 1.13.1 because a migration is applied before its deploy
+  and 1.12.0 keeps writing unlabeled vectors until 1.13.0 is serving. The same window applies to the
+  backfill in `0011`, and nothing covered it: an upload processed by 1.12.0 after the migration is
+  stored with no label, so 1.13.0 cannot retrieve it, while the document reads `ready` and the
+  refusal panel lists it as answerable. The 1.13.0 release review reproduced it on a database built
+  by 1.12.0's code. An instant rollback opens the same window.
+
+- **Fix**: the release closes it once the deploy is serving: `pnpm db:reembed` against production
+  and Preview, and if anything is listed `unlabeled`, `0011`'s `UPDATE` again, which reads only
+  unlabeled rows and re-embeds nothing. ADR 062 records the window, the rollback case, and that the
+  `CHECK` cannot be added while an unlabeled row remains.
+
+- **Lesson**: **a window found while reasoning about one statement of a migration applies to every
+  statement in it.** The constraint was deferred precisely because the old code keeps writing; the
+  backfill was treated as a one-time event, when it is a snapshot of the rows that existed when it
+  ran. Expand/contract has a gap on both sides, and the old release's writes land in it.
+
+## A privacy promise its own test could not check, 11 November 2026
+
+- **Issue**: a review of the shipped application found the privacy page saying, in bold, that
+  nothing about a guest is written to the database. One guest question to the demo wrote two
+  `usage_events` rows: the guest cookie's id, a hash of the network address, the workspace and the
+  token counts, kept 30 days. The terms page, the README, the `/account` guest notice and the account
+  API's response said the same in their own words. The terms page also said a signed-in demo
+  question is saved to the reader's history, which stopped being true at ADR 040, and a test pinned
+  that sentence under a comment describing the route as it was before. Both claims passed their
+  tests on every run, because the tests read the page.
+
+- **Fix**: each sentence now says what is stored: a guest's questions and answers, never; the usage
+  counts the demo's limits read, against the cookie's id and a hash of the address; and no demo
+  conversation, signed in or not. A new route test asks the demo one question as a guest and asserts
+  the two rows and no conversation; the signed-in demo test already asserted no conversation. The
+  page tests now pin only that the pages say what those route tests prove.
+
+- **Lesson**: **a claim about the system is pinned through the system, not through the page that
+  states it.** A test that reads the sentence protects the wording and cannot notice the code moving
+  underneath, which is how one sentence went wrong in both directions in turn. `e2e/cookies.spec.ts`
+  already worked this way, failing on any cookie the page does not name; rows needed the same.

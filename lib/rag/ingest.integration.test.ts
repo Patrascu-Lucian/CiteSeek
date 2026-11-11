@@ -9,18 +9,27 @@ import {
   cleanupTestRows,
   createTestClient,
   createTestWorkspace,
+  unitVector,
 } from "@/lib/db/test-helpers";
 import {
   countChunks,
   createQueuedDocument,
   findDocumentInWorkspace,
+  insertChunks,
   listDocuments,
+  setChunkEmbeddings,
   sumExtractedCharacters,
+  updateDocument,
 } from "@/lib/documents/queries";
 import { fakeEmbeddings } from "@/lib/ai/fake-embedder";
 
 import { type Embedder } from "./embeddings";
-import { processDocument, resumeEmbedding, sanitizeError } from "./ingest";
+import {
+  processDocument,
+  reembedFromOtherModels,
+  resumeEmbedding,
+  sanitizeError,
+} from "./ingest";
 
 /**
  * The pipeline against a real database.
@@ -56,6 +65,15 @@ async function queueDocument(workspaceId: string, filename: string) {
   });
 }
 
+/** Distinct across a document's chunks; an unlabeled vector reads as null. */
+async function modelsOf(documentId: string) {
+  const rows = await db
+    .selectDistinct({ model: chunks.embeddingModel })
+    .from(chunks)
+    .where(eq(chunks.documentId, documentId));
+  return rows.map((row) => row.model);
+}
+
 describe("processDocument — happy path", () => {
   it("takes a PDF from queued to ready", async () => {
     const workspace = await createTestWorkspace(db);
@@ -74,6 +92,22 @@ describe("processDocument — happy path", () => {
     expect(after!.error).toBeNull();
     expect(after!.pageCount).toBe(2);
     expect(after!.chunkCount).toBeGreaterThan(0);
+  });
+
+  it("labels every vector with the configured model", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "sample.pdf");
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      fixture("sample.pdf"),
+      "application/pdf",
+      { embedder: workingEmbedder },
+    );
+
+    // `vitest.integration.config.ts` configures the fake.
+    expect(await modelsOf(document.id)).toEqual(["fake"]);
   });
 
   it("stores chunk offsets that index into the stored text", async () => {
@@ -320,6 +354,91 @@ describe("resumeEmbedding", () => {
 
     const [summary] = await listDocuments(workspace.id);
     expect(summary!.embeddedChunkCount).toBe(summary!.chunkCount);
+    expect(await modelsOf(document.id)).toEqual(["fake"]);
+  });
+
+  it("re-embeds what another model wrote in place, leaving status alone", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "sample.pdf");
+    await processDocument(
+      workspace.id,
+      document.id,
+      fixture("sample.pdf"),
+      "application/pdf",
+      { embedder: workingEmbedder },
+    );
+    await db
+      .update(chunks)
+      .set({ embeddingModel: "gemini-embedding-001" })
+      .where(eq(chunks.documentId, document.id));
+
+    const result = await reembedFromOtherModels(workspace.id, document.id, {
+      embedder: workingEmbedder,
+    });
+
+    const [summary] = await listDocuments(workspace.id);
+    expect(result).toEqual({ reembedded: summary!.chunkCount, error: null });
+    expect(summary!.status).toBe("ready");
+    expect(summary!.embeddedChunkCount).toBe(summary!.chunkCount);
+    expect(await modelsOf(document.id)).toEqual(["fake"]);
+  });
+
+  it("loses nothing when the provider fails partway, and a second run finishes", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "long.pdf");
+    const inserted = await insertChunks(
+      workspace.id,
+      document.id,
+      Array.from({ length: 40 }, (_, chunkIndex) => ({
+        chunkIndex,
+        content: `Passage ${String(chunkIndex)} on the notice period.`,
+        charStart: chunkIndex * 40,
+        charEnd: chunkIndex * 40 + 30,
+        pageNumber: 1,
+      })),
+    );
+    await setChunkEmbeddings(
+      workspace.id,
+      document.id,
+      inserted.map((chunk) => ({ id: chunk.id, embedding: unitVector(0) })),
+      "gemini-embedding-001",
+    );
+    await updateDocument(workspace.id, document.id, { status: "ready" });
+
+    let firstBatch = 0;
+    const failsAfterFirstBatch: Embedder = (texts) => {
+      if (firstBatch > 0)
+        return Promise.reject(new Error("429 rate limit exceeded"));
+      firstBatch = texts.length;
+      return Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: 0 });
+    };
+
+    const first = await reembedFromOtherModels(workspace.id, document.id, {
+      embedder: failsAfterFirstBatch,
+    });
+
+    expect(firstBatch).toBeLessThan(40);
+    expect(first.reembedded).toBe(firstBatch);
+    expect(first.error).toMatch(/rate limit/i);
+
+    const stored = await db
+      .select({ model: chunks.embeddingModel, embedding: chunks.embedding })
+      .from(chunks)
+      .where(eq(chunks.documentId, document.id));
+    expect(stored.filter((row) => row.embedding === null)).toEqual([]);
+    expect(stored.filter((row) => row.model === "fake")).toHaveLength(
+      firstBatch,
+    );
+    const untouched = await findDocumentInWorkspace(workspace.id, document.id);
+    expect(untouched!.status).toBe("ready");
+    expect(untouched!.error).toBeNull();
+
+    const second = await reembedFromOtherModels(workspace.id, document.id, {
+      embedder: workingEmbedder,
+    });
+
+    expect(second).toEqual({ reembedded: 40 - firstBatch, error: null });
+    expect(await modelsOf(document.id)).toEqual(["fake"]);
   });
 
   it("reports that there is nothing to resume when parsing never succeeded", async () => {

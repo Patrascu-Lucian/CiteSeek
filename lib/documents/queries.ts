@@ -7,6 +7,8 @@ import {
   isNotNull,
   isNull,
   lt,
+  ne,
+  or,
   sql,
 } from "drizzle-orm";
 
@@ -15,6 +17,7 @@ import { isUuid } from "@/lib/db/uuid";
 import {
   type DocumentPageSpan,
   type DocumentStatus,
+  type EmbeddingModelId,
   chunks,
   documents,
   workspaces,
@@ -321,6 +324,7 @@ export async function setChunkEmbeddings(
   workspaceId: string,
   documentId: string,
   updates: readonly { id: string; embedding: number[] }[],
+  model: EmbeddingModelId,
 ): Promise<number> {
   if (updates.length === 0) return 0;
 
@@ -341,7 +345,8 @@ export async function setChunkEmbeddings(
   // drift, so the workspace check above stays on `documents`.
   const written = await db.execute(sql`
     UPDATE ${chunks}
-    SET ${sql.identifier("embedding")} = v.embedding
+    SET ${sql.identifier("embedding")} = v.embedding,
+      ${sql.identifier("embedding_model")} = ${model}
     FROM (VALUES ${sql.join(rows, sql`, `)}) AS v(id, embedding)
     WHERE ${chunks.id} = v.id AND ${chunks.documentId} = ${documentId}
     RETURNING ${chunks.id}
@@ -350,19 +355,44 @@ export async function setChunkEmbeddings(
   return written.length;
 }
 
-/** A chunk with no embedding cannot be retrieved, so "has documents" and "has
- * something to search" differ while one is processing. Called only on the empty
- * branch, to tell "nothing indexed" from "nothing matched". */
-export async function countSearchableChunks(workspaceId: string) {
-  const [row] = await db
-    .select({ total: count() })
+/** Embedded chunks per model, `null` for a vector stored before its model was. A
+ * chunk with no embedding cannot be retrieved, so a document still processing is
+ * not counted. For the empty branch only, to tell "nothing indexed", "nothing
+ * from this model" and "nothing matched" apart. */
+export async function countEmbeddedChunksByModel(workspaceId: string) {
+  return db
+    .select({ model: chunks.embeddingModel, chunks: count() })
     .from(chunks)
     .innerJoin(documents, eq(chunks.documentId, documents.id))
     .where(
       and(eq(documents.workspaceId, workspaceId), isNotNull(chunks.embedding)),
-    );
+    )
+    .groupBy(chunks.embeddingModel);
+}
 
-  return row?.total ?? 0;
+/** What `db:reembed --apply` replaces in place: vectors `model` did not write,
+ * unlabeled ones included. Not chunks with no vector — those are ingestion's,
+ * whose own query never selects an embedded chunk (ADR 062). */
+export async function listChunksFromOtherModels(
+  workspaceId: string,
+  documentId: string,
+  model: EmbeddingModelId,
+  limit: number,
+) {
+  return db
+    .select({ id: chunks.id, content: chunks.content })
+    .from(chunks)
+    .innerJoin(documents, eq(chunks.documentId, documents.id))
+    .where(
+      and(
+        eq(chunks.documentId, documentId),
+        eq(documents.workspaceId, workspaceId),
+        isNotNull(chunks.embedding),
+        or(isNull(chunks.embeddingModel), ne(chunks.embeddingModel, model)),
+      ),
+    )
+    .orderBy(asc(chunks.chunkIndex))
+    .limit(limit);
 }
 
 export async function countChunks(workspaceId: string, documentId: string) {

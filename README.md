@@ -63,6 +63,12 @@ Workspace scoping is enforced in the SQL of that vector search, not by filtering
 in JavaScript. Every query helper takes a workspace id; unscoped ones do not exist, and a
 cross-tenant integration test keeps it that way.
 
+The same query reads only vectors the configured embedding model wrote. Two models' vectors have
+the same width, so pgvector would compare them without complaint and every distance would be
+noise. A workspace whose vectors all came from another model is refused by name instead, and the
+server logs the counts
+([ADR 062](docs/decisions/062-a-vector-records-the-model-that-made-it.md)).
+
 ## Decisions worth defending
 
 Full reasoning for each is in [`docs/decisions/`](docs/decisions/); these are the ones that
@@ -86,11 +92,12 @@ shaped the product rather than the toolchain.
 | [039](docs/decisions/039-the-default-plan-s-ceiling.md)                      | Stock limits are not the rate limiter         | A limit that never heals has to name what to delete; one that heals only has to wait      |
 | [055](docs/decisions/055-a-second-signal-measured-and-not-shipped.md)        | Measure a second signal, then keep the floor  | Both signals lost to a tighter floor, and every question past it drew a refusal anyway    |
 | [058](docs/decisions/058-a-reply-that-declines-links-nothing.md)             | A declining reply links no marker             | A relevant marker in a partial answer goes with the rest: a rule, not a heuristic         |
+| [062](docs/decisions/062-a-vector-records-the-model-that-made-it.md)         | A vector records the model that made it       | A wrong provider once refused every question politely; the label now names the mismatch   |
 
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 168 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 175 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -489,8 +496,9 @@ the request at all.
 
 Guest conversations are not saved — a reload starts over. That is deliberate: persisting them
 would put an unbounded write path behind a public URL
-([ADR 013](docs/decisions/013-chat-persistence.md)). Signed-in conversations are kept, listed
-and addressable; the demo has no history because nothing about a guest is written down.
+([ADR 013](docs/decisions/013-chat-persistence.md)). Conversations in your own workspace are kept,
+listed and addressable; the demo keeps none, signed in or not, because nobody can write to it
+([ADR 040](docs/decisions/040-read-is-the-right-to-ask.md)).
 
 Workspaces have a single owner and cannot be shared. Roles and membership were planned once and
 deliberately cut: the structural claim they would make — authorization enforced
@@ -618,6 +626,11 @@ the second. Each remedy is
 measured with `pnpm eval:answers --conversation` against a rule committed before the run
 ([ADR 061](docs/decisions/061-a-decline-about-an-earlier-question.md)).
 
+**The model label becomes a rule in SQL in the next patch.** Each vector records the model that
+wrote it, in the same statement as the vector. The `CHECK` that a vector and its label are both
+present or both absent comes in v1.13.1, once no deployed version still writes a vector without
+one.
+
 The usage thresholds are still starting values. They need real traffic rather than another
 round of reasoning.
 
@@ -683,6 +696,7 @@ Database:
 docker compose up -d   # local Postgres 18 + pgvector
 pnpm db:migrate        # apply migrations (creates the vector extension too)
 pnpm db:seed           # demo workspace; idempotent
+pnpm db:reembed        # which vectors the configured model did not write; --apply repairs one scope
 pnpm db:generate       # emit a new migration after editing lib/db/schema.ts
 pnpm db:studio         # browse the database
 ```
@@ -725,12 +739,31 @@ let one file supply both the wrong answer and the confirmation of it.
 prints the `export SEED_HOST=…` line for the host it actually reached. In Neon's console it is
 the first segment of the connection hostname (`ep-…`), shown per branch under Connect.
 
-Four other commands guard themselves the same way, under their own names and from the shell only:
+Five other commands guard themselves the same way, under their own names and from the shell only:
 `pnpm eval:retrieval`, `pnpm eval:refusals` and `pnpm eval:answers` use `EVAL_HOST` (they ingest
-documents and spend quota) and `pnpm db:usage` uses `USAGE_HOST` (it reads, but reading the wrong branch gives a
-confident wrong answer). The
-schema commands above need neither — `db:check` changes nothing and prints the host it reached,
-and `db:migrate` carries no data and spends no quota.
+documents and spend quota), `pnpm db:reembed` uses `REEMBED_HOST` (it rewrites vectors), and
+`pnpm db:usage` uses `USAGE_HOST` (it reads, but reading the wrong branch gives a confident wrong
+answer). The schema commands above need none of them — `db:check` changes nothing and prints the
+host it reached, and `db:migrate` carries no data and spends no quota.
+
+**Changing the embedding provider or model is "switch, then re-embed"**
+([ADR 062](docs/decisions/062-a-vector-records-the-model-that-made-it.md)). Every stored vector
+records the model that wrote it and retrieval reads only the configured model's, so after the
+switch an old document is refused by name rather than searched wrongly. Read the report, then
+repair one scope at a time, with the provider exported as the deployment has it: the report
+compares against this shell's setting.
+
+```bash
+EMBEDDINGS_PROVIDER=google REEMBED_HOST='<endpoint>' DATABASE_URL_UNPOOLED='<url>' pnpm db:reembed
+EMBEDDINGS_PROVIDER=google REEMBED_HOST='<endpoint>' DATABASE_URL_UNPOOLED='<url>' pnpm db:reembed --apply --workspace=<id>
+```
+
+A repair writes each new vector over the old one, a batch at a time, so a run that fails partway
+leaves the rest as they were and the same command continues it.
+
+The same refusal appears when the _configuration_ changed by mistake, as when Preview ran the fake
+against real vectors. Then the fix is the variable, not the data: re-embedding would overwrite good
+vectors. The server logs `Unreadable embeddings:` with the counts either way.
 
 `pnpm test:integration` guards itself differently, because it is the one command with no correct
 answer on a remote host: it truncates `usage_events` outright, so no naming ceremony makes that
@@ -752,9 +785,9 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1194  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
-| Integration | 224   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
-| E2E         | 189   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
+| Unit        | 1280  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Integration | 243   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
+| E2E         | 193   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
 The pure core — `lib/rag`, `lib/ai` and `lib/local` — is held to ≥90% coverage, enforced in CI.
@@ -766,7 +799,7 @@ fixed and the missing tests added, it was 86.5%
 ([ADR 056](docs/decisions/056-mutation-testing-the-pure-core.md)). Re-measuring every release paid
 for itself on the next one: the only module added since, the clipboard form of an answer, scored
 **73.68%**, and three of its five survivors were one gap — a sort every test reached with a single
-element, which sorts the same however the comparator behaves. It is **89.09% of 1027 mutants** now,
+element, which sorts the same however the comparator behaves. It is **90.24% of 1148 mutants** now,
 and that module is at 100%.
 
 Deterministic fakes for both providers (`EMBEDDINGS_PROVIDER=fake`, `CHAT_PROVIDER=fake`)

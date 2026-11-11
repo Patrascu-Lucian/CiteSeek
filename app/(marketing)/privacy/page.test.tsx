@@ -165,11 +165,16 @@ describe("the privacy page", () => {
     expect(screen.getByText(/kept for 30 days/i)).toBeInTheDocument();
   });
 
-  it("says guests are never written to the database", () => {
+  // What is stored is pinned by the chat route's test "a guest asking the demo";
+  // this pins only that the page says it.
+  it("says a guest's questions are not stored, and what is", () => {
     render(<PrivacyPage />);
 
     expect(
-      screen.getByText(/nothing about a guest is written to the database/i),
+      screen.getByText(/questions and answers are never stored/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/guest cookie.s id and a hash of the network address/i),
     ).toBeInTheDocument();
   });
 
@@ -269,18 +274,17 @@ describe("the terms page", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not claim the demo stores nothing, which is false when signed in", () => {
-    // `route.ts` persists on `actorType === "user"` with no workspace check, so a
-    // signed-in reader's demo conversations are saved. The page said otherwise
-    // for four milestones because nothing pinned it.
+  // The behavior is pinned by the chat route's test "a signed-in reader of the
+  // read-only demo"; this pins only the sentence.
+  it("says no demo conversation is saved, signed in or not", () => {
     render(<TermsPage />);
 
     expect(
-      screen.getByText(/ask as a guest and nothing is stored/i),
+      screen.getByText(/not saved, signed in or not/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/saved to your own history, where only you can see it/i),
-    ).toBeInTheDocument();
+      screen.queryByText(/saved to your own history/i),
+    ).not.toBeInTheDocument();
   });
 
   it("carries the landmark the skip link points at", () => {
