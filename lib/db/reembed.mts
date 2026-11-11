@@ -12,9 +12,11 @@ import postgres from "postgres";
 // Explicit .ts extensions: type stripping does not rewrite specifiers.
 import {
   type EmbeddedRow,
+  outcomeLine,
   parseReembedArgs,
   planReembed,
-  reembedExitCode,
+  readingLine,
+  summarizeReembed,
 } from "./reembed-plan.ts";
 import {
   assertEmbedderWasChosen,
@@ -28,9 +30,7 @@ const args = parseReembedArgs(process.argv.slice(2));
 // Dynamic for the seed's reason: `lib/db/index.ts` needs DATABASE_URL first.
 const { embeddingModelFor, resolveEmbeddingsProvider } =
   await import("../ai/provider.ts");
-const { discardEmbeddingsFromOtherModels } =
-  await import("../documents/queries.ts");
-const { resumeEmbedding } = await import("../rag/ingest.ts");
+const { reembedFromOtherModels } = await import("../rag/ingest.ts");
 
 type Sql = ReturnType<typeof postgres>;
 
@@ -72,7 +72,7 @@ async function main() {
 
   // Named first: the two things that can be wrong.
   console.log(
-    `Reading ${target.hostname ?? "an unparseable DATABASE_URL"}, configured for ${configured}.`,
+    readingLine(target.hostname, configured, target.exported.provider),
   );
 
   assertHostWasChosen({
@@ -107,23 +107,22 @@ async function main() {
     );
 
     for (const document of inScope) {
-      const discarded = await discardEmbeddingsFromOtherModels(
+      const outcome = await reembedFromOtherModels(
         workspaceId,
         document.documentId,
-        configured,
       );
-      // Embeds exactly the chunks left without a vector, and labels them.
-      await resumeEmbedding(workspaceId, document.documentId);
-      console.log(
-        `  ${document.filename}: ${String(discarded)} discarded and re-embedded.`,
-      );
+      console.log(outcomeLine(document, outcome));
+      // The next document would meet the same failing embedder.
+      if (outcome.error !== null) break;
     }
 
-    process.exitCode = reembedExitCode(
+    const summary = summarizeReembed(
       await embeddedRows(sql, workspaceId),
       inScope.map((document) => document.documentId),
       configured,
     );
+    console.log(summary.line);
+    process.exitCode = summary.exitCode;
   } finally {
     await sql.end();
   }

@@ -127,20 +127,55 @@ export function planReembed(
   };
 }
 
-/** The seed's rule since 1.10.1: success only when every document in scope ends
- * `ready`, with every vector the configured model's. */
-export function reembedExitCode(
+/** "Configured" is this shell's answer. Unexported, it came from `.env.local` or
+ * the default, which is how a laptop reads production as entirely foreign. */
+export function readingLine(
+  hostname: string | null,
+  configured: string,
+  exported: string | undefined,
+): string {
+  const reading = `Reading ${hostname ?? "an unparseable DATABASE_URL"}, configured for ${configured}`;
+  return exported?.trim()
+    ? `${reading}.`
+    : `${reading} by .env.local or the default. A deployment may differ: export EMBEDDINGS_PROVIDER to read as it does.`;
+}
+
+/** From the result, not the intent: the line used to say "re-embedded" whether
+ * or not anything was. */
+export function outcomeLine(
+  document: Pick<AffectedDocument, "filename" | "foreign">,
+  outcome: { reembedded: number; error: string | null },
+): string {
+  const done = `  ${document.filename}: ${String(outcome.reembedded)} of ${String(document.foreign)} re-embedded`;
+  return outcome.error === null
+    ? `${done}.`
+    : `${done}, then: ${outcome.error}`;
+}
+
+/** Success is every vector in scope being the configured model's. Status is not
+ * judged: re-embedding in place never changes it, and retrieval does not read it. */
+export function summarizeReembed(
   after: readonly EmbeddedRow[],
   documentIds: readonly string[],
   configured: string,
-): 0 | 1 {
-  const repaired = documentIds.every((id) => {
-    const rows = after.filter((row) => row.documentId === id);
-    return (
-      rows.length > 0 &&
-      rows.every((row) => row.status === "ready" && row.model === configured)
-    );
-  });
+): { exitCode: 0 | 1; line: string } {
+  if (documentIds.length === 0)
+    return { exitCode: 0, line: "Nothing in this scope to re-embed." };
 
-  return repaired ? 0 : 1;
+  const left = after.filter(
+    (row) => documentIds.includes(row.documentId) && row.model !== configured,
+  );
+  const remaining = left.reduce((sum, row) => sum + row.chunks, 0);
+
+  if (remaining === 0)
+    return {
+      exitCode: 0,
+      line: `Every vector in ${String(documentIds.length)} document(s) is now ${configured}'s.`,
+    };
+
+  const documents = new Set(left.map((row) => row.documentId)).size;
+  return {
+    exitCode: 1,
+    line: `${String(remaining)} vector(s) in ${String(documents)} document(s) are still not ${configured}'s. Run the same command again to continue.`,
+  };
 }

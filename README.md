@@ -97,7 +97,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 171 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 172 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -749,12 +749,16 @@ host it reached, and `db:migrate` carries no data and spends no quota.
 ([ADR 062](docs/decisions/062-a-vector-records-the-model-that-made-it.md)). Every stored vector
 records the model that wrote it and retrieval reads only the configured model's, so after the
 switch an old document is refused by name rather than searched wrongly. Read the report, then
-repair one scope at a time:
+repair one scope at a time, with the provider exported as the deployment has it: the report
+compares against this shell's setting.
 
 ```bash
-REEMBED_HOST='<endpoint>' DATABASE_URL_UNPOOLED='<url>' pnpm db:reembed
-REEMBED_HOST='<endpoint>' DATABASE_URL_UNPOOLED='<url>' pnpm db:reembed --apply --workspace=<id>
+EMBEDDINGS_PROVIDER=google REEMBED_HOST='<endpoint>' DATABASE_URL_UNPOOLED='<url>' pnpm db:reembed
+EMBEDDINGS_PROVIDER=google REEMBED_HOST='<endpoint>' DATABASE_URL_UNPOOLED='<url>' pnpm db:reembed --apply --workspace=<id>
 ```
+
+A repair writes each new vector over the old one, a batch at a time, so a run that fails partway
+leaves the rest as they were and the same command continues it.
 
 The same refusal appears when the _configuration_ changed by mistake, as when Preview ran the fake
 against real vectors. Then the fix is the variable, not the data: re-embedding would overwrite good
@@ -780,7 +784,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1275  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1280  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 245   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 193   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
