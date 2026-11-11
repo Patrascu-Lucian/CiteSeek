@@ -21,7 +21,8 @@ export default async function ConversationPage({
   const { workspace, writable, signedIn, userId } =
     await requireWorkspace(workspaceId);
 
-  // Nothing is stored for a guest (ADR 013) or where nobody may write (ADR 040).
+  // No conversation is stored for a guest (ADR 013) or where nobody may write
+  // (ADR 040).
   if (!writable || !userId) notFound();
 
   const messages = await listChatMessages(workspace.id, userId, chatId);

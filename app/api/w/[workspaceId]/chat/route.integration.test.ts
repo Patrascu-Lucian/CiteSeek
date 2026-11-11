@@ -20,7 +20,12 @@ import {
 } from "@/lib/chats/queries";
 import { DEFAULT_PLAN_LIMITS } from "@/lib/limits/config";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
-import { type EmbeddingModelId, documents, usageEvents } from "@/lib/db/schema";
+import {
+  type EmbeddingModelId,
+  chats,
+  documents,
+  usageEvents,
+} from "@/lib/db/schema";
 import { PRODUCTION_USAGE_LIMITS } from "@/lib/usage/config";
 import { FAKE_ANSWER } from "@/lib/ai/fake-chat-model";
 import { NO_RELEVANT_PASSAGES_REPLY, REFUSAL_REPLIES } from "@/lib/ai/prompt";
@@ -833,7 +838,8 @@ describe("the saved-message cap", () => {
     expect(textOf(chunks)).toBe(FAKE_ANSWER);
   });
 
-  // Guests store nothing (ADR 013), so `chatId` is null and the cap is skipped.
+  // A guest's conversation is never stored (ADR 013), so `chatId` is null and
+  // the cap is skipped.
   it("does not apply to a guest, who has no stored conversation", async () => {
     const user = await createTestUser(db);
     const workspace = await createTestWorkspace(db, { ownerId: user.id });
@@ -940,7 +946,7 @@ describe("a signed-in reader of the read-only demo", () => {
   /* The backlog filed this as a button that should not render. It was the whole
      route: `resolveChatForTurn` creates, so *asking anything* left a conversation
      in a workspace badged read-only. ADR 040. */
-  it("gets an answer, and leaves nothing behind", async () => {
+  it("gets an answer, and no conversation is saved", async () => {
     const user = await createTestUser(db, "demo-reader");
     const demo = await findOrCreateDemoWorkspace(db);
     const { documentId } = await seedPassage(demo.id, PASSAGE);
@@ -954,6 +960,49 @@ describe("a signed-in reader of the read-only demo", () => {
     } finally {
       // The demo may be a real seeded workspace rather than a prefixed one, and
       // documents cascade from it rather than from the test user.
+      await db.delete(documents).where(eq(documents.id, documentId));
+    }
+  });
+});
+
+/* What the privacy page says a guest leaves, checked where it happens: the
+   page's own test can only read the sentence. */
+describe("a guest asking the demo", () => {
+  it("is counted against its id and a hash of the address, and saves no conversation", async () => {
+    const demo = await findOrCreateDemoWorkspace(db);
+    const { documentId } = await seedPassage(demo.id, PASSAGE);
+    currentActor.value = { type: "guest", id: "guest-asks-the-demo" };
+    const conversationsIn = async () =>
+      (
+        await db
+          .select({ total: count() })
+          .from(chats)
+          .where(eq(chats.workspaceId, demo.id))
+      )[0]!.total;
+    const before = await conversationsIn();
+
+    try {
+      const chunks = await readStream(await postChat(demo.id, PASSAGE));
+      expect(textOf(chunks)).toBe(FAKE_ANSWER);
+
+      const counted = await db
+        .select({
+          kind: usageEvents.kind,
+          actorType: usageEvents.actorType,
+          ipHash: usageEvents.ipHash,
+        })
+        .from(usageEvents)
+        .where(eq(usageEvents.actorId, "guest-asks-the-demo"));
+      expect(counted.map((row) => row.kind).sort()).toEqual([
+        "chat",
+        "embedding",
+      ]);
+      for (const row of counted) {
+        expect(row.actorType).toBe("guest");
+        expect(row.ipHash).toMatch(/^[0-9a-f]{64}$/);
+      }
+      expect(await conversationsIn()).toBe(before);
+    } finally {
       await db.delete(documents).where(eq(documents.id, documentId));
     }
   });

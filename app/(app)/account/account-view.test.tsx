@@ -107,7 +107,7 @@ describe("AccountView — a guest", () => {
       screen.getByRole("heading", { level: 2, name: /guest session/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/store nothing on the server/i),
+      screen.getByText(/has no account.*count of the requests/i),
     ).toBeInTheDocument();
   });
 

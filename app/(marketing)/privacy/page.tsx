@@ -100,13 +100,15 @@ export default function PrivacyPage() {
           </li>
         </ul>
         <p className="mt-3">
-          Guests are the exception: a guest session is a signed cookie, listed
+          Guests are different: a guest session is a signed cookie, listed
           below, and{" "}
           <strong>
-            nothing about a guest is written to the database at all
+            a guest&rsquo;s questions and answers are never stored
           </strong>
-          . A guest&rsquo;s conversation lives in their browser and is gone on
-          reload.
+          . The conversation lives in the browser and is gone on reload. What is
+          kept is the usage count above, against the guest cookie&rsquo;s id and
+          a hash of the network address, which is what the demo&rsquo;s limits
+          count.
         </p>
       </Section>
 
