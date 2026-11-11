@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   type EmbeddedRow,
+  outcomeLine,
   parseReembedArgs,
   planReembed,
-  reembedExitCode,
+  readingLine,
+  summarizeReembed,
 } from "./reembed-plan";
 
 const WORKSPACE = "11111111-1111-4111-8111-111111111111";
@@ -121,32 +123,88 @@ describe("planReembed", () => {
   });
 });
 
-describe("reembedExitCode", () => {
-  it("succeeds when every document in scope ends ready on the configured model", () => {
-    expect(reembedExitCode([row({})], ["d1"], "fake")).toBe(0);
-  });
-
-  it("fails when a document is left with another model's vectors", () => {
-    expect(
-      reembedExitCode(
-        [row({}), row({ model: "gemini-embedding-001" })],
-        ["d1"],
-        "fake",
-      ),
-    ).toBe(1);
-  });
-
-  it("fails when a document did not end ready", () => {
-    expect(reembedExitCode([row({ status: "failed" })], ["d1"], "fake")).toBe(
-      1,
+describe("readingLine", () => {
+  it("names the host and the model the shell chose", () => {
+    expect(readingLine("ep-a", "gemini-embedding-001", "google")).toBe(
+      "Reading ep-a, configured for gemini-embedding-001.",
     );
   });
 
-  it("fails when a document ended with nothing embedded at all", () => {
-    expect(reembedExitCode([], ["d1"], "fake")).toBe(1);
+  it("says when the model came from .env.local or the default, not the shell", () => {
+    expect(readingLine("ep-a", "fake", undefined)).toMatch(
+      /^Reading ep-a, configured for fake by \.env\.local or the default\. .*export EMBEDDINGS_PROVIDER/,
+    );
+    expect(readingLine("ep-a", "fake", " ")).toMatch(/by \.env\.local/);
   });
 
-  it("succeeds when there was nothing in scope to repair", () => {
-    expect(reembedExitCode([], [], "fake")).toBe(0);
+  it("still prints when the URL does not parse", () => {
+    expect(readingLine(null, "fake", "fake")).toBe(
+      "Reading an unparseable DATABASE_URL, configured for fake.",
+    );
+  });
+});
+
+describe("outcomeLine", () => {
+  const document = { filename: "handbook.pdf", foreign: 40 };
+
+  it("counts what was re-embedded", () => {
+    expect(outcomeLine(document, { reembedded: 40, error: null })).toBe(
+      "  handbook.pdf: 40 of 40 re-embedded.",
+    );
+  });
+
+  it("says how far a failed run got, and why it stopped", () => {
+    expect(
+      outcomeLine(document, { reembedded: 32, error: "429 rate limit" }),
+    ).toBe("  handbook.pdf: 32 of 40 re-embedded, then: 429 rate limit");
+  });
+});
+
+describe("summarizeReembed", () => {
+  it("succeeds when every vector in scope is the configured model's", () => {
+    expect(summarizeReembed([row({})], ["d1"], "fake")).toEqual({
+      exitCode: 0,
+      line: "Every vector in 1 document(s) is now fake's.",
+    });
+  });
+
+  it("fails, and says how many are left, when another model's vectors remain", () => {
+    expect(
+      summarizeReembed(
+        [
+          row({}),
+          row({ model: "gemini-embedding-001", chunks: 5 }),
+          row({ model: null, chunks: 2 }),
+        ],
+        ["d1"],
+        "fake",
+      ),
+    ).toEqual({
+      exitCode: 1,
+      line: "7 vector(s) in 1 document(s) are still not fake's. Run the same command again to continue.",
+    });
+  });
+
+  it("does not judge status, which re-embedding in place never changes", () => {
+    expect(
+      summarizeReembed([row({ status: "failed" })], ["d1"], "fake").exitCode,
+    ).toBe(0);
+  });
+
+  it("counts only the documents in scope", () => {
+    expect(
+      summarizeReembed(
+        [row({}), row({ documentId: "d2", model: "gemini-embedding-001" })],
+        ["d1"],
+        "fake",
+      ).exitCode,
+    ).toBe(0);
+  });
+
+  it("says so when there was nothing in scope", () => {
+    expect(summarizeReembed([], [], "fake")).toEqual({
+      exitCode: 0,
+      line: "Nothing in this scope to re-embed.",
+    });
   });
 });

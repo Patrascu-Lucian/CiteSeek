@@ -4492,3 +4492,26 @@ four, failing on the code-point version.
   the one being designed.** The panel was made exhaustive because it was the thing being built; the
   sentence was a constant, and a constant cannot fail to be exhaustive, so nothing asked. A test that
   asserts the reason and not what the reader sees has tested the page's model, not the page.
+
+## A repair that could not repair its own failure, 11 November 2026
+
+- **Issue**: the 1.13.0 release review ran `pnpm db:reembed --apply` with the configured embedder
+  failing. It printed "10 discarded and re-embedded." when nothing had been: the exit code was right
+  and the sentence above it untrue. The document ended `failed`, with no vectors and the raw provider
+  error on the reader's page. With the configuration fixed, a second run re-embedded 0 documents and
+  exited 0, because the plan reads stored vectors and a discarded one is not stored. A rate limit
+  halfway did the same to the rest of a document: everything still stored was the configured
+  model's, so the plan counted nothing foreign.
+
+- **Fix**: `--apply` re-embeds in place. `reembedFromOtherModels` selects the vectors the configured
+  model did not write, embeds them, and writes each over the old one with its label, a batch at a
+  time, leaving status alone, with nothing discarded first. A failure leaves the rest
+  as they were, so the plan still lists them and the same command continues. Each document's line is
+  built from the result and the exit code from what is left. The integration test fails the
+  provider on the second batch: no chunk is left without a vector, the document stays `ready`, and a
+  second run finishes.
+
+- **Lesson**: **a repair should be safe to run again after it fails, and the way to get that is never
+  to pass through a state the next run cannot see.** Discard-then-rebuild had one; writing the new
+  value over the old has none. The false line had the same root: printed after the action rather
+  than from its result, it was the plan formatted as an outcome.

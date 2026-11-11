@@ -81,6 +81,12 @@ chunks.**
   re-embed). Only the operator knows which. So the repair is a script, `pnpm db:reembed`, which
   reports by default and rewrites only a named scope; the page offers no action that rewrites data.
 
+↳ **Amended, 11 November 2026.** `--apply` re-embeds in place: it selects the vectors the configured
+model did not write, embeds them, and writes each over the old one with its label, a batch at a
+time, leaving document status alone. It used to discard them first and resume, and a provider
+failure then left a `failed` document with no vectors, which the next run's report, reading stored
+vectors only, could not see. Now a failure loses nothing and the same command continues.
+
 ## Consequences
 
 - **A change of provider or model is "switch, then re-embed".** Until a document is re-embedded it is
