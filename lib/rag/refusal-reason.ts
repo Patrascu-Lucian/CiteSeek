@@ -30,10 +30,11 @@ export type OperatorNotice = { level: "error" | "warn"; line: string };
 /**
  * One line for the operator when a workspace holds vectors retrieval cannot
  * read: an error when nothing is searchable, a warning when only part is. Models
- * and counts, never content. Null when every vector is the configured model's.
+ * and counts, never content, and no workspace: the request path the platform
+ * logs beside it already names one. Null when every vector is the configured
+ * model's.
  */
 export function unreadableEmbeddingsNotice(
-  workspaceId: string,
   counts: EmbeddedChunkCounts,
   configured: EmbeddingModelId,
 ): OperatorNotice | null {
@@ -49,6 +50,6 @@ export function unreadableEmbeddingsNotice(
 
   return {
     level: searchable === 0 ? "error" : "warn",
-    line: `Unreadable embeddings: workspace ${workspaceId}, configured ${configured} ${String(searchable)}, other ${stored}.`,
+    line: `Unreadable embeddings: configured ${configured} ${String(searchable)}, other ${stored}.`,
   };
 }

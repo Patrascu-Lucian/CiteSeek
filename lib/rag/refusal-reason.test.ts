@@ -60,15 +60,14 @@ describe("decideRefusalReason", () => {
 describe("unreadableEmbeddingsNotice", () => {
   it("says nothing when every vector is the configured model's", () => {
     expect(
-      unreadableEmbeddingsNotice("w1", [{ model: "fake", chunks: 3 }], "fake"),
+      unreadableEmbeddingsNotice([{ model: "fake", chunks: 3 }], "fake"),
     ).toBeNull();
-    expect(unreadableEmbeddingsNotice("w1", [], "fake")).toBeNull();
+    expect(unreadableEmbeddingsNotice([], "fake")).toBeNull();
   });
 
   it("ignores a model with no chunks", () => {
     expect(
       unreadableEmbeddingsNotice(
-        "w1",
         [
           { model: "fake", chunks: 3 },
           { model: "gemini-embedding-001", chunks: 0 },
@@ -81,20 +80,18 @@ describe("unreadableEmbeddingsNotice", () => {
   it("is an error naming models and counts when nothing is searchable", () => {
     expect(
       unreadableEmbeddingsNotice(
-        "w1",
         [{ model: "gemini-embedding-001", chunks: 24 }],
         "fake",
       ),
     ).toEqual({
       level: "error",
-      line: "Unreadable embeddings: workspace w1, configured fake 0, other gemini-embedding-001 24.",
+      line: "Unreadable embeddings: configured fake 0, other gemini-embedding-001 24.",
     });
   });
 
   it("is a warning when part is searchable, listing every other model", () => {
     expect(
       unreadableEmbeddingsNotice(
-        "w1",
         [
           { model: "fake", chunks: 3 },
           { model: "gemini-embedding-001", chunks: 2 },
@@ -104,7 +101,7 @@ describe("unreadableEmbeddingsNotice", () => {
       ),
     ).toEqual({
       level: "warn",
-      line: "Unreadable embeddings: workspace w1, configured fake 3, other gemini-embedding-001 2, unlabeled 1.",
+      line: "Unreadable embeddings: configured fake 3, other gemini-embedding-001 2, unlabeled 1.",
     });
   });
 });

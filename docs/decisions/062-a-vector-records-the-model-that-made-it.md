@@ -74,8 +74,9 @@ chunks.**
   configured model, the refusal reason is `embedding_model_mismatch`, not `no_relevant_passages`.
   Both alternatives would be false: nothing was compared, so nothing "matched" or failed to, and the
   documents are `ready`, so they are not missing. The reader's copy names no provider, model or
-  count. The server logs those, the first log line this app's server writes, and runs no rewrite,
-  because a rewritten question cannot be compared with vectors from another model either.
+  count. The server logs those, in a line that names no workspace (the request path beside it in
+  the platform's log already does), and runs no rewrite, because a rewritten question cannot be
+  compared with vectors from another model either.
 - **Only the operator repairs it.** A mismatch is either a wrong configuration (1.9.1: fix the
   variable, and re-embedding would destroy good vectors) or stale data (a deliberate change of model:
   re-embed). Only the operator knows which. So the repair is a script, `pnpm db:reembed`, which
