@@ -370,32 +370,6 @@ export async function countEmbeddedChunksByModel(workspaceId: string) {
     .groupBy(chunks.embeddingModel);
 }
 
-/** Clears every vector in one document that `model` did not write, vector and
- * label in one statement, so `resumeEmbedding` re-embeds exactly those. Scoped
- * like `setChunkEmbeddings`, through the document. */
-export async function discardEmbeddingsFromOtherModels(
-  workspaceId: string,
-  documentId: string,
-  model: EmbeddingModelId,
-): Promise<number> {
-  const document = await findDocumentInWorkspace(workspaceId, documentId);
-  if (!document) return 0;
-
-  const discarded = await db
-    .update(chunks)
-    .set({ embedding: null, embeddingModel: null })
-    .where(
-      and(
-        eq(chunks.documentId, documentId),
-        isNotNull(chunks.embedding),
-        or(isNull(chunks.embeddingModel), ne(chunks.embeddingModel, model)),
-      ),
-    )
-    .returning({ id: chunks.id });
-
-  return discarded.length;
-}
-
 /** What `db:reembed --apply` replaces in place: vectors `model` did not write,
  * unlabeled ones included. Not chunks with no vector — those are ingestion's,
  * whose own query never selects an embedded chunk (ADR 062). */
