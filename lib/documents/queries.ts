@@ -396,6 +396,31 @@ export async function discardEmbeddingsFromOtherModels(
   return discarded.length;
 }
 
+/** What `db:reembed --apply` replaces in place: vectors `model` did not write,
+ * unlabeled ones included. Not chunks with no vector — those are ingestion's,
+ * whose own query never selects an embedded chunk (ADR 062). */
+export async function listChunksFromOtherModels(
+  workspaceId: string,
+  documentId: string,
+  model: EmbeddingModelId,
+  limit: number,
+) {
+  return db
+    .select({ id: chunks.id, content: chunks.content })
+    .from(chunks)
+    .innerJoin(documents, eq(chunks.documentId, documents.id))
+    .where(
+      and(
+        eq(chunks.documentId, documentId),
+        eq(documents.workspaceId, workspaceId),
+        isNotNull(chunks.embedding),
+        or(isNull(chunks.embeddingModel), ne(chunks.embeddingModel, model)),
+      ),
+    )
+    .orderBy(asc(chunks.chunkIndex))
+    .limit(limit);
+}
+
 export async function countChunks(workspaceId: string, documentId: string) {
   const [row] = await db
     .select({ total: count() })

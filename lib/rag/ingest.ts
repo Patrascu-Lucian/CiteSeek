@@ -5,6 +5,7 @@ import {
 import {
   countChunks,
   insertChunks,
+  listChunksFromOtherModels,
   listUnembeddedChunks,
   setChunkEmbeddings,
   sumExtractedCharacters,
@@ -269,6 +270,53 @@ export async function resumeEmbedding(
   } catch (error) {
     await markFailed(workspaceId, documentId, error);
     return { resumed: true, embeddingTokens };
+  }
+}
+
+/** `pnpm db:reembed --apply`'s path, never a reader's (ADR 062). Each vector is
+ * written over the old one and status is left alone, so a run that fails partway
+ * loses nothing and running it again continues — discarding first left a failed
+ * document with no vectors, which a second run could not see. */
+export async function reembedFromOtherModels(
+  workspaceId: string,
+  documentId: string,
+  options: Pick<IngestOptions, "embedder"> = {},
+): Promise<{ reembedded: number; error: string | null }> {
+  const provider = resolveEmbeddingsProvider();
+  const embedder = options.embedder ?? getEmbedder(provider);
+  const model = embeddingModelFor(provider);
+  let reembedded = 0;
+
+  try {
+    for (;;) {
+      const batch = await listChunksFromOtherModels(
+        workspaceId,
+        documentId,
+        model,
+        EMBED_BATCH_SIZE,
+      );
+      if (batch.length === 0) break;
+
+      const { vectors } = await embedPassages(
+        batch.map((chunk) => chunk.content),
+        { embedder },
+      );
+
+      // Written with its label, so the next batch cannot select it again.
+      reembedded += await setChunkEmbeddings(
+        workspaceId,
+        documentId,
+        batch.map((chunk, index) => ({
+          id: chunk.id,
+          embedding: vectors[index]!,
+        })),
+        model,
+      );
+    }
+
+    return { reembedded, error: null };
+  } catch (error) {
+    return { reembedded, error: sanitizeError(error) };
   }
 }
 
