@@ -4554,3 +4554,25 @@ four, failing on the code-point version.
   statement in it.** The constraint was deferred precisely because the old code keeps writing; the
   backfill was treated as a one-time event, when it is a snapshot of the rows that existed when it
   ran. Expand/contract has a gap on both sides, and the old release's writes land in it.
+
+## A privacy promise its own test could not check, 11 November 2026
+
+- **Issue**: a review of the shipped application found the privacy page saying, in bold, that
+  nothing about a guest is written to the database. One guest question to the demo wrote two
+  `usage_events` rows: the guest cookie's id, a hash of the network address, the workspace and the
+  token counts, kept 30 days. The terms page, the README, the `/account` guest notice and the account
+  API's response said the same in their own words. The terms page also said a signed-in demo
+  question is saved to the reader's history, which stopped being true at ADR 040, and a test pinned
+  that sentence under a comment describing the route as it was before. Both claims passed their
+  tests on every run, because the tests read the page.
+
+- **Fix**: each sentence now says what is stored: a guest's questions and answers, never; the usage
+  counts the demo's limits read, against the cookie's id and a hash of the address; and no demo
+  conversation, signed in or not. A new route test asks the demo one question as a guest and asserts
+  the two rows and no conversation; the signed-in demo test already asserted no conversation. The
+  page tests now pin only that the pages say what those route tests prove.
+
+- **Lesson**: **a claim about the system is pinned through the system, not through the page that
+  states it.** A test that reads the sentence protects the wording and cannot notice the code moving
+  underneath, which is how one sentence went wrong in both directions in turn. `e2e/cookies.spec.ts`
+  already worked this way, failing on any cookie the page does not name; rows needed the same.

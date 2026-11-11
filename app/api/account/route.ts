@@ -23,7 +23,7 @@ export async function DELETE() {
     return NextResponse.json(
       {
         error:
-          "Guest sessions store nothing on the server, so there is no account to delete. Close the tab or clear cookies to end the session.",
+          "A guest session has no account to delete. Close the tab or clear cookies to end the session.",
       },
       { status: 400 },
     );

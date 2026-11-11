@@ -97,7 +97,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 174 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 175 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -496,8 +496,9 @@ the request at all.
 
 Guest conversations are not saved — a reload starts over. That is deliberate: persisting them
 would put an unbounded write path behind a public URL
-([ADR 013](docs/decisions/013-chat-persistence.md)). Signed-in conversations are kept, listed
-and addressable; the demo has no history because nothing about a guest is written down.
+([ADR 013](docs/decisions/013-chat-persistence.md)). Conversations in your own workspace are kept,
+listed and addressable; the demo keeps none, signed in or not, because nobody can write to it
+([ADR 040](docs/decisions/040-read-is-the-right-to-ask.md)).
 
 Workspaces have a single owner and cannot be shared. Roles and membership were planned once and
 deliberately cut: the structural claim they would make — authorization enforced
@@ -785,7 +786,7 @@ Playwright smoke suite all gate every pull request.
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
 | Unit        | 1280  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
-| Integration | 242   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
+| Integration | 243   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 193   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
 
