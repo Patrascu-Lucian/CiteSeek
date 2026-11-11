@@ -19,6 +19,7 @@ import {
   failStaleProcessing,
   findDocumentInWorkspace,
   insertChunks,
+  listChunksFromOtherModels,
   listDocuments,
   listUnembeddedChunks,
   setChunkEmbeddings,
@@ -365,6 +366,60 @@ describe("embedded chunks by model", () => {
     expect(await countEmbeddedChunksByModel(theirs.workspace.id)).toEqual([
       { model: "gemini-embedding-001", chunks: 1 },
     ]);
+  });
+
+  it("lists what another model wrote, unlabeled vectors included", async () => {
+    const { workspace, document, pending } = await fourChunks();
+    await setChunkEmbeddings(
+      workspace.id,
+      document.id,
+      [{ id: pending[0]!.id, embedding: unitVector(0) }],
+      "fake",
+    );
+    await setChunkEmbeddings(
+      workspace.id,
+      document.id,
+      [{ id: pending[1]!.id, embedding: unitVector(1) }],
+      "gemini-embedding-001",
+    );
+    await db
+      .update(chunks)
+      .set({ embedding: unitVector(2) })
+      .where(eq(chunks.id, pending[2]!.id));
+
+    const listed = await listChunksFromOtherModels(
+      workspace.id,
+      document.id,
+      "fake",
+      10,
+    );
+
+    // The labeled foreigner and the unlabeled one. Not the fake's own, and not
+    // the fourth, which has no vector and is ingestion's to fill.
+    expect(listed.map((chunk) => chunk.id)).toEqual([
+      pending[1]!.id,
+      pending[2]!.id,
+    ]);
+  });
+
+  it("lists nothing in another workspace's document", async () => {
+    const mine = await fourChunks();
+    const theirs = await fourChunks();
+    await setChunkEmbeddings(
+      theirs.workspace.id,
+      theirs.document.id,
+      [{ id: theirs.pending[0]!.id, embedding: unitVector(0) }],
+      "gemini-embedding-001",
+    );
+
+    expect(
+      await listChunksFromOtherModels(
+        mine.workspace.id,
+        theirs.document.id,
+        "fake",
+        10,
+      ),
+    ).toEqual([]);
   });
 
   it("counts only the workspace it is asked about", async () => {
