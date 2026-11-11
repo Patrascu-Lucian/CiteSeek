@@ -34,6 +34,13 @@ for (const theme of ["light", "dark"] as const) {
     await expect(refusal).toContainText(/cannot be searched right now/i);
     await expect(refusal.getByRole("link")).toHaveCount(0);
 
+    await expect(
+      page.getByText(/couldn't search the documents here/i),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/couldn't find anything relevant/i),
+    ).toHaveCount(0);
+
     expect(await violationsOn(page, "[data-refusal]")).toEqual([]);
   });
 }
