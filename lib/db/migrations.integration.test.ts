@@ -30,6 +30,10 @@ function statementsOf(file: string): string[] {
 const relabel = statementsOf("0011_a_vector_records_its_model.sql").find(
   (statement) => statement.startsWith('UPDATE "chunks"'),
 );
+const migration0012 = statementsOf("0012_a_vector_and_its_model_together.sql");
+const preflight = migration0012.find((statement) =>
+  statement.startsWith("DO $$"),
+);
 
 const { client } = createTestClient();
 
@@ -103,5 +107,39 @@ describe("migration 0011's relabel", () => {
 
     expect(labels).toEqual([EMBEDDING_MODEL_ID, "fake", null, null, null]);
     expect(again).toBe(0);
+  });
+});
+
+describe("migration 0012", () => {
+  it("relabels with 0011's statement, verbatim", () => {
+    expect(migration0012).toContain(relabel);
+  });
+
+  it("labels what it can, then lets a table through where every vector has its model", async () => {
+    const rows = [
+      { embedding: geminiShaped },
+      { embedding: fakeShaped, model: "fake" },
+      { embedding: null },
+    ];
+
+    await expect(
+      withShadowChunks(rows, async (sql) => {
+        await sql.unsafe(relabel!);
+        await sql.unsafe(preflight!);
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("refuses, with a sentence, while a vector and its model still disagree", async () => {
+    const rows = [{ embedding: positiveWithoutZeros }, { embedding: null }];
+
+    await expect(
+      withShadowChunks(rows, async (sql) => {
+        await sql.unsafe(relabel!);
+        await sql.unsafe(preflight!);
+      }),
+    ).rejects.toThrow(
+      /^1 chunk\(s\) hold a vector without its model.*db:reembed/,
+    );
   });
 });
