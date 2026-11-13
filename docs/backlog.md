@@ -631,6 +631,10 @@ new tab could only render the same extracted text one navigation further away.
   currently stops a deploy landing against an unmigrated database. Each of those has to be rebuilt
   or given up, and giving up preview deploys is the one that would be felt daily.
 
+  ↳ **Smaller than stated, 13 November 2026.** No pull request gets a Preview now: Vercel builds
+  production alone, and a Preview is deployed by hand when one is wanted, as for a release's smoke
+  test (ADR 006). Giving preview deploys up would be felt at a release, not daily.
+
   Middle options worth pricing before jumping: Railway, Render or Fly.io keep push-to-deploy and EU
   regions at roughly $5/month, and Supabase has a free tier with pgvector. Cheaper than Vercel Pro,
   more managed than a bare VPS.
