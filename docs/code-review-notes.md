@@ -4596,3 +4596,20 @@ four, failing on the code-point version.
   was true of the code, and the copy came from a setting outside it. The smoke test found it only
   because the copy happened to be one migration behind. A list of where data lives has to include
   what the platform does on its own.
+
+## An ADR that contradicted an older one, 13 November 2026
+
+- **Issue**: ADR 063 recorded that every Preview reads `preview/develop` and that local development
+  reads `dev`. ADR 006, unamended, still said Preview points at `dev`, and production at a Neon
+  branch named `main`. The review of ADR 063 checked each of its claims against Neon and Vercel,
+  and searched no other decision for the facts it changed. A backlog entry was stale the same way:
+  it priced leaving Vercel by the preview deploys per pull request this workflow reviews on, and
+  Vercel builds production alone, so no pull request gets one.
+
+- **Fix**: ADR 006 is amended to name the branches ADR 063 settled and to record that a Preview is
+  deployed by hand; the backlog entry says what that changes.
+
+- **Lesson**: **a decision that changes a fact supersedes every earlier statement of it.** Checking
+  a new record's claims proves the new record. Finding the old ones that now disagree takes a search
+  for the fact itself, here `dev` and "Preview" across `docs/decisions/`, not for the new record's
+  number.
