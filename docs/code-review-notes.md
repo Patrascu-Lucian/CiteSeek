@@ -4613,3 +4613,33 @@ four, failing on the code-point version.
   a new record's claims proves the new record. Finding the old ones that now disagree takes a search
   for the fact itself, here `dev` and "Preview" across `docs/decisions/`, not for the new record's
   number.
+
+## A deletion the database host could still undo, 13 November 2026
+
+- **Issue**: the privacy page promised account deletion "with no soft-delete and no recovery
+  window". The application keeps no such window, but Neon keeps six hours of history on the
+  production branch, and for six hours a restore from it would bring the deleted rows back. With
+  readers' documents in production, that was a false statement about their data, resting on a
+  setting the repository cannot show.
+
+- **Fix**: the privacy page and the terms say "no undo", which is what the application offers, and
+  the privacy page states the six hours and what they are for. Its header comment names this as the
+  one claim the repository cannot check, and a snapshot as what would break it.
+
+- **Lesson**: **"deleted" is a claim about every copy, and a host's restore window is a copy.**
+  Point-in-time history is a backup by another name, and its length is the honest answer to "when
+  is it gone?".
+
+## A policy changed under an old date, 13 November 2026
+
+- **Issue**: #526 rewrote what the privacy page and the terms say about guests and demo questions,
+  and moved neither page's "Last updated" line: the privacy page kept 14 September, the terms 5
+  August. A reader comparing dates would conclude nothing had changed. Found while correcting the
+  deletion sentence above.
+
+- **Fix**: both dates move with that correction.
+
+- **Lesson**: **a policy's date is part of what it claims.** A change of substance that leaves the
+  date says nothing changed. `git log -G` on the date line, against `git log` on the file, finds the
+  gap; `git log -S` cannot, because it counts occurrences, and a date edited in place leaves the
+  count where it was.
