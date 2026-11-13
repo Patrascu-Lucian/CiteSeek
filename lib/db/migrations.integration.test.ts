@@ -1,45 +1,62 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { inArray } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type postgres from "postgres";
+import { afterAll, describe, expect, it } from "vitest";
 
 import { fakeEmbedding } from "@/lib/ai/fake-embedder";
 import { EMBEDDING_MODEL_ID } from "@/lib/ai/provider";
 import { l2Normalize } from "@/lib/rag/vector";
 
-import { chunks, documents } from "./schema";
-import {
-  EMBEDDING_DIMENSIONS,
-  cleanupTestRows,
-  createTestClient,
-  createTestWorkspace,
-} from "./test-helpers";
+import { EMBEDDING_DIMENSIONS, createTestClient } from "./test-helpers";
 
-/* The statement as the migrator runs it, read from the file rather than copied:
-   a copy here would test itself. */
-const classifier = readFileSync(
-  join(
-    import.meta.dirname,
-    "..",
-    "..",
-    "drizzle",
-    "0011_a_vector_records_its_model.sql",
-  ),
-  "utf8",
-)
-  .split("--> statement-breakpoint")
-  .map((statement) => statement.trim())
-  .find((statement) => statement.startsWith('UPDATE "chunks"'));
+/** A migration's statements as the migrator runs them, read from the file rather
+ * than copied: a copy here would test itself. */
+function statementsOf(file: string): string[] {
+  return readFileSync(
+    join(import.meta.dirname, "..", "..", "drizzle", file),
+    "utf8",
+  )
+    .split("--> statement-breakpoint")
+    .map((statement) =>
+      statement
+        .split("\n")
+        .filter((line) => !line.startsWith("--"))
+        .join("\n")
+        .trim(),
+    );
+}
 
-const { client, db } = createTestClient();
+const relabel = statementsOf("0011_a_vector_records_its_model.sql").find(
+  (statement) => statement.startsWith('UPDATE "chunks"'),
+);
 
-beforeAll(() => cleanupTestRows(db));
+const { client } = createTestClient();
 
-afterAll(async () => {
-  await cleanupTestRows(db);
-  await client.end();
-});
+afterAll(() => client.end());
+
+/* The statements run verbatim against a temporary `chunks`: Postgres resolves the
+   name in the session's temporary schema first. Its rows, unlabeled vectors
+   included, are gone at commit and never reach the real table. */
+async function withShadowChunks<T>(
+  rows: readonly { embedding: number[] | null; model?: string }[],
+  run: (sql: postgres.TransactionSql) => Promise<T>,
+): Promise<T> {
+  return client.begin(async (sql) => {
+    await sql.unsafe(
+      "CREATE TEMP TABLE chunks (LIKE public.chunks INCLUDING DEFAULTS) ON COMMIT DROP",
+    );
+    for (const [chunkIndex, row] of rows.entries()) {
+      await sql`
+        insert into chunks (document_id, workspace_id, chunk_index, content,
+          char_start, char_end, embedding, embedding_model)
+        values (gen_random_uuid(), gen_random_uuid(), ${chunkIndex}, 'chunk', 0, 5,
+          ${row.embedding ? `[${row.embedding.join(",")}]` : null}::vector,
+          ${row.model ?? null})`;
+    }
+    return run(sql);
+  });
+}
 
 /** Mixed signs and no zeros, the shape measured on Gemini's vectors. */
 const geminiShaped = Array.from(
@@ -61,68 +78,30 @@ const positiveWithoutZeros = new Array<number>(EMBEDDING_DIMENSIONS).fill(
   1 / Math.sqrt(EMBEDDING_DIMENSIONS),
 );
 
-describe("migration 0011's classifier", () => {
+describe("migration 0011's relabel", () => {
   it("is in the migration file", () => {
-    expect(classifier).toBeDefined();
+    expect(relabel).toBeDefined();
   });
 
   it("labels a vector only when sign and sparsity agree, and only once", async () => {
-    const workspace = await createTestWorkspace(db, { label: "migration" });
-    const [document] = await db
-      .insert(documents)
-      .values({
-        workspaceId: workspace.id,
-        filename: "handbook.pdf",
-        mimeType: "application/pdf",
-        sizeBytes: 1024,
-      })
-      .returning();
-
-    const rows = {
-      gemini: geminiShaped,
-      fake: fakeShaped,
+    const rows = [
+      geminiShaped,
+      fakeShaped,
       negativeWithZeros,
       positiveWithoutZeros,
-      noVector: null,
-    };
-    const inserted = await db
-      .insert(chunks)
-      .values(
-        Object.values(rows).map((embedding, chunkIndex) => ({
-          workspaceId: workspace.id,
-          documentId: document!.id,
-          chunkIndex,
-          content: `chunk ${String(chunkIndex)}`,
-          embedding,
-          charStart: 0,
-          charEnd: 8,
-        })),
-      )
-      .returning({ id: chunks.id, chunkIndex: chunks.chunkIndex });
+      null,
+    ].map((embedding) => ({ embedding }));
 
-    await client.unsafe(classifier!);
+    const { labels, again } = await withShadowChunks(rows, async (sql) => {
+      await sql.unsafe(relabel!);
+      const labeled = await sql<{ model: string | null }[]>`
+        select embedding_model as model from chunks order by chunk_index`;
+      // Only unlabeled vectors are read, and an ambiguous one is never written.
+      const second = await sql.unsafe(relabel!);
+      return { labels: labeled.map((row) => row.model), again: second.count };
+    });
 
-    const labeled = await db
-      .select({ chunkIndex: chunks.chunkIndex, model: chunks.embeddingModel })
-      .from(chunks)
-      .where(
-        inArray(
-          chunks.id,
-          inserted.map((row) => row.id),
-        ),
-      );
-    const labelOf = (name: keyof typeof rows) =>
-      labeled.find((row) => row.chunkIndex === Object.keys(rows).indexOf(name))
-        ?.model;
-
-    expect(labelOf("gemini")).toBe(EMBEDDING_MODEL_ID);
-    expect(labelOf("fake")).toBe("fake");
-    expect(labelOf("negativeWithZeros")).toBeNull();
-    expect(labelOf("positiveWithoutZeros")).toBeNull();
-    expect(labelOf("noVector")).toBeNull();
-
-    // Only unlabeled vectors are read, and an ambiguous one is never written.
-    const again = await client.unsafe(classifier!);
-    expect(again.count).toBe(0);
+    expect(labels).toEqual([EMBEDDING_MODEL_ID, "fake", null, null, null]);
+    expect(again).toBe(0);
   });
 });
