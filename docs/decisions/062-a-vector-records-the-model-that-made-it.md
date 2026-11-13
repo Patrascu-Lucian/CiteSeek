@@ -88,6 +88,12 @@ time, leaving document status alone. It used to discard them first and resume, a
 failure then left a `failed` document with no vectors, which the next run's report, reading stored
 vectors only, could not see. Now a failure loses nothing and the same command continues.
 
+↳ **Amended, 13 November 2026.** The rule is now the database's. Migration `0012` runs 0011's
+relabel again, refuses with a sentence if any row's vector and label still disagree, then adds
+`CHECK ((embedding IS NULL) = (embedding_model IS NULL))`. A release older than 1.13.0 can no longer
+store a vector no search can read: its upload fails on the constraint, loudly, where it used to land
+unlabeled.
+
 ## Consequences
 
 - **A change of provider or model is "switch, then re-embed".** Until a document is re-embedded it is

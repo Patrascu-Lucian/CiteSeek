@@ -65,8 +65,8 @@ cross-tenant integration test keeps it that way.
 
 The same query reads only vectors the configured embedding model wrote. Two models' vectors have
 the same width, so pgvector would compare them without complaint and every distance would be
-noise. A workspace whose vectors all came from another model is refused by name instead, and the
-server logs the counts
+noise. A workspace whose vectors all came from another model is refused by name instead, the server
+logs the counts, and the database refuses a vector stored without its label
 ([ADR 062](docs/decisions/062-a-vector-records-the-model-that-made-it.md)).
 
 ## Decisions worth defending
@@ -97,7 +97,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 175 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 176 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -625,11 +625,6 @@ question asked, which neither reaches. A wording change left the first half as i
 the second. Each remedy is
 measured with `pnpm eval:answers --conversation` against a rule committed before the run
 ([ADR 061](docs/decisions/061-a-decline-about-an-earlier-question.md)).
-
-**The model label becomes a rule in SQL in the next patch.** Each vector records the model that
-wrote it, in the same statement as the vector. The `CHECK` that a vector and its label are both
-present or both absent comes in v1.13.1, once no deployed version still writes a vector without
-one.
 
 The usage thresholds are still starting values. They need real traffic rather than another
 round of reasoning.

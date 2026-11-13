@@ -4576,3 +4576,23 @@ four, failing on the code-point version.
   states it.** A test that reads the sentence protects the wording and cannot notice the code moving
   underneath, which is how one sentence went wrong in both directions in turn. `e2e/cookies.spec.ts`
   already worked this way, failing on any cookie the page does not name; rows needed the same.
+
+## A Preview database that was a copy of production, 13 November 2026
+
+- **Issue**: the 1.13.0 smoke test pushed a throwaway branch, and its build failed `db:check`
+  against a database one migration behind the release. The Neon integration had given that
+  branch's Preview a database of its own, branched from production: a full copy of readers'
+  documents, passages, accounts and conversations, which lasted as long as the branch. An account
+  deleted in production would have lived on in it, against the deletion the privacy page promises.
+  Nothing in the repository showed it: the integration copies whichever branch Neon marks as the
+  project's default.
+
+- **Fix**: the integration is gone, and every Preview uses `preview/develop`. It and `dev` began as
+  branches of production, and both were checked: each holds only the author's test accounts. A copy
+  of production is made by hand for a named purpose and deleted after it (ADR 063). The smoke
+  branch's copy went with its branch.
+
+- **Lesson**: **a platform default is a data flow nobody reviewed.** Every line of the privacy page
+  was true of the code, and the copy came from a setting outside it. The smoke test found it only
+  because the copy happened to be one migration behind. A list of where data lives has to include
+  what the platform does on its own.
