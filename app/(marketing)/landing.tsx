@@ -38,8 +38,8 @@ const SHOT_ALT =
    Recall is at three passages, not the eight where it reads 1.00: precision
    there is 0.14. No reader counts, no zero for invented citations. */
 const PROOF = [
-  { value: "365 ms", label: "to the first source, deployed" },
-  { value: "0.85 s", label: "to the first token of prose" },
+  { value: "529 ms", label: "to the first source, deployed" },
+  { value: "1.09 s", label: "to the first token of prose" },
   { value: "0.95", label: "of answers found in the top three passages" },
   // Not "the pure core", which the README defines as including `lib/local`:
   // the mutation run covers retrieval and answering only.

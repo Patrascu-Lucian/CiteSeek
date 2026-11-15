@@ -55,8 +55,8 @@ that already exists. The model chooses which passages to cite; it cannot invent 
 citing.
 
 That ordering is also why the [Numbers](#numbers) below report two separate figures: the
-stream's first byte at ~365 ms is the citation payload, and the first token of prose at
-~0.85 s is the model. They are different events, and quoting only the smaller one would be
+stream's first byte at ~529 ms is the citation payload, and the first token of prose at
+~1.09 s is the model. They are different events, and quoting only the smaller one would be
 flattering and wrong.
 
 Workspace scoping is enforced in the SQL of that vector search, not by filtering afterward
@@ -97,7 +97,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 179 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 180 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -245,14 +245,14 @@ production, not that the ceiling has been stressed.
 **Time to first token** — the deployed app, as a guest, asking a question the demo document
 answers. Two figures, because only one of them is TTFT:
 
-| Measured from request start        | v1.3.1, by hand | v1.4.0, `perf:ttft` |
-| ---------------------------------- | --------------- | ------------------- |
-| First byte of the stream (sources) | 461 ms          | 365 ms              |
-| **First token of the answer**      | 1.03 s          | 0.85 s              |
+| Measured from request start        | v1.3.1, by hand | v1.4.0, `perf:ttft` | v1.13.0, `perf:ttft` |
+| ---------------------------------- | --------------- | ------------------- | -------------------- |
+| First byte of the stream (sources) | 461 ms          | 365 ms              | 529 ms               |
+| **First token of the answer**      | 1.03 s          | 0.85 s              | 1.09 s               |
 
 The stream opens before the answering model is called: the citation payload is written first,
 as a fact about retrieval rather than a summary of what the model claimed. So a reader sees
-sources resolve at ~365 ms and prose begin at ~0.85 s.
+sources resolve at ~529 ms and prose begin at ~1.09 s.
 
 **Read that as a method change, not a speed-up.** An earlier run of `perf:ttft` published 502 ms
 and 1.03 s from the same deployment. Two faults produced the difference and a review of this
@@ -261,6 +261,16 @@ cold start — 1,893 ms on the run above, against a ~400 ms steady state — sat
 than ahead of it. The script now discards a warm-up and takes a real median, so the v1.4.0 column
 is the app and the v1.3.1 column is a hand measurement of unknown method. They are not a
 before-and-after.
+
+**And read the v1.13.0 column as a day as much as a release.** It is
+[`eval/ttft.md`](eval/ttft.md), which `MEASURE_PUBLISH=1 pnpm perf:ttft` writes from twelve
+samples 16 s apart, under the demo's rate limit, and the landing page is checked against that
+file rather than this table. The same release read 397 ms and 0.95 s from the same machine on
+11 November, over four samples. The model's part, first token minus first byte, stayed between
+~0.50 and ~0.56 s in every run here, so what moves is what happens before the stream opens. One
+run is left out on purpose. On 13 November, with the machine saturated, it read 608 ms and
+1.17 s, and a rule fixed before the next run discarded it: re-run once, idle, and publish
+whatever that says.
 
 The script also refuses to time a refusal. A refusal streams in the same shape as an answer,
 deliberately, so the client has one code path — and no answering model runs on that branch, so
@@ -780,7 +790,7 @@ Playwright smoke suite all gate every pull request.
 
 | Layer       | Count | What it covers                                                                                                |
 | ----------- | ----- | ------------------------------------------------------------------------------------------------------------- |
-| Unit        | 1288  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
+| Unit        | 1289  | Chunking, extraction, embeddings, prompts, citation markers, usage policy, restored transcripts, local mode   |
 | Integration | 247   | Real Postgres: ingestion, retrieval, chat, plan caps under concurrency, conversation ownership, cascades      |
 | E2E         | 193   | Guest flow, route protection, ask → stream → cite → source panel, capacity states, plan caps, local mode, axe |
 | Model       | 3     | The real transformers.js rather than a mock: load, stream, abort. Runs when local mode changes                |
