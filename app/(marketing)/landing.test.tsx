@@ -199,13 +199,14 @@ describe("the strip of measured numbers", () => {
   /* The point of the strip is that every figure on it came from a run. A number
      typed here and nowhere else is the failure mode, so each is looked up in the
      report it was measured by. */
-  /* `eval/mutation.md` is written by the run itself, so the mutation figure is
-     checked against a tool's output rather than against prose typed beside the
-     page. The other three are still README rows. */
+  /* `eval/mutation.md` and `eval/ttft.md` are written by their runs, so the
+     mutation and speed figures are each checked against that file alone below.
+     Recall has no check of its own beyond this union. */
   const sources = [
     "README.md",
     join("eval", "report.md"),
     join("eval", "mutation.md"),
+    join("eval", "ttft.md"),
   ]
     .map((file) => readFileSync(join(root, file), "utf8"))
     .join("\n");
@@ -273,9 +274,34 @@ describe("the strip of measured numbers", () => {
     expect(published).toContain(total);
   });
 
+  it("takes the speed figures from the run, not from prose beside it", () => {
+    // Only the file the run writes, and only a run against the deployed app,
+    // which is what the strip's "deployed" claims.
+    const published = readFileSync(join(root, "eval", "ttft.md"), "utf8");
+
+    render(<Landing {...anonymous} />);
+
+    const labels = within(
+      screen.getByRole("region", { name: /what has been measured/i }),
+    ).getAllByRole("definition");
+    const figure = (label: RegExp) =>
+      labels.find((one) => label.test(one.textContent ?? ""))
+        ?.previousElementSibling?.textContent ?? "";
+
+    expect(published).toContain("against https://citeseek.app.");
+    // Bold on both sides, so a figure that was not found cannot pass as "".
+    expect(published).toContain(
+      `**${figure(/first source/i)}** to the first byte`,
+    );
+    expect(published).toContain(
+      `**${figure(/first token/i)}** to the first token`,
+    );
+  });
+
   it("claims no count of readers and no zero for invented citations", () => {
-    // `db:usage` says the readers are the author; `eval/refusals.md` measures
-    // refusals that do carry a marker, so neither claim would survive its source.
+    // A handful of readers, counted over 30 days, is no figure to quote
+    // (ADR 057), and `eval/refusals.md` measures refusals that do carry a
+    // marker, so a zero for invented citations would not survive its source.
     render(<Landing {...anonymous} />);
 
     const strip = screen.getByRole("region", {

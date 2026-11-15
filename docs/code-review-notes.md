@@ -4643,3 +4643,17 @@ four, failing on the code-point version.
   date says nothing changed. `git log -G` on the date line, against `git log` on the file, finds the
   gap; `git log -S` cannot, because it counts occurrences, and a date edited in place leaves the
   count where it was.
+
+## A slowdown blamed on load, measured against another day, 15 November 2026
+
+- **Issue**: a TTFT run from a saturated machine read 608 ms and 1.17 s, and the explanation given
+  was the load: about 210 ms on both figures, against a run of 397 ms and 0.95 s described as made
+  that morning. It was two days old. The idle re-run on the same day read 529 ms and 1.09 s, so the
+  load accounted for about 80 ms, and the rest was the same release on a different day.
+
+- **Fix**: the discard stands, because its rule was fixed before the re-run. Nothing published
+  blames a number on the load; the README states the spread between days instead.
+
+- **Lesson**: **a comparison across days measures the days too.** A confound is sized against a run
+  made under the same conditions without it, here the re-run, not against the nearest number at
+  hand.
