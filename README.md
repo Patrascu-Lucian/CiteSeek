@@ -97,7 +97,7 @@ shaped the product rather than the toolchain.
 ## Mistakes worth reading
 
 The decisions above are the ones that worked. [`docs/code-review-notes.md`](docs/code-review-notes.md)
-is the other half — 180 entries of _issue found → fix → lesson_, written when review caught a bug, a
+is the other half — 181 entries of _issue found → fix → lesson_, written when review caught a bug, a
 wrong assumption, or a better approach. Not all of them are the tooling's.
 
 Four that show the shape of it:
@@ -265,12 +265,13 @@ before-and-after.
 **And read the v1.13.0 column as a day as much as a release.** It is
 [`eval/ttft.md`](eval/ttft.md), which `MEASURE_PUBLISH=1 pnpm perf:ttft` writes from twelve
 samples 16 s apart, under the demo's rate limit, and the landing page is checked against that
-file rather than this table. The same release read 397 ms and 0.95 s from the same machine on
-11 November, over four samples. The model's part, first token minus first byte, stayed between
-~0.50 and ~0.56 s in every run here, so what moves is what happens before the stream opens. One
-run is left out on purpose. On 13 November, with the machine saturated, it read 608 ms and
-1.17 s, and a rule fixed before the next run discarded it: re-run once, idle, and publish
-whatever that says.
+file rather than this table. One run is left out on purpose. On 13 November it read 608 ms and
+1.17 s while the project's own test suite ran on the same machine, and a rule fixed before the
+next run discarded it: re-run once, idle, and publish whatever that says. From that machine the
+same release read 397 ms and 0.95 s on 11 November, over four samples, and on 17 November two
+later runs read 545 ms and 1.22 s, then 507 ms and 1.09 s. The model's part, first token minus
+first byte, ranged from ~0.54 to ~0.66 s across them: both halves move between days, and within
+one.
 
 The script also refuses to time a refusal. A refusal streams in the same shape as an answer,
 deliberately, so the client has one code path — and no answering model runs on that branch, so

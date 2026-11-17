@@ -4109,7 +4109,8 @@ on the answer path, scores 80.52%.
 ## Parked while publishing the speed figures, 15 November 2026
 
 **`perf:ttft` cannot tell a busy client from a slow server (low).** A run from a saturated machine
-read 608 ms and 1.17 s, about 80 ms over the idle re-run on both figures, and only the operator
-saying so caught it. The script could sample its own event-loop delay with
+read 608 ms and 1.17 s, about 80 ms over the idle re-run on both figures, with the project's own
+test suite running beside it, and only the operator saying so caught it. The script could sample
+its own event-loop delay with
 `perf_hooks.monitorEventLoopDelay` and print it in the report, so a starved client shows in the file
 it publishes; a congested network still would not. Worth doing before the next published run.

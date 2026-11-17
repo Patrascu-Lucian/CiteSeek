@@ -4657,3 +4657,18 @@ four, failing on the code-point version.
 - **Lesson**: **a comparison across days measures the days too.** A confound is sized against a run
   made under the same conditions without it, here the re-run, not against the nearest number at
   hand.
+
+## A measurement taken beside the project's own test suite, 17 November 2026
+
+- **Issue**: the first TTFT run for the 1.13.0 column read 608 ms and 1.17 s on a machine reported
+  as saturated, and was discarded without anyone asking what had saturated it. I asked. The
+  session's log showed the full unit suite with coverage, then a typecheck, running on the same
+  machine through the run's last minute and a half, started by the tooling after it had asked me
+  for the run.
+
+- **Fix**: the discard stands, and so does the idle re-run that replaced it. The README now says
+  what saturated the machine, and the tooling runs nothing heavy while a measurement is out.
+
+- **Lesson**: **a timing from a machine times everything on that machine, the tooling included.**
+  Asking for a measurement means stopping one's own work until the result is back, and a run
+  discarded as "saturated" is owed the question of what saturated it.
