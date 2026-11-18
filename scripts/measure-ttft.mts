@@ -7,13 +7,34 @@
  * Spends provider quota and counts against this project's own rate limiter, so
  * the default target is localhost and production has to be asked for by name.
  */
-import { base, guestSession, median } from "./measure/session.mts";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
+
+import { base, guestSession } from "./measure/session.mts";
+import {
+  sampleLine,
+  ttftFigures,
+  ttftReport,
+  type TtftSample,
+} from "./measure/ttft-report.mts";
 
 const samples = Number(process.env.MEASURE_SAMPLES ?? "4");
+// The guest limit (`lib/usage/config.ts`) counts provider calls, two per answered
+// question, so an unpaced run is refused after four or five. 16000 stays under it.
+const pauseMs = Number(process.env.MEASURE_PAUSE_MS ?? "0");
+// Opt-in, or a localhost run would replace the figures the landing page quotes.
+const publish = process.env.MEASURE_PUBLISH === "1";
 
 if (!Number.isInteger(samples) || samples < 1) {
   throw new Error(
     `MEASURE_SAMPLES must be a positive integer, not "${String(process.env.MEASURE_SAMPLES)}".`,
+  );
+}
+
+if (!Number.isInteger(pauseMs) || pauseMs < 0) {
+  throw new Error(
+    `MEASURE_PAUSE_MS must be a whole number of milliseconds, not "${String(process.env.MEASURE_PAUSE_MS)}".`,
   );
 }
 
@@ -84,12 +105,13 @@ async function once(): Promise<{ firstByte: number; firstToken: number }> {
   throw new Error("The stream closed before a token arrived.");
 }
 
-const runs: { firstByte: number; firstToken: number }[] = [];
+const outcomes: TtftSample[] = [];
+const warmedUp = process.env.MEASURE_WARMUP !== "0";
 
 // Discarded, not counted: the first request after a cold function measured
 // 1,639 ms against a 400 ms steady state, and a four-sample median cannot
 // absorb that. Set MEASURE_WARMUP=0 to keep it.
-if (process.env.MEASURE_WARMUP !== "0") {
+if (warmedUp) {
   const warm = await once().catch((error: unknown) => error as Error);
   console.log(
     `  warm-up (discarded): ${warm instanceof Error ? warm.message : `${warm.firstToken.toFixed(0)} ms`}`,
@@ -97,22 +119,37 @@ if (process.env.MEASURE_WARMUP !== "0") {
 }
 
 for (let i = 0; i < samples; i += 1) {
+  if (pauseMs > 0 && (warmedUp || i > 0)) await sleep(pauseMs);
+
   // Every sample is paid for. A rate-limit refusal on the fifth used to throw
   // away the four already bought, and the published figures were reassembled by
   // hand from the lines above.
-  try {
-    const run = await once();
-    runs.push(run);
-    console.log(
-      `  ${String(i + 1)}: first byte ${run.firstByte.toFixed(0)} ms, first token ${run.firstToken.toFixed(0)} ms`,
-    );
-  } catch (error) {
-    console.log(`  ${String(i + 1)}: ${(error as Error).message}`);
-  }
+  const outcome = await once().catch(
+    (error: unknown) => (error as Error).message,
+  );
+  outcomes.push(outcome);
+  console.log(`  ${String(i + 1)}: ${sampleLine(outcome)}`);
 }
 
-if (runs.length === 0) throw new Error("No sample completed.");
+const figures = ttftFigures(outcomes);
+
+if (!figures) throw new Error("No sample completed.");
 
 console.log(
-  `\n${base} over ${String(runs.length)} of ${String(samples)} samples — first byte ${median(runs.map((r) => r.firstByte)).toFixed(0)} ms, first token ${(median(runs.map((r) => r.firstToken)) / 1000).toFixed(2)} s`,
+  `\n${base} over ${String(figures.completed)} of ${String(samples)} samples — first byte ${figures.firstByte}, first token ${figures.firstToken}`,
 );
+
+if (publish) {
+  await writeFile(
+    join(import.meta.dirname, "..", "eval", "ttft.md"),
+    ttftReport({
+      day: new Date().toISOString().slice(0, 10),
+      base,
+      question: QUESTION,
+      warmedUp,
+      pauseMs,
+      samples: outcomes,
+    }),
+  );
+  console.log("Wrote eval/ttft.md.");
+}

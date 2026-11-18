@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -177,8 +178,8 @@ export const chunks = pgTable(
     /** 768, not the model default 3072: pgvector's HNSW/IVFFlat cap `vector` at
      * 2000. See ADR 002. */
     embedding: vector("embedding", { dimensions: 768 }),
-    /** Never `NOT NULL`: chunks are inserted before they are embedded, and a
-     * missing vector has no model (ADR 062). */
+    /** Never `NOT NULL`: chunks are inserted before they are embedded. The check
+     * below requires it exactly when there is a vector (ADR 062). */
     embeddingModel: text("embedding_model").$type<EmbeddingModelId>(),
     /** Citation anchors, stored at ingestion. Without the page and span there is
      * no way to open a source at the passage an answer came from. */
@@ -211,6 +212,10 @@ export const chunks = pgTable(
     index("chunks_content_fts_idx").using(
       "gin",
       sql`to_tsvector('english', ${table.content})`,
+    ),
+    check(
+      "chunks_embedding_and_model_together",
+      sql`(${table.embedding} IS NULL) = (${table.embeddingModel} IS NULL)`,
     ),
   ],
 );

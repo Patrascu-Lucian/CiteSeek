@@ -4576,3 +4576,99 @@ four, failing on the code-point version.
   states it.** A test that reads the sentence protects the wording and cannot notice the code moving
   underneath, which is how one sentence went wrong in both directions in turn. `e2e/cookies.spec.ts`
   already worked this way, failing on any cookie the page does not name; rows needed the same.
+
+## A Preview database that was a copy of production, 13 November 2026
+
+- **Issue**: the 1.13.0 smoke test pushed a throwaway branch, and its build failed `db:check`
+  against a database one migration behind the release. The Neon integration had given that
+  branch's Preview a database of its own, branched from production: a full copy of readers'
+  documents, passages, accounts and conversations, which lasted as long as the branch. An account
+  deleted in production would have lived on in it, against the deletion the privacy page promises.
+  Nothing in the repository showed it: the integration copies whichever branch Neon marks as the
+  project's default.
+
+- **Fix**: the integration is gone, and every Preview uses `preview/develop`. It and `dev` began as
+  branches of production, and both were checked: each holds only the author's test accounts. A copy
+  of production is made by hand for a named purpose and deleted after it (ADR 063). The smoke
+  branch's copy went with its branch.
+
+- **Lesson**: **a platform default is a data flow nobody reviewed.** Every line of the privacy page
+  was true of the code, and the copy came from a setting outside it. The smoke test found it only
+  because the copy happened to be one migration behind. A list of where data lives has to include
+  what the platform does on its own.
+
+## An ADR that contradicted an older one, 13 November 2026
+
+- **Issue**: ADR 063 recorded that every Preview reads `preview/develop` and that local development
+  reads `dev`. ADR 006, unamended, still said Preview points at `dev`, and production at a Neon
+  branch named `main`. The review of ADR 063 checked each of its claims against Neon and Vercel,
+  and searched no other decision for the facts it changed. A backlog entry was stale the same way:
+  it priced leaving Vercel by the preview deploys per pull request this workflow reviews on, and
+  Vercel builds production alone, so no pull request gets one.
+
+- **Fix**: ADR 006 is amended to name the branches ADR 063 settled and to record that a Preview is
+  deployed by hand; the backlog entry says what that changes.
+
+- **Lesson**: **a decision that changes a fact supersedes every earlier statement of it.** Checking
+  a new record's claims proves the new record. Finding the old ones that now disagree takes a search
+  for the fact itself, here `dev` and "Preview" across `docs/decisions/`, not for the new record's
+  number.
+
+## A deletion the database host could still undo, 13 November 2026
+
+- **Issue**: the privacy page promised account deletion "with no soft-delete and no recovery
+  window". The application keeps no such window, but Neon keeps six hours of history on the
+  production branch, and for six hours a restore from it would bring the deleted rows back. With
+  readers' documents in production, that was a false statement about their data, resting on a
+  setting the repository cannot show.
+
+- **Fix**: the privacy page and the terms say "no undo", which is what the application offers, and
+  the privacy page states the six hours and what they are for. Its header comment names this as the
+  one claim the repository cannot check, and a snapshot as what would break it.
+
+- **Lesson**: **"deleted" is a claim about every copy, and a host's restore window is a copy.**
+  Point-in-time history is a backup by another name, and its length is the honest answer to "when
+  is it gone?".
+
+## A policy changed under an old date, 13 November 2026
+
+- **Issue**: #526 rewrote what the privacy page and the terms say about guests and demo questions,
+  and moved neither page's "Last updated" line: the privacy page kept 14 September, the terms 5
+  August. A reader comparing dates would conclude nothing had changed. Found while correcting the
+  deletion sentence above.
+
+- **Fix**: both dates move with that correction.
+
+- **Lesson**: **a policy's date is part of what it claims.** A change of substance that leaves the
+  date says nothing changed. `git log -G` on the date line, against `git log` on the file, finds the
+  gap; `git log -S` cannot, because it counts occurrences, and a date edited in place leaves the
+  count where it was.
+
+## A slowdown blamed on load, measured against another day, 15 November 2026
+
+- **Issue**: a TTFT run from a saturated machine read 608 ms and 1.17 s, and the explanation given
+  was the load: about 210 ms on both figures, against a run of 397 ms and 0.95 s described as made
+  that morning. It was two days old. The idle re-run on the same day read 529 ms and 1.09 s, so the
+  load accounted for about 80 ms, and the rest was the same release on a different day.
+
+- **Fix**: the discard stands, because its rule was fixed before the re-run. Nothing published
+  blames a number on the load; the README states the spread between days instead.
+
+- **Lesson**: **a comparison across days measures the days too.** A confound is sized against a run
+  made under the same conditions without it, here the re-run, not against the nearest number at
+  hand.
+
+## A measurement taken beside the project's own test suite, 17 November 2026
+
+- **Issue**: the first TTFT run for the 1.13.0 column read 608 ms and 1.17 s on a machine reported
+  as saturated, and was discarded without anyone asking what had saturated it. I asked. The
+  session's log showed the full unit suite with coverage, then a typecheck, running on the same
+  machine through the run's last minute and a half, started by the tooling after it had asked me
+  for the run.
+
+- **Fix**: the discard stands, and so does the idle re-run that replaced it. The README now says
+  what saturated the machine, and the tooling runs nothing heavy while a measurement is out.
+
+- **Lesson**: **a timing from a machine times everything on that machine, the tooling included.**
+  Asking for a measurement means stopping one's own work until the result is back, and a run
+  discarded as "saturated" is owed the question of what saturated it.

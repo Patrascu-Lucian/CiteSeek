@@ -17,7 +17,8 @@ export const metadata: Metadata = {
 /**
  * Every claim here is checkable against the repository: the region in
  * `vercel.json`, the window in `RETENTION_DAYS`, the cascade in
- * `lib/users/deletion.ts`, "extracted text, not the file" in ADR 009.
+ * `lib/users/deletion.ts`, "extracted text, not the file" in ADR 009. One is not:
+ * the six hours are the Neon project's restore window, and a snapshot outlives it.
  *
  * The provider paragraph tracks the tier the deployment is actually on, and
  * changes in the same commit as the tier — never before it. A policy is the last
@@ -28,7 +29,7 @@ export default function PrivacyPage() {
     <main id="main" className={pageShell("2xl", "flex-1")}>
       <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
       <p className="text-muted-foreground mt-2 text-sm">
-        Last updated 14 September 2026. This describes what the application
+        Last updated 13 November 2026. This describes what the application
         actually does. If the two ever disagree, the application is what gets
         fixed — this page is a promise, not a disclaimer.
       </p>
@@ -259,11 +260,10 @@ export default function PrivacyPage() {
           embeddings. Deleting your account removes the account, its workspaces,
           every document in them, every conversation, every usage record
           belonging to it, and any unused sign-in link for its address — in one
-          operation, with no soft-delete and no recovery window. The one record
-          it cannot reach is the count of sign-in links requested, which is kept
-          against a hash of the network address rather than an account, and is
-          deleted on the same 30-day schedule regardless. You can do it yourself
-          from the{" "}
+          operation, with no soft-delete and no undo. The one record it cannot
+          reach is the count of sign-in links requested, which is kept against a
+          hash of the network address rather than an account, and is deleted on
+          the same 30-day schedule regardless. You can do it yourself from the{" "}
           <Link href="/account" className="underline">
             account page
           </Link>
@@ -273,6 +273,11 @@ export default function PrivacyPage() {
           It does not reach documents stored in your browser by local mode,
           which never left your machine for us to delete. Those are removed from
           the local mode page.
+        </p>
+        <p className="mt-3">
+          The database host keeps six hours of history, to restore the database
+          after a failure, so for six hours anything deleted can still be
+          recovered from it. After that it is gone.
         </p>
       </Section>
 

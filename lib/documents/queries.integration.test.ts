@@ -295,19 +295,7 @@ describe("embedded chunks by model", () => {
     ]);
   });
 
-  it("counts a vector stored without its model as null", async () => {
-    const { workspace, pending } = await fourChunks();
-    await db
-      .update(chunks)
-      .set({ embedding: unitVector(0) })
-      .where(eq(chunks.id, pending[0]!.id));
-
-    expect(await countEmbeddedChunksByModel(workspace.id)).toEqual([
-      { model: null, chunks: 1 },
-    ]);
-  });
-
-  it("lists what another model wrote, unlabeled vectors included", async () => {
+  it("lists what another model wrote", async () => {
     const { workspace, document, pending } = await fourChunks();
     await setChunkEmbeddings(
       workspace.id,
@@ -321,10 +309,6 @@ describe("embedded chunks by model", () => {
       [{ id: pending[1]!.id, embedding: unitVector(1) }],
       "gemini-embedding-001",
     );
-    await db
-      .update(chunks)
-      .set({ embedding: unitVector(2) })
-      .where(eq(chunks.id, pending[2]!.id));
 
     const listed = await listChunksFromOtherModels(
       workspace.id,
@@ -333,12 +317,8 @@ describe("embedded chunks by model", () => {
       10,
     );
 
-    // The labeled foreigner and the unlabeled one. Not the fake's own, and not
-    // the fourth, which has no vector and is ingestion's to fill.
-    expect(listed.map((chunk) => chunk.id)).toEqual([
-      pending[1]!.id,
-      pending[2]!.id,
-    ]);
+    // Not the fake's own, and not the two with no vector, which are ingestion's.
+    expect(listed.map((chunk) => chunk.id)).toEqual([pending[1]!.id]);
   });
 
   it("lists nothing in another workspace's document", async () => {

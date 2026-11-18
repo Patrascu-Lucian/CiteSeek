@@ -23,6 +23,7 @@ const PG_ERROR = {
   notNullViolation: "23502",
   foreignKeyViolation: "23503",
   uniqueViolation: "23505",
+  checkViolation: "23514",
 } as const;
 
 async function failureOf(
@@ -102,6 +103,7 @@ describe("chunks.embedding", () => {
         chunkIndex: 0,
         content: "The retrieval index is rebuilt nightly.",
         embedding: unitVector(0),
+        embeddingModel: "fake",
         pageNumber: 4,
         charStart: 120,
         charEnd: 160,
@@ -124,6 +126,7 @@ describe("chunks.embedding", () => {
         chunkIndex: 0,
         content: "wrong size",
         embedding: new Array<number>(512).fill(0),
+        embeddingModel: "fake",
         charStart: 0,
         charEnd: 10,
       }),
@@ -143,6 +146,7 @@ describe("chunks.embedding", () => {
         chunkIndex: 0,
         content: "near",
         embedding: unitVector(0),
+        embeddingModel: "fake",
         charStart: 0,
         charEnd: 4,
       },
@@ -152,6 +156,7 @@ describe("chunks.embedding", () => {
         chunkIndex: 1,
         content: "far",
         embedding: unitVector(500),
+        embeddingModel: "fake",
         charStart: 5,
         charEnd: 8,
       },
@@ -198,6 +203,7 @@ describe("referential integrity", () => {
       chunkIndex: 0,
       content: "orphan candidate",
       embedding: unitVector(1),
+      embeddingModel: "fake",
       charStart: 0,
       charEnd: 16,
     });
@@ -227,12 +233,58 @@ describe("referential integrity", () => {
         chunkIndex: 0,
         content: "dangling",
         embedding: unitVector(2),
+        embeddingModel: "fake",
         charStart: 0,
         charEnd: 8,
       }),
     );
 
     expect(failure.code).toBe(PG_ERROR.foreignKeyViolation);
+  });
+});
+
+describe("a vector and its model", () => {
+  it("refuses a vector written without its model, as 1.12.0 wrote them", async () => {
+    const { workspace, document } = await createWorkspaceWithDocument();
+    const [chunk] = await db
+      .insert(chunks)
+      .values({
+        workspaceId: workspace.id,
+        documentId: document.id,
+        chunkIndex: 0,
+        content: "awaiting a vector",
+        charStart: 0,
+        charEnd: 17,
+      })
+      .returning({ id: chunks.id });
+
+    const failure = await failureOf(() =>
+      db
+        .update(chunks)
+        .set({ embedding: unitVector(3) })
+        .where(eq(chunks.id, chunk!.id)),
+    );
+
+    expect(failure.code).toBe(PG_ERROR.checkViolation);
+    expect(failure.message).toMatch(/chunks_embedding_and_model_together/);
+  });
+
+  it("refuses a model with no vector to describe", async () => {
+    const { workspace, document } = await createWorkspaceWithDocument();
+
+    const failure = await failureOf(() =>
+      db.insert(chunks).values({
+        workspaceId: workspace.id,
+        documentId: document.id,
+        chunkIndex: 0,
+        content: "a label alone",
+        embeddingModel: "fake",
+        charStart: 0,
+        charEnd: 13,
+      }),
+    );
+
+    expect(failure.code).toBe(PG_ERROR.checkViolation);
   });
 });
 

@@ -69,6 +69,13 @@ therefore _fails_ if `DATABASE_URL` is merely absent. The tempting fix — one v
 to "Production and Preview" — is precisely what would let a pull-request preview write to
 production data.
 
+↳ **Amended, 13 November 2026.** The names moved; the rule did not. Production reads the Neon
+branch `production`, every Preview reads `preview/develop`, and local development reads `dev`
+([ADR 063](063-a-preview-database-is-never-a-copy-of-production.md)). Vercel builds production
+alone: its Ignored Build Step skips every other build, so a push to `develop` or a pull request
+deploys nothing, and a Preview is deployed by hand when one is wanted, as for a release's smoke
+test.
+
 ## Consequences
 
 - One config line bought a 66% latency reduction on database-backed routes. This is the

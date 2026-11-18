@@ -631,6 +631,10 @@ new tab could only render the same extracted text one navigation further away.
   currently stops a deploy landing against an unmigrated database. Each of those has to be rebuilt
   or given up, and giving up preview deploys is the one that would be felt daily.
 
+  ↳ **Smaller than stated, 13 November 2026.** No pull request gets a Preview now: Vercel builds
+  production alone, and a Preview is deployed by hand when one is wanted, as for a release's smoke
+  test (ADR 006). Giving preview deploys up would be felt at a release, not daily.
+
   Middle options worth pricing before jumping: Railway, Render or Fly.io keep push-to-deploy and EU
   regions at roughly $5/month, and Supabase has a free tier with pgvector. Cheaper than Vercel Pro,
   more managed than a bare VPS.
@@ -4101,3 +4105,12 @@ Playwright opts out, and nothing sets it. `lib/rag/chunking.ts` puts 600 passage
 42 of the 107 survivors, mostly stopwords. `fake-chat-model.ts` is excluded as a test double, and
 excluding this one too would make the score describe the product. Separately, `lib/ai/rewrite.ts`,
 on the answer path, scores 80.52%.
+
+## Parked while publishing the speed figures, 15 November 2026
+
+**`perf:ttft` cannot tell a busy client from a slow server (low).** A run from a saturated machine
+read 608 ms and 1.17 s, about 80 ms over the idle re-run on both figures, with the project's own
+test suite running beside it, and only the operator saying so caught it. The script could sample
+its own event-loop delay with
+`perf_hooks.monitorEventLoopDelay` and print it in the report, so a starved client shows in the file
+it publishes; a congested network still would not. Worth doing before the next published run.

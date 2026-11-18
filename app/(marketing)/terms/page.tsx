@@ -25,7 +25,7 @@ export default function TermsPage() {
         Terms of Service
       </h1>
       <p className="text-muted-foreground mt-2 text-sm">
-        Last updated 5 August 2026.
+        Last updated 13 November 2026.
       </p>
 
       <Section title="What this is">
@@ -110,7 +110,7 @@ export default function TermsPage() {
           <Link href="/account" className="underline">
             account page
           </Link>
-          . No confirmation email, no waiting period, no recovery.
+          . No confirmation email, no waiting period, no undo.
         </p>
       </Section>
     </main>

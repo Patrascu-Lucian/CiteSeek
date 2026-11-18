@@ -214,6 +214,12 @@ describe("the privacy page", () => {
     ).toBeInTheDocument();
   });
 
+  it("says how long the database host can still restore what was deleted", () => {
+    render(<PrivacyPage />);
+
+    expect(screen.getByText(/keeps six hours of history/i)).toBeInTheDocument();
+  });
+
   it("warns that browser storage is shared with anyone using the computer", () => {
     // The consequence a reader will not derive on their own: this data belongs
     // to the browser profile, not the account, so signing out leaves it there.

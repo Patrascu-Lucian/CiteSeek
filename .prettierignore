@@ -13,6 +13,8 @@ eval/refusals*.md
 eval/answers*.md
 # Same, from `pnpm test:mutation` — a score the landing page is checked against.
 eval/mutation.md
+# Same, from `MEASURE_PUBLISH=1 pnpm perf:ttft` — the landing page's speed figures.
+eval/ttft.md
 .next/
 out/
 build/
