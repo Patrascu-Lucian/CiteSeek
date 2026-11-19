@@ -660,7 +660,7 @@ re-embeds a document that was already paid for once.
 the spend cap on the Google account. An attacker cannot run up a bill.
 
 **The 800/600 split is already the answer to half of this.** A guest flood can consume at most 600,
-so 200 stay reserved for signed-in users and a bot cannot take down the author's own workspace
+so 200 stay reserved for signed-in users and a bot cannot take down my own workspace
 mid-interview. ADR 014 built that on purpose, and it holds.
 
 ### What is not covered
@@ -699,7 +699,7 @@ availability knowingly at risk from an attacker with rotating addresses.
 
 - **Traffic baseline, before the link goes anywhere.** `pnpm db:usage` against production:
   3 distinct guest addresses, 56 guest requests, 2 signed-in users, 20 requests, across 8 days.
-  Peak day 24 requests. Effectively all of it is the author, the tooling, and one cold reader.
+  Peak day 24 requests. Effectively all of it is me, the tooling, and one cold reader.
 
   Two things follow. There is **no organic traffic yet**, so any claim about how the product
   behaves under load is theory. And the usage caps are nowhere near binding — 100/day per guest
@@ -1179,7 +1179,7 @@ had cleared the floor, so there was no source 2. `linkCitationMarkers` did exact
 [ADR 011](decisions/011-retrieval-and-citation-strategy.md) requires and left the marker as
 literal text rather than linking it to nothing.
 
-Then the reader typed "that citation is not clickable" — and the reader was the author of the
+Then the reader typed "that citation is not clickable" — and the reader was me, the author of the
 guard. **The property held and communicated nothing.** A dead number is indistinguishable from
 a broken button, so the one moment the system catches a model inventing a source is the moment
 it looks most broken.
