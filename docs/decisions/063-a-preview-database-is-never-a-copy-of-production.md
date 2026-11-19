@@ -26,7 +26,7 @@ migration behind the release, so its build failed `db:check`. That copy was dele
 
 The integration is removed. Every Preview uses `preview/develop`, through Vercel's Preview database
 variables. It and `dev`, the local database, both began as branches of production, and both were
-checked when this was decided: each holds only the author's own test accounts. A copy of production
+checked when this was decided: each holds only my own test accounts. A copy of production
 is made by hand, for a named purpose, and deleted when that purpose is served.
 
 ## Consequences
