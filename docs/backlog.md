@@ -4033,11 +4033,16 @@ Two reviews ran before the 1.13.0 tag, one of the release and one of the applica
 What they found in the release's own work was fixed before the tag (#520 to #526). These were not,
 and each says why. First the release review's:
 
-**CI does not run on pushes to `develop` (medium, process).** `ci.yml` runs on pull requests and on
-`main`, so a merged combination is tested only as the base of the next pull request. #500, #501 and
-#512 merged within 19 seconds and were first tested together by the PR that followed. Either
-`push: branches: [develop]`, one run per merge, or "require branches to be up to date", a rebase per
-PR, which would have serialized those three. The trigger is the next batch of Dependabot merges.
+~~**CI does not run on pushes to `develop` (medium, process).**~~ `ci.yml` runs on pull requests
+and on `main`, so a merged combination is tested only as the base of the next pull request. #500,
+#501 and #512 merged within 19 seconds and were first tested together by the PR that followed.
+Either `push: branches: [develop]`, one run per merge, or "require branches to be up to date", a
+rebase per PR, which would have serialized those three. The trigger is the next batch of Dependabot
+merges.
+
+↳ **Done, 22 November 2026,** the first way, after #538 and #539 merged: `ci.yml` runs on every push
+to `develop`. In a burst of merges the newest run tests the combined tree, and the superseded runs
+show as cancelled.
 
 **The conversation harness does not go through `parseMessages` (low, holds today).**
 `scripts/eval-answers.mts` builds its history from text and data parts and calls
