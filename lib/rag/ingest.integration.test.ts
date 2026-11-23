@@ -25,6 +25,7 @@ import { fakeEmbeddings } from "@/lib/ai/fake-embedder";
 
 import { type Embedder } from "./embeddings";
 import {
+  MAX_CHUNKS_PER_DOCUMENT,
   processDocument,
   reembedFromOtherModels,
   resumeEmbedding,
@@ -217,6 +218,7 @@ describe("processDocument — the storage ceiling", () => {
     const after = await findDocumentInWorkspace(workspace.id, document.id);
     expect(after!.status).toBe("failed");
     expect(after!.error).toContain("storage limit");
+    expect(after!.failureReason).toBe("over_storage");
 
     // Why the check sits before chunking.
     expect(after!.contentText).toBeNull();
@@ -269,6 +271,93 @@ describe("processDocument — failures", () => {
     const stored = await findDocumentInWorkspace(workspace.id, document.id);
     expect(stored!.status).toBe("failed");
     expect(stored!.error).toMatch(/could not be read|no text/i);
+    expect(stored!.failureReason).toBe("unreadable");
+  });
+
+  it("records a PDF with no text layer as no_text", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "blank.pdf");
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      fixture("blank.pdf"),
+      "application/pdf",
+      { embedder: workingEmbedder },
+    );
+
+    const stored = await findDocumentInWorkspace(workspace.id, document.id);
+    expect(stored!.status).toBe("failed");
+    expect(stored!.failureReason).toBe("no_text");
+  });
+
+  it("records a document over the passage ceiling as too_large", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "long.txt");
+    // One passage per word at these sizes.
+    const words = "word ".repeat(MAX_CHUNKS_PER_DOCUMENT + 1);
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      new TextEncoder().encode(words),
+      "text/plain",
+      {
+        embedder: workingEmbedder,
+        chunkSizes: { target: 4, max: 8, overlap: 0 },
+      },
+    );
+
+    const stored = await findDocumentInWorkspace(workspace.id, document.id);
+    expect(stored!.status).toBe("failed");
+    expect(stored!.failureReason).toBe("too_large");
+    expect(stored!.contentText).toBeNull();
+  });
+
+  it("records an embedding failure with what a retry needs", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "sample.pdf");
+    const quotaSpent: Embedder = () =>
+      Promise.reject(new Error("Quota exceeded for the embedding model."));
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      fixture("sample.pdf"),
+      "application/pdf",
+      { embedder: quotaSpent },
+    );
+
+    const stored = await findDocumentInWorkspace(workspace.id, document.id);
+    expect(stored!.status).toBe("failed");
+    expect(stored!.failureReason).toBe("embedding_unavailable");
+    expect(stored!.error).toBe("Quota exceeded for the embedding model.");
+    expect(stored!.contentText).not.toBeNull();
+    expect(await countChunks(workspace.id, document.id)).toBeGreaterThan(0);
+  });
+
+  it("clears the reason when a run the watchdog failed finishes after all", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "sample.pdf");
+    const watchdogFiresMidRun: Embedder = async (texts) => {
+      await updateDocument(workspace.id, document.id, {
+        status: "failed",
+        failureReason: "interrupted",
+      });
+      return { vectors: fakeEmbeddings(texts), tokens: 0 };
+    };
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      fixture("sample.pdf"),
+      "application/pdf",
+      { embedder: watchdogFiresMidRun },
+    );
+
+    const stored = await findDocumentInWorkspace(workspace.id, document.id);
+    expect(stored!.status).toBe("ready");
+    expect(stored!.failureReason).toBeNull();
   });
 
   it("leaves the document failed rather than throwing", async () => {
@@ -341,6 +430,7 @@ describe("resumeEmbedding", () => {
     const failed = await findDocumentInWorkspace(workspace.id, document.id);
     expect(failed!.status).toBe("failed");
     expect(failed!.error).toMatch(/rate limit/i);
+    expect(failed!.failureReason).toBe("embedding_unavailable");
 
     // Retry with a working provider: no re-extraction, just the missing vectors.
     const result = await resumeEmbedding(workspace.id, document.id, {
@@ -351,6 +441,7 @@ describe("resumeEmbedding", () => {
     const recovered = await findDocumentInWorkspace(workspace.id, document.id);
     expect(recovered!.status).toBe("ready");
     expect(recovered!.error).toBeNull();
+    expect(recovered!.failureReason).toBeNull();
 
     const [summary] = await listDocuments(workspace.id);
     expect(summary!.embeddedChunkCount).toBe(summary!.chunkCount);

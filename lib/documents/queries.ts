@@ -15,6 +15,7 @@ import {
 import { db } from "@/lib/db";
 import { isUuid } from "@/lib/db/uuid";
 import {
+  type DocumentFailureReason,
   type DocumentPageSpan,
   type DocumentStatus,
   type EmbeddingModelId,
@@ -233,6 +234,7 @@ export async function updateDocument(
   patch: {
     status?: DocumentStatus;
     error?: string | null;
+    failureReason?: DocumentFailureReason | null;
     contentText?: string | null;
     pageSpans?: DocumentPageSpan[] | null;
     pageCount?: number | null;
@@ -423,6 +425,7 @@ export async function failStaleProcessing(): Promise<number> {
       status: "failed",
       error:
         "Processing stopped unexpectedly and did not finish. Try uploading this document again.",
+      failureReason: "interrupted",
       updatedAt: sql`now()`,
     })
     .where(

@@ -21,6 +21,7 @@ import {
 } from "./chunking";
 import { type Embedder, embedPassages, getEmbedder } from "./embeddings";
 import { UnreadableDocumentError, extractText } from "./extract";
+import { EmbeddingFailedError, failureReasonOf } from "./failure-reason";
 
 /**
  * Extraction → chunking → embedding → storage, inside `after()` and so in the
@@ -74,6 +75,7 @@ async function markFailed(
   await updateDocument(workspaceId, documentId, {
     status: "failed",
     error: sanitizeError(error),
+    failureReason: failureReasonOf(error),
   });
 }
 
@@ -154,6 +156,7 @@ export async function processDocument(
     await updateDocument(workspaceId, documentId, {
       status: "processing",
       error: null,
+      failureReason: null,
     });
 
     const extracted = await extractText(bytes, mimeType);
@@ -201,20 +204,26 @@ export async function processDocument(
       })),
     );
 
-    embeddingTokens += (
-      await embedPendingChunks(workspaceId, documentId, options)
-    ).tokens;
+    try {
+      embeddingTokens += (
+        await embedPendingChunks(workspaceId, documentId, options)
+      ).tokens;
+    } catch (cause) {
+      throw new EmbeddingFailedError(cause);
+    }
 
     const remaining = await listUnembeddedChunks(workspaceId, documentId, 1);
     if (remaining.length > 0) {
-      throw new Error(
+      throw new EmbeddingFailedError(
         "Some passages could not be embedded. Retry to finish processing this document.",
       );
     }
 
+    // Cleared again here: the watchdog can fail a slow run that then finishes.
     await updateDocument(workspaceId, documentId, {
       status: "ready",
       error: null,
+      failureReason: null,
     });
   } catch (error) {
     await markFailed(workspaceId, documentId, error);
@@ -248,15 +257,20 @@ export async function resumeEmbedding(
     await updateDocument(workspaceId, documentId, {
       status: "processing",
       error: null,
+      failureReason: null,
     });
 
-    embeddingTokens += (
-      await embedPendingChunks(workspaceId, documentId, options)
-    ).tokens;
+    try {
+      embeddingTokens += (
+        await embedPendingChunks(workspaceId, documentId, options)
+      ).tokens;
+    } catch (cause) {
+      throw new EmbeddingFailedError(cause);
+    }
 
     const remaining = await listUnembeddedChunks(workspaceId, documentId, 1);
     if (remaining.length > 0) {
-      throw new Error(
+      throw new EmbeddingFailedError(
         "Some passages still could not be embedded. This is usually a temporary rate limit — try again shortly.",
       );
     }
@@ -264,6 +278,7 @@ export async function resumeEmbedding(
     await updateDocument(workspaceId, documentId, {
       status: "ready",
       error: null,
+      failureReason: null,
     });
 
     return { resumed: true, embeddingTokens };
