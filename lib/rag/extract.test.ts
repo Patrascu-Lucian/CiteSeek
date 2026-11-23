@@ -63,19 +63,25 @@ describe("extractText — PDF", () => {
 
   it("reports a corrupt PDF as unreadable rather than crashing", async () => {
     const notAPdf = new TextEncoder().encode("%PDF-1.4 then garbage");
-
-    await expect(extractText(notAPdf, PDF)).rejects.toBeInstanceOf(
-      UnreadableDocumentError,
+    // Caught once: PDF.js detaches the bytes, so a second call reads as corrupt.
+    const error = await extractText(notAPdf, PDF).catch(
+      (cause: unknown) => cause,
     );
+
+    expect(error).toBeInstanceOf(UnreadableDocumentError);
+    expect(error).toHaveProperty("kind", "unreadable");
   });
 
   it("explains that a text-free PDF probably needs OCR", async () => {
     // A scanned document is the most common real-world case of "upload
     // succeeded, nothing searchable". A real PDF with one empty page: bytes the
     // parser cannot open take the corrupt-file branch and never reach this one.
-    await expect(extractText(fixture("blank.pdf"), PDF)).rejects.toThrow(
-      /needs OCR/,
+    const error = await extractText(fixture("blank.pdf"), PDF).catch(
+      (cause: unknown) => cause,
     );
+
+    expect(error).toHaveProperty("message", expect.stringMatching(/needs OCR/));
+    expect(error).toHaveProperty("kind", "no_text");
   });
 });
 
@@ -132,16 +138,24 @@ describe("extractText — docx", () => {
 
   it("reports a corrupt docx as unreadable", async () => {
     const notADocx = new TextEncoder().encode("PK but not really a zip");
-
-    await expect(extractText(notADocx, DOCX)).rejects.toBeInstanceOf(
-      UnreadableDocumentError,
+    const error = await extractText(notADocx, DOCX).catch(
+      (cause: unknown) => cause,
     );
+
+    expect(error).toBeInstanceOf(UnreadableDocumentError);
+    expect(error).toHaveProperty("kind", "unreadable");
   });
 
   it("refuses a Word document with no text", async () => {
-    await expect(extractText(fixture("empty.docx"), DOCX)).rejects.toThrow(
-      /appears to contain no text/,
+    const error = await extractText(fixture("empty.docx"), DOCX).catch(
+      (cause: unknown) => cause,
     );
+
+    expect(error).toHaveProperty(
+      "message",
+      expect.stringMatching(/appears to contain no text/),
+    );
+    expect(error).toHaveProperty("kind", "no_text");
   });
 });
 
@@ -163,24 +177,42 @@ describe("extractText — markdown and plain text", () => {
   it("rejects invalid UTF-8 instead of substituting replacement characters", async () => {
     // Silent substitution would corrupt both the text and every offset into it.
     const invalid = new Uint8Array([0xff, 0xfe, 0xfd]);
-
-    await expect(extractText(invalid, "text/plain")).rejects.toThrow(
-      /not valid UTF-8/i,
+    const error = await extractText(invalid, "text/plain").catch(
+      (cause: unknown) => cause,
     );
+
+    expect(error).toHaveProperty(
+      "message",
+      expect.stringMatching(/not valid UTF-8/i),
+    );
+    expect(error).toHaveProperty("kind", "unreadable");
   });
 
   it("rejects an empty file", async () => {
-    await expect(
-      extractText(new TextEncoder().encode("   \n\n  "), "text/plain"),
-    ).rejects.toThrow(/empty/i);
+    const error = await extractText(
+      new TextEncoder().encode("   \n\n  "),
+      "text/plain",
+    ).catch((cause: unknown) => cause);
+
+    expect(error).toHaveProperty("message", expect.stringMatching(/empty/i));
+    expect(error).toHaveProperty("kind", "no_text");
   });
 });
 
 describe("extractText — unsupported types", () => {
   it("names the supported formats", async () => {
-    await expect(
-      extractText(new Uint8Array([1, 2, 3]), "image/png"),
-    ).rejects.toThrow(/Unsupported file type: image\/png.*PDF.*Markdown/is);
+    const error = await extractText(
+      new Uint8Array([1, 2, 3]),
+      "image/png",
+    ).catch((cause: unknown) => cause);
+
+    expect(error).toHaveProperty(
+      "message",
+      expect.stringMatching(
+        /Unsupported file type: image\/png.*PDF.*Markdown/is,
+      ),
+    );
+    expect(error).toHaveProperty("kind", "unreadable");
   });
 
   it("throws UnreadableDocumentError, not a generic Error", async () => {

@@ -98,6 +98,15 @@ export function storageExceededMessage(limit: number): string {
   return `This document's text would take you past the ${formatCharacters(limit)}-character storage limit. Delete another document, or upload a smaller one.`;
 }
 
+/** A type of its own, so the failure is classified without reading this
+ * sentence (ADR 064). */
+export class StorageCeilingError extends Error {
+  constructor(limit: number) {
+    super(storageExceededMessage(limit));
+    this.name = "StorageCeilingError";
+  }
+}
+
 export function capRefusalMessage(
   decision: CapReached,
   context: CapMessageContext = {},
