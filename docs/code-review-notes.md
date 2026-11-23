@@ -4677,3 +4677,24 @@ four, failing on the code-point version.
 - **Lesson**: **a timing from a machine times everything on that machine, the tooling included.**
   Asking for a measurement means stopping one's own work until the result is back, and a run
   discarded as "saturated" is owed the question of what saturated it.
+
+## A failed run that charged nothing for what it had spent, 23 November 2026
+
+- **Issue**: a document whose embedding failed partway was charged nothing for the batches it had
+  already embedded. The helper kept its running total in a local variable and returned it at the
+  end, so a later batch's throw took the total with it, and the upload and retry routes both
+  charged 0. Two comments promised the opposite. The test named for the case, "keeps chunks
+  already embedded when the provider fails partway", used a one-passage fixture, so its failing
+  embedder was never called a second time, and its assertion accepted `ready` or `failed`. The
+  tooling found it while reviewing the change that records why a document failed, and proved it
+  with a probe: 64 tokens spent, 0 charged. It had been so since 0.7.0, the first release to
+  charge ingestion's tokens.
+
+- **Fix**: fixed at once rather than parked. Each batch reports its tokens to the caller as it is
+  spent, before its vectors are written, so the count survives the throw. The test now embeds a
+  hundred one-word passages, fails on the second batch, and pins both the kept vectors and the 64
+  tokens; a second test does the same for a retry. Both fail against the old code.
+
+- **Lesson**: **an assertion that accepts either outcome is a test admitting it never reached its
+  case.** `["ready", "failed"]` said so for four months, while two comments in the code promised the
+  behavior it never exercised.
