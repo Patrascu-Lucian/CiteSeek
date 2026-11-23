@@ -85,14 +85,13 @@ async function embedPendingChunks(
   workspaceId: string,
   documentId: string,
   options: IngestOptions,
-): Promise<{ embedded: number; tokens: number }> {
+  onSpent: (tokens: number) => void,
+): Promise<void> {
   // An injected embedder is a test seam: its vectors take the configured label,
   // whose floor those tests already assume.
   const provider = resolveEmbeddingsProvider();
   const embedder = options.embedder ?? getEmbedder(provider);
   const model = embeddingModelFor(provider);
-  let embedded = 0;
-  let tokens = 0;
 
   for (;;) {
     const pending = await listUnembeddedChunks(
@@ -107,10 +106,9 @@ async function embedPendingChunks(
       { embedder, signal: options.signal },
     );
 
-    // Accumulated per batch, before the write. A run that fails halfway has
-    // still spent everything it embedded, and that quota does not become free
-    // because the document never reached `ready`.
-    tokens += batch.tokens;
+    // Per batch and before the write, so a later throw cannot lose what the
+    // provider has already charged for.
+    onSpent(batch.tokens);
 
     const written = await setChunkEmbeddings(
       workspaceId,
@@ -128,14 +126,10 @@ async function embedPendingChunks(
       break;
     }
 
-    embedded += written;
-
     // Keep the row's timestamp moving so the stale-processing watchdog can tell
     // slow progress from an abandoned job.
     await updateDocument(workspaceId, documentId, { status: "processing" });
   }
-
-  return { embedded, tokens };
 }
 
 /** `bytes` live only for this call: nothing hits disk, and the extracted text
@@ -205,9 +199,9 @@ export async function processDocument(
     );
 
     try {
-      embeddingTokens += (
-        await embedPendingChunks(workspaceId, documentId, options)
-      ).tokens;
+      await embedPendingChunks(workspaceId, documentId, options, (tokens) => {
+        embeddingTokens += tokens;
+      });
     } catch (cause) {
       throw new EmbeddingFailedError(cause);
     }
@@ -261,9 +255,9 @@ export async function resumeEmbedding(
     });
 
     try {
-      embeddingTokens += (
-        await embedPendingChunks(workspaceId, documentId, options)
-      ).tokens;
+      await embedPendingChunks(workspaceId, documentId, options, (tokens) => {
+        embeddingTokens += tokens;
+      });
     } catch (cause) {
       throw new EmbeddingFailedError(cause);
     }
