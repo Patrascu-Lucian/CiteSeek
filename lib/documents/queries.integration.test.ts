@@ -519,6 +519,7 @@ describe("stale processing watchdog", () => {
     const after = await findDocumentInWorkspace(workspace.id, document.id);
     expect(after!.status).toBe("failed");
     expect(after!.error).toMatch(/stopped unexpectedly/i);
+    expect(after!.failureReason).toBe("interrupted");
   });
 
   it("leaves recently-updated processing documents alone", async () => {
