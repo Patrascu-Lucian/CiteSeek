@@ -11,7 +11,7 @@ import {
   sumExtractedCharacters,
   updateDocument,
 } from "@/lib/documents/queries";
-import { storageExceededMessage } from "@/lib/limits/caps";
+import { StorageCeilingError } from "@/lib/limits/caps";
 import { resolvePlanLimits } from "@/lib/limits/config";
 
 import {
@@ -158,14 +158,13 @@ export async function processDocument(
 
     const extracted = await extractText(bytes, mimeType);
 
-    // Before chunking, so a refused document spends no embedding quota. A plain
-    // Error, not `UnreadableDocumentError` — the file is readable.
+    // Before chunking, so a refused document spends no embedding quota.
     const ceiling =
       options.characterCeiling ?? resolvePlanLimits().extractedCharacters;
     const stored = await sumExtractedCharacters(workspaceId);
 
     if (stored + extracted.text.length > ceiling) {
-      throw new Error(storageExceededMessage(ceiling));
+      throw new StorageCeilingError(ceiling);
     }
 
     const chunks = chunkText(
@@ -177,6 +176,7 @@ export async function processDocument(
     if (chunks.length === 0) {
       throw new UnreadableDocumentError(
         "No readable text was found in this document.",
+        { kind: "no_text" },
       );
     }
 
