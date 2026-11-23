@@ -785,7 +785,8 @@ startup options it needs. Setting only the first is the same one-of-two mistake 
 commands above warn about, and it fails as an empty result rather than an error.
 
 `format:check`, `lint`, `typecheck`, `test`, `build`, integration tests, and the
-Playwright smoke suite all gate every pull request.
+Playwright smoke suite all gate every pull request, and run again on each push to `develop` and
+`main`, so the merged tree is tested too.
 
 ## Testing
 

@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # develop too: merges landing together make a tree no pull request tested.
+    branches: [main, develop]
   pull_request:
 
 # A new push to the same branch makes the in-flight run irrelevant.
