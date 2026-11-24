@@ -51,16 +51,16 @@
     "predev": "pnpm onnx:copy"
   },
   "dependencies": {
-    "@ai-sdk/google": "4.0.120",
-    "@ai-sdk/provider": "4.0.38",
-    "@ai-sdk/react": "4.0.176",
+    "@ai-sdk/google": "4.0.124",
+    "@ai-sdk/provider": "4.0.39",
+    "@ai-sdk/react": "4.0.183",
     "@auth/drizzle-adapter": "1.11.3",
     "@huggingface/transformers": "^4.3.2",
-    "ai": "7.0.172",
+    "ai": "7.0.179",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "0.45.4",
-    "lucide-react": "^1.72.0",
+    "lucide-react": "^1.77.0",
     "mammoth": "^1.13.0",
     "next": "16.4.6",
     "next-auth": "5.0.0-beta.32",
@@ -68,10 +68,10 @@
     "radix-ui": "^1.8.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "streamdown": "^2.7.1",
-    "tailwind-merge": "^3.7.0",
+    "streamdown": "^2.8.0",
+    "tailwind-merge": "^3.7.1",
     "tw-animate-css": "^1.4.0",
-    "unpdf": "^2.1.0"
+    "unpdf": "^2.2.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
@@ -81,7 +81,7 @@
     "@tailwindcss/postcss": "4.3.5",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
-    "@testing-library/user-event": "14.6.10",
+    "@testing-library/user-event": "14.6.13",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -99,7 +99,7 @@
     "tailwindcss": "4.3.5",
     "tsx": "^4.23.15",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.72.2",
+    "typescript-eslint": "8.73.0",
     "vitest": "4.1.12"
   }
 }
