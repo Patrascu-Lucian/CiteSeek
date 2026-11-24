@@ -29,8 +29,12 @@ const target = targetDatabase("SEED_HOST");
 // Dynamic because `lib/db/index.ts` throws at module load on a missing
 // DATABASE_URL, and ESM evaluates static imports before this file's first
 // statement — before `targetDatabase` has set it.
-const { createQueuedDocument, deleteDocumentInWorkspace, listDocuments } =
-  await import("../documents/queries.ts");
+const {
+  createQueuedDocument,
+  deleteDocumentInWorkspace,
+  findDocumentInWorkspace,
+  listDocuments,
+} = await import("../documents/queries.ts");
 const { processDocument } = await import("../rag/ingest.ts");
 const { resolveEmbeddingsProvider } = await import("../ai/provider.ts");
 
@@ -97,7 +101,8 @@ async function seedFixtureDocument(workspaceId: string) {
   console.log(
     `Seeded ${FIXTURE_FILENAME} — ${seeded?.status}, ${seeded?.embeddedChunkCount ?? 0} passages embedded.`,
   );
-  if (seeded?.error) console.error(`Ingestion error: ${seeded.error}`);
+  const stored = await findDocumentInWorkspace(workspaceId, document.id);
+  if (stored?.error) console.error(`Ingestion error: ${stored.error}`);
 
   process.exitCode = seedExitCode(seeded?.status);
 }

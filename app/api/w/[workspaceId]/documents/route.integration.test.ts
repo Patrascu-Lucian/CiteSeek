@@ -23,6 +23,7 @@ import { verificationTokens } from "@/lib/db/schema";
 import type * as DocumentQueries from "@/lib/documents/queries";
 import {
   createQueuedDocument,
+  insertChunks,
   listDocuments,
   updateDocument,
 } from "@/lib/documents/queries";
@@ -390,5 +391,108 @@ describe("GET /documents — housekeeping on a polled path", () => {
     });
 
     expect(await db.select().from(verificationTokens)).toEqual([]);
+  });
+});
+
+async function failedDocument(
+  workspaceId: string,
+  stored: { contentText?: string; passages?: number } = {},
+) {
+  const document = await createQueuedDocument(workspaceId, {
+    filename: "broken.pdf",
+    mimeType: "application/pdf",
+    sizeBytes: 1024,
+  });
+  await updateDocument(workspaceId, document.id, {
+    status: "failed",
+    error: "SENTINEL: GEMINI_API_KEY is not set",
+    failureReason: "embedding_unavailable",
+    contentText: stored.contentText ?? null,
+  });
+  await insertChunks(
+    workspaceId,
+    document.id,
+    Array.from({ length: stored.passages ?? 0 }, (_, chunkIndex) => ({
+      chunkIndex,
+      content: "Grounded.",
+      charStart: 0,
+      charEnd: 9,
+      pageNumber: null,
+    })),
+  );
+  return document;
+}
+
+describe("GET — the stored message stays on the server", () => {
+  it("is in neither the list nor the document, and the list carries the reason", async () => {
+    const workspace = await signedInWorkspace();
+    const document = await failedDocument(workspace.id);
+    const { GET: list } = await import("./route");
+    const { GET: one } = await import("./[documentId]/route");
+
+    const listed = await list(new Request("http://test/api/documents"), {
+      params: Promise.resolve({ workspaceId: workspace.id }),
+    }).then((response) => response.text());
+    const single = await one(new Request("http://test/api/document"), {
+      params: Promise.resolve({
+        workspaceId: workspace.id,
+        documentId: document.id,
+      }),
+    }).then((response) => response.text());
+
+    expect(listed).not.toContain("SENTINEL");
+    expect(single).not.toContain("SENTINEL");
+    expect(JSON.parse(listed)).toMatchObject({
+      documents: [{ id: document.id, failureReason: "embedding_unavailable" }],
+    });
+  });
+});
+
+describe("POST /documents/[id]/retry — the same rule as the list", () => {
+  async function retry(workspaceId: string, documentId: string) {
+    const { POST } = await import("./[documentId]/retry/route");
+    return POST(new Request("http://test/api/retry", { method: "POST" }), {
+      params: Promise.resolve({ workspaceId, documentId }),
+    });
+  }
+
+  it("accepts a retry that has passages to resume", async () => {
+    const workspace = await signedInWorkspace();
+    const document = await failedDocument(workspace.id, {
+      contentText: "Grounded.",
+      passages: 1,
+    });
+
+    expect((await retry(workspace.id, document.id)).status).toBe(202);
+  });
+
+  it("refuses stored text with no passage, rather than accepting and doing nothing", async () => {
+    const workspace = await signedInWorkspace();
+    const document = await failedDocument(workspace.id, {
+      contentText: "Grounded.",
+    });
+
+    const response = await retry(workspace.id, document.id);
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      reason: "unrecoverable",
+    });
+  });
+
+  it("tells a document that has not failed why there is nothing to retry", async () => {
+    const workspace = await signedInWorkspace();
+    const document = await failedDocument(workspace.id, {
+      contentText: "Grounded.",
+      passages: 1,
+    });
+    await updateDocument(workspace.id, document.id, { status: "ready" });
+
+    const response = await retry(workspace.id, document.id);
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "Only a failed document can be retried.",
+    });
   });
 });

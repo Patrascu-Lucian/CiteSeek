@@ -1,6 +1,6 @@
 # 064 — What a failed document says
 
-**Status**: proposed, 23 November 2026.
+**Status**: accepted, 24 November 2026.
 
 ## Context
 
