@@ -4698,3 +4698,21 @@ four, failing on the code-point version.
 - **Lesson**: **an assertion that accepts either outcome is a test admitting it never reached its
   case.** `["ready", "failed"]` said so for four months, while two comments in the code promised the
   behavior it never exercised.
+
+## A plan that retired a field before its replacement existed, 23 November 2026
+
+- **Issue**: the plan for 1.14.0 had the server stop sending a failed document's message one commit
+  before the list could say anything else. The list's type, the component and three of its tests
+  read that field, so the first commit would have deleted the failure line and the second put a
+  sentence back. Between the two, `develop` would have shown a failed document with nothing but its
+  badge and a Retry. The tooling noticed when that commit would not compile without touching the
+  component.
+
+- **Fix**: I reordered the two commits as expand, then contract. The list first gains the reason
+  and the retry flag beside the message, and the component moves to them, with a test per reason;
+  only then does the server stop sending the message. Every commit is green, and `develop` never
+  shows less than it did.
+
+- **Lesson**: **an API field retires the way a column does: add the replacement, move every reader,
+  then remove it.** The migrations already worked that way; the plan applied the order to the
+  database and not to its own JSON.
