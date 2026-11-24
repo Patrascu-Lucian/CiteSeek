@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, FileText, MessageSquareOff } from "lucide-react";
+import { AlertCircle, MessageSquareOff } from "lucide-react";
 
 import { workspaceDocumentText } from "@/lib/documents/text-loader";
 import { SourcePanel, type SourceTarget } from "@/components/chat/source-panel";
@@ -17,13 +17,6 @@ import { createConversation } from "@/lib/chats/actions";
 import { uploadToWorkspace } from "@/lib/documents/upload";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import type { ChatSource } from "@/lib/ai/types";
 import type { ChatSummary } from "@/lib/chats/queries";
 import type { DocumentSummary } from "@/lib/documents/queries";
@@ -212,8 +205,16 @@ export function WorkspaceShell({
     [readyFilenames, openSource, source],
   );
 
+  // Asking first where asking is all a reader can do. `canWrite` is fixed per
+  // workspace, so the chat never changes position while mounted (ADR 041).
+  const chat = (
+    <WorkspaceShellProvider value={shell}>{children}</WorkspaceShellProvider>
+  );
+
   return (
     <>
+      {canWrite ? null : chat}
+
       <section aria-labelledby="documents-heading" className="mt-10 space-y-4">
         <h2 id="documents-heading" className="text-lg font-medium">
           Documents
@@ -273,32 +274,17 @@ export function WorkspaceShell({
         {!canWrite ? (
           // A way forward rather than a dead end — a signed-in visitor already has
           // an account, so "Sign in" would go nowhere.
-          <Card>
-            <CardHeader>
-              <FileText
-                aria-hidden="true"
-                className="text-muted-foreground size-5"
-              />
-              <CardTitle className="mt-3">
-                This workspace is read-only
-              </CardTitle>
-              <CardDescription>
-                {signedIn
-                  ? "Your own workspace is where you can upload documents."
-                  : "Sign in to upload documents of your own."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline">
-                <Link
-                  href={signedIn ? "/w" : "/sign-in"}
-                  prefetch={signedIn ? false : undefined}
-                >
-                  {signedIn ? "Go to your workspace" : "Sign in to upload"}
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+            <p>This workspace is read-only.</p>
+            <Button asChild variant="outline" size="sm">
+              <Link
+                href={signedIn ? "/w" : "/sign-in"}
+                prefetch={signedIn ? false : undefined}
+              >
+                {signedIn ? "Go to your workspace" : "Sign in to upload"}
+              </Link>
+            </Button>
+          </div>
         ) : null}
       </section>
 
@@ -348,7 +334,7 @@ export function WorkspaceShell({
         </section>
       ) : null}
 
-      <WorkspaceShellProvider value={shell}>{children}</WorkspaceShellProvider>
+      {canWrite ? chat : null}
 
       <SourcePanel
         target={source}

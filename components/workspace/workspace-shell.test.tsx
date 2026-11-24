@@ -524,3 +524,22 @@ describe("a delete or retry that fails", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("what a reader meets first", () => {
+  const sections = () =>
+    screen
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent);
+
+  it("puts the question first where the reader cannot upload", () => {
+    renderWorkspace({ documents: [doc(READY)], canWrite: false });
+
+    expect(sections()[0]).toMatch(/ask/i);
+  });
+
+  it("keeps the documents first where the reader can", () => {
+    renderWorkspace({ documents: [doc(READY)] });
+
+    expect(sections()[0]).toMatch(/documents/i);
+  });
+});

@@ -4734,3 +4734,17 @@ four, failing on the code-point version.
 - **Lesson**: **a test written to fail first is not a falsifier until it has been seen failing.** A
   passing run against the old code is not a green light; it means the test is not looking where the
   change is.
+
+## A copy test that passed because of where the pointer stopped, 24 November 2026
+
+- **Issue**: moving the demo's chat above its documents failed an end-to-end test that never
+  touched layout: "copies the answer with a list of what each marker was" timed out on the Copy
+  button. Copy is hidden with `pointer-events-none` until its turn is hovered or focused, and the
+  test never hovered. It had passed because the pointer, left on "Send", happened to sit over the
+  answer once it arrived; with the chat at the top of the page, it no longer did.
+
+- **Fix**: the test hovers the answer's citation chip before clicking Copy, as a mouse reader does
+  and as the delete-turn tests already did.
+
+- **Lesson**: **a test can depend on state nobody set.** Where the pointer rests is state, and an
+  unrelated layout change is what reveals a test leaning on it.
