@@ -181,10 +181,17 @@ const distinct = (
   ].sort((a, b) => a - b);
 };
 
-export function parseCitationHref(href: string | undefined): number | null {
-  if (!href?.startsWith(CITATION_HREF_PREFIX)) return null;
+/** streamdown 2.8 sanitizes with a `user-content-` prefix, which it puts on
+ * fragment links as well as on ids. */
+const SANITIZED_CITATION_HREF_PREFIX = "#user-content-citation-";
 
-  const marker = Number(href.slice(CITATION_HREF_PREFIX.length));
+export function parseCitationHref(href: string | undefined): number | null {
+  const prefix = [CITATION_HREF_PREFIX, SANITIZED_CITATION_HREF_PREFIX].find(
+    (candidate) => href?.startsWith(candidate),
+  );
+  if (href === undefined || prefix === undefined) return null;
+
+  const marker = Number(href.slice(prefix.length));
 
   return Number.isInteger(marker) && marker > 0 ? marker : null;
 }
