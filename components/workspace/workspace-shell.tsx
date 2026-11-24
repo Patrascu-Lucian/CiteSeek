@@ -190,8 +190,8 @@ export function WorkspaceShell({
   );
 
   const openSource = useCallback(
-    (chatSource: ChatSource) =>
-      setSource({ kind: "citation", source: chatSource }),
+    (chatSource: ChatSource, claim: string | null) =>
+      setSource({ kind: "citation", source: chatSource, claim }),
     [],
   );
 

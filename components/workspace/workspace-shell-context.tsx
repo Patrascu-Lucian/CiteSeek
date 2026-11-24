@@ -11,7 +11,7 @@ export type WorkspaceShellValue = {
   hasReadyDocuments: boolean;
   readyFilenames: readonly string[];
   /** One panel, two openers: a citation here, a document in the list. */
-  openSource: (source: ChatSource) => void;
+  openSource: (source: ChatSource, claim: string | null) => void;
   openChunkId: string | null;
 };
 

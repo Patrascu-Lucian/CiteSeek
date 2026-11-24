@@ -45,7 +45,7 @@ export function Answer({
 }: {
   text: string;
   sources: readonly ChatSource[];
-  onSelectSource: (source: ChatSource) => void;
+  onSelectSource: (source: ChatSource, claim: string | null) => void;
   selectedChunkId: string | null;
   /** False while this answer is still streaming. Every answer cites nothing
    * before its first marker arrives, so the note below would flash on all of
@@ -53,8 +53,8 @@ export function Answer({
   settled?: boolean;
 }) {
   const citations = useMemo(
-    () => ({ sources, selectedChunkId, onSelect: onSelectSource }),
-    [sources, selectedChunkId, onSelectSource],
+    () => ({ text, sources, selectedChunkId, onSelect: onSelectSource }),
+    [text, sources, selectedChunkId, onSelectSource],
   );
 
   const prose = useRef<HTMLDivElement>(null);

@@ -18,7 +18,7 @@ import { highlightForCitation } from "@/lib/rag/highlight";
  */
 
 export type SourceTarget =
-  | { kind: "citation"; source: ChatSource }
+  | { kind: "citation"; source: ChatSource; claim: string | null }
   | { kind: "document"; documentId: string; filename: string };
 
 /** How the panel gets a document's canonical text. Injected rather than fetched
@@ -72,6 +72,11 @@ export function SourcePanel({
                 ? `Cited as [${target.source.marker}]`
                 : `Cited as [${target.source.marker}] · page ${target.source.pageNumber}`}
           </SheetDescription>
+          {target.kind === "citation" && target.claim ? (
+            <blockquote className="border-border text-foreground border-l-2 pl-3 text-sm">
+              {target.claim}
+            </blockquote>
+          ) : null}
         </SheetHeader>
 
         {/* Keyed by document so a citation from another source remounts clean,

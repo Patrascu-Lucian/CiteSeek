@@ -262,6 +262,7 @@ describe("ChatPanel — citations", () => {
 
     expect(onOpenSource).toHaveBeenCalledWith(
       expect.objectContaining({ filename: "handbook.pdf", marker: 1 }),
+      "Paid in 30 days.",
     );
   });
 
