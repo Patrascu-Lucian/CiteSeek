@@ -44,7 +44,6 @@ export type DocumentSummary = {
   mimeType: string;
   sizeBytes: number;
   status: DocumentStatus;
-  error: string | null;
   /** Null unless `status` is `failed`. */
   failureReason: DocumentFailureReason | null;
   canRetry: boolean;
@@ -70,7 +69,6 @@ export async function listDocuments(
       mimeType: documents.mimeType,
       sizeBytes: documents.sizeBytes,
       status: documents.status,
-      error: documents.error,
       failureReason: documents.failureReason,
       hasText: sql<boolean>`${documents.contentText} is not null`,
       // The rows, not `chunk_count`: that is written before the insert it counts.

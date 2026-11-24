@@ -22,7 +22,9 @@ export async function GET(
     return NextResponse.json({ error: "Document not found." }, { status: 404 });
   }
 
-  return NextResponse.json({ document });
+  // What the source panel reads, never the row: its `error` is for the operator.
+  const { id, filename, contentText } = document;
+  return NextResponse.json({ document: { id, filename, contentText } });
 }
 
 /**

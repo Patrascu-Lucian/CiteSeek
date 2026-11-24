@@ -61,7 +61,6 @@ function doc(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
     mimeType: "application/pdf",
     sizeBytes: 2048,
     status: "processing",
-    error: null,
     failureReason: null,
     canRetry: false,
     pageCount: null,

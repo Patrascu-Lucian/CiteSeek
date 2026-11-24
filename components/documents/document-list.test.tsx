@@ -12,7 +12,6 @@ function document(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
     mimeType: "application/pdf",
     sizeBytes: 2048,
     status: "ready",
-    error: null,
     failureReason: null,
     canRetry: false,
     pageCount: 12,
@@ -91,20 +90,13 @@ describe("DocumentList — states", () => {
   ] as const)("says why a document failed: %s", (failureReason, sentence) => {
     render(
       <DocumentList
-        documents={[
-          document({
-            status: "failed",
-            error: "GEMINI_API_KEY is not set",
-            failureReason,
-          }),
-        ]}
+        documents={[document({ status: "failed", failureReason })]}
         canWrite={true}
       />,
     );
 
     expect(screen.getByText("Failed")).toBeInTheDocument();
     expect(screen.getByText(sentence)).toBeInTheDocument();
-    expect(screen.queryByText(/GEMINI_API_KEY/)).not.toBeInTheDocument();
   });
 
   it("labels status in text, not only by color", () => {
