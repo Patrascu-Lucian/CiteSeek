@@ -154,9 +154,14 @@ describe("parseCitationHref", () => {
     expect(parseCitationHref(`${CITATION_HREF_PREFIX}2`)).toBe(2);
   });
 
+  it("reads one the markdown sanitizer has prefixed", () => {
+    expect(parseCitationHref("#user-content-citation-3")).toBe(3);
+  });
+
   it("returns null for an ordinary link", () => {
     expect(parseCitationHref("https://example.com")).toBeNull();
     expect(parseCitationHref("#some-heading")).toBeNull();
+    expect(parseCitationHref("#user-content-some-heading")).toBeNull();
   });
 
   it("returns null for a missing href", () => {
