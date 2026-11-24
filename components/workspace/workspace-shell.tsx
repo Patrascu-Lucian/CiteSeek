@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { FileText, MessageSquareOff } from "lucide-react";
+import { AlertCircle, FileText, MessageSquareOff } from "lucide-react";
 
 import { workspaceDocumentText } from "@/lib/documents/text-loader";
 import { SourcePanel, type SourceTarget } from "@/components/chat/source-panel";
@@ -43,6 +43,13 @@ function isInFlight(documents: readonly DocumentSummary[]): boolean {
   );
 }
 
+async function errorIn(response: Response, fallback: string): Promise<string> {
+  const payload = (await response.json().catch(() => null)) as {
+    error?: unknown;
+  } | null;
+  return typeof payload?.error === "string" ? payload.error : fallback;
+}
+
 export function WorkspaceShell({
   workspaceId,
   initialDocuments,
@@ -67,6 +74,10 @@ export function WorkspaceShell({
   const searchParams = useSearchParams();
   const [documents, setDocuments] = useState(initialDocuments);
   const [pollError, setPollError] = useState<string | null>(null);
+  // Not `pollError`: the next poll that succeeds would clear it.
+  const [actionError, setActionError] = useState<
+    (CapCopy & { documentId: string }) | null
+  >(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const [source, setSource] = useState<SourceTarget | null>(null);
@@ -109,36 +120,68 @@ export function WorkspaceShell({
   }, [documents, refresh]);
 
   async function remove(documentId: string) {
-    setBusyId(documentId);
-    try {
-      await fetch(`/api/w/${workspaceId}/documents/${documentId}`, {
-        method: "DELETE",
+    const stillHere = (detail: string) =>
+      setActionError({
+        documentId,
+        title: "That document is still here",
+        detail,
       });
+
+    setBusyId(documentId);
+    setActionError(null);
+    try {
+      const response = await fetch(
+        `/api/w/${workspaceId}/documents/${documentId}`,
+        { method: "DELETE" },
+      );
+      // A 404 is a delete that happened elsewhere, which the refresh shows.
+      if (!response.ok && response.status !== 404) {
+        stillHere(
+          await errorIn(response, "The server could not delete it. Try again."),
+        );
+        return;
+      }
       await refresh();
+    } catch {
+      stillHere("Could not reach the server, so nothing was deleted.");
     } finally {
       setBusyId(null);
     }
   }
 
   async function retry(documentId: string) {
+    const notRetried = (detail: string) =>
+      setActionError({
+        documentId,
+        title: "That document was not retried",
+        detail,
+      });
+
     setBusyId(documentId);
+    setActionError(null);
     try {
       const response = await fetch(
         `/api/w/${workspaceId}/documents/${documentId}/retry`,
         { method: "POST" },
       );
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        setPollError(payload?.error ?? "Could not retry that document.");
+        notRetried(
+          await errorIn(response, "The server could not retry it. Try again."),
+        );
         return;
       }
       await refresh();
+    } catch {
+      notRetried("Could not reach the server, so nothing was retried.");
     } finally {
       setBusyId(null);
     }
   }
+
+  const shownActionError =
+    actionError && documents.some(({ id }) => id === actionError.documentId)
+      ? actionError
+      : null;
 
   // From the URL, because a layout is never given the `chatId` segment.
   // `/w/<id>` names none and opens `chats[0]`, which `listChats` orders newest.
@@ -211,6 +254,20 @@ export function WorkspaceShell({
               setSource({ kind: "document", documentId, filename });
             }}
           />
+
+          {shownActionError ? (
+            <Notice
+              icon={
+                <AlertCircle
+                  aria-hidden="true"
+                  className="mt-0.5 size-4 shrink-0"
+                />
+              }
+              tone="destructive"
+              title={shownActionError.title}
+              detail={shownActionError.detail}
+            />
+          ) : null}
         </div>
 
         {!canWrite ? (

@@ -24,3 +24,31 @@ test("a PDF with no text says it needs OCR, and offers no retry", async ({
   await expect(row.getByRole("button", { name: /retry/i })).toHaveCount(0);
   expect(await violationsOn(page)).toEqual([]);
 });
+
+test("a delete that never reaches the server keeps the document, and says so", async ({
+  page,
+  signedIn,
+}) => {
+  await signedIn.sql`
+    insert into documents (workspace_id, filename, mime_type, size_bytes, status, content_text, chunk_count)
+    values (${signedIn.workspaceId}, 'handbook.pdf', 'application/pdf', 2048, 'ready', 'Grounded.', 1)`;
+  await page.route("**/api/w/*/documents/*", (route) =>
+    route.request().method() === "DELETE" ? route.abort() : route.continue(),
+  );
+
+  await page.goto(`/w/${signedIn.workspaceId}`);
+  await hydrated(page, UPLOAD_INPUT);
+  await page.getByRole("button", { name: "Delete handbook.pdf" }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Delete" })
+    .click();
+
+  await expect(
+    page.getByText("Could not reach the server, so nothing was deleted."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("listitem").filter({ hasText: "handbook.pdf" }),
+  ).toBeVisible();
+  expect(await violationsOn(page)).toEqual([]);
+});

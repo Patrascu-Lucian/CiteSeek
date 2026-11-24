@@ -4716,3 +4716,21 @@ four, failing on the code-point version.
 - **Lesson**: **an API field retires the way a column does: add the replacement, move every reader,
   then remove it.** The migrations already worked that way; the plan applied the order to the
   database and not to its own JSON.
+
+## Two falsifiers that could not fail, 24 November 2026
+
+- **Issue**: two tests written to fail before a change passed against the code they were meant to
+  catch. The end-to-end check for a scanned PDF looked for "needs OCR", which the old exception text
+  also contained, so only its Retry assertion could tell the versions apart. The test that a failed
+  retry's message survives a poll asserted straight after advancing the clock, before the poll's
+  response had rendered, so it passed while the poll was still about to erase the message. The
+  tooling wrote both, and ran each against the old code before changing anything, which is what
+  showed it.
+
+- **Fix**: the scan test now looks for wording only the new sentence has. The poll test makes the
+  poll change something visible, a progress count, waits for that, and only then checks the
+  message. Both now fail against the old code for the reason they name.
+
+- **Lesson**: **a test written to fail first is not a falsifier until it has been seen failing.** A
+  passing run against the old code is not a green light; it means the test is not looking where the
+  change is.
