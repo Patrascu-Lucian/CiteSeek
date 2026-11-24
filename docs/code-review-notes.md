@@ -4748,3 +4748,17 @@ four, failing on the code-point version.
 
 - **Lesson**: **a test can depend on state nobody set.** Where the pointer rests is state, and an
   unrelated layout change is what reveals a test leaning on it.
+
+## A guard only the type checker needed, 24 November 2026
+
+- **Issue**: the fix that let a citation chip survive the sanitizer's prefix checked
+  `href === undefined || prefix === undefined`. Mutation testing replaced the first half with
+  `false` and no test noticed: when `href` was missing, `href?.startsWith` had already left
+  `prefix` undefined, so that half never decided anything. It was there to narrow `href` for
+  TypeScript.
+
+- **Fix**: `href` is checked first, on its own, and the prefix search no longer needs optional
+  chaining. Each condition now has a case only it handles, and both mutants fail tests.
+
+- **Lesson**: **a condition written for the type checker can be dead at runtime.** Mutation testing
+  finds it where coverage cannot, since the line runs either way.

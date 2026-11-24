@@ -51,13 +51,6 @@ export function opensWithRefusal(text: string): boolean {
 const linkable = (run: readonly number[], known: ReadonlySet<number>) =>
   run.every((marker) => known.has(marker));
 
-/**
- * Rewrites `[n]` as `[n](#citation-n)`, but only for markers that resolve.
- *
- * An unresolvable marker stays literal text — the anti-hallucination property
- * made visible. Invent `[7]` when three passages were retrieved and there is
- * nothing to link to, so nothing renders as a chip.
- */
 export function linkCitationMarkers(
   text: string,
   sources: readonly ChatSource[],
@@ -65,8 +58,11 @@ export function linkCitationMarkers(
   if (sources.length === 0 || opensWithRefusal(text)) return text;
 
   const known = new Set(sources.map((source) => source.marker));
+  let run = -1;
 
   return text.replace(GROUPED_MARKER, (whole) => {
+    // Before the check below, so an unlinked run still counts, as in `claimAt`.
+    run += 1;
     const markers = (whole.match(MARKER_NUMBER) ?? []).map(Number);
 
     // All or nothing: rendering the valid half of a half-invented group would
@@ -75,7 +71,7 @@ export function linkCitationMarkers(
 
     // Space-separated, so the distinction survives being copied out of the page.
     return markers
-      .map((marker) => `[${marker}](${CITATION_HREF_PREFIX}${marker})`)
+      .map((marker) => `[${marker}](${CITATION_HREF_PREFIX}${marker}-${run})`)
       .join(" ");
   });
 }
@@ -120,6 +116,43 @@ function runsIn(text: string): number[][] {
 }
 
 const markersIn = (text: string) => runsIn(text).flat();
+
+const SENTENCES = new Intl.Segmenter("en", { granularity: "sentence" });
+const RUN_AND_SPACE_BEFORE = new RegExp(
+  String.raw`\s*` + GROUPED_MARKER.source,
+  "g",
+);
+const LIST_SYNTAX = /^\s*(?:[-*+]|\d+[.)])(?=\s)/gm;
+// Flanked as markdown requires, so "2 * 3 * 4" keeps its asterisks.
+const STARRED = /(\*\*?)(?=\S)(.+?)(?<=\S)\1/g;
+// Never inside a word, so `file_name` keeps its underscore.
+const UNDERSCORED =
+  /(?<![\p{L}\p{N}])(__?)(?=\S)(.+?)(?<=\S)\1(?![\p{L}\p{N}])/gu;
+
+function plainText(markdown: string): string {
+  return markdown
+    .replace(RUN_AND_SPACE_BEFORE, "")
+    .replace(LIST_SYNTAX, "")
+    .replace(STARRED, "$2")
+    .replace(UNDERSCORED, "$2")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** A run that opens its sentence follows a full stop ("…25 days. [1]"), so it
+ * cites the one before. */
+export function claimAt(text: string, run: number): string | null {
+  const marker = [...text.matchAll(GROUPED_MARKER)][run];
+  if (marker === undefined) return null;
+
+  const sentences = [...SENTENCES.segment(text)];
+  let at = sentences.findLastIndex(({ index }) => index <= marker.index);
+  if (at > 0 && text.slice(sentences[at]!.index, marker.index).trim() === "") {
+    at -= 1;
+  }
+
+  return plainText(sentences[at]!.segment) || null;
+}
 
 export type MarkerVerdict = {
   /** The markers drawn as chips: the only ones a copied source list may name. */
@@ -185,15 +218,29 @@ const distinct = (
  * fragment links as well as on ids. */
 const SANITIZED_CITATION_HREF_PREFIX = "#user-content-citation-";
 
-export function parseCitationHref(href: string | undefined): number | null {
+const CITATION_FRAGMENT = /^(\d+)-(\d+)$/;
+
+function readCitationHref(href: string | undefined) {
+  if (href === undefined) return null;
+
   const prefix = [CITATION_HREF_PREFIX, SANITIZED_CITATION_HREF_PREFIX].find(
-    (candidate) => href?.startsWith(candidate),
+    (candidate) => href.startsWith(candidate),
   );
-  if (href === undefined || prefix === undefined) return null;
+  if (prefix === undefined) return null;
 
-  const marker = Number(href.slice(prefix.length));
+  const fragment = CITATION_FRAGMENT.exec(href.slice(prefix.length));
+  if (fragment === null) return null;
 
-  return Number.isInteger(marker) && marker > 0 ? marker : null;
+  const marker = Number(fragment[1]);
+  return marker > 0 ? { marker, run: Number(fragment[2]) } : null;
+}
+
+export function parseCitationHref(href: string | undefined): number | null {
+  return readCitationHref(href)?.marker ?? null;
+}
+
+export function citationRunOf(href: string | undefined): number | null {
+  return readCitationHref(href)?.run ?? null;
 }
 
 /** Shared with the clipboard's source list, so the chip a reader hears and the
