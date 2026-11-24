@@ -18,9 +18,55 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import type { DocumentFailureReason } from "@/lib/db/schema";
 import type { DocumentSummary } from "@/lib/documents/queries";
 
 import { StatusBadge } from "./status-badge";
+
+const FAILURE_COPY = {
+  no_text: {
+    sentence:
+      "No text could be read from this file. A scanned PDF needs OCR before it can be searched.",
+  },
+  unreadable: {
+    sentence:
+      "This file could not be read. It may be damaged, password-protected or in an older format.",
+  },
+  too_large: {
+    sentence:
+      "This document is too long for one file here. Split it into smaller documents.",
+  },
+  // Not `storageExceededMessage`: it names the limit, which the list does not carry.
+  over_storage: {
+    sentence:
+      "This document's text would take you past the storage limit. Delete another document, or upload a smaller one.",
+  },
+  embedding_unavailable: {
+    sentence:
+      "Some passages could not be indexed, usually a temporary limit at the model provider. Retry in a minute.",
+  },
+  interrupted: {
+    sentence: "Processing stopped before it finished.",
+    withoutRetry: "Delete it and upload the file again.",
+  },
+  unknown: {
+    sentence: "Something went wrong while processing this document.",
+    withoutRetry: "Delete it and upload the file again.",
+  },
+} as const satisfies Record<
+  DocumentFailureReason,
+  { sentence: string; withoutRetry?: string }
+>;
+
+function failureSentence(reason: DocumentFailureReason, canRetry: boolean) {
+  const copy: { sentence: string; withoutRetry?: string } =
+    FAILURE_COPY[reason];
+  return !canRetry && copy.withoutRetry
+    ? `${copy.sentence} ${copy.withoutRetry}`
+    : copy.sentence;
+}
+
+const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
 /**
  * Renders documents and their states. Owns no data.
@@ -111,19 +157,19 @@ export function DocumentList({
               )}
               <p className="text-muted-foreground mt-0.5 text-sm">
                 {document.status === "ready" && document.chunkCount
-                  ? `${document.chunkCount} passages${document.pageCount ? ` · ${document.pageCount} pages` : ""}`
+                  ? `${count(document.chunkCount, "passage")}${document.pageCount ? ` · ${count(document.pageCount, "page")}` : ""}`
                   : document.status === "failed"
                     ? null
                     : "Waiting to be processed"}
               </p>
 
-              {document.status === "failed" && document.error ? (
+              {document.failureReason ? (
                 <p className="text-destructive mt-1 flex items-start gap-1.5 text-sm">
                   <AlertCircle
                     aria-hidden="true"
                     className="mt-0.5 size-3.5 shrink-0"
                   />
-                  {document.error}
+                  {failureSentence(document.failureReason, document.canRetry)}
                 </p>
               ) : null}
             </div>
@@ -139,7 +185,7 @@ export function DocumentList({
 
               {canWrite ? (
                 <div className="relative z-10 flex items-center gap-1">
-                  {document.status === "failed" ? (
+                  {document.canRetry ? (
                     <Button
                       type="button"
                       variant="ghost"

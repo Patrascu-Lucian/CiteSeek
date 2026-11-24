@@ -62,6 +62,8 @@ function doc(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
     sizeBytes: 2048,
     status: "processing",
     error: null,
+    failureReason: null,
+    canRetry: false,
     pageCount: null,
     chunkCount: null,
     embeddedChunkCount: 0,

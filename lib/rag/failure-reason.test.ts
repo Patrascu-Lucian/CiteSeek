@@ -8,6 +8,7 @@ import {
   EmbeddingFailedError,
   canRetry,
   failureReasonOf,
+  readFailureReason,
 } from "./failure-reason";
 
 describe("failureReasonOf", () => {
@@ -69,6 +70,28 @@ describe("StorageCeilingError", () => {
     expect(new StorageCeilingError(500_000).message).toBe(
       storageExceededMessage(500_000),
     );
+  });
+});
+
+describe("readFailureReason", () => {
+  it("reads a failed document's reason", () => {
+    expect(
+      readFailureReason({ status: "failed", failureReason: "no_text" }),
+    ).toBe("no_text");
+  });
+
+  it("reads a failure recorded without one as unknown", () => {
+    expect(readFailureReason({ status: "failed", failureReason: null })).toBe(
+      "unknown",
+    );
+  });
+
+  it("ignores a reason left on a document that has not failed", () => {
+    for (const status of ["queued", "processing", "ready"] as const) {
+      expect(
+        readFailureReason({ status, failureReason: "interrupted" }),
+      ).toBeNull();
+    }
   });
 });
 

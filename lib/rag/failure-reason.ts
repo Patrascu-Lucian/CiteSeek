@@ -29,6 +29,17 @@ export function failureReasonOf(error: unknown): DocumentFailureReason {
   return "unknown";
 }
 
+/** Gated by status because v1.13.1 never clears the column, and `unknown` for a
+ * failure recorded before 1.14.0, which has none (ADR 064). */
+export function readFailureReason(document: {
+  status: DocumentStatus;
+  failureReason: DocumentFailureReason | null;
+}): DocumentFailureReason | null {
+  return document.status === "failed"
+    ? (document.failureReason ?? "unknown")
+    : null;
+}
+
 /** The one rule the list and the retry route share: a retry resumes embedding,
  * so it needs the stored text and a stored passage to embed (ADR 064). */
 export function canRetry(document: {
