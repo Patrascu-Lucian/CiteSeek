@@ -140,7 +140,7 @@ export function MessageList({
   streaming = false,
 }: {
   messages: readonly ChatUIMessage[];
-  onSelectSource: (source: ChatSource) => void;
+  onSelectSource: (source: ChatSource, claim: string | null) => void;
   selectedChunkId: string | null;
   /** Omitted where the transcript is not stored, so there is nothing to delete. */
   onDeleteTurn?: (messageId: string) => void;

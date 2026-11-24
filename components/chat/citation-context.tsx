@@ -11,12 +11,15 @@ import type { ChatSource } from "@/lib/ai/types";
  */
 
 type CitationContextValue = {
+  /** The markdown the links were written from, so a link's run indexes it. */
+  text: string;
   sources: readonly ChatSource[];
   selectedChunkId: string | null;
-  onSelect: (source: ChatSource) => void;
+  onSelect: (source: ChatSource, claim: string | null) => void;
 };
 
 const CitationContext = createContext<CitationContextValue>({
+  text: "",
   sources: [],
   selectedChunkId: null,
   onSelect: () => undefined,

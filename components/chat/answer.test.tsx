@@ -59,6 +59,23 @@ describe("Answer — citation markers", () => {
     // The chip passes the server's record, not a number the client re-resolved.
     expect(onSelectSource).toHaveBeenCalledWith(
       expect.objectContaining({ chunkId: "chunk-1", marker: 1 }),
+      "Expenses are paid in 30 days.",
+    );
+  });
+
+  it("hands back the sentence its own chip stands in", async () => {
+    const { onSelectSource } = renderAnswer({
+      text: "Expenses are paid in 30 days [1]. Travel is booked ahead [2].",
+      sources: [source(), source({ marker: 2, chunkId: "chunk-2" })],
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Citation 2/ }),
+    );
+
+    expect(onSelectSource).toHaveBeenCalledWith(
+      expect.objectContaining({ marker: 2 }),
+      "Travel is booked ahead.",
     );
   });
 

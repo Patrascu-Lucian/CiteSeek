@@ -86,6 +86,11 @@ test.describe("asking a question", () => {
     await expect(
       panel.getByRole("heading", { name: /northwind-remote-work-handbook/i }),
     ).toBeVisible();
+    await expect(
+      panel.getByText(
+        "According to the retrieved passage, this is a grounded answer.",
+      ),
+    ).toBeVisible();
 
     // The invariant, end to end and on screen: the highlighted region is the
     // passage the answer was grounded in, sliced out of the stored document by

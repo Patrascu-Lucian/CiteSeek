@@ -74,7 +74,7 @@ function renderPanel(props: Partial<Parameters<typeof SourcePanel>[0]> = {}) {
 
   render(
     <SourcePanel
-      target={{ kind: "citation", source: source() }}
+      target={{ kind: "citation", source: source(), claim: null }}
       loadText={loadText}
       onClose={onClose}
       {...props}
@@ -192,10 +192,39 @@ describe("SourcePanel — heading and dismissal", () => {
   it("omits the page for formats that have none", async () => {
     loaded();
     renderPanel({
-      target: { kind: "citation", source: source({ pageNumber: null }) },
+      target: {
+        kind: "citation",
+        source: source({ pageNumber: null }),
+        claim: null,
+      },
     });
 
     expect(await screen.findByText(/cited as \[1\]$/i)).toBeInTheDocument();
+  });
+
+  it("quotes the sentence that made the citation", async () => {
+    loaded();
+    renderPanel({
+      target: {
+        kind: "citation",
+        source: source(),
+        claim: "Expenses are paid in 30 days.",
+      },
+    });
+
+    expect(
+      await screen.findByText("Expenses are paid in 30 days.", {
+        selector: "blockquote",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("quotes nothing when the sentence could not be found", async () => {
+    loaded();
+    renderPanel();
+    await screen.findByText(QUOTE);
+
+    expect(document.querySelector("blockquote")).toBeNull();
   });
 
   it("closes on Escape", async () => {

@@ -330,6 +330,7 @@ describe("MessageList — a conversation restored from the database", () => {
     // which is what makes a reloaded citation as good as a live one.
     expect(onSelectSource).toHaveBeenCalledWith(
       expect.objectContaining({ chunkId: "chunk-restored", pageNumber: 7 }),
+      "Within 30 days of an approved claim.",
     );
   });
 

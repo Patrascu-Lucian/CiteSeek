@@ -1,6 +1,11 @@
 import type { ComponentPropsWithoutRef } from "react";
 
-import { citationLabel, parseCitationHref } from "@/lib/ai/citations";
+import {
+  citationLabel,
+  citationRunOf,
+  claimAt,
+  parseCitationHref,
+} from "@/lib/ai/citations";
 import { cn } from "@/lib/utils";
 
 import { useCitations } from "./citation-context";
@@ -21,9 +26,10 @@ export function CitationLink({
   children,
   ...props
 }: ComponentPropsWithoutRef<"a">) {
-  const { sources, selectedChunkId, onSelect } = useCitations();
+  const { text, sources, selectedChunkId, onSelect } = useCitations();
 
   const marker = parseCitationHref(href);
+  const run = citationRunOf(href);
   const source =
     marker === null
       ? undefined
@@ -41,7 +47,7 @@ export function CitationLink({
   return (
     <button
       type="button"
-      onClick={() => onSelect(source)}
+      onClick={() => onSelect(source, run === null ? null : claimAt(text, run))}
       aria-label={citationLabel(source)}
       aria-pressed={isSelected}
       className={cn(
