@@ -56,8 +56,10 @@ export function ChatError({
         tone="muted"
         title={
           mine
-            ? "You have reached today's limit for the demo."
-            : "The demo has reached today's capacity."
+            ? `You have reached today's limit${signedIn ? "" : " for the demo"}.`
+            : signedIn
+              ? "Today's capacity has been reached."
+              : "The demo has reached today's capacity."
         }
         detail={
           signedIn

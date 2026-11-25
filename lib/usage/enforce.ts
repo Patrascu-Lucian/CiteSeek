@@ -79,6 +79,7 @@ export async function enforceUsageLimits(
     refusalBody(
       decision.reason,
       decision.reason === "capacity_reached" ? decision.scope : undefined,
+      auth.actorType,
     ),
     {
       status: 429,
