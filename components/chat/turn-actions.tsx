@@ -14,6 +14,7 @@ export function TurnActions({
   bubble,
   className,
   side = "before",
+  pinnedOnTouch = false,
 }: {
   /** The controls, revealed together. */
   children: ReactNode;
@@ -26,6 +27,9 @@ export function TurnActions({
    * on its left, an answer is left-aligned and takes them on its right, so they
    * always sit on the side the row grows away from. */
   side?: "before" | "after";
+  /** Shown without a hold on a touch screen. Never for a control that destroys
+   * something (ADR 042). */
+  pinnedOnTouch?: boolean;
 }) {
   const [held, setHeld] = useState(false);
   const timer = useRef<number | null>(null);
@@ -52,6 +56,8 @@ export function TurnActions({
           held
             ? "opacity-100"
             : "pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100",
+          pinnedOnTouch &&
+            "[@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
         )}
       >
         {children}
