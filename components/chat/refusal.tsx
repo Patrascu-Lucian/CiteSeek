@@ -4,6 +4,8 @@ import { FileQuestion } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { RefusalReason } from "@/lib/ai/types";
 
+import { shortenQuestion } from "./turn-label";
+
 type Panel = "nothing_indexed" | "nothing_matched" | "model_mismatch";
 
 // A record rather than a boolean: a new reason fails to compile here instead of
@@ -19,6 +21,39 @@ const HEADING: Record<Panel, string> = {
   nothing_matched: "What I can answer from",
   model_mismatch: "The documents here cannot be searched right now",
 };
+
+// Past tense, naming no documents: an earlier refusal may claim only what was
+// true when it was asked (ADR 017).
+const LOOKING_BACK: Record<RefusalReason, string> = {
+  no_relevant_passages: "No passage was close enough to answer from.",
+  no_documents: "Nothing had finished processing when this was asked.",
+  embedding_model_mismatch:
+    "The documents could not be searched when this was asked.",
+};
+
+export function PastRefusal({
+  reason,
+  question,
+}: {
+  reason: RefusalReason;
+  question: string;
+}) {
+  return (
+    <details
+      data-past-refusal={reason}
+      className="text-muted-foreground mt-2 text-sm"
+    >
+      <summary className="focus-visible:ring-ring w-fit cursor-pointer rounded-sm focus-visible:ring-2 focus-visible:outline-none">
+        Why
+        <span className="sr-only">
+          {" "}
+          the documents could not answer “{shortenQuestion(question)}”
+        </span>
+      </summary>
+      <p className="mt-1">{LOOKING_BACK[reason]}</p>
+    </details>
+  );
+}
 
 /** What a reader is offered when their question could not be grounded; two
  * alternatives rejected in ADR 017. **Every word here is ours, none a model's**

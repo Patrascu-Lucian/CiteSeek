@@ -11,7 +11,7 @@ import { EditQuestionForm } from "./edit-question-form";
 import { CopyAnswer } from "./copy-answer";
 import { TurnActions } from "./turn-actions";
 import { shortenQuestion } from "./turn-label";
-import { Refusal } from "./refusal";
+import { PastRefusal, Refusal } from "./refusal";
 
 /** `Answer` pulls in Streamdown — **428 KB raw**, measured, and it was in the
  * initial HTML of every visit. `ssr` stays on; only the client fetch is deferred. */
@@ -258,13 +258,21 @@ export function MessageList({
                 />
                 {/* Below the text, not instead of it: the sentence saying
                     nothing was found is still the answer to the question. */}
-                {refusal ? (
+                {refusal && index === messages.length - 1 ? (
                   <Refusal
                     reason={refusal}
                     documents={documents}
                     canUpload={canUpload}
                     signedIn={signedIn}
                     uploadHref={uploadHref}
+                  />
+                ) : null}
+                {refusal && index < messages.length - 1 ? (
+                  <PastRefusal
+                    reason={refusal}
+                    question={
+                      index > 0 ? messageText(messages[index - 1]!) : ""
+                    }
                   />
                 ) : null}
               </>
