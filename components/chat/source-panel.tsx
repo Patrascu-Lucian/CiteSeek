@@ -9,7 +9,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { ChatSource } from "@/lib/ai/types";
-import { highlightForCitation } from "@/lib/rag/highlight";
+import { highlightForCitation, unwrapForDisplay } from "@/lib/rag/highlight";
 
 /**
  * A document, opened either at a cited passage or from the top. The whole text
@@ -135,7 +135,10 @@ function SourceBody({
       ? highlightForCitation(state.contentText, source)
       : null;
 
-  const plain = state.status === "loaded" && !source ? state.contentText : null;
+  const plain =
+    state.status === "loaded" && !source
+      ? unwrapForDisplay(state.contentText)
+      : null;
 
   return (
     /*
