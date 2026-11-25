@@ -15,6 +15,12 @@ export type CitationHighlight = {
   matchesQuote: boolean;
 };
 
+/** A PDF breaks lines where the page ran out, and a break before a lowercase word
+ * is one of those. One character for one, so every stored offset still holds. */
+export function unwrapForDisplay(text: string): string {
+  return text.replace(/(?<!\n)\n(?=\p{Ll})/gu, " ");
+}
+
 export function highlightForCitation(
   text: string,
   citation: { charStart: number; charEnd: number; quote: string },
@@ -24,12 +30,12 @@ export function highlightForCitation(
   const start = Math.max(0, Math.min(citation.charStart, text.length));
   const end = Math.max(start, Math.min(citation.charEnd, text.length));
 
-  const cited = text.slice(start, end);
+  const display = unwrapForDisplay(text);
 
   return {
-    before: text.slice(0, start),
-    cited,
-    after: text.slice(end),
-    matchesQuote: cited === citation.quote,
+    before: display.slice(0, start),
+    cited: display.slice(start, end),
+    after: display.slice(end),
+    matchesQuote: text.slice(start, end) === citation.quote,
   };
 }

@@ -301,6 +301,13 @@ each of these is reversible and therefore safe to defer.
   on every row trains the reader to type through it". A dialog on every turn trains the reader to
   click through it. That is the case for undo, and it is Milestone 8's to settle.
 
+- **A PDF line that continues with a digit or a sign keeps its break.** Since 1.14.0 the source
+  panel joins a line break only where the next line starts lowercase, because a list item starts
+  with a dash or a digit and a continuation can look the same. The demo handbook keeps two such
+  breaks mid-sentence: "…which is the" before "18th of each month", and "…capped at" before
+  "£180 per night". Telling a continuation from a list item needs a rule, worth writing only if a
+  reader trips over one.
+
 ## Measured, for the bundle budget
 
 - **Workspace page initial JS: 694 KB uncompressed** (11 chunks), measured against the
