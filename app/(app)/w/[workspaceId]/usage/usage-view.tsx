@@ -224,9 +224,12 @@ function PlanSection({ plan }: { plan: PlanUsage }) {
 }
 
 /** `150,258` reads as precision nobody needs against a ceiling. */
-function short(value: number): string {
-  if (value < 10_000) return value.toLocaleString("en");
-  if (value < 1_000_000) return `${Math.round(value / 1000)}k`;
+function short(value: number, unitOf = value): string {
+  if (unitOf < 10_000) return value.toLocaleString("en");
+  if (unitOf < 1_000_000) {
+    const thousands = value / 1000;
+    return `${thousands < 10 ? thousands.toFixed(1) : Math.round(thousands)}k`;
+  }
   return `${(value / 1_000_000).toFixed(1)}M`;
 }
 
@@ -245,7 +248,7 @@ function PlanAxis({
 }) {
   const capped = Number.isFinite(axis.limit);
   const figure = compact
-    ? `${short(axis.used)} of ${short(axis.limit)}`
+    ? `${short(axis.used, axis.limit)} of ${short(axis.limit)}`
     : `${axis.used.toLocaleString("en")} of ${axis.limit.toLocaleString("en")}`;
 
   return (

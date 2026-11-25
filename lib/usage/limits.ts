@@ -87,15 +87,21 @@ export function decideUsage(
  * number — thresholds are provisional. */
 export function refusalMessage(
   reason: LimitRefusal,
-  scope?: CapacityScope,
+  scope: CapacityScope | undefined,
+  actorType: ActorType,
 ): string {
   if (reason === "rate_limited") {
     return "Too many requests in a short time. Wait a moment and try again.";
   }
 
-  return scope === "caller"
-    ? "You have reached today's limit for the demo. It resets within 24 hours."
-    : "The daily capacity for this demo has been reached. It resets within 24 hours.";
+  // A guest's limits are the demo's; a signed-in reader's are their own.
+  const demo = actorType === "guest";
+  if (scope === "caller") {
+    return `You have reached today's limit${demo ? " for the demo" : ""}. It resets within 24 hours.`;
+  }
+  return demo
+    ? "The daily capacity for this demo has been reached. It resets within 24 hours."
+    : "Today's capacity has been reached. It resets within 24 hours.";
 }
 
 /** One wire shape for both directions: our cap refuses before the stream opens
@@ -110,10 +116,11 @@ export type RefusalBody = {
 
 export function refusalBody(
   reason: LimitRefusal,
-  scope?: CapacityScope,
+  scope: CapacityScope | undefined,
+  actorType: ActorType,
 ): RefusalBody {
   return {
-    error: refusalMessage(reason, scope),
+    error: refusalMessage(reason, scope, actorType),
     code: reason,
     ...(scope ? { scope } : {}),
   };

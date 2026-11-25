@@ -168,8 +168,27 @@ describe("decideUsage", () => {
   it("says nothing about numbers in either message", () => {
     // Thresholds are provisional; a message quoting one goes stale the first
     // time it is tuned, and nobody re-reads copy when changing a constant.
-    expect(refusalMessage("rate_limited")).not.toMatch(/\d/);
-    expect(refusalMessage("capacity_reached")).toMatch(/capacity/i);
+    expect(refusalMessage("rate_limited", undefined, "guest")).not.toMatch(
+      /\d/,
+    );
+    expect(refusalMessage("capacity_reached", undefined, "guest")).toMatch(
+      /capacity/i,
+    );
+  });
+
+  it("names the demo only to a guest, whose limits are the demo's", () => {
+    expect(refusalMessage("capacity_reached", "caller", "guest")).toMatch(
+      /today's limit for the demo/,
+    );
+    expect(refusalMessage("capacity_reached", "global", "guest")).toMatch(
+      /capacity for this demo/,
+    );
+    expect(refusalMessage("capacity_reached", "caller", "user")).toBe(
+      "You have reached today's limit. It resets within 24 hours.",
+    );
+    expect(refusalMessage("capacity_reached", "global", "user")).toBe(
+      "Today's capacity has been reached. It resets within 24 hours.",
+    );
   });
 });
 
@@ -184,10 +203,18 @@ describe("parseRefusal", () => {
    */
   it("recovers the code from a refusal body", () => {
     expect(
-      parseRefusal(new Error(JSON.stringify(refusalBody("rate_limited")))),
+      parseRefusal(
+        new Error(
+          JSON.stringify(refusalBody("rate_limited", undefined, "guest")),
+        ),
+      ),
     ).toEqual({ code: "rate_limited", scope: null });
     expect(
-      parseRefusal(new Error(JSON.stringify(refusalBody("capacity_reached")))),
+      parseRefusal(
+        new Error(
+          JSON.stringify(refusalBody("capacity_reached", undefined, "guest")),
+        ),
+      ),
     ).toEqual({ code: "capacity_reached", scope: null });
   });
 
@@ -197,13 +224,17 @@ describe("parseRefusal", () => {
     // shared office network takes.
     expect(
       parseRefusal(
-        new Error(JSON.stringify(refusalBody("capacity_reached", "caller"))),
+        new Error(
+          JSON.stringify(refusalBody("capacity_reached", "caller", "guest")),
+        ),
       ),
     ).toEqual({ code: "capacity_reached", scope: "caller" });
 
     expect(
       parseRefusal(
-        new Error(JSON.stringify(refusalBody("capacity_reached", "global"))),
+        new Error(
+          JSON.stringify(refusalBody("capacity_reached", "global", "guest")),
+        ),
       ),
     ).toEqual({ code: "capacity_reached", scope: "global" });
   });
