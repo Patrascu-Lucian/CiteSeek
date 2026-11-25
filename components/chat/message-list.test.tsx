@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ChatSource, ChatUIMessage } from "@/lib/ai/types";
+import type { ChatSource, ChatUIMessage, RefusalReason } from "@/lib/ai/types";
 import { toUIMessages } from "@/lib/chats/to-ui-messages";
 import { DEMO_EXAMPLE_QUESTIONS } from "@/lib/demo/example-questions";
 
@@ -646,4 +646,106 @@ describe("the answer when the stream ends", () => {
       streamingBubble,
     );
   });
+});
+
+describe("MessageList — refusals earlier in a conversation", () => {
+  const asked = (id: string, text: string): ChatUIMessage => ({
+    ...userMessage(text),
+    id,
+  });
+
+  const refused = (
+    id: string,
+    reason: RefusalReason = "no_relevant_passages",
+  ): ChatUIMessage => ({
+    id,
+    role: "assistant",
+    parts: [
+      { type: "data-refusal", id: `refusal-${id}`, data: { reason } },
+      { type: "text", text: "The documents do not cover that." },
+    ],
+  });
+
+  const threeRefusals = () => [
+    asked("q1", "Is there a gym?"),
+    refused("a1"),
+    asked("q2", "Is there parking?"),
+    refused("a2"),
+    asked("q3", "Is there a canteen?"),
+    refused("a3"),
+  ];
+
+  function renderTurns(messages: ChatUIMessage[]) {
+    render(
+      <MessageList
+        messages={messages}
+        onSelectSource={vi.fn()}
+        selectedChunkId={null}
+        uploadHref="/w/w1"
+        documents={["handbook.pdf"]}
+        canUpload
+        signedIn
+        isDemo={false}
+        onAsk={() => undefined}
+      />,
+    );
+  }
+
+  it("draws the full panel on the latest refusal only", () => {
+    renderTurns(threeRefusals());
+
+    const panels = document.querySelectorAll("[data-refusal]");
+    expect(panels).toHaveLength(1);
+    expect(document.querySelector("ol")!.lastElementChild).toContainElement(
+      panels[0] as HTMLElement,
+    );
+    expect(document.querySelectorAll("[data-past-refusal]")).toHaveLength(2);
+  });
+
+  it("compacts a refusal once an answer follows it", () => {
+    renderTurns([
+      asked("q1", "Is there a gym?"),
+      refused("a1"),
+      asked("q2", "When is reimbursement paid?"),
+      { ...assistantMessage("Paid in 30 days [1].", [SOURCE]), id: "a2" },
+    ]);
+
+    expect(document.querySelector("[data-refusal]")).toBeNull();
+    expect(document.querySelectorAll("[data-past-refusal]")).toHaveLength(1);
+  });
+
+  it("names each earlier refusal's disclosure after its question", () => {
+    renderTurns(threeRefusals());
+
+    expect(
+      [...document.querySelectorAll("[data-past-refusal] summary")].map(
+        (summary) => summary.textContent,
+      ),
+    ).toEqual([
+      "Why the documents could not answer “Is there a gym?”",
+      "Why the documents could not answer “Is there parking?”",
+    ]);
+  });
+
+  it.each([
+    ["no_relevant_passages", "No passage was close enough to answer from."],
+    ["no_documents", "Nothing had finished processing when this was asked."],
+    [
+      "embedding_model_mismatch",
+      "The documents could not be searched when this was asked.",
+    ],
+  ] as const)(
+    "says what was true when %s was given, naming no document",
+    (reason, line) => {
+      renderTurns([
+        asked("q1", "Is there a gym?"),
+        refused("a1", reason),
+        asked("q2", "Is there parking?"),
+      ]);
+
+      const past = document.querySelector("[data-past-refusal]");
+      expect(past).toHaveTextContent(line);
+      expect(past).not.toHaveTextContent("handbook.pdf");
+    },
+  );
 });
