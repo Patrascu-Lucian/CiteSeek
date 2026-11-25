@@ -1,9 +1,8 @@
-import { devices, expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import { DEMO_EXAMPLE_QUESTIONS } from "@/lib/demo/example-questions";
 
-// Without `defaultBrowserType`, which asks for WebKit: the suite runs Chromium.
-const { defaultBrowserType: _webkit, ...iPhone12 } = devices["iPhone 12"];
+import { iPhone12 } from "./devices";
 
 for (const [screenName, use] of [
   ["a 1366×768 laptop", { viewport: { width: 1366, height: 768 } }],

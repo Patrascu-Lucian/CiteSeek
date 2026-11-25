@@ -317,7 +317,11 @@ export function MessageList({
               // Always wrapped: adding it when `copyable` turns true re-parents
               // the bubble, so React unmounted and rebuilt the whole answer as
               // the stream ended, parsing the prose a second time.
-              <TurnActions bubble={bubble} side="after">
+              <TurnActions
+                bubble={bubble}
+                side="after"
+                pinnedOnTouch={copyable && index === messages.length - 1}
+              >
                 {copyable ? (
                   <CopyAnswer
                     text={messageText(message)}
