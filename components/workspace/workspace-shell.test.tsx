@@ -379,20 +379,23 @@ describe("the conversation the list marks as open", () => {
 });
 
 describe("a delete or retry that fails", () => {
-  /** The action's answer for a DELETE or a retry, and the list for every poll. */
+  /** The action's answer for a DELETE or a retry, and the list for every poll,
+   * or the poll refused too, as every route answers once a session has ended. */
   function serverAnswers(
     action: () => Promise<Response>,
-    documents: DocumentSummary[],
+    documents: DocumentSummary[] | "refused",
   ) {
     vi.stubGlobal(
       "fetch",
       vi.fn((_url: string, init?: RequestInit) =>
         init?.method === "DELETE" || init?.method === "POST"
           ? action()
-          : Promise.resolve({
-              ok: true,
-              json: () => Promise.resolve({ documents }),
-            } as Response),
+          : documents === "refused"
+            ? refused(404, "Workspace not found.")()
+            : Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve({ documents }),
+              } as Response),
       ),
     );
   }
@@ -405,6 +408,9 @@ describe("a delete or retry that fails", () => {
     } as Response);
 
   const unreachable = () => Promise.reject(new TypeError("Failed to fetch"));
+
+  const RELOAD_TO_CHECK =
+    "Reload the page to check. If you signed out in another tab, sign in again.";
 
   const failed = doc({
     status: "failed",
@@ -462,6 +468,32 @@ describe("a delete or retry that fails", () => {
     expect(
       screen.queryByText("That document is still here"),
     ).not.toBeInTheDocument();
+  });
+
+  it("says what to do when a delete was refused because the session ended", async () => {
+    serverAnswers(refused(404, "Workspace not found."), "refused");
+    renderWorkspace({ documents: [doc(READY)] });
+
+    await deleteHandbook();
+
+    const notice = (
+      await screen.findByText("That document is still here")
+    ).closest('[role="alert"]');
+    expect(notice).toHaveTextContent(RELOAD_TO_CHECK);
+    // The server answered, so the page may not say it could not reach it.
+    expect(
+      screen.queryByText(/could not reach the server/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says what to do when a retry was refused because the session ended", async () => {
+    serverAnswers(refused(404, "Workspace not found."), [failed]);
+    renderWorkspace({ documents: [failed] });
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText(RELOAD_TO_CHECK)).toBeInTheDocument();
+    expect(screen.queryByText("Workspace not found.")).not.toBeInTheDocument();
   });
 
   it("gives a refused retry the server's reason", async () => {

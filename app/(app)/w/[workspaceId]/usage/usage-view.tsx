@@ -225,9 +225,10 @@ function PlanSection({ plan }: { plan: PlanUsage }) {
 
 /** `150,258` reads as precision nobody needs against a ceiling. */
 function short(value: number, unitOf = value): string {
-  if (unitOf < 10_000) return value.toLocaleString("en");
+  if (value === 0 || unitOf < 10_000) return value.toLocaleString("en");
   if (unitOf < 1_000_000) {
     const thousands = value / 1000;
+    if (thousands < 0.05) return "<0.1k";
     return `${thousands < 10 ? thousands.toFixed(1) : Math.round(thousands)}k`;
   }
   return `${(value / 1_000_000).toFixed(1)}M`;
