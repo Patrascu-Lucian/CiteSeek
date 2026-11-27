@@ -190,6 +190,58 @@ describe("document lifecycle", () => {
     expect(listed[0]!.embeddedChunkCount).toBe(0);
   });
 
+  it("offers a retry only to a failed document with text and stored passages", async () => {
+    const workspace = await createTestWorkspace(db);
+    const text = { status: "failed", contentText: CHUNK.content } as const;
+    const resumable = await seedDocument(workspace.id, "resumable.pdf");
+    await updateDocument(workspace.id, resumable.id, text);
+    await insertChunks(workspace.id, resumable.id, [CHUNK]);
+    // Text stored and the chunk insert never landed, though `chunk_count` says 1.
+    const noPassages = await seedDocument(workspace.id, "no-passages.pdf");
+    await updateDocument(workspace.id, noPassages.id, {
+      ...text,
+      chunkCount: 1,
+    });
+    const unread = await seedDocument(workspace.id, "unread.pdf");
+    await updateDocument(workspace.id, unread.id, { status: "failed" });
+
+    const listed = await listDocuments(workspace.id);
+
+    expect(
+      Object.fromEntries(listed.map((d) => [d.filename, d.canRetry])),
+    ).toEqual({
+      "resumable.pdf": true,
+      "no-passages.pdf": false,
+      "unread.pdf": false,
+    });
+  });
+
+  it("reads a reason only while failed, and a failure without one as unknown", async () => {
+    const workspace = await createTestWorkspace(db);
+    const scan = await seedDocument(workspace.id, "scan.pdf");
+    await updateDocument(workspace.id, scan.id, {
+      status: "failed",
+      failureReason: "no_text",
+    });
+    const older = await seedDocument(workspace.id, "older.pdf");
+    await updateDocument(workspace.id, older.id, { status: "failed" });
+    const recovered = await seedDocument(workspace.id, "recovered.pdf");
+    await updateDocument(workspace.id, recovered.id, {
+      status: "ready",
+      failureReason: "interrupted",
+    });
+
+    const listed = await listDocuments(workspace.id);
+
+    expect(
+      Object.fromEntries(listed.map((d) => [d.filename, d.failureReason])),
+    ).toEqual({
+      "scan.pdf": "no_text",
+      "older.pdf": "unknown",
+      "recovered.pdf": null,
+    });
+  });
+
   it("lists only unembedded chunks, so retry resumes rather than restarts", async () => {
     const workspace = await createTestWorkspace(db);
     const document = await seedDocument(workspace.id);
@@ -519,6 +571,7 @@ describe("stale processing watchdog", () => {
     const after = await findDocumentInWorkspace(workspace.id, document.id);
     expect(after!.status).toBe("failed");
     expect(after!.error).toMatch(/stopped unexpectedly/i);
+    expect(after!.failureReason).toBe("interrupted");
   });
 
   it("leaves recently-updated processing documents alone", async () => {

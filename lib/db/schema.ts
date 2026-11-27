@@ -138,6 +138,9 @@ export const documents = pgTable(
     status: documentStatus("status").default("queued").notNull(),
     /** Sanitized before storage: an exception message, never document text. */
     error: text("error"),
+    /** Read only while `status` is `failed`; null reads as `unknown`. Text for the
+     * reason `refusal_reason` is, and no CHECK (ADR 064). */
+    failureReason: text("failure_reason").$type<DocumentFailureReason>(),
     /**
      * Canonical text. Every `chunks.charStart`/`charEnd` indexes into this exact
      * string, so a citation is a slice of it. The uploaded file is discarded
@@ -267,6 +270,21 @@ export type RefusalReason =
   /** Passages are embedded, but none by the configured model, so none could be
    * compared with the question. ADR 062. */
   | "embedding_model_mismatch";
+
+/** Chosen by an error's type or the phase it came from, never by its message
+ * (ADR 064). */
+export type DocumentFailureReason =
+  /** Nothing to search: a scan, an empty file, no text after chunking. */
+  | "no_text"
+  /** Damaged, protected, an old `.doc`, not UTF-8, or an unsupported type. */
+  | "unreadable"
+  | "too_large"
+  | "over_storage"
+  /** The provider, a quota, the network, or a partial batch. */
+  | "embedding_unavailable"
+  /** Failed by the stale-processing watchdog. */
+  | "interrupted"
+  | "unknown";
 
 /** Chunk id plus a snapshot of the anchor, so a dangling citation degrades
  * rather than crashing the transcript when its document is deleted. */

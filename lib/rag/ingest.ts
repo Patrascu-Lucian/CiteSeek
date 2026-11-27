@@ -11,7 +11,7 @@ import {
   sumExtractedCharacters,
   updateDocument,
 } from "@/lib/documents/queries";
-import { storageExceededMessage } from "@/lib/limits/caps";
+import { StorageCeilingError } from "@/lib/limits/caps";
 import { resolvePlanLimits } from "@/lib/limits/config";
 
 import {
@@ -21,6 +21,7 @@ import {
 } from "./chunking";
 import { type Embedder, embedPassages, getEmbedder } from "./embeddings";
 import { UnreadableDocumentError, extractText } from "./extract";
+import { EmbeddingFailedError, failureReasonOf } from "./failure-reason";
 
 /**
  * Extraction → chunking → embedding → storage, inside `after()` and so in the
@@ -74,6 +75,7 @@ async function markFailed(
   await updateDocument(workspaceId, documentId, {
     status: "failed",
     error: sanitizeError(error),
+    failureReason: failureReasonOf(error),
   });
 }
 
@@ -83,14 +85,13 @@ async function embedPendingChunks(
   workspaceId: string,
   documentId: string,
   options: IngestOptions,
-): Promise<{ embedded: number; tokens: number }> {
+  onSpent: (tokens: number) => void,
+): Promise<void> {
   // An injected embedder is a test seam: its vectors take the configured label,
   // whose floor those tests already assume.
   const provider = resolveEmbeddingsProvider();
   const embedder = options.embedder ?? getEmbedder(provider);
   const model = embeddingModelFor(provider);
-  let embedded = 0;
-  let tokens = 0;
 
   for (;;) {
     const pending = await listUnembeddedChunks(
@@ -105,10 +106,9 @@ async function embedPendingChunks(
       { embedder, signal: options.signal },
     );
 
-    // Accumulated per batch, before the write. A run that fails halfway has
-    // still spent everything it embedded, and that quota does not become free
-    // because the document never reached `ready`.
-    tokens += batch.tokens;
+    // Per batch and before the write, so a later throw cannot lose what the
+    // provider has already charged for.
+    onSpent(batch.tokens);
 
     const written = await setChunkEmbeddings(
       workspaceId,
@@ -126,14 +126,10 @@ async function embedPendingChunks(
       break;
     }
 
-    embedded += written;
-
     // Keep the row's timestamp moving so the stale-processing watchdog can tell
     // slow progress from an abandoned job.
     await updateDocument(workspaceId, documentId, { status: "processing" });
   }
-
-  return { embedded, tokens };
 }
 
 /** `bytes` live only for this call: nothing hits disk, and the extracted text
@@ -154,18 +150,18 @@ export async function processDocument(
     await updateDocument(workspaceId, documentId, {
       status: "processing",
       error: null,
+      failureReason: null,
     });
 
     const extracted = await extractText(bytes, mimeType);
 
-    // Before chunking, so a refused document spends no embedding quota. A plain
-    // Error, not `UnreadableDocumentError` — the file is readable.
+    // Before chunking, so a refused document spends no embedding quota.
     const ceiling =
       options.characterCeiling ?? resolvePlanLimits().extractedCharacters;
     const stored = await sumExtractedCharacters(workspaceId);
 
     if (stored + extracted.text.length > ceiling) {
-      throw new Error(storageExceededMessage(ceiling));
+      throw new StorageCeilingError(ceiling);
     }
 
     const chunks = chunkText(
@@ -177,6 +173,7 @@ export async function processDocument(
     if (chunks.length === 0) {
       throw new UnreadableDocumentError(
         "No readable text was found in this document.",
+        { kind: "no_text" },
       );
     }
 
@@ -201,20 +198,26 @@ export async function processDocument(
       })),
     );
 
-    embeddingTokens += (
-      await embedPendingChunks(workspaceId, documentId, options)
-    ).tokens;
+    try {
+      await embedPendingChunks(workspaceId, documentId, options, (tokens) => {
+        embeddingTokens += tokens;
+      });
+    } catch (cause) {
+      throw new EmbeddingFailedError(cause);
+    }
 
     const remaining = await listUnembeddedChunks(workspaceId, documentId, 1);
     if (remaining.length > 0) {
-      throw new Error(
+      throw new EmbeddingFailedError(
         "Some passages could not be embedded. Retry to finish processing this document.",
       );
     }
 
+    // Cleared again here: the watchdog can fail a slow run that then finishes.
     await updateDocument(workspaceId, documentId, {
       status: "ready",
       error: null,
+      failureReason: null,
     });
   } catch (error) {
     await markFailed(workspaceId, documentId, error);
@@ -248,15 +251,20 @@ export async function resumeEmbedding(
     await updateDocument(workspaceId, documentId, {
       status: "processing",
       error: null,
+      failureReason: null,
     });
 
-    embeddingTokens += (
-      await embedPendingChunks(workspaceId, documentId, options)
-    ).tokens;
+    try {
+      await embedPendingChunks(workspaceId, documentId, options, (tokens) => {
+        embeddingTokens += tokens;
+      });
+    } catch (cause) {
+      throw new EmbeddingFailedError(cause);
+    }
 
     const remaining = await listUnembeddedChunks(workspaceId, documentId, 1);
     if (remaining.length > 0) {
-      throw new Error(
+      throw new EmbeddingFailedError(
         "Some passages still could not be embedded. This is usually a temporary rate limit — try again shortly.",
       );
     }
@@ -264,6 +272,7 @@ export async function resumeEmbedding(
     await updateDocument(workspaceId, documentId, {
       status: "ready",
       error: null,
+      failureReason: null,
     });
 
     return { resumed: true, embeddingTokens };

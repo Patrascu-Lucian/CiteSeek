@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ChatUIMessage } from "@/lib/ai/types";
@@ -61,7 +62,8 @@ function doc(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
     mimeType: "application/pdf",
     sizeBytes: 2048,
     status: "processing",
-    error: null,
+    failureReason: null,
+    canRetry: false,
     pageCount: null,
     chunkCount: null,
     embeddedChunkCount: 0,
@@ -373,5 +375,203 @@ describe("the conversation the list marks as open", () => {
       "aria-current",
       "page",
     );
+  });
+});
+
+describe("a delete or retry that fails", () => {
+  /** The action's answer for a DELETE or a retry, and the list for every poll,
+   * or the poll refused too, as every route answers once a session has ended. */
+  function serverAnswers(
+    action: () => Promise<Response>,
+    documents: DocumentSummary[] | "refused",
+  ) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) =>
+        init?.method === "DELETE" || init?.method === "POST"
+          ? action()
+          : documents === "refused"
+            ? refused(404, "Workspace not found.")()
+            : Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve({ documents }),
+              } as Response),
+      ),
+    );
+  }
+
+  const refused = (status: number, error: string) => () =>
+    Promise.resolve({
+      ok: false,
+      status,
+      json: () => Promise.resolve({ error }),
+    } as Response);
+
+  const unreachable = () => Promise.reject(new TypeError("Failed to fetch"));
+
+  const RELOAD_TO_CHECK =
+    "Reload the page to check. If you signed out in another tab, sign in again.";
+
+  const failed = doc({
+    status: "failed",
+    failureReason: "embedding_unavailable",
+    canRetry: true,
+    chunkCount: 3,
+  });
+
+  async function deleteHandbook() {
+    await userEvent.click(
+      screen.getByRole("button", { name: "Delete handbook.pdf" }),
+    );
+    await userEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Delete",
+      }),
+    );
+  }
+
+  it("keeps a refused delete on screen, with the server's reason", async () => {
+    serverAnswers(refused(500, "The database is unavailable."), [doc(READY)]);
+    renderWorkspace({ documents: [doc(READY)] });
+
+    await deleteHandbook();
+
+    const notice = (
+      await screen.findByText("That document is still here")
+    ).closest('[role="alert"]');
+    expect(notice).toHaveTextContent("The database is unavailable.");
+    expect(screen.getByText("handbook.pdf")).toBeInTheDocument();
+  });
+
+  it("says nothing was deleted when the server cannot be reached", async () => {
+    serverAnswers(unreachable, [doc(READY)]);
+    renderWorkspace({ documents: [doc(READY)] });
+
+    await deleteHandbook();
+
+    expect(
+      await screen.findByText(
+        "Could not reach the server, so nothing was deleted.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing when the document was already deleted elsewhere", async () => {
+    serverAnswers(refused(404, "Document not found."), []);
+    renderWorkspace({ documents: [doc(READY)] });
+
+    await deleteHandbook();
+
+    await waitFor(() => {
+      expect(screen.queryByText("handbook.pdf")).not.toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText("That document is still here"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says what to do when a delete was refused because the session ended", async () => {
+    serverAnswers(refused(404, "Workspace not found."), "refused");
+    renderWorkspace({ documents: [doc(READY)] });
+
+    await deleteHandbook();
+
+    const notice = (
+      await screen.findByText("That document is still here")
+    ).closest('[role="alert"]');
+    expect(notice).toHaveTextContent(RELOAD_TO_CHECK);
+    // The server answered, so the page may not say it could not reach it.
+    expect(
+      screen.queryByText(/could not reach the server/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says what to do when a retry was refused because the session ended", async () => {
+    serverAnswers(refused(404, "Workspace not found."), [failed]);
+    renderWorkspace({ documents: [failed] });
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText(RELOAD_TO_CHECK)).toBeInTheDocument();
+    expect(screen.queryByText("Workspace not found.")).not.toBeInTheDocument();
+  });
+
+  it("gives a refused retry the server's reason", async () => {
+    serverAnswers(refused(409, "Only a failed document can be retried."), [
+      failed,
+    ]);
+    renderWorkspace({ documents: [failed] });
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(
+      await screen.findByText("Only a failed document can be retried."),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing was retried when the server cannot be reached", async () => {
+    serverAnswers(unreachable, [failed]);
+    renderWorkspace({ documents: [failed] });
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(
+      await screen.findByText(
+        "Could not reach the server, so nothing was retried.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the message through a poll, and drops it with its document", async () => {
+    const processing = doc({
+      id: "doc-2",
+      filename: "notes.md",
+      chunkCount: 3,
+      embeddedChunkCount: 0,
+    });
+    serverAnswers(refused(500, "The database is unavailable."), [
+      failed,
+      { ...processing, embeddedChunkCount: 1 },
+    ]);
+    renderWorkspace({ documents: [failed, processing] });
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByText("The database is unavailable.");
+
+    // Waiting on the poll's own change, so the check below follows its render.
+    await vi.advanceTimersByTimeAsync(2_000);
+    await screen.findByText("Processing 1/3");
+    expect(
+      screen.getByText("The database is unavailable."),
+    ).toBeInTheDocument();
+
+    serverAnswers(refused(500, "The database is unavailable."), [processing]);
+    await vi.advanceTimersByTimeAsync(2_000);
+    await waitFor(() => {
+      expect(screen.queryByText("handbook.pdf")).not.toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByText("The database is unavailable."),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("what a reader meets first", () => {
+  const sections = () =>
+    screen
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent);
+
+  it("puts the question first where the reader cannot upload", () => {
+    renderWorkspace({ documents: [doc(READY)], canWrite: false });
+
+    expect(sections()[0]).toMatch(/ask/i);
+  });
+
+  it("keeps the documents first where the reader can", () => {
+    renderWorkspace({ documents: [doc(READY)] });
+
+    expect(sections()[0]).toMatch(/documents/i);
   });
 });

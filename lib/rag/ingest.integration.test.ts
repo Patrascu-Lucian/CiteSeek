@@ -25,6 +25,7 @@ import { fakeEmbeddings } from "@/lib/ai/fake-embedder";
 
 import { type Embedder } from "./embeddings";
 import {
+  MAX_CHUNKS_PER_DOCUMENT,
   processDocument,
   reembedFromOtherModels,
   resumeEmbedding,
@@ -50,6 +51,24 @@ function fixture(name: string): Uint8Array {
 
 const workingEmbedder: Embedder = (texts) =>
   Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: texts.length * 2 });
+
+/** One passage per word, so `words(100)` spans several batches of 32. */
+const ONE_PASSAGE_PER_WORD = { target: 4, max: 8, overlap: 0 };
+
+function words(count: number): Uint8Array {
+  return new TextEncoder().encode("word ".repeat(count));
+}
+
+function failingOnSecondBatch() {
+  let calls = 0;
+  const embedder: Embedder = (texts) => {
+    calls += 1;
+    return calls === 1
+      ? Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: 64 })
+      : Promise.reject(new Error("429 rate limit exceeded"));
+  };
+  return { embedder, calls: () => calls };
+}
 
 beforeAll(() => cleanupTestRows(db));
 afterAll(async () => {
@@ -217,6 +236,7 @@ describe("processDocument — the storage ceiling", () => {
     const after = await findDocumentInWorkspace(workspace.id, document.id);
     expect(after!.status).toBe("failed");
     expect(after!.error).toContain("storage limit");
+    expect(after!.failureReason).toBe("over_storage");
 
     // Why the check sits before chunking.
     expect(after!.contentText).toBeNull();
@@ -269,6 +289,88 @@ describe("processDocument — failures", () => {
     const stored = await findDocumentInWorkspace(workspace.id, document.id);
     expect(stored!.status).toBe("failed");
     expect(stored!.error).toMatch(/could not be read|no text/i);
+    expect(stored!.failureReason).toBe("unreadable");
+  });
+
+  it("records a PDF with no text layer as no_text", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "blank.pdf");
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      fixture("blank.pdf"),
+      "application/pdf",
+      { embedder: workingEmbedder },
+    );
+
+    const stored = await findDocumentInWorkspace(workspace.id, document.id);
+    expect(stored!.status).toBe("failed");
+    expect(stored!.failureReason).toBe("no_text");
+  });
+
+  it("records a document over the passage ceiling as too_large", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "long.txt");
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      words(MAX_CHUNKS_PER_DOCUMENT + 1),
+      "text/plain",
+      { embedder: workingEmbedder, chunkSizes: ONE_PASSAGE_PER_WORD },
+    );
+
+    const stored = await findDocumentInWorkspace(workspace.id, document.id);
+    expect(stored!.status).toBe("failed");
+    expect(stored!.failureReason).toBe("too_large");
+    expect(stored!.contentText).toBeNull();
+  });
+
+  it("records an embedding failure with what a retry needs", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "sample.pdf");
+    const quotaSpent: Embedder = () =>
+      Promise.reject(new Error("Quota exceeded for the embedding model."));
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      fixture("sample.pdf"),
+      "application/pdf",
+      { embedder: quotaSpent },
+    );
+
+    const stored = await findDocumentInWorkspace(workspace.id, document.id);
+    expect(stored!.status).toBe("failed");
+    expect(stored!.failureReason).toBe("embedding_unavailable");
+    expect(stored!.error).toBe("Quota exceeded for the embedding model.");
+    expect(stored!.contentText).not.toBeNull();
+    expect(await countChunks(workspace.id, document.id)).toBeGreaterThan(0);
+  });
+
+  it("clears the reason when a run the watchdog failed finishes after all", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "sample.pdf");
+    const watchdogFiresMidRun: Embedder = async (texts) => {
+      await updateDocument(workspace.id, document.id, {
+        status: "failed",
+        failureReason: "interrupted",
+      });
+      return { vectors: fakeEmbeddings(texts), tokens: 0 };
+    };
+
+    await processDocument(
+      workspace.id,
+      document.id,
+      fixture("sample.pdf"),
+      "application/pdf",
+      { embedder: watchdogFiresMidRun },
+    );
+
+    const stored = await findDocumentInWorkspace(workspace.id, document.id);
+    expect(stored!.status).toBe("ready");
+    expect(stored!.failureReason).toBeNull();
   });
 
   it("leaves the document failed rather than throwing", async () => {
@@ -289,35 +391,25 @@ describe("processDocument — failures", () => {
     ).resolves.toEqual({ embeddingTokens: 0 });
   });
 
-  it("keeps chunks already embedded when the provider fails partway", async () => {
+  it("keeps and charges what it embedded when the provider fails partway", async () => {
     const workspace = await createTestWorkspace(db);
-    const document = await queueDocument(workspace.id, "sample.pdf");
+    const document = await queueDocument(workspace.id, "words.txt");
+    const provider = failingOnSecondBatch();
 
-    let calls = 0;
-    const failsAfterFirstBatch: Embedder = (texts) => {
-      calls += 1;
-      if (calls > 1)
-        return Promise.reject(new Error("429 rate limit exceeded"));
-      return Promise.resolve({ vectors: fakeEmbeddings(texts), tokens: 0 });
-    };
-
-    await processDocument(
+    const result = await processDocument(
       workspace.id,
       document.id,
-      fixture("sample.pdf"),
-      "application/pdf",
-      { embedder: failsAfterFirstBatch },
+      words(100),
+      "text/plain",
+      { embedder: provider.embedder, chunkSizes: ONE_PASSAGE_PER_WORD },
     );
 
-    const stored = await findDocumentInWorkspace(workspace.id, document.id);
-    // The fixture is small enough to finish in one batch, so it should succeed;
-    // what matters is that a mid-flight failure never discards stored chunks.
-    expect(["ready", "failed"]).toContain(stored!.status);
-    const storedChunks = await db
-      .select()
-      .from(chunks)
-      .where(eq(chunks.documentId, document.id));
-    expect(storedChunks.length).toBeGreaterThan(0);
+    expect(provider.calls()).toBe(2);
+    expect(result.embeddingTokens).toBe(64);
+    const [summary] = await listDocuments(workspace.id);
+    expect(summary).toMatchObject({ status: "failed", chunkCount: 100 });
+    expect(summary!.embeddedChunkCount).toBeGreaterThan(0);
+    expect(summary!.embeddedChunkCount).toBeLessThan(100);
   });
 });
 
@@ -341,6 +433,7 @@ describe("resumeEmbedding", () => {
     const failed = await findDocumentInWorkspace(workspace.id, document.id);
     expect(failed!.status).toBe("failed");
     expect(failed!.error).toMatch(/rate limit/i);
+    expect(failed!.failureReason).toBe("embedding_unavailable");
 
     // Retry with a working provider: no re-extraction, just the missing vectors.
     const result = await resumeEmbedding(workspace.id, document.id, {
@@ -351,10 +444,28 @@ describe("resumeEmbedding", () => {
     const recovered = await findDocumentInWorkspace(workspace.id, document.id);
     expect(recovered!.status).toBe("ready");
     expect(recovered!.error).toBeNull();
+    expect(recovered!.failureReason).toBeNull();
 
     const [summary] = await listDocuments(workspace.id);
     expect(summary!.embeddedChunkCount).toBe(summary!.chunkCount);
     expect(await modelsOf(document.id)).toEqual(["fake"]);
+  });
+
+  it("charges what a retry embedded before failing again", async () => {
+    const workspace = await createTestWorkspace(db);
+    const document = await queueDocument(workspace.id, "words.txt");
+    await processDocument(workspace.id, document.id, words(100), "text/plain", {
+      embedder: () => Promise.reject(new Error("429 rate limit exceeded")),
+      chunkSizes: ONE_PASSAGE_PER_WORD,
+    });
+    const provider = failingOnSecondBatch();
+
+    const result = await resumeEmbedding(workspace.id, document.id, {
+      embedder: provider.embedder,
+    });
+
+    expect(provider.calls()).toBe(2);
+    expect(result.embeddingTokens).toBe(64);
   });
 
   it("re-embeds what another model wrote in place, leaving status alone", async () => {

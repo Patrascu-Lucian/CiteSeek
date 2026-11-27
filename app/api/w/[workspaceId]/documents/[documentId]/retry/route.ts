@@ -1,7 +1,8 @@
 import { NextResponse, after } from "next/server";
 
 import { authorizeWorkspace, isDenied } from "@/lib/documents/authorize";
-import { findDocumentInWorkspace } from "@/lib/documents/queries";
+import { countChunks, findDocumentInWorkspace } from "@/lib/documents/queries";
+import { canRetry } from "@/lib/rag/failure-reason";
 import { resumeEmbedding } from "@/lib/rag/ingest";
 import { clientIpHash } from "@/lib/usage/client-ip";
 import { enforceUsageLimits } from "@/lib/usage/enforce";
@@ -44,20 +45,21 @@ export async function POST(
     return NextResponse.json({ error: "Document not found." }, { status: 404 });
   }
 
-  if (document.status !== "failed") {
-    return NextResponse.json(
-      { error: "Only a failed document can be retried." },
-      { status: 409 },
-    );
-  }
+  const retryable = canRetry({
+    status: document.status,
+    hasText: document.contentText !== null,
+    chunks: await countChunks(auth.workspaceId, documentId),
+  });
 
-  if (!document.contentText) {
+  if (!retryable) {
     return NextResponse.json(
-      {
-        error:
-          "This document could not be read, so there is nothing to retry. Delete it and upload the file again.",
-        reason: "unrecoverable",
-      },
+      document.status === "failed"
+        ? {
+            error:
+              "There is nothing to retry for this document. Delete it and upload the file again.",
+            reason: "unrecoverable",
+          }
+        : { error: "Only a failed document can be retried." },
       { status: 409 },
     );
   }

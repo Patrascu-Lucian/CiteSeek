@@ -15,6 +15,7 @@ import {
 import { db } from "@/lib/db";
 import { isUuid } from "@/lib/db/uuid";
 import {
+  type DocumentFailureReason,
   type DocumentPageSpan,
   type DocumentStatus,
   type EmbeddingModelId,
@@ -22,6 +23,7 @@ import {
   documents,
   workspaces,
 } from "@/lib/db/schema";
+import { canRetry, readFailureReason } from "@/lib/rag/failure-reason";
 
 /**
  * Every read and write of document data.
@@ -42,7 +44,9 @@ export type DocumentSummary = {
   mimeType: string;
   sizeBytes: number;
   status: DocumentStatus;
-  error: string | null;
+  /** Null unless `status` is `failed`. */
+  failureReason: DocumentFailureReason | null;
+  canRetry: boolean;
   pageCount: number | null;
   chunkCount: number | null;
   embeddedChunkCount: number;
@@ -58,14 +62,17 @@ export async function listDocuments(
   // LEFT JOIN, not a correlated subquery: inside a `sql` template Drizzle emits
   // column references unqualified, so the subquery compares a chunk's foreign key
   // to its own primary key and returns 0 forever. `count(embedding)` skips nulls.
-  return db
+  const rows = await db
     .select({
       id: documents.id,
       filename: documents.filename,
       mimeType: documents.mimeType,
       sizeBytes: documents.sizeBytes,
       status: documents.status,
-      error: documents.error,
+      failureReason: documents.failureReason,
+      hasText: sql<boolean>`${documents.contentText} is not null`,
+      // The rows, not `chunk_count`: that is written before the insert it counts.
+      storedChunks: sql<number>`count(${chunks.id})::int`,
       pageCount: documents.pageCount,
       chunkCount: documents.chunkCount,
       createdAt: documents.createdAt,
@@ -77,6 +84,16 @@ export async function listDocuments(
     .where(eq(documents.workspaceId, workspaceId))
     .groupBy(documents.id)
     .orderBy(desc(documents.createdAt));
+
+  return rows.map(({ hasText, storedChunks, ...document }) => ({
+    ...document,
+    failureReason: readFailureReason(document),
+    canRetry: canRetry({
+      status: document.status,
+      hasText,
+      chunks: storedChunks,
+    }),
+  }));
 }
 
 /** Every row, whatever its status. A `ready`-only count is bypassable —
@@ -233,6 +250,7 @@ export async function updateDocument(
   patch: {
     status?: DocumentStatus;
     error?: string | null;
+    failureReason?: DocumentFailureReason | null;
     contentText?: string | null;
     pageSpans?: DocumentPageSpan[] | null;
     pageCount?: number | null;
@@ -423,6 +441,7 @@ export async function failStaleProcessing(): Promise<number> {
       status: "failed",
       error:
         "Processing stopped unexpectedly and did not finish. Try uploading this document again.",
+      failureReason: "interrupted",
       updatedAt: sql`now()`,
     })
     .where(

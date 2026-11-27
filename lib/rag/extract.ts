@@ -34,12 +34,22 @@ export function isSupportedMimeType(
   return mimeType in SUPPORTED_MIME_TYPES;
 }
 
+/** `no_text` for a file with nothing to search (a scan, an empty file), apart
+ * from one that cannot be parsed: only the first has advice that works. */
+export type UnreadableKind = "no_text" | "unreadable";
+
 /** Separate from unexpected failures, so ingestion can tell "unusable file"
  * (report and stop) from "something broke" (worth retrying). */
 export class UnreadableDocumentError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
+  readonly kind: UnreadableKind;
+
+  constructor(
+    message: string,
+    options: { kind: UnreadableKind; cause?: unknown },
+  ) {
     super(message, options);
     this.name = "UnreadableDocumentError";
+    this.kind = options.kind;
   }
 }
 
@@ -64,7 +74,7 @@ async function extractPdf(bytes: Uint8Array): Promise<ExtractedDocument> {
   } catch (cause) {
     throw new UnreadableDocumentError(
       "This PDF could not be read. It may be corrupt or password-protected.",
-      { cause },
+      { kind: "unreadable", cause },
     );
   }
 
@@ -75,6 +85,7 @@ async function extractPdf(bytes: Uint8Array): Promise<ExtractedDocument> {
     // "empty document" is not.
     throw new UnreadableDocumentError(
       "No text could be extracted from this PDF. If it is a scan, it needs OCR before it can be searched.",
+      { kind: "no_text" },
     );
   }
 
@@ -107,7 +118,7 @@ async function extractDocx(bytes: Uint8Array): Promise<ExtractedDocument> {
   } catch (cause) {
     throw new UnreadableDocumentError(
       "This Word document could not be read. It may be corrupt or in an older .doc format.",
-      { cause },
+      { kind: "unreadable", cause },
     );
   }
 
@@ -116,6 +127,7 @@ async function extractDocx(bytes: Uint8Array): Promise<ExtractedDocument> {
   if (text.length === 0) {
     throw new UnreadableDocumentError(
       "This Word document appears to contain no text.",
+      { kind: "no_text" },
     );
   }
 
@@ -132,6 +144,7 @@ function extractPlainText(bytes: Uint8Array): ExtractedDocument {
     decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch (cause) {
     throw new UnreadableDocumentError("This file is not valid UTF-8 text.", {
+      kind: "unreadable",
       cause,
     });
   }
@@ -139,7 +152,9 @@ function extractPlainText(bytes: Uint8Array): ExtractedDocument {
   const text = normalizeText(decoded);
 
   if (text.length === 0) {
-    throw new UnreadableDocumentError("This file is empty.");
+    throw new UnreadableDocumentError("This file is empty.", {
+      kind: "no_text",
+    });
   }
 
   return { text, pageSpans: null, pageCount: null };
@@ -152,6 +167,7 @@ export async function extractText(
   if (!isSupportedMimeType(mimeType)) {
     throw new UnreadableDocumentError(
       `Unsupported file type: ${mimeType}. Supported types are PDF, Word (.docx), Markdown and plain text.`,
+      { kind: "unreadable" },
     );
   }
 

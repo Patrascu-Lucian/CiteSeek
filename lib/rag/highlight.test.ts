@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { chunkText } from "./chunking";
-import { highlightForCitation } from "./highlight";
+import { extractText } from "./extract";
+import { highlightForCitation, unwrapForDisplay } from "./highlight";
 
 describe("highlightForCitation", () => {
   const TEXT = "Before it. The cited passage. After it.";
@@ -123,5 +126,112 @@ describe("the citation invariant, end to end", () => {
       expect(highlight.cited).toBe(chunk.content);
       expect(highlight.matchesQuote).toBe(true);
     }
+  });
+});
+
+describe("unwrapForDisplay", () => {
+  it("joins a line the page broke mid-sentence", () => {
+    expect(unwrapForDisplay("Leave\nrequests are approved.")).toBe(
+      "Leave requests are approved.",
+    );
+  });
+
+  it("keeps a break before a capital, a digit or a list marker", () => {
+    const text =
+      "Time off\nAnnual leave is 28 days.\n- One\n2. Two\n£150 a night";
+
+    expect(unwrapForDisplay(text)).toBe(text);
+  });
+
+  it("keeps a blank line, even before a lowercase one", () => {
+    const text = "One paragraph.\n\nlowercase opens the next.";
+
+    expect(unwrapForDisplay(text)).toBe(text);
+  });
+
+  it("joins before any lowercase letter, not only an ASCII one", () => {
+    expect(unwrapForDisplay("Le congé\nécrit")).toBe("Le congé écrit");
+  });
+
+  it("changes no length, so stored offsets still index it", () => {
+    const text = "Leave\nrequests of five days\nor fewer.\n\nNext.";
+
+    expect(unwrapForDisplay(text)).toHaveLength(text.length);
+  });
+
+  it("shows a citation unwrapped, and checks it against the stored text", () => {
+    const text = "Before.\nLeave\nrequests are approved.";
+    const quote = "Leave\nrequests are approved.";
+    const start = text.indexOf(quote);
+
+    const highlight = highlightForCitation(text, {
+      charStart: start,
+      charEnd: start + quote.length,
+      quote,
+    });
+
+    expect(highlight.before).toBe("Before.\n");
+    expect(highlight.cited).toBe("Leave requests are approved.");
+    expect(highlight.matchesQuote).toBe(true);
+  });
+});
+
+describe("unwrapForDisplay on the documents it will meet", () => {
+  const handbook = async () =>
+    unwrapForDisplay(
+      (
+        await extractText(
+          new Uint8Array(
+            readFileSync(
+              join(
+                import.meta.dirname,
+                "..",
+                "db",
+                "fixtures",
+                "northwind-remote-work-handbook.pdf",
+              ),
+            ),
+          ),
+          "application/pdf",
+        )
+      ).text,
+    ).split("\n");
+
+  it("keeps every heading of the demo handbook on its own line", async () => {
+    expect(await handbook()).toEqual(
+      expect.arrayContaining([
+        "Northwind Remote Work Handbook",
+        "Expenses and reimbursement",
+        "Equipment",
+        "Working hours and availability",
+        "Time off",
+        "Travel",
+        "Data handling",
+        "Leaving the company",
+      ]),
+    );
+  });
+
+  it("joins the passage the demo's first question cites into one line", async () => {
+    expect(await handbook()).toContain(
+      "Annual leave is 28 days plus public holidays, and unused leave does not carry over. Leave requests of five days or fewer are approved automatically. Longer requests need a line manager's approval and at least three weeks' notice.",
+    );
+  });
+
+  it.each([
+    "harbourline-equipment-manual.md",
+    "larkfield-tenancy-agreement.md",
+    "meridian-support-policy.md",
+  ])("keeps every heading of %s on its own line", (name) => {
+    const text = readFileSync(
+      join(import.meta.dirname, "..", "..", "eval", "fixtures", name),
+      "utf8",
+    ).replace(/\r\n/g, "\n");
+    const headings = text.split("\n").filter((line) => /^#{1,6} /.test(line));
+
+    expect(headings.length).toBeGreaterThan(0);
+    expect(unwrapForDisplay(text).split("\n")).toEqual(
+      expect.arrayContaining(headings),
+    );
   });
 });

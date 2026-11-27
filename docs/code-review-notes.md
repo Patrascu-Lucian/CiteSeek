@@ -127,8 +127,8 @@ lesson worth keeping. One entry per correction, newest last. Source material for
 - **Issue**: CI failed `pnpm format:check` on `lib/rag/normalize.test.ts` while the same
   command passed locally. The file had CRLF line endings despite `.gitattributes` setting
   `* text=auto eol=lf`. Root cause was three characters: the test asserted NUL stripping and
-  I had embedded a **literal NUL byte** in the string rather than writing `\0`. A NUL trips
-  git's binary heuristic, binary files are exempt from line-ending normalization, so Windows
+  the tooling had embedded a **literal NUL byte** in the string rather than writing `\0`. A NUL
+  trips git's binary heuristic, binary files are exempt from line-ending normalization, so Windows
   CRLF was committed verbatim — and Prettier, which expects LF, rejected it on the Linux
   runner.
 - **Fix**: rewrote the control characters as escape sequences (`\0`, ` `) in both the
@@ -344,7 +344,7 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   conversation could render the answer above the question.
 - **Fix**: an explicit `position` column with a unique index on `(chat_id, position)`,
   assigned from the current maximum on each append. `chunks` already solved exactly this
-  with `chunkIndex`; the precedent was there and I did not follow it.
+  with `chunkIndex`; the precedent was there and the tooling did not follow it.
 - **Lesson**: two things. `now()` is not a clock — it is fixed for the whole transaction,
   which is what makes it useful for consistency and useless for ordering rows written
   together. `clock_timestamp()` is the one that advances. And the test that caught it only
@@ -443,7 +443,7 @@ lesson worth keeping. One entry per correction, newest last. Source material for
   passages genuinely answered still cited correctly 3 of 3. The control was the point; a rule
   that suppressed citations everywhere would break the product's central claim while looking
   like a fix.
-- **Lesson**: two things. First, I diagnosed this wrong twice before measuring — blaming the
+- **Lesson**: two things. First, this was diagnosed wrong twice before measuring — blaming the
   prompt broadly, then blaming the demo fixture, on three anecdotes from different sessions.
   The model is non-deterministic, so _any_ theory fits three samples. Twelve calls against a
   fixed prompt settled it in about a minute, and that should have come first.
@@ -650,7 +650,7 @@ node.parentElement`, and no such attribute existed — so it fell back to a tran
 
 ### Five interface faults that only using the product could find
 
-All five came from Lucian navigating the app after the account page and navigation landed. Every
+All five came from me navigating the app after the account page and navigation landed. Every
 automated gate was green: 389 unit tests, 97 integration, 49 end-to-end, axe clean on six
 surfaces. None of these is the kind of thing a test suite is shaped to notice.
 
@@ -682,14 +682,14 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   The pattern is strong enough now to be a review question rather than an accident: **for every
   new control, does it read as a control without hovering it?**
 
-  **The instinct was better than mine, and measuring proved it.** The first fix for the slow
-  navigation was a spinner beside each link, using `useLinkStatus`. Lucian asked whether it would
+  **Navigating first was the better instinct, and measuring proved it.** The first fix for the slow
+  navigation was a spinner beside each link, using `useLinkStatus`. I asked whether it would
   be better to navigate instantly and show a loader on the destination — which is exactly what
   `loading.tsx` does, and it is both faster to perceive and more informative, because a skeleton
   reserves the real layout and says _where_ you are going. Measuring then showed the spinner was
   worse than redundant: on a deliberately slowed server it fires for a page with no boundary, but
   **never for `/w` or `/demo`**, because those are redirect-only route handlers rather than
-  client-side transitions. The one link he had actually named — "Try the demo" — was the one case
+  client-side transitions. The one link I had actually named — "Try the demo" — was the one case
   the spinner could not help. The wrapper came out of ten files.
 
   **A polymorphic route needs a label chosen at the call site.** `/w` deciding where to send you
@@ -1203,8 +1203,8 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   from the same branch appeared in the served HTML. The React payload itself showed the space
   already gone: `"stores the "`, the `strong` element, then `"from documents..."`.
 
-  The same construct on `/about` — `<em>is</em> right,` — renders its space correctly. I could
-  not explain the difference from inspection, and stopped trying rather than invent a reason.
+  The same construct on `/about` — `<em>is</em> right,` — renders its space correctly. The
+  tooling could not explain the difference from inspection, and stopped rather than invent a reason.
 
 - **Fix**: restructure so no whitespace sits at the tag boundary — the emphasis now ends the
   clause and is followed by a comma. The first attempt, an explicit `{" "}`, **was silently
@@ -1470,7 +1470,7 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
 - **Found in production data, not by reading.** A usage report run for an unrelated question showed
   two signed-in accounts, one of them an opaque UUID with no matching row: 8 requests and 11,085
   tokens still attributed to an account that had been deleted weeks earlier. The dates lined up with
-  the author's own test of the deletion flow.
+  my own test of the deletion flow.
 
 - **Why the code looked right.** The function carries a diagram of the cascade tree, and the tree is
   accurate — every table in it does cascade. `usage_events` simply is not in it, and nothing
@@ -1635,7 +1635,7 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
 - **Lesson**: **an assertion about something not happening needs a clock-free way to observe it.**
   The flag-and-throw pattern reads like a trap and is really a stopwatch: it asks whether the
   runtime got there before the assertion did. Spying the call is the same intent without the race.
-  The tell was available and I ignored it — a test that passes in isolation and fails in a suite is
+  The tell was available and was ignored — a test that passes in isolation and fails in a suite is
   reporting a shared clock or shared state, and the first question is which, not "flaky".
 
 ## A throttle that spent its interval on work that failed
@@ -1766,7 +1766,7 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
 ## Four tested files that no user could reach
 
 - **Issue**: the plan for local mode's first slice listed "capability detection **and the mode
-  toggle**", so I built both — a `citeseek_mode` cookie, a `modeFromCookie` parser with four
+  toggle**", so both were built — a `citeseek_mode` cookie, a `modeFromCookie` parser with four
   fallback tests, and a server action to set it, all modeled on the theme cookie in ADR 018.
   Everything passed. Nothing used it. Local inference does not exist until slice 6, so the cookie
   recorded a preference that no code read and a toggle would have switched between one option and
@@ -1825,7 +1825,7 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
 
 - **Lesson**: **the absence of an error is not evidence of success, and an instrument can be
   the thing that is silent.** Playwright's `page.on("console")` does not receive worker
-  output, and I read that silence as "no error occurred" for several runs. Before concluding
+  output, and that silence was taken as "no error occurred" for several runs. Before concluding
   that nothing went wrong, confirm the instrument can see the place the work is happening.
   Second: when a fix moves work somewhere slower, measure before writing the apology — the
   number here removed the tradeoff entirely rather than quantifying it.
@@ -1853,7 +1853,7 @@ surfaces. None of these is the kind of thing a test suite is shaped to notice.
   forward is that anything containing backticks, `$`, or `!` is written with an editing tool,
   never interpolated through a shell string.
 
-- **Lesson**: **the tooling that writes a file is part of its correctness.** I chose `node -e`
+- **Lesson**: **the tool that writes a file is part of its correctness.** `node -e` was picked
   for speed on multi-line edits and it silently degraded the one thing in the diff that no
   linter, formatter or test inspects. Worth a grep before any commit that touched comments
   through a shell: `grep -rn "[a-z,)] \{2,\}[a-z(]"` over comment lines finds the swallowed
@@ -1937,9 +1937,9 @@ tests, 117 E2E and a production build, green.
 
 - **What every layer of review missed, in order.** The gate was green throughout: format,
   lint, typecheck, 683 unit tests, 117 E2E, production build. `/code-review` read the diff and
-  found seven other defects without flagging this one. I wrote the example, noted the leak risk
-  in my own head while writing it, judged it low because the text began with "Example.", and
-  moved on. None of that was going to catch it.
+  found seven other defects without flagging this one. The tooling wrote the example, noted the
+  leak risk while writing it, judged it low because the text began with "Example.", and moved on.
+  None of that was going to catch it.
 
 - **Why the tests could not.** Two reasons, and the second is the interesting one. The suite
   fakes the generator so CI never downloads 756 MB, so nothing in it watches a real model read a
@@ -2066,10 +2066,10 @@ tests, 117 E2E and a production build, green.
   nothing reporting it.
 
 - **How it survived**: every test covering the parameter builds the request by hand, including one
-  I wrote days earlier whose comment reads "Named explicitly: the fallback would return the most
-  recent, not the full one." I described the seam accurately and did not notice the application
-  never crossed it. The component's own tests replace `useChat` wholesale, so the transport was
-  outside both sides' coverage.
+  the tooling wrote days earlier, whose comment reads "Named explicitly: the fallback would return
+  the most recent, not the full one." It described the seam accurately and did not notice the
+  application never crossed it. The component's own tests replace `useChat` wholesale, so the
+  transport was outside both sides' coverage.
 
 - **Fix**: `prepareSendMessagesRequest` adds `{ chatId }`, and a test runs the real hook and real
   transport against a stubbed `fetch`, asserting what left the client. Reverting the one line turns
@@ -2169,7 +2169,7 @@ tests, 117 E2E and a production build, green.
 
 - **First correction**: the first attempt at this named the noun — "Delete a conversation in the
   list above" — and kept deletion as the only advice, which fixed the grammar and left the worse
-  half in place. It took Lucian pointing out that the other conversations were not full to see
+  half in place. It took my pointing out that the other conversations were not full to see
   that the sentence was wrong about what the reader had to do, not merely about what it called it.
 
 - **Lesson**: **assert the requirement, not the string.** `toContain("delete one")` looks like
@@ -2375,8 +2375,8 @@ tests, 117 E2E and a production build, green.
 ## A hedge word covering for a number that was not a limit, 25 August 2026
 
 - **Issue**: the usage page's storage note read "One document holds about 273k of this — a larger
-  file has to be split." Lucian's reading: it states a typical size where a maximum was meant. He
-  was right about the sentence, and the sentence was the smaller half.
+  file has to be split." My reading: it states a typical size where a maximum was meant. The
+  reading was right, and the sentence was the smaller half.
 
 - **The number was not a cap.** The rule the system enforces is `MAX_CHUNKS_PER_DOCUMENT = 600`;
   273k is that multiplied by a **measured average** of ~455 characters per passage. `CHUNK_MAX_CHARS`
@@ -2405,14 +2405,14 @@ tests, 117 E2E and a production build, green.
 
 ## A documented command that had only ever run with an undocumented workaround, 25 August 2026
 
-- **Issue**: the README said to measure the bundle with `pnpm perf:bundle /w`. Lucian ran it and got
+- **Issue**: the README said to measure the bundle with `pnpm perf:bundle /w`. I ran it and got
   `tsx scripts/measure-bundle.mts "W:/"` followed by `ECONNREFUSED ::1:3000`. Two faults in one line.
 
 - **Cause**: Git Bash rewrites a leading slash into a drive letter before the argument reaches Node,
-  so `/w` arrives as `W:/`. I had hit this while writing the script, worked around it with
-  `MSYS_NO_PATHCONV=1`, and then documented the command **without** the workaround — so the README
-  described something I had never actually run. The script also needs `pnpm start` up, which nothing
-  said.
+  so `/w` arrives as `W:/`. The tooling had hit this while writing the script, worked around it
+  with `MSYS_NO_PATHCONV=1`, and then documented the command **without** the workaround — so the
+  README described something it had never actually run. The script also needs `pnpm start` up,
+  which nothing said.
 
 - **Fix**: the argument is a name now, not a path — `pnpm perf:bundle workspace` — so there is
   nothing for the shell to rewrite, and an unknown name fails loudly instead of measuring the wrong
@@ -2420,18 +2420,18 @@ tests, 117 E2E and a production build, green.
   start\` first.`
 
 - **Lesson**: **a workaround you needed to run something is part of the instructions, not a detail
-  of your setup.** The moment I typed `MSYS_NO_PATHCONV=1` the command had two forms — the one that
-  works and the one I wrote down — and only the second one shipped.
+  of your setup.** The moment `MSYS_NO_PATHCONV=1` was typed, the command had two forms — the one
+  that works and the one written down — and only the second one shipped.
 
 ## Repeating a filed claim without checking whether it was still true, 25 August 2026
 
-- **Issue**: I listed "regenerate the README screenshots — they have predated the branding since 10
-  August" as outstanding work. Lucian pointed at `3c3e172`, "docs: regenerate the shots the branding
-  invalidated", from 20 August. They had been done for five days.
+- **Issue**: the tooling listed "regenerate the README screenshots — they have predated the branding
+  since 10 August" as outstanding work. I pointed at `3c3e172`, "docs: regenerate the shots the
+  branding invalidated", from 20 August. They had been done for five days.
 
-- **Cause**: I read it from an open `docs/backlog.md` entry and repeated it as current. The entry
-  was accurate when written and nobody closed it, because closing an entry is a step with no
-  failing test behind it.
+- **Cause**: the tooling read it from an open `docs/backlog.md` entry and repeated it as current.
+  The entry was accurate when written and nobody closed it, because closing an entry is a step
+  with no failing test behind it.
 
 - **Fix**: the entry is struck through with the commit that closed it — and carries a `↳` noting it
   went stale **again** at v1.4.0 for a different reason, since the composer changed shape.
@@ -2442,17 +2442,18 @@ tests, 117 E2E and a production build, green.
 
 ## A verification that filtered out its own evidence, 25 August 2026
 
-- **Issue**: I reported that Zod's blocked `Function("")` probe "fires no `securitypolicyviolation`
-  event", having loaded production in Playwright with a listener attached and seen nothing.
+- **Issue**: the tooling reported that Zod's blocked `Function("")` probe "fires no
+  `securitypolicyviolation` event", having loaded production in Playwright with a listener attached
+  and seen nothing.
 
 - **It fires.** Zod's own source says so three lines above the probe: "strict CSPs report the caught
   `new Function` as a `securitypolicyviolation` even though the throw is swallowed."
 
-- **Cause**: my listener logged lines beginning `VIOLATION script-src …`, and my console filter
+- **Cause**: its listener logged lines beginning `VIOLATION script-src …`, and its console filter
   matched `/content security policy|csp|refused to/i`. The filter excluded the handler's own output.
-  I then reported the silence as a finding.
+  The tooling then reported the silence as a finding.
 
-- **How it came out**: Lucian was skeptical because his DevTools showed a CSP error. His evidence
+- **How it came out**: I was skeptical because my DevTools showed a CSP error. My evidence
   actually pointed somewhere else — `content.js` is a browser extension, not our code — but the
   challenge was right even though the exhibit was not, and re-checking found the broken harness.
 
@@ -2465,9 +2466,9 @@ tests, 117 E2E and a production build, green.
 
 - **Issue**: three separate corrections in one day, all the same shape. The README's Lighthouse
   table gained a v1.4.0 row while the prose beneath still blamed a bundle the numbers had cleared.
-  A commit fixing the layout shift left the README calling that fix "the open item" — caught by
-  Lucian asking whether the README belonged in the commit. And relabelling rows by version left
-  `/` landing reading "30 July" beside `/w/[id]` reading "v1.4.0", which he read, correctly, as
+  A commit fixing the layout shift left the README calling that fix "the open item" — caught when
+  I asked whether the README belonged in the commit. And relabeling rows by version left
+  `/` landing reading "30 July" beside `/w/[id]` reading "v1.4.0", which read, rightly, as
   "nobody has measured the landing page since July."
 
 - **Cause**: a 669-line README states most numbers twice — once where they are measured and once
@@ -2483,7 +2484,7 @@ tests, 117 E2E and a production build, green.
 - **Issue**: `app/(app)/w/[workspaceId]/loading.tsx` was written up as costing about five Lighthouse
   points for nothing — measured locally, deleting it improved **every metric on the report**,
   including the zero layout shift the file was assumed to be holding. The write-up kept it anyway,
-  on the argument that it was insurance against a cold database compute. Lucian did not accept
+  on the argument that it was insurance against a cold database compute. I did not accept
   either half: _"I don't know about the idea of removing the loading.tsx, it feels wrong."_
 
 - **Cause**: two faults stacked. The recommendation rested entirely on Lighthouse, and **Lighthouse
@@ -2505,8 +2506,8 @@ tests, 117 E2E and a production build, green.
   everything it measures; the error was treating its scope as the scope of the question. Before
   acting on a measurement, say out loud what the tool never does — Lighthouse never navigates, axe
   never judges whether an affordance is discoverable, a unit test never crosses a process boundary.
-  And the reviewer with no numbers was right against the reviewer with numbers, because he was
-  asking about the case the numbers omitted.
+  And the review with no numbers was right against the review with numbers, because it asked
+  about the case the numbers omitted.
 
 ## The instrument that saw one thing and reported the absence of everything, 26 August 2026
 
@@ -2606,7 +2607,7 @@ tests, 117 E2E and a production build, green.
 
 ## A reporter that unmounted before it could report, 27 August 2026
 
-- **Issue**: switching conversations left every other row disabled — permanently. Found by Lucian in
+- **Issue**: switching conversations left every other row disabled — permanently. Found by me in
   the first manual click, against 21 unit tests, 198 integration tests and 150 E2E, all green.
 
 - **Cause**: the pending flag comes from `useLinkStatus`, which reads the transition from the
@@ -2662,9 +2663,9 @@ tests, 117 E2E and a production build, green.
   transcripts differed: "every 1 year" in one, "every 1 years" in the other. Plausible — a GPU is
   free to reorder floating-point reductions — and wrong.
 
-- **Cause**: the two artifacts had been edited between runs, and I compared them without checking
-  whether anything besides the model had touched them. Recovering both from dangling git blobs
-  settled it in a minute: they differ in exactly two places, and the second is a
+- **Cause**: the two artifacts had been edited between runs, and the tooling compared them
+  without checking whether anything besides the model had touched them. Recovering both from
+  dangling git blobs settled it in a minute: they differ in exactly two places, and the second is a
   double letter appearing in a word the model had misspelled. A generator does not produce the
   correct spelling and then acquire an extra letter, so the file with the odd spellings is raw.
 
@@ -2677,7 +2678,7 @@ tests, 117 E2E and a production build, green.
   spelling, because correcting that edits the evidence.
 
 - **Lesson**: **before attributing a difference to the system under test, check what else could
-  have produced it.** I reached for a property of GPU arithmetic when the repository had the answer
+  have produced it.** A property of GPU arithmetic got the blame when the repository had the answer
   in its object store. Two artifacts differing is not a measurement until you know nothing but the
   measurement changed.
 
@@ -2686,20 +2687,20 @@ tests, 117 E2E and a production build, green.
   else in a repository — so the artifact has to carry the warning rather than assume the reader
   knows it is an exception.
 
-- **And the second-order one**: I attributed a difference between two artifacts to the system under
-  test without checking whether anything else had touched them. Version control had the answer the
-  whole time.
+- **And the second-order one**: the tooling attributed a difference between two artifacts to the
+  system under test without checking whether anything else had touched them. Version control had
+  the answer the whole time.
 
 ## Deferring a bug because it was not ours to cause, 31 August 2026
 
-- **Found by Lucian**: the sign-in page's "Continue with GitHub" button gave no feedback. It starts
+- **Found by me**: the sign-in page's "Continue with GitHub" button gave no feedback. It starts
   a server action ending in an OAuth redirect, so the page sits unchanged for a cold function plus a
   hop, which reads as a dead button and invites a second click.
 
-- **My first answer was to defer it.** `git log` showed the page untouched since milestone 5, so the
-  bug predated the release being prepared, and shipping v1.4.3 would not make it
-  worse. That reasoning is sound and answers the wrong question. He said "but it is a big bug", and
-  he was right: it is the entry point for every account, the fix is thirty lines, and the release
+- **The tooling's first answer was to defer it.** `git log` showed the page untouched since
+  milestone 5, so the bug predated the release being prepared, and shipping v1.4.3 would not make
+  it worse. That reasoning is sound and answers the wrong question. I said "but it is a big bug",
+  and it was: it is the entry point for every account, the fix is thirty lines, and the release
   was not yet tagged.
 
 - **Fix**: a `useFormStatus` client component — disabled, `aria-busy`, and a label that names where
@@ -2709,19 +2710,19 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **"is this a regression?" and "should this ship?" are different questions**, and only
   the first is answered by blame. Whether the release caused a defect decides who is responsible for
   it; whether the release should carry the fix depends on severity, cost, and whether the tag is
-  already cut. I had let the cheap question stand in for the expensive one.
+  already cut. The tooling had let the cheap question stand in for the expensive one.
 
 ## A comment that borrowed a hazard from another stream, 1 September 2026
 
-- **Issue**: local mode writes the joined question as `message-metadata`, and I justified that with
-  a comment naming a defect — "a data part written here arrives before the `start` that opens the
-  message, and builds a second one". Review checked it against `ai@7.0.77` rather than taking it at
-  face value, and the hazard cannot occur in this stream.
+- **Issue**: local mode writes the joined question as `message-metadata`, and the tooling justified
+  that with a comment naming a defect — "a data part written here arrives before the `start` that
+  opens the message, and builds a second one". Review checked it against `ai@7.0.77` rather than
+  taking it at face value, and the hazard cannot occur in this stream.
 
 - **Cause**: the mechanism is real, in the cloud route, where ADR 044 documents it in detail. Local
   mode's stream has no `start` chunk to arrive ahead of: `createUIMessageStream` never emits one,
-  and only the merged `toUIMessageStream` in the route supplies it. I carried the reason across with
-  the pattern.
+  and only the merged `toUIMessageStream` in the route supplies it. The tooling carried the reason
+  across with the pattern.
 
 - **The code was right for a different reason.** The cloud rewrite lands in the same metadata field,
   so `message-list` renders both from one branch. That is a coupling worth a comment; the hazard was
@@ -2764,19 +2765,20 @@ tests, 117 E2E and a production build, green.
   collection.
 
 - **Lesson**: **when a fact has been corrected three times, the fix is not a fourth correction.**
-  The repeated edit is the signal that the claim needs a mechanism rather than an author. I nearly
-  shipped the fourth one, and it would have been wrong again within a week.
+  The repeated edit is the signal that the claim needs a mechanism rather than an author. The
+  tooling nearly shipped the fourth one, and it would have been wrong again within a week.
 
-- **And a smaller one, from my own code**: the first version of the checker built its pattern with
-  `new RegExp` from a template string, and one collapsed escape turned it into an alternation that
-  matched every line and captured nothing — so it reported the README's count as `undefined`
-  against a table that was correct. Splitting the markdown row on `|` needs no escaping and cannot
-  fail that way. A check that can report a false failure is worse than the drift it guards.
+- **And a smaller one, in the tooling's own code**: the first version of the checker built its
+  pattern with `new RegExp` from a template string, and one collapsed escape turned it into an
+  alternation that matched every line and captured nothing — so it reported the README's count as
+  `undefined` against a table that was correct. Splitting the markdown row on `|` needs no escaping
+  and cannot fail that way. A check that can report a false failure is worse than the drift it
+  guards.
 
 ## The same comment defect, one slice after writing it down, 2 September 2026
 
-- **Issue**: the count checker read the JUnit root's `tests` attribute, and I explained the choice
-  with _"the root total, not a sum: a file that fails to collect still contributes a
+- **Issue**: the count checker read the JUnit root's `tests` attribute, and the tooling explained
+  the choice with _"the root total, not a sum: a file that fails to collect still contributes a
   `<testsuite>`, so summing would read a broken run as a smaller one."_ Review checked Vitest's
   reporter instead of the comment. The root attribute **is** the sum —
   `stats.tests += file.tasks.length` — and a file that fails to load contributes one synthetic
@@ -2794,10 +2796,10 @@ tests, 117 E2E and a production build, green.
 - **Fix**: the comment is deleted. Reading a documented attribute needs no justification, and the
   honest version — "the test step fails first" — is visible in the workflow.
 
-- **Lesson**: **a comment claiming a defense has to be checked like a test would be.** The class I
-  keep hitting is not carelessness about facts in general; it is specifically the sentence that
-  explains why a choice is _safe_, which is the one kind of comment I write without opening the
-  source it describes.
+- **Lesson**: **a comment claiming a defense has to be checked like a test would be.** The class
+  the tooling keeps hitting is not carelessness about facts in general; it is specifically the
+  sentence that explains why a choice is _safe_, which is the one kind of comment it writes
+  without opening the source it describes.
 
 - **Also caught, and cheaper**: the count check was placed between the model test run and the
   `Save the model` step, which is gated on `success()`. A stale README would have failed the job
@@ -2814,9 +2816,9 @@ tests, 117 E2E and a production build, green.
   expire unless an expiry is set**; the ceiling is an Organization-level maximum credential duration,
   a setting on our account.
 
-- **Cause**: I read the console's "API keys in this Organization can be valid for up to 1 year",
-  which is true, and reported it as a property of the vendor, which it is not. The dropdown offered
-  nothing longer because of a setting I had not looked for.
+- **Cause**: the tooling read the console's "API keys in this Organization can be valid for up to
+  1 year", which is true, and reported it as a property of the vendor, which it is not. The dropdown
+  offered nothing longer because of a setting nobody had looked for.
 
 - **Where it happened is the point.** That sentence sits in the commit whose entire argument is that
   vendor claims must be read from primary sources — the same commit that disqualifies Resend by
@@ -2829,12 +2831,12 @@ tests, 117 E2E and a production build, green.
 
 - **Lesson**: **a console tells you what your account is configured to do, not what the product can
   do.** The two are the same sentence from the inside and different facts, and only the second one
-  belongs in a document that argues about vendors. The tell is available in advance: I could not
-  have quoted a source for the claim, and every other claim in that commit had one.
+  belongs in a document that argues about vendors. The tell is available in advance: no source
+  could have been quoted for the claim, and every other claim in that commit had one.
 
-- **And the shape it shares with the rest of this file**: the check I applied to the residency
-  question — read the primary source, quote it — was right there, already running, and I did not
-  apply it to the sentence in the next paragraph.
+- **And the shape it shares with the rest of this file**: the check the tooling applied to the
+  residency question — read the primary source, quote it — was right there, already running, and
+  went unused on the sentence in the next paragraph.
 
 ## A test that pinned the half that worked, 7 September 2026
 
@@ -2846,13 +2848,14 @@ tests, 117 E2E and a production build, green.
   ceiling, where five addresses at full throttle would have closed the demo to every guest and seven
   would have refused chat to signed-in users.
 
-- **Cause**: I wrote the filter where I was working. The new query got the new predicate; the two
-  existing queries were never opened, because nothing about writing `countSignInLinksSince` requires
-  reading them.
+- **Cause**: the tooling wrote the filter where it was working. The new query got the new
+  predicate; the two existing queries were never opened, because nothing about writing
+  `countSignInLinksSince` requires reading them.
 
-- **The integration test made it worse rather than catching it.** I wrote one case — "does not spend
-  the allowance on a guest asking the demo questions" — and it passes, because it tests the direction
-  that works. A green test named after the property gave the ADR's claim a second signature.
+- **The integration test made it worse rather than catching it.** The tooling wrote one case —
+  "does not spend the allowance on a guest asking the demo questions" — and it passes, because it
+  tests the direction that works. A green test named after the property gave the ADR's claim a
+  second signature.
 
 - **Fix**: both counters filter, and the classification is a `Record<UsageKind, boolean>` rather than
   a list, so a new kind does not compile until someone says whether it costs a provider call. The new
@@ -2874,10 +2877,11 @@ tests, 117 E2E and a production build, green.
   is a current user's address. Unclicked links, links for addresses that never became accounts, and
   every refused attempt accumulated with no bound, writable by an unauthenticated caller.
 
-- **Cause**: I reasoned carefully about _where_ the throttle belongs — inside the provider, because
-  Auth.js owns `/api/auth/*` and the send is the line that spends money — and that reasoning is still
-  right. What I never asked is what the rest of the request does once my part throws. I treated the
-  callback as the whole operation because it was the whole of my code.
+- **Cause**: the tooling reasoned carefully about _where_ the throttle belongs — inside the
+  provider, because Auth.js owns `/api/auth/*` and the send is the line that spends money — and
+  that reasoning is still right. What it never asked is what the rest of the request does once
+  its part throws. It treated the callback as the whole operation because it was the whole of its
+  code.
 
 - **Fix**: expired rows are swept, on the sign-in send rather than only on the polled documents `GET`
   the existing sweeps ride, because the callers who fill that table are not signed in and never reach
@@ -2914,16 +2918,16 @@ tests, 117 E2E and a production build, green.
 
 - **Issue**: `atMostEvery` claims its window only after the work resolves, and `sweeps.test.ts` pins
   that deliberately — "the gate advancing on failure would skip the sweep until the next window, and
-  this endpoint is only polled while a document is processing." I reused the helper to host a new
-  sweep on the sign-in send and never re-read that reasoning. On the new host the inverse holds: the
-  caller is anonymous, arrival is attacker-paced, and a sweep that kept failing would be retried by
-  every request rather than once a window. The sweep also sat above the throttle, so nothing had
-  rate-limited it yet.
+  this endpoint is only polled while a document is processing." The tooling reused the helper to
+  host a new sweep on the sign-in send and never re-read that reasoning. On the new host the
+  inverse holds: the caller is anonymous, arrival is attacker-paced, and a sweep that kept failing
+  would be retried by every request rather than once a window. The sweep also sat above the
+  throttle, so nothing had rate-limited it yet.
 
 - **Cause**: the helper's comment reads as a property of the helper. It is a property of the helper
   _plus the endpoint it was written against_, and the sentence naming the endpoint was right there.
-  I read it as justification for the existing behavior rather than as a statement of the conditions
-  the behavior depends on.
+  The tooling read it as justification for the existing behavior rather than as a statement of the
+  conditions the behavior depends on.
 
 - **Fix**: the sweep moved below the admission check, so the allowance paces it, and the failure is
   swallowed inside the work so the window is claimed either way. Both are one line. The unit test
@@ -2938,12 +2942,12 @@ tests, 117 E2E and a production build, green.
 
 - **Issue**: review pointed out that the throttle's error code and the copy the reader sees live in
   two files with nothing binding them — delete the `AccessDenied` entry from the sign-in page's map
-  and the whole suite stays green. I wrote the E2E test, then falsified it by deleting the map entry
-  and re-running. **It passed.** Which would have meant my new test was worthless.
+  and the whole suite stays green. The tooling wrote the E2E test, then falsified it by deleting
+  the map entry and re-running. **It passed.** Which would have meant the new test was worthless.
 
 - **Cause**: Playwright's `webServer` runs `pnpm start`, which serves the prebuilt `.next`. Editing a
   source file changes nothing until `pnpm build` runs again. The falsification ran against bytes that
-  still contained the entry I had just deleted.
+  still contained the entry it had just deleted.
 
 - **Fix**: rebuild, re-run, and it fails with `"Something went wrong signing you in."` — the fallback,
   which is exactly what review predicted. The test is real. Nothing about the test changed.
@@ -2963,14 +2967,14 @@ tests, 117 E2E and a production build, green.
   gates — `pruneExpiredTokens(swallowFailures(work))` rather than
   `pruneExpiredTokens(work).catch(...)`. The difference is only visible in `atMostEvery`, which
   claims its window after the work resolves: swallowed inside, a failing sweep spends its hour;
-  swallowed outside, every later request retries it. My unit test mocked the gate as
-  `(work) => work()`. Both placements pass through that stub identically. The test I wrote to pin
+  swallowed outside, every later request retries it. The tooling's unit test mocked the gate as
+  `(work) => work()`. Both placements pass through that stub identically. The test written to pin
   the fix could not have failed on the bug.
 
-- **Cause**: I mocked the gate because its window is module state and would have leaked between
-  cases — a real problem with a real fix, which the file next door already used: `atMostEvery` with a
-  clock the test owns. I reached for the cheaper stub instead and stopped thinking once the leak was
-  solved, because the leak was the problem I had in mind.
+- **Cause**: the tooling mocked the gate because its window is module state and would have leaked
+  between cases — a real problem with a real fix, which the file next door already used:
+  `atMostEvery` with a clock the test owns. It reached for the cheaper stub instead and stopped
+  thinking once the leak was solved, because the leak was the problem it had in mind.
 
 - **Fix**: `vi.mock("@/lib/sweeps", importOriginal)` keeping the real `atMostEvery` and the real
   `swallowFailures`, on a hoisted `clock`. Two cases now: a failing sweep is invoked once across two
@@ -2989,9 +2993,9 @@ tests, 117 E2E and a production build, green.
   gated — the comment two lines above them says the client polls every two seconds.
 
 - **Cause**: the previous review described the existing sweep as running "when a signed-in user
-  uploads a document". I used that sentence to reason about where the tail was uncollected, agreed
-  with the conclusion, added the second host — and never opened the handler I was adding it to. The
-  conclusion was right, which is what let the wrong premise through.
+  uploads a document". The tooling used that sentence to reason about where the tail was
+  uncollected, agreed with the conclusion, added the second host — and never opened the handler it
+  was adding it to. The conclusion was right, which is what let the wrong premise through.
 
 - **Fix**: the ADR names the `GET`, and says what that host is actually bounded by — authorization,
   not an allowance — so the sentence about the allowance pacing the sweep is scoped to the sign-in
@@ -3000,37 +3004,38 @@ tests, 117 E2E and a production build, green.
 - **Lesson**: **a reviewer's description of your code is a claim about your code, and it inherits
   no authority from being in a review.** The asymmetry is what makes it dangerous: their _findings_
   arrive with evidence attached, and their _descriptions_ of the surrounding code arrive as
-  background. I verified all four mechanisms that review reported as defects and none of the
-  sentences framing them.
+  background. The tooling verified all four mechanisms that review reported as defects and none
+  of the sentences framing them.
 
 ## The measurement measured the wrong process, 10 September 2026
 
 - **Issue**: the maintenance slice turned on a flag, and its whole shape depended on whether
-  `NextResponse.rewrite(url, { status: 503 })` preserves the status in Next 16. I built it, started
-  a server with `MAINTENANCE=on`, curled, and got 503 — correct. Then I killed the server with
-  `pkill -f "port 3100"`, restarted without the flag, curled again, and got **503 again**. Read
-  naively that says the switch is stuck on and cannot be turned off.
+  `NextResponse.rewrite(url, { status: 503 })` preserves the status in Next 16. The tooling built
+  it, started a server with `MAINTENANCE=on`, curled, and got 503 — correct. Then it killed the
+  server with `pkill -f "port 3100"`, restarted without the flag, curled again, and got **503
+  again**. Read naively that says the switch is stuck on and cannot be turned off.
 
 - **Cause**: `pkill -f` matched nothing on Windows, so the first server never died. The second
-  `pnpm start` failed to bind the port and exited, silently, into a log I was not reading. Every
+  `pnpm start` failed to bind the port and exited, silently, into a log nobody was reading. Every
   request in the "flag off" run was answered by the still-running "flag on" process.
 
 - **Fix**: identify the listener by port and kill it by pid, then re-measure. With a genuinely fresh
   server: `/` 200, `/account` 307, `/maintenance` 200. Both directions confirmed.
 
 - **Lesson**: **a second measurement is only a second measurement if something changed between
-  them.** The tell was available and I walked past it: a result that says "this switch cannot be
+  them.** The tell was available and was walked past: a result that says "this switch cannot be
   turned off" is describing an implausible product, and implausible results are about the harness far
   more often than the code. The same shape as the falsification that passed against a stale build
   three days earlier — confirm the _setup_ changed before believing the outcome did.
 
 ## A merge where a substitution was meant, 10 September 2026
 
-- **Issue**: extracting the status-page shell gave it a `contentClassName` prop, and I routed it
-  through `cn("flex flex-wrap gap-3", contentClassName)`. The two error boundaries pass `space-y-4`.
-  `cn` merges rather than replaces when the classes touch different properties, so both would have
-  rendered `flex flex-wrap gap-3 space-y-4` — and `space-y` on a flex _row_ does nothing. Both
-  boundaries would have silently lost the spacing between their alert, their button and their digest.
+- **Issue**: extracting the status-page shell gave it a `contentClassName` prop, and the tooling
+  routed it through `cn("flex flex-wrap gap-3", contentClassName)`. The two error boundaries pass
+  `space-y-4`. `cn` merges rather than replaces when the classes touch different properties, so
+  both would have rendered `flex flex-wrap gap-3 space-y-4` — and `space-y` on a flex _row_ does
+  nothing. Both boundaries would have silently lost the spacing between their alert, their button
+  and their digest.
 
 - **Cause**: `cn` is the reflex for a className prop, and it is right when the prop is an addition.
   Here the prop is an alternative, and nothing about the call site says which kind it is.
@@ -3695,7 +3700,7 @@ tests, 117 E2E and a production build, green.
 
 ## A screenshot that became the largest paint, 20 September 2026
 
-> **Superseded in part on 30 September 2026** — see "A cost I published from two runs" below. The two
+> **Superseded in part on 30 September 2026** — see "A cost published from two runs" below. The two
 > points this entry attributes to the screenshot do not survive a controlled re-measure: fifteen runs
 > on one harness read 94 with the figure and 94–95 without, LCP 3.0s either way. The heading still
 > holds — the figure does become the largest paint — but it does not make it later.
@@ -3769,10 +3774,10 @@ tests, 117 E2E and a production build, green.
   best cell out of a measured table is selection, and a page whose whole claim is "measured rather
   than asserted" is the worst place to do it.
 
-## A guard the test I trusted could not reach, 21 September 2026
+## A guard the trusted test could not reach, 21 September 2026
 
 - **Issue**: the closing call to action at the foot of the landing page links to `/demo`, a GET that
-  sets a guest cookie. It was written with `prefetch={prefetchFor(href)}`, and I claimed
+  sets a guest cookie. It was written with `prefetch={prefetchFor(href)}`, and the tooling claimed
   `e2e/auth.spec.ts`'s "reading the landing page starts no session" already covered it. Removing the
   prop to prove that — the test still passed.
 
@@ -3837,7 +3842,7 @@ tests, 117 E2E and a production build, green.
   where it came from does not hold it.** The comment beside these numbers already explained why they
   are written by hand; it could not notice the day the artifact changed underneath them.
 
-## A cost I published from two runs, 30 September 2026
+## A cost published from two runs, 30 September 2026
 
 - **Issue**: ADR 057 and the release notes said the landing page's screenshot "costs two Lighthouse
   points locally — 96 to 94, LCP 2.7 s to 3.1 s". Re-measuring properly does not reproduce it. On one
@@ -3858,7 +3863,7 @@ tests, 117 E2E and a production build, green.
   noise between repeats of the same build is bigger than the gap between builds needs repeats,
   interleaving and one changed variable — and if the "before" was a different page, there is no
   comparison at all. This project already knew it: the README warns readers not to compare its
-  v0.7.0 Lighthouse row against v1.4.0 because the tooling differs, and I did the same thing one
+  v0.7.0 Lighthouse row against v1.4.0 because the harness differs, and the same thing was done one
   table down.
 
 ## A flaky test that named the bug it exists for, 30 September 2026
@@ -4254,7 +4259,7 @@ was written and tested against itself rather than against the things it points a
   since the opener existed: one miss in each of the three 60-reply reports, every one opening "The
   documents do not specify", every one a real decline citing a relevant fact.
 
-- **Caught by Lucian, reviewing the decision**: the trigger measured a rate, and this was not a rate.
+- **Caught by me, reviewing the decision**: the trigger measured a rate, and this was not a rate.
   It was the same phrase three times out of three, so whether a reader could click a refusal's marker
   depended on which synonym the model picked. And the ADR's own argument already covered it: the
   looser match was rejected because "do not require" begins true answers, while it called "do not
@@ -4331,7 +4336,7 @@ four, failing on the code-point version.
 - **Issue**: when the live site first met "The documents do not mention…", the backlog kept it out of
   the declining openers as "less plainly a decline" than "specify", on the strength of one
   counterexample: "The documents do not mention any fee for early termination [2]" reads as an answer
-  about what the documents say. Lucian put "specify" in its place, and it read exactly the same. The
+  about what the documents say. I put "specify" in its place, and it read exactly the same. The
   counterexample did not separate the new phrase from one already on the list, so it was never a
   reason, only a hesitation written as one.
 
@@ -4348,7 +4353,7 @@ four, failing on the code-point version.
 ## A claim measured by reading, from a report that could not show it, 18 October 2026
 
 - **Issue**: the README says the refusal runs had "no out-of-range marker", and links
-  `eval/refusals.md` as the evidence. Lucian traced the claim to the harness's first version (#348),
+  `eval/refusals.md` as the evidence. I traced the claim to the harness's first version (#348),
   which scored with `cites()`: that counts only in-range markers and skips invented ones silently.
   Since #444 the harness reads `markerVerdict()`, which reports `invented: []` for every declining
   reply by design, one note per reply. Either way no column ever counted the claim. In the committed
@@ -4588,7 +4593,7 @@ four, failing on the code-point version.
   project's default.
 
 - **Fix**: the integration is gone, and every Preview uses `preview/develop`. It and `dev` began as
-  branches of production, and both were checked: each holds only the author's test accounts. A copy
+  branches of production, and both were checked: each holds only my test accounts. A copy
   of production is made by hand for a named purpose and deleted after it (ADR 063). The smoke
   branch's copy went with its branch.
 
@@ -4672,3 +4677,117 @@ four, failing on the code-point version.
 - **Lesson**: **a timing from a machine times everything on that machine, the tooling included.**
   Asking for a measurement means stopping one's own work until the result is back, and a run
   discarded as "saturated" is owed the question of what saturated it.
+
+## A failed run that charged nothing for what it had spent, 23 November 2026
+
+- **Issue**: a document whose embedding failed partway was charged nothing for the batches it had
+  already embedded. The helper kept its running total in a local variable and returned it at the
+  end, so a later batch's throw took the total with it, and the upload and retry routes both
+  charged 0. Two comments promised the opposite. The test named for the case, "keeps chunks
+  already embedded when the provider fails partway", used a one-passage fixture, so its failing
+  embedder was never called a second time, and its assertion accepted `ready` or `failed`. The
+  tooling found it while reviewing the change that records why a document failed, and proved it
+  with a probe: 64 tokens spent, 0 charged. It had been so since 0.7.0, the first release to
+  charge ingestion's tokens.
+
+- **Fix**: fixed at once rather than parked. Each batch reports its tokens to the caller as it is
+  spent, before its vectors are written, so the count survives the throw. The test now embeds a
+  hundred one-word passages, fails on the second batch, and pins both the kept vectors and the 64
+  tokens; a second test does the same for a retry. Both fail against the old code.
+
+- **Lesson**: **an assertion that accepts either outcome is a test admitting it never reached its
+  case.** `["ready", "failed"]` said so for four months, while two comments in the code promised the
+  behavior it never exercised.
+
+## A plan that retired a field before its replacement existed, 23 November 2026
+
+- **Issue**: the plan for 1.14.0 had the server stop sending a failed document's message one commit
+  before the list could say anything else. The list's type, the component and three of its tests
+  read that field, so the first commit would have deleted the failure line and the second put a
+  sentence back. Between the two, `develop` would have shown a failed document with nothing but its
+  badge and a Retry. The tooling noticed when that commit would not compile without touching the
+  component.
+
+- **Fix**: I reordered the two commits as expand, then contract. The list first gains the reason
+  and the retry flag beside the message, and the component moves to them, with a test per reason;
+  only then does the server stop sending the message. Every commit is green, and `develop` never
+  shows less than it did.
+
+- **Lesson**: **an API field retires the way a column does: add the replacement, move every reader,
+  then remove it.** The migrations already worked that way; the plan applied the order to the
+  database and not to its own JSON.
+
+## Two falsifiers that could not fail, 24 November 2026
+
+- **Issue**: two tests written to fail before a change passed against the code they were meant to
+  catch. The end-to-end check for a scanned PDF looked for "needs OCR", which the old exception text
+  also contained, so only its Retry assertion could tell the versions apart. The test that a failed
+  retry's message survives a poll asserted straight after advancing the clock, before the poll's
+  response had rendered, so it passed while the poll was still about to erase the message. The
+  tooling wrote both, and ran each against the old code before changing anything, which is what
+  showed it.
+
+- **Fix**: the scan test now looks for wording only the new sentence has. The poll test makes the
+  poll change something visible, a progress count, waits for that, and only then checks the
+  message. Both now fail against the old code for the reason they name.
+
+- **Lesson**: **a test written to fail first is not a falsifier until it has been seen failing.** A
+  passing run against the old code is not a green light; it means the test is not looking where the
+  change is.
+
+## A copy test that passed because of where the pointer stopped, 24 November 2026
+
+- **Issue**: moving the demo's chat above its documents failed an end-to-end test that never
+  touched layout: "copies the answer with a list of what each marker was" timed out on the Copy
+  button. Copy is hidden with `pointer-events-none` until its turn is hovered or focused, and the
+  test never hovered. It had passed because the pointer, left on "Send", happened to sit over the
+  answer once it arrived; with the chat at the top of the page, it no longer did.
+
+- **Fix**: the test hovers the answer's citation chip before clicking Copy, as a mouse reader does
+  and as the delete-turn tests already did.
+
+- **Lesson**: **a test can depend on state nobody set.** Where the pointer rests is state, and an
+  unrelated layout change is what reveals a test leaning on it.
+
+## A guard only the type checker needed, 24 November 2026
+
+- **Issue**: the fix that let a citation chip survive the sanitizer's prefix checked
+  `href === undefined || prefix === undefined`. Mutation testing replaced the first half with
+  `false` and no test noticed: when `href` was missing, `href?.startsWith` had already left
+  `prefix` undefined, so that half never decided anything. It was there to narrow `href` for
+  TypeScript.
+
+- **Fix**: `href` is checked first, on its own, and the prefix search no longer needs optional
+  chaining. Each condition now has a case only it handles, and both mutants fail tests.
+
+- **Lesson**: **a condition written for the type checker can be dead at runtime.** Mutation testing
+  finds it where coverage cannot, since the line runs either way.
+
+## A 404 that meant two things, 27 November 2026
+
+- **Issue**: a failed delete or retry was meant to say so, and after a session ended neither did.
+  Every document route answers a caller it cannot authorize with 404 "Workspace not found.", on
+  purpose, so a workspace id cannot be probed. The delete handler read every 404 as a delete done
+  elsewhere and only refreshed; the refresh was refused the same way and said it "could not reach
+  the server". Retry showed the reader "Workspace not found." about the workspace in front of them.
+  The release review found it by signing out in another tab.
+
+- **Fix**: a 404 counts as a delete done elsewhere only when the refresh confirms the document is
+  gone. Otherwise the notice says to reload the page, and to sign in again if the session ended. A
+  retry refused with 404 says the same, and a refused poll says to reload rather than claiming the
+  server could not be reached.
+
+- **Lesson**: **a status a route sends on purpose for two reasons cannot be read as one.** The 404
+  that hides whether a workspace exists is the 404 a deleted document gets, so the client has to ask
+  a second question before it decides which happened.
+
+## A zero shown in thousands, 27 November 2026
+
+- **Issue**: giving both usage figures the limit's unit turned a new account's empty storage into
+  "0.0k of 500k", beside two rows reading "0", and anything under 50 characters read "0.0k" as well.
+  The only test was 211 becoming "0.2k".
+
+- **Fix**: zero reads "0 of 500k", and a figure under 50 characters reads "<0.1k".
+
+- **Lesson**: **a format change is tested at its edges, and zero is the first.** Every new account
+  meets it before any other value.

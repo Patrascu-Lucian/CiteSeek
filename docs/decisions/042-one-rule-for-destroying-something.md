@@ -93,3 +93,11 @@ users whose browse mode intercepts arrow keys before a handler sees them, and it
 the citation chips' tab stops, which are the majority. A skip link to the question box is what
 shipped instead, matching the one `app/layout.tsx` already carries — and whose own comment names
 this surface as the reason it exists.
+
+## Amendment, 25 November 2026: Copy needs no hold
+
+The hold exists so that a control which destroys something is never under a stray tap. Copy
+destroys nothing, and it is the control a reader on a phone most often wants; behind a half-second
+hold, nothing on the screen said it was there. From 1.14.0 the latest settled answer shows its Copy
+without a hold wherever the device cannot hover. Edit and delete on a question, and Copy on earlier
+answers, keep the hold, so a long conversation does not grow a column of buttons.

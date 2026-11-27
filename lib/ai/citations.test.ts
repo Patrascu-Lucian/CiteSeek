@@ -4,7 +4,9 @@ import type { ChatSource } from "./types";
 import {
   CITATION_HREF_PREFIX,
   citationLabel,
+  citationRunOf,
   citedMarkers,
+  claimAt,
   inventedMarkersNote,
   linkCitationMarkers,
   markerVerdict,
@@ -27,12 +29,15 @@ function source(overrides: Partial<ChatSource> = {}): ChatSource {
   };
 }
 
+const href = (marker: number, run: number) =>
+  `${CITATION_HREF_PREFIX}${marker}-${run}`;
+
 describe("linkCitationMarkers", () => {
   it("rewrites a marker that has a source behind it", () => {
     const text = "Expenses are paid in 30 days [1].";
 
     expect(linkCitationMarkers(text, [source()])).toBe(
-      `Expenses are paid in 30 days [1](${CITATION_HREF_PREFIX}1).`,
+      `Expenses are paid in 30 days [1](${href(1, 0)}).`,
     );
   });
 
@@ -53,7 +58,7 @@ describe("linkCitationMarkers", () => {
     ]);
 
     expect(linked).toBe(
-      `Both [1](${CITATION_HREF_PREFIX}1) and [2](${CITATION_HREF_PREFIX}2) agree.`,
+      `Both [1](${href(1, 0)}) and [2](${href(2, 1)}) agree.`,
     );
   });
 
@@ -66,9 +71,7 @@ describe("linkCitationMarkers", () => {
       source({ marker: 2, chunkId: "chunk-2" }),
     ]);
 
-    expect(linked).toBe(
-      `Both agree [1](${CITATION_HREF_PREFIX}1) [2](${CITATION_HREF_PREFIX}2).`,
-    );
+    expect(linked).toBe(`Both agree [1](${href(1, 0)}) [2](${href(2, 0)}).`);
   });
 
   it("accepts a group written without spaces", () => {
@@ -77,8 +80,8 @@ describe("linkCitationMarkers", () => {
       source({ marker: 2, chunkId: "chunk-2" }),
     ]);
 
-    expect(linked).toContain(`[1](${CITATION_HREF_PREFIX}1)`);
-    expect(linked).toContain(`[2](${CITATION_HREF_PREFIX}2)`);
+    expect(linked).toContain(`[1](${href(1, 0)})`);
+    expect(linked).toContain(`[2](${href(2, 0)})`);
   });
 
   it("handles a group of three", () => {
@@ -87,7 +90,7 @@ describe("linkCitationMarkers", () => {
     );
 
     expect(linkCitationMarkers("All [1, 2, 3] agree.", sources)).toBe(
-      `All [1](${CITATION_HREF_PREFIX}1) [2](${CITATION_HREF_PREFIX}2) [3](${CITATION_HREF_PREFIX}3) agree.`,
+      `All [1](${href(1, 0)}) [2](${href(2, 0)}) [3](${href(3, 0)}) agree.`,
     );
   });
 
@@ -100,9 +103,7 @@ describe("linkCitationMarkers", () => {
       source({ marker: 5, chunkId: "chunk-5" }),
     ]);
 
-    expect(linked).toBe(
-      `Both [3](${CITATION_HREF_PREFIX}3) [5](${CITATION_HREF_PREFIX}5) agree.`,
-    );
+    expect(linked).toBe(`Both [3](${href(3, 0)}) [5](${href(5, 0)}) agree.`);
   });
 
   it("separates an adjacent run of three", () => {
@@ -111,7 +112,7 @@ describe("linkCitationMarkers", () => {
     );
 
     expect(linkCitationMarkers("All [1][2][3].", sources)).toBe(
-      `All [1](${CITATION_HREF_PREFIX}1) [2](${CITATION_HREF_PREFIX}2) [3](${CITATION_HREF_PREFIX}3).`,
+      `All [1](${href(1, 0)}) [2](${href(2, 0)}) [3](${href(3, 0)}).`,
     );
   });
 
@@ -147,16 +148,31 @@ describe("linkCitationMarkers", () => {
 
     expect(linkCitationMarkers(text, [source()])).toBe(text);
   });
+
+  it("counts a run it leaves unlinked, so the run still finds its sentence", () => {
+    const text = "Made up [7]. Real [1].";
+
+    expect(linkCitationMarkers(text, [source()])).toBe(
+      `Made up [7]. Real [1](${href(1, 1)}).`,
+    );
+    expect(claimAt(text, 1)).toBe("Real.");
+  });
 });
 
 describe("parseCitationHref", () => {
   it("reads the marker out of a citation href", () => {
-    expect(parseCitationHref(`${CITATION_HREF_PREFIX}2`)).toBe(2);
+    expect(parseCitationHref(href(2, 0))).toBe(2);
+    expect(parseCitationHref(href(12, 34))).toBe(12);
+  });
+
+  it("reads one the markdown sanitizer has prefixed", () => {
+    expect(parseCitationHref("#user-content-citation-3-0")).toBe(3);
   });
 
   it("returns null for an ordinary link", () => {
     expect(parseCitationHref("https://example.com")).toBeNull();
     expect(parseCitationHref("#some-heading")).toBeNull();
+    expect(parseCitationHref("#user-content-some-heading")).toBeNull();
   });
 
   it("returns null for a missing href", () => {
@@ -164,8 +180,106 @@ describe("parseCitationHref", () => {
   });
 
   it("rejects a non-numeric or zero marker", () => {
-    expect(parseCitationHref(`${CITATION_HREF_PREFIX}abc`)).toBeNull();
-    expect(parseCitationHref(`${CITATION_HREF_PREFIX}0`)).toBeNull();
+    expect(parseCitationHref(`${CITATION_HREF_PREFIX}abc-0`)).toBeNull();
+    expect(parseCitationHref(href(0, 0))).toBeNull();
+  });
+
+  it("rejects anything around the marker and its run", () => {
+    expect(parseCitationHref(`${CITATION_HREF_PREFIX}2`)).toBeNull();
+    expect(parseCitationHref(`${CITATION_HREF_PREFIX}x2-0`)).toBeNull();
+    expect(parseCitationHref(`${CITATION_HREF_PREFIX}2-0x`)).toBeNull();
+  });
+});
+
+describe("citationRunOf", () => {
+  it("reads the run, plain or prefixed by the sanitizer", () => {
+    expect(citationRunOf(href(2, 0))).toBe(0);
+    expect(citationRunOf(href(1, 34))).toBe(34);
+    expect(citationRunOf("#user-content-citation-3-5")).toBe(5);
+  });
+
+  it("returns null for anything that is not a citation", () => {
+    expect(citationRunOf("#some-heading")).toBeNull();
+    expect(citationRunOf(href(0, 1))).toBeNull();
+    expect(citationRunOf(undefined)).toBeNull();
+  });
+});
+
+describe("claimAt", () => {
+  it("takes the sentence its run stands in", () => {
+    const text = "Leave is 25 days [1]. Carry-over is capped at 5 [2].";
+
+    expect(claimAt(text, 0)).toBe("Leave is 25 days.");
+    expect(claimAt(text, 1)).toBe("Carry-over is capped at 5.");
+  });
+
+  it("keeps the whole sentence when it carries several runs", () => {
+    const text = "Leave is 25 days [1] and carry-over 5 [2]. Next [3].";
+
+    expect(claimAt(text, 1)).toBe("Leave is 25 days and carry-over 5.");
+  });
+
+  it("gives a run after the full stop to the sentence before", () => {
+    const text = "Leave is 25 days. [1] Carry-over is 5. [2]";
+
+    expect(claimAt(text, 0)).toBe("Leave is 25 days.");
+    expect(claimAt(text, 1)).toBe("Carry-over is 5.");
+  });
+
+  it("keeps a run that opens the answer with its own sentence", () => {
+    expect(claimAt("[1] Leave is 25 days.", 0)).toBe("Leave is 25 days.");
+  });
+
+  it("gives a run on an indented line to the sentence above it", () => {
+    expect(claimAt("- Leave is 25 days.\n  [1]", 0)).toBe("Leave is 25 days.");
+  });
+
+  it("counts a grouped run once", () => {
+    const text = "Leave is 25 days [1, 2]. Next [3][4]. Last [5].";
+
+    expect(claimAt(text, 1)).toBe("Next.");
+    expect(claimAt(text, 2)).toBe("Last.");
+  });
+
+  it("returns plain text, without emphasis", () => {
+    expect(claimAt("**Leave**  is *25*\tdays [1].", 0)).toBe(
+      "Leave is 25 days.",
+    );
+    expect(claimAt("The __policy__ covers _remote_ staff [1].", 0)).toBe(
+      "The policy covers remote staff.",
+    );
+  });
+
+  it("keeps what only looks like emphasis", () => {
+    expect(claimAt("See file_name and snake_case_too [1].", 0)).toBe(
+      "See file_name and snake_case_too.",
+    );
+    expect(claimAt("It is 2 * 3 * 4 [1].", 0)).toBe("It is 2 * 3 * 4.");
+  });
+
+  it("drops a list item's marker", () => {
+    const text =
+      "- One [1]\n* Two [2]\n+ Three [3]\n4. four [4]\n5) Five [5]\n12) twelve [6]";
+
+    expect([0, 1, 2, 3, 4, 5].map((run) => claimAt(text, run))).toEqual([
+      "One",
+      "Two",
+      "Three",
+      "four",
+      "Five",
+      "twelve",
+    ]);
+  });
+
+  it("keeps a dash that is not a list item's", () => {
+    expect(claimAt("-5 degrees is the low [1].", 0)).toBe(
+      "-5 degrees is the low.",
+    );
+  });
+
+  it("returns null for a run the text does not have", () => {
+    expect(claimAt("Nothing cited here.", 0)).toBeNull();
+    expect(claimAt("One claim [1].", 1)).toBeNull();
   });
 });
 

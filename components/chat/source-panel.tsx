@@ -9,7 +9,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { ChatSource } from "@/lib/ai/types";
-import { highlightForCitation } from "@/lib/rag/highlight";
+import { highlightForCitation, unwrapForDisplay } from "@/lib/rag/highlight";
 
 /**
  * A document, opened either at a cited passage or from the top. The whole text
@@ -18,7 +18,7 @@ import { highlightForCitation } from "@/lib/rag/highlight";
  */
 
 export type SourceTarget =
-  | { kind: "citation"; source: ChatSource }
+  | { kind: "citation"; source: ChatSource; claim: string | null }
   | { kind: "document"; documentId: string; filename: string };
 
 /** How the panel gets a document's canonical text. Injected rather than fetched
@@ -72,6 +72,11 @@ export function SourcePanel({
                 ? `Cited as [${target.source.marker}]`
                 : `Cited as [${target.source.marker}] · page ${target.source.pageNumber}`}
           </SheetDescription>
+          {target.kind === "citation" && target.claim ? (
+            <blockquote className="border-border text-foreground border-l-2 pl-3 text-sm">
+              {target.claim}
+            </blockquote>
+          ) : null}
         </SheetHeader>
 
         {/* Keyed by document so a citation from another source remounts clean,
@@ -130,7 +135,10 @@ function SourceBody({
       ? highlightForCitation(state.contentText, source)
       : null;
 
-  const plain = state.status === "loaded" && !source ? state.contentText : null;
+  const plain =
+    state.status === "loaded" && !source
+      ? unwrapForDisplay(state.contentText)
+      : null;
 
   return (
     /*

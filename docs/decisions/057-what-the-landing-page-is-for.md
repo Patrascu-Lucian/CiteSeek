@@ -13,17 +13,17 @@ Two facts shaped what the page could honestly do.
 
 **There is no audience to convert yet.** `pnpm db:usage` against production on 18 September 2026
 reports, for all time: 5 guest addresses, 126 guest requests, 2 signed-in accounts and 55 signed-in
-requests. One account is the author's. A guest is an `HMAC-SHA256` of an address, so those five are
+requests. One account is mine. A guest is an `HMAC-SHA256` of an address, so those five are
 five addresses rather than five people, and `pnpm demo:shots` runs against production, so some of
-the guest requests are a screenshot refresh. Read honestly, the readers are the author. Nothing on
+the guest requests are a screenshot refresh. Read honestly, the only reader is me. Nothing on
 this page can be chosen by conversion data, because there is no conversion data.
 
-↳ **Amended, 15 November 2026.** Not only the author anymore. On 13 November production held five
-accounts that are not the author's, four of them holding six documents between them, and one
-appeared in the usage report's window. Guest traffic came from two addresses, consistent with the
-author alone. And "for all time" above was the last 30 days: the report reads usage rows, which are
-deleted after 30. The decision stands, for a better reason: a handful of readers, counted in a
-window that forgets, is no figure to put on a page.
+↳ **Amended, 15 November 2026.** I am not the only reader anymore. On 13 November production held
+five accounts that are not mine, four of them holding six documents between them, and one appeared
+in the usage report's window. Guest traffic came from two addresses, consistent with me alone. And
+"for all time" above was the last 30 days: the report reads usage rows, which are deleted after 30.
+The decision stands, for a better reason: a handful of readers, counted in a window that forgets,
+is no figure to put on a page.
 
 **The numbers this project has are real and already committed.** `README.md` §Numbers and
 `eval/report.md` hold latency measured from a European vantage point, a retrieval sweep, a refusal
@@ -36,7 +36,7 @@ that claims answers cannot be fabricated. Rejected on the spot, and recorded her
 default move and the reason it is wrong is the product's own thesis.
 
 **Usage figures.** "N documents searched", "N questions answered". True numbers exist, and they
-describe the author using his own project. A count that implies an audience there isn't is a lie
+describe me using my own project. A count that implies an audience there isn't is a lie
 told with real data.
 
 **Measurements from committed runs.** Chosen. Every figure on the page is one a reader can find in a

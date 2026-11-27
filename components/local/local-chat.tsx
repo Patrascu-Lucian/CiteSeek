@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { SourcePanel } from "@/components/chat/source-panel";
@@ -58,7 +58,14 @@ function initialLoad(): Load {
  */
 export function LocalChat({ filenames }: { filenames: readonly string[] }) {
   const [load, setLoad] = useState<Load>(initialLoad);
-  const [openSource, setOpenSource] = useState<ChatSource | null>(null);
+  const [opened, setOpened] = useState<{
+    source: ChatSource;
+    claim: string | null;
+  } | null>(null);
+  const openSource = useCallback(
+    (source: ChatSource, claim: string | null) => setOpened({ source, claim }),
+    [],
+  );
 
   /*
     The only place the model is loaded, so pressing the button and returning to
@@ -185,14 +192,14 @@ export function LocalChat({ filenames }: { filenames: readonly string[] }) {
         hasReadyDocuments={filenames.length > 0}
         documents={filenames}
         canUpload
-        onOpenSource={setOpenSource}
-        openChunkId={openSource?.chunkId ?? null}
+        onOpenSource={openSource}
+        openChunkId={opened?.source.chunkId ?? null}
       />
 
       <SourcePanel
-        target={openSource ? { kind: "citation", source: openSource } : null}
+        target={opened ? { kind: "citation", ...opened } : null}
         loadText={localDocumentText}
-        onClose={() => setOpenSource(null)}
+        onClose={() => setOpened(null)}
       />
     </>
   );

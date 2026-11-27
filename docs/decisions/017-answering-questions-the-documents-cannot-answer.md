@@ -87,3 +87,15 @@ refusal string would break the moment that sentence is reworded, so it is stored
 **The relevance floor is untouched.** Loosening it would have made this particular symptom go away
 by letting weak matches through, at the cost of the Milestone 2 guarantee. The floor is the reason
 the refusal exists, not a bug in it.
+
+## Amendment, 25 November 2026: only the latest refusal explains
+
+A refused turn is stored, and the panel under it was rebuilt from the page as it is now. An old
+refusal therefore listed documents uploaded after it, said "right now" about a question asked a
+week before, and three refusals in one conversation repeated the whole panel three times.
+
+From 1.14.0 the panel renders only on a refusal that is the conversation's last message, so asking
+again compacts it at once. An earlier refusal keeps its sentence and gains a "Why" disclosure with
+one past-tense line per reason. The line names no documents, so it claims only what was true when
+the question was asked. Each disclosure is named after its question, since several controls called
+"Why" would be a single entry in a screen reader's list.

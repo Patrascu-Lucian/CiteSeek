@@ -56,10 +56,11 @@ test.describe("asking a question", () => {
     // button's own label.
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await ask(page, ANSWERABLE);
-    await expect(
-      page.getByRole("button", { name: /^Citation 1:/ }),
-    ).toBeVisible();
+    const chip = page.getByRole("button", { name: /^Citation 1:/ });
+    await expect(chip).toBeVisible();
 
+    // Copy is revealed on hover, like the rest of a turn's controls (ADR 042).
+    await chip.hover();
     await page.getByRole("button", { name: /copy the answer/i }).click();
     await expect(
       page.getByRole("button", { name: /answer copied/i }),
@@ -84,6 +85,11 @@ test.describe("asking a question", () => {
     await expect(panel).toBeVisible();
     await expect(
       panel.getByRole("heading", { name: /northwind-remote-work-handbook/i }),
+    ).toBeVisible();
+    await expect(
+      panel.getByText(
+        "According to the retrieved passage, this is a grounded answer.",
+      ),
     ).toBeVisible();
 
     // The invariant, end to end and on screen: the highlighted region is the

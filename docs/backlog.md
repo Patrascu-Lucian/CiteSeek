@@ -301,6 +301,13 @@ each of these is reversible and therefore safe to defer.
   on every row trains the reader to type through it". A dialog on every turn trains the reader to
   click through it. That is the case for undo, and it is Milestone 8's to settle.
 
+- **A PDF line that continues with a digit or a sign keeps its break.** Since 1.14.0 the source
+  panel joins a line break only where the next line starts lowercase, because a list item starts
+  with a dash or a digit and a continuation can look the same. The demo handbook keeps two such
+  breaks mid-sentence: "…which is the" before "18th of each month", and "…capped at" before
+  "£180 per night". Telling a continuation from a list item needs a rule, worth writing only if a
+  reader trips over one.
+
 ## Measured, for the bundle budget
 
 - **Workspace page initial JS: 694 KB uncompressed** (11 chunks), measured against the
@@ -660,7 +667,7 @@ re-embeds a document that was already paid for once.
 the spend cap on the Google account. An attacker cannot run up a bill.
 
 **The 800/600 split is already the answer to half of this.** A guest flood can consume at most 600,
-so 200 stay reserved for signed-in users and a bot cannot take down the author's own workspace
+so 200 stay reserved for signed-in users and a bot cannot take down my own workspace
 mid-interview. ADR 014 built that on purpose, and it holds.
 
 ### What is not covered
@@ -699,7 +706,7 @@ availability knowingly at risk from an attacker with rotating addresses.
 
 - **Traffic baseline, before the link goes anywhere.** `pnpm db:usage` against production:
   3 distinct guest addresses, 56 guest requests, 2 signed-in users, 20 requests, across 8 days.
-  Peak day 24 requests. Effectively all of it is the author, the tooling, and one cold reader.
+  Peak day 24 requests. Effectively all of it is me, the tooling, and one cold reader.
 
   Two things follow. There is **no organic traffic yet**, so any claim about how the product
   behaves under load is theory. And the usage caps are nowhere near binding — 100/day per guest
@@ -1179,7 +1186,7 @@ had cleared the floor, so there was no source 2. `linkCitationMarkers` did exact
 [ADR 011](decisions/011-retrieval-and-citation-strategy.md) requires and left the marker as
 literal text rather than linking it to nothing.
 
-Then the reader typed "that citation is not clickable" — and the reader was the author of the
+Then the reader typed "that citation is not clickable" — and the reader was me, the author of the
 guard. **The property held and communicated nothing.** A dead number is indistinguishable from
 a broken button, so the one moment the system catches a model inventing a source is the moment
 it looks most broken.
@@ -4033,11 +4040,16 @@ Two reviews ran before the 1.13.0 tag, one of the release and one of the applica
 What they found in the release's own work was fixed before the tag (#520 to #526). These were not,
 and each says why. First the release review's:
 
-**CI does not run on pushes to `develop` (medium, process).** `ci.yml` runs on pull requests and on
-`main`, so a merged combination is tested only as the base of the next pull request. #500, #501 and
-#512 merged within 19 seconds and were first tested together by the PR that followed. Either
-`push: branches: [develop]`, one run per merge, or "require branches to be up to date", a rebase per
-PR, which would have serialized those three. The trigger is the next batch of Dependabot merges.
+~~**CI does not run on pushes to `develop` (medium, process).**~~ `ci.yml` runs on pull requests
+and on `main`, so a merged combination is tested only as the base of the next pull request. #500,
+#501 and #512 merged within 19 seconds and were first tested together by the PR that followed.
+Either `push: branches: [develop]`, one run per merge, or "require branches to be up to date", a
+rebase per PR, which would have serialized those three. The trigger is the next batch of Dependabot
+merges.
+
+↳ **Done, 23 November 2026,** the first way, after #538 and #539 merged: `ci.yml` runs on every push
+to `develop`. In a burst of merges the newest run tests the combined tree, and the superseded runs
+show as cancelled.
 
 **The conversation harness does not go through `parseMessages` (low, holds today).**
 `scripts/eval-answers.mts` builds its history from text and data parts and calls
@@ -4114,3 +4126,33 @@ test suite running beside it, and only the operator saying so caught it. The scr
 its own event-loop delay with
 `perf_hooks.monitorEventLoopDelay` and print it in the report, so a starved client shows in the file
 it publishes; a congested network still would not. Worth doing before the next published run.
+
+## What the 1.14.0 release review parked, 27 November 2026
+
+The release review of 1.14.0 found nothing blocking. Its should-fix, a delete or retry refused after
+a session ended, and the zero shown as "0.0k", were fixed before the tag. These were not:
+
+**A cited sentence broken across lines is quoted in half.** `claimAt` segments the raw markdown, and
+a line feed ends a sentence there, while the page renders a single newline as a space. It also keeps
+a link's markdown, backticks and a heading's `#`. The fix: segment a same-length copy in which a
+single newline not followed by list or heading syntax is a space, and strip links, backticks and
+heading marks in `plainText`. The model seldom hard-wraps prose, which is why it waited.
+
+**Two highlight tests can no longer fail because of the unwrap.** "Reassembles into exactly the
+original document" and "highlights exactly what the chunker recorded" use inputs with no single
+newline before a lowercase letter. Run the second on the extracted handbook, and assert
+`cited === unwrapForDisplay(chunk.content)` and that `matchesQuote` still holds.
+
+**Every citation chip re-renders on every streamed token**, because the citation context's value now
+includes the answer's text, which only a click reads. A ref, or a stable `getText` in the context,
+restores 1.13's behavior. Not measured.
+
+**Ideas from the same review**, each small: name the document in the action notice ("scan.pdf is
+still here"); give Retry its document's name, as Delete already has; announce the cited sentence
+when the panel opens, by folding it into the description; clamp a long claim on a phone so the
+passage stays first; a larger "Why" target on touch screens; and one sign-in offer per screen on the
+demo after a refusal.
+
+**Known and accepted:** the embedding-phase wrapper labels a database error raised inside that phase
+as `embedding_unavailable`, whose copy hedges with "usually"; and the unwrap joins a lowercase list
+written one item per line without bullets.

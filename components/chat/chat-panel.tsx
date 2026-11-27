@@ -63,7 +63,7 @@ export function ChatPanel({
   isDemo?: boolean;
   /** Lifted, because the document list opens the same panel and two of them can
    * be on screen at once otherwise. */
-  onOpenSource: (source: ChatSource) => void;
+  onOpenSource: (source: ChatSource, claim: string | null) => void;
   /** Which chip reads as pressed. Owned above for the same reason. */
   openChunkId: string | null;
   /** Local mode supplies one that never leaves the browser. Unset means the

@@ -12,7 +12,8 @@ function document(overrides: Partial<DocumentSummary> = {}): DocumentSummary {
     mimeType: "application/pdf",
     sizeBytes: 2048,
     status: "ready",
-    error: null,
+    failureReason: null,
+    canRetry: false,
     pageCount: 12,
     chunkCount: 30,
     embeddedChunkCount: 30,
@@ -46,6 +47,19 @@ describe("DocumentList — states", () => {
     expect(screen.getByText("Ready")).toBeInTheDocument();
   });
 
+  it("counts one passage and one page in the singular", () => {
+    render(
+      <DocumentList
+        documents={[
+          document({ chunkCount: 1, pageCount: 1, embeddedChunkCount: 1 }),
+        ]}
+        canWrite={true}
+      />,
+    );
+
+    expect(screen.getByText("1 passage · 1 page")).toBeInTheDocument();
+  });
+
   it("shows embedding progress while processing", () => {
     // "Processing" alone gives no sense of whether a large document is moving
     // or stuck.
@@ -65,23 +79,24 @@ describe("DocumentList — states", () => {
     expect(screen.getByText("Processing 12/40")).toBeInTheDocument();
   });
 
-  it("shows why a document failed", () => {
-    // The error is the whole point of the failed state. A badge saying "Failed"
-    // with no reason leaves the user with no action to take.
+  it.each([
+    ["no_text", /needs OCR/],
+    ["unreadable", /may be damaged/],
+    ["too_large", /split it into smaller documents/i],
+    ["over_storage", /past the storage limit/],
+    ["embedding_unavailable", /retry in a minute/i],
+    ["interrupted", /stopped before it finished/],
+    ["unknown", /something went wrong/i],
+  ] as const)("says why a document failed: %s", (failureReason, sentence) => {
     render(
       <DocumentList
-        documents={[
-          document({
-            status: "failed",
-            error: "No text could be extracted from this PDF.",
-          }),
-        ]}
+        documents={[document({ status: "failed", failureReason })]}
         canWrite={true}
       />,
     );
 
     expect(screen.getByText("Failed")).toBeInTheDocument();
-    expect(screen.getByText(/no text could be extracted/i)).toBeInTheDocument();
+    expect(screen.getByText(sentence)).toBeInTheDocument();
   });
 
   it("labels status in text, not only by color", () => {
@@ -111,21 +126,58 @@ describe("DocumentList — permissions", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("offers retry when a document failed", () => {
+  it("offers retry where the server can retry", () => {
     render(
       <DocumentList
-        documents={[document({ status: "failed", error: "boom" })]}
+        documents={[
+          document({
+            status: "failed",
+            failureReason: "unknown",
+            canRetry: true,
+          }),
+        ]}
         canWrite={true}
       />,
     );
 
     expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    expect(
+      screen.queryByText(/upload the file again/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("withholds retry where it cannot work, and says what to do instead", () => {
+    render(
+      <DocumentList
+        documents={[
+          document({
+            status: "failed",
+            failureReason: "unknown",
+            canRetry: false,
+          }),
+        ]}
+        canWrite={true}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /retry/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/delete it and upload the file again/i),
+    ).toBeInTheDocument();
   });
 
   it("hides destructive actions from a read-only visitor", () => {
     render(
       <DocumentList
-        documents={[document({ status: "failed", error: "boom" })]}
+        documents={[
+          document({
+            status: "failed",
+            failureReason: "embedding_unavailable",
+            canRetry: true,
+          }),
+        ]}
         canWrite={false}
       />,
     );

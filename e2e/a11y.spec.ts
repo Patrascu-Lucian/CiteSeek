@@ -598,12 +598,11 @@ test.describe("layout at phone widths", () => {
         return {
           row: left(row ?? null),
           chat: left(document.querySelector("div.min-h-64")),
-          card: left(document.querySelector('[data-slot="card-content"]')),
         };
       });
 
+      expect(padding.row).not.toBeNull();
       expect(padding.row).toBe(padding.chat);
-      expect(padding.card).toBe(padding.chat);
     }
   });
 
