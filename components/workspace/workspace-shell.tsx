@@ -29,6 +29,9 @@ import { WorkspaceShellProvider } from "./workspace-shell-context";
 
 const POLL_INTERVAL_MS = 2_000;
 
+const RELOAD_TO_CHECK =
+  "Reload the page to check. If you signed out in another tab, sign in again.";
+
 function isInFlight(documents: readonly DocumentSummary[]): boolean {
   return documents.some(
     (document) =>
@@ -86,20 +89,27 @@ export function WorkspaceShell({
   // Server Component rather than mutating a second copy on the client.
   const refreshFromServer = useCallback(() => router.refresh(), [router]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<DocumentSummary[] | null> => {
     try {
       const response = await fetch(`/api/w/${workspaceId}/documents`);
-      if (!response.ok) throw new Error("Could not load documents.");
+      if (!response.ok) {
+        setPollError(
+          "Status updates paused. Reload the page to see the latest.",
+        );
+        return null;
+      }
 
       const payload = (await response.json()) as {
         documents: DocumentSummary[];
       };
       setDocuments(payload.documents);
       setPollError(null);
+      return payload.documents;
     } catch {
       // A failed poll is not a failed page. Keep the last known state visible
       // and say it may be stale, rather than blanking the list.
       setPollError("Status updates paused — could not reach the server.");
+      return null;
     }
   }, [workspaceId]);
 
@@ -127,14 +137,21 @@ export function WorkspaceShell({
         `/api/w/${workspaceId}/documents/${documentId}`,
         { method: "DELETE" },
       );
-      // A 404 is a delete that happened elsewhere, which the refresh shows.
       if (!response.ok && response.status !== 404) {
         stillHere(
           await errorIn(response, "The server could not delete it. Try again."),
         );
         return;
       }
-      await refresh();
+      // A 404 is a delete done elsewhere or a session that ended, which the
+      // route answers alike (`authorize.ts`), so the refresh tells them apart.
+      const listed = await refresh();
+      if (
+        response.status === 404 &&
+        (listed === null || listed.some(({ id }) => id === documentId))
+      ) {
+        stillHere(RELOAD_TO_CHECK);
+      }
     } catch {
       stillHere("Could not reach the server, so nothing was deleted.");
     } finally {
@@ -159,7 +176,12 @@ export function WorkspaceShell({
       );
       if (!response.ok) {
         notRetried(
-          await errorIn(response, "The server could not retry it. Try again."),
+          response.status === 404
+            ? RELOAD_TO_CHECK
+            : await errorIn(
+                response,
+                "The server could not retry it. Try again.",
+              ),
         );
         return;
       }
@@ -225,7 +247,9 @@ export function WorkspaceShell({
             <div>
               <UploadDropzone
                 send={uploadToWorkspace(workspaceId)}
-                onUploaded={refresh}
+                onUploaded={async () => {
+                  await refresh();
+                }}
               />
 
               {/* Here, not in the dropzone: local mode shares that control and

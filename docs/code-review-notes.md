@@ -4762,3 +4762,32 @@ four, failing on the code-point version.
 
 - **Lesson**: **a condition written for the type checker can be dead at runtime.** Mutation testing
   finds it where coverage cannot, since the line runs either way.
+
+## A 404 that meant two things, 27 November 2026
+
+- **Issue**: a failed delete or retry was meant to say so, and after a session ended neither did.
+  Every document route answers a caller it cannot authorize with 404 "Workspace not found.", on
+  purpose, so a workspace id cannot be probed. The delete handler read every 404 as a delete done
+  elsewhere and only refreshed; the refresh was refused the same way and said it "could not reach
+  the server". Retry showed the reader "Workspace not found." about the workspace in front of them.
+  The release review found it by signing out in another tab.
+
+- **Fix**: a 404 counts as a delete done elsewhere only when the refresh confirms the document is
+  gone. Otherwise the notice says to reload the page, and to sign in again if the session ended. A
+  retry refused with 404 says the same, and a refused poll says to reload rather than claiming the
+  server could not be reached.
+
+- **Lesson**: **a status a route sends on purpose for two reasons cannot be read as one.** The 404
+  that hides whether a workspace exists is the 404 a deleted document gets, so the client has to ask
+  a second question before it decides which happened.
+
+## A zero shown in thousands, 27 November 2026
+
+- **Issue**: giving both usage figures the limit's unit turned a new account's empty storage into
+  "0.0k of 500k", beside two rows reading "0", and anything under 50 characters read "0.0k" as well.
+  The only test was 211 becoming "0.2k".
+
+- **Fix**: zero reads "0 of 500k", and a figure under 50 characters reads "<0.1k".
+
+- **Lesson**: **a format change is tested at its edges, and zero is the first.** Every new account
+  meets it before any other value.

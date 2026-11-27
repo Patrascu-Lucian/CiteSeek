@@ -4047,7 +4047,7 @@ Either `push: branches: [develop]`, one run per merge, or "require branches to b
 rebase per PR, which would have serialized those three. The trigger is the next batch of Dependabot
 merges.
 
-↳ **Done, 22 November 2026,** the first way, after #538 and #539 merged: `ci.yml` runs on every push
+↳ **Done, 23 November 2026,** the first way, after #538 and #539 merged: `ci.yml` runs on every push
 to `develop`. In a burst of merges the newest run tests the combined tree, and the superseded runs
 show as cancelled.
 
@@ -4126,3 +4126,33 @@ test suite running beside it, and only the operator saying so caught it. The scr
 its own event-loop delay with
 `perf_hooks.monitorEventLoopDelay` and print it in the report, so a starved client shows in the file
 it publishes; a congested network still would not. Worth doing before the next published run.
+
+## What the 1.14.0 release review parked, 27 November 2026
+
+The release review of 1.14.0 found nothing blocking. Its should-fix, a delete or retry refused after
+a session ended, and the zero shown as "0.0k", were fixed before the tag. These were not:
+
+**A cited sentence broken across lines is quoted in half.** `claimAt` segments the raw markdown, and
+a line feed ends a sentence there, while the page renders a single newline as a space. It also keeps
+a link's markdown, backticks and a heading's `#`. The fix: segment a same-length copy in which a
+single newline not followed by list or heading syntax is a space, and strip links, backticks and
+heading marks in `plainText`. The model seldom hard-wraps prose, which is why it waited.
+
+**Two highlight tests can no longer fail because of the unwrap.** "Reassembles into exactly the
+original document" and "highlights exactly what the chunker recorded" use inputs with no single
+newline before a lowercase letter. Run the second on the extracted handbook, and assert
+`cited === unwrapForDisplay(chunk.content)` and that `matchesQuote` still holds.
+
+**Every citation chip re-renders on every streamed token**, because the citation context's value now
+includes the answer's text, which only a click reads. A ref, or a stable `getText` in the context,
+restores 1.13's behavior. Not measured.
+
+**Ideas from the same review**, each small: name the document in the action notice ("scan.pdf is
+still here"); give Retry its document's name, as Delete already has; announce the cited sentence
+when the panel opens, by folding it into the description; clamp a long claim on a phone so the
+passage stays first; a larger "Why" target on touch screens; and one sign-in offer per screen on the
+demo after a refusal.
+
+**Known and accepted:** the embedding-phase wrapper labels a database error raised inside that phase
+as `embedding_unavailable`, whose copy hedges with "usually"; and the unwrap joins a lowercase list
+written one item per line without bullets.

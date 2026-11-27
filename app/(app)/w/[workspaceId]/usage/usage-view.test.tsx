@@ -152,6 +152,26 @@ describe("UsageView — the plan ceiling", () => {
     expect(within(section).getByText("0.2k of 500k")).toBeInTheDocument();
   });
 
+  it.each([
+    [0, "0 of 500k"],
+    [40, "<0.1k of 500k"],
+  ])(
+    "shows %d characters without reading as a zero in thousands",
+    (used, figure) => {
+      render(
+        <UsageView
+          workspaceId="w1"
+          usage={usage()}
+          canUpload
+          plan={plan({ storage: { used, limit: 500_000 } })}
+        />,
+      );
+
+      const section = screen.getByRole("region", { name: /plan/i });
+      expect(within(section).getByText(figure)).toBeInTheDocument();
+    },
+  );
+
   /* Two limits set independently, and the reader meets the smaller one first: a
      300,000-character upload fails at chunking and never reaches this bar, so
      "500k" on its own reads as something one document could fill. */
