@@ -1,5 +1,6 @@
 /**
- * Regenerates the README screenshots. By hand (`pnpm demo:shots`), never in CI.
+ * Regenerates the README screenshots and the landing page's frames. By hand
+ * (`pnpm demo:shots`), never in CI.
  *
  * **Needs the real providers.** The fake embedder retrieves the wrong passage —
  * tolerable to every E2E assertion, not to a picture of a citation
@@ -26,6 +27,11 @@ const OUTPUT_DIR = join(
 // send button moved inside it.
 const VIEWPORT = { width: 1280, height: 960 };
 
+// The panel alone: at 1280 the answer's markers sit under it. 4:5 on a phone,
+// so the frame does not pass for the reader's own screen.
+const LANDING_DESKTOP = { width: 576, height: 432 };
+const LANDING_PHONE = { width: 390, height: 488 };
+
 /** Answered by the seeded handbook, and phrased the way someone would ask. */
 const QUESTION = "What can I claim back for a hotel, and do I need a receipt?";
 
@@ -47,6 +53,39 @@ async function waitUntilStill(page: Page, selector: string) {
   }
 }
 
+async function frame(
+  page: Page,
+  name: string,
+  size: { width: number; height: number },
+) {
+  const sheet = await page.getByRole("dialog").boundingBox();
+
+  if (sheet?.width !== size.width) {
+    throw new Error(
+      `The panel is ${sheet?.width}px wide and ${name}.png ${size.width}px. ` +
+        "Change the frame and the sizes landing.tsx declares together.",
+    );
+  }
+
+  // The panel centers the passage, which puts it below a frame this short.
+  await page
+    .getByRole("dialog")
+    .locator("mark")
+    .evaluate((mark) => {
+      mark.scrollIntoView({ block: "start", behavior: "instant" });
+      mark.closest("[role='region']")?.scrollBy({
+        top: -parseFloat(getComputedStyle(mark).lineHeight),
+        behavior: "instant",
+      });
+    });
+
+  await page.screenshot({
+    path: join(OUTPUT_DIR, `${name}.png`),
+    clip: { x: sheet.x, y: sheet.y, ...size },
+  });
+  console.log(`  wrote ${name}.png`);
+}
+
 const browser = await chromium.launch();
 
 try {
@@ -57,10 +96,16 @@ try {
   /** One pass per theme in its own context: a guest's transcript lives in browser
    * state, so the dark frame cannot be a reload of the light one. */
   const capture = async (theme: "light" | "dark", names: readonly string[]) => {
+    const landing = names.includes("landing");
     const context = await browser.newContext({
       ...devices["Desktop Chrome"],
       viewport: VIEWPORT,
-      deviceScaleFactor: 1,
+      // next/image resizes the landing frames for each reader; GitHub serves the
+      // README's as they are.
+      deviceScaleFactor: landing ? 2 : 1,
+      // A phone's overlay scrollbars: a desktop context keeps a 10px gutter, which
+      // narrows the panel to 380 at phone width.
+      isMobile: landing,
       baseURL: BASE_URL,
     });
 
@@ -133,6 +178,15 @@ try {
 
       if (names.includes("source")) await shot("source");
       if (names.includes("dark")) await shot("dark");
+
+      if (landing) {
+        const suffix = theme === "dark" ? "-dark" : "";
+
+        await frame(page, `landing-desktop${suffix}`, LANDING_DESKTOP);
+        await page.setViewportSize(devices["iPhone 12"].viewport);
+        await waitUntilStill(page, "[role='dialog']");
+        await frame(page, `landing-phone${suffix}`, LANDING_PHONE);
+      }
     } finally {
       await context.close();
     }
@@ -140,8 +194,10 @@ try {
 
   await capture("light", ["answer", "source"]);
   await capture("dark", ["dark"]);
+  await capture("light", ["landing"]);
+  await capture("dark", ["landing"]);
 
-  console.log(`\nThree shots in ${OUTPUT_DIR}. Open them — a wrong crop or a`);
+  console.log(`\nSeven shots in ${OUTPUT_DIR}. Open them — a wrong crop or a`);
   console.log("half-written sentence is not something any assertion reports.");
 } finally {
   await browser.close();
